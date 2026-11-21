@@ -1,0 +1,4 @@
+* LIST (\HasNoChildren) "/" INBOX
+* LIST (\HasNoChildren \Sent) "/" Sent
+* LIST (\HasNoChildren \Drafts) "/" Drafts
+* LIST (\HasNoChildren \Trash) "/" Trash

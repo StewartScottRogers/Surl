@@ -129,6 +129,42 @@ internal sealed class ImapArguments
     }
 
     /// <summary>
+    /// Reads <c>CREATE</c>'s optional parameter list <c>(USE (</c> uses <c>))</c> (RFC 6154,
+    /// section 3), each use a backslash and letters, separated by single spaces; the list may be empty.
+    /// </summary>
+    /// <returns>The uses as written, or <see langword="null"/> when the line does not hold that list.</returns>
+    public IReadOnlyList<string>? ReadCreateUseList()
+    {
+        if (!TryReadByte((byte)'(') || !TryReadAtom("USE") || !TryReadSpace() || !TryReadByte((byte)'('))
+        {
+            return null;
+        }
+
+        List<string> uses = [];
+        while (!IsAt((byte)')'))
+        {
+            if (ReadSpacedUse(uses.Count > 0) is not { } use)
+            {
+                return null;
+            }
+
+            uses.Add(use);
+        }
+
+        return TryReadByte((byte)')') && TryReadByte((byte)')') ? uses : null;
+    }
+
+    private string? ReadSpacedUse(bool isSpaceFirst)
+    {
+        if ((isSpaceFirst && !TryReadSpace()) || !TryReadByte((byte)'\\'))
+        {
+            return null;
+        }
+
+        return ReadRun(value => char.IsAsciiLetter((char)value)) is { } name ? @"\" + name : null;
+    }
+
+    /// <summary>
     /// Reads the atom <paramref name="expected"/>, compared without regard to case, and nothing
     /// when another atom or no atom is next.
     /// </summary>

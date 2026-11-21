@@ -54,14 +54,14 @@ public sealed class ComposedStoresMailOwnerTests
     }
 
     [TestMethod]
-    public async Task AddAccountAsync_ForAnExistingName_KeepsTheOwnersMessages()
+    public async Task SetAccountPasswordAsync_ForAnExistingName_KeepsTheOwnersMessages()
     {
         await using var serving = await ComposeAsync("-u", "alice:secret");
         var stores = serving.Stores;
         await stores.SeedMailAsync("alice@example.com", Encoding.ASCII.GetBytes(Message), TestContext.CancellationToken);
         var target = new ComposedControlTarget(serving.Events, serving.Faults, stores);
 
-        await target.AddAccountAsync("alice", "changed", TestContext.CancellationToken);
+        await target.SetAccountPasswordAsync("alice", "changed", TestContext.CancellationToken);
 
         Assert.AreEqual(1, stores.ListMailboxes("alice").Value!.Single().MessageCount);
     }
@@ -81,6 +81,27 @@ public sealed class ComposedStoresMailOwnerTests
         Assert.AreEqual(ComposedReadOutcome.NotFound, stores.ListMailboxes("task-1").Outcome);
         Assert.AreEqual(MailRecipientLookup.NoSuchAccount,
             (await stores.SeedMailAsync("task-1@example.com", Encoding.ASCII.GetBytes(Message), TestContext.CancellationToken)).Recipient);
+    }
+
+    [TestMethod]
+    public async Task ListMailboxes_AConfiguredUse_IsListedAndSurvivesAResetButACreatedUseDoesNot()
+    {
+        await using var serving = await ComposeAsync("--mail-domain", "example.com", "--mailbox", "ann@example.com:s;folders=Sent=sent,Work", "--user", "bob:pw");
+        var stores = serving.Stores;
+        var view = stores.Mail.ViewFor("ann@example.com");
+        Assert.AreEqual(MailStoreOutcome.Succeeded, stores.Mail.CreateMailbox(view, "Old", null, "archive"));
+
+        var before = stores.ListMailboxes("ann@example.com").Value!;
+        Assert.AreEqual(@"\Sent", before.Single(box => box.Name == "Sent").Use);
+        Assert.IsNull(before.Single(box => box.Name == "Work").Use);
+        Assert.AreEqual(@"\Archive", before.Single(box => box.Name == "Old").Use);
+
+        await stores.ResetAsync(TestContext.CancellationToken);
+
+        var after = stores.ListMailboxes("ann@example.com").Value!;
+        Assert.AreEqual(@"\Sent", after.Single(box => box.Name == "Sent").Use);
+        Assert.IsNull(after.Single(box => box.Name == "INBOX").Use);
+        Assert.IsFalse(after.Any(box => box.Name == "Old"));
     }
 
     private async Task<ComposedServing> ComposeAsync(params string[] options)

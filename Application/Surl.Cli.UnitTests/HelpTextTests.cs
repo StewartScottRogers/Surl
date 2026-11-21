@@ -310,6 +310,7 @@ public sealed class HelpTextTests
             Row(38, "    --log-level <level>", "Set the log level"),
             Row(38, "    --mail-alias <alias>=<to>,...", "Forward an address (repeatable)"),
             Row(38, "    --mail-catch-all <domain>=<to>", "Catch unknown addresses (repeatable)"),
+            Row(38, "    --mail-delivered-to", "Write Delivered-To lines into stored mail"),
             Row(38, "    --mail-domain <domain>", "Serve mail for a domain (repeatable)"),
             Row(38, "    --mailbox <address>:<password>[;...]", "Add a mailbox and login (repeatable)"),
             Row(38, "    --mailbox-file <file>", "Read mailboxes from CSV (repeatable)"),

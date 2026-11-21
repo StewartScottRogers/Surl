@@ -12,7 +12,7 @@ namespace Surl.Composition;
 /// A connection refused over a connection limit is answered by the origin server's writer when it
 /// has one: the refusal is written before any request is read, so the listen URL is not known there.
 /// </remarks>
-public sealed class ProxyRoutingProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class ProxyRoutingProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private readonly IConnectionProtocolServer originServer;
     private readonly IConnectionProtocolServer proxyServer;
@@ -53,4 +53,17 @@ public sealed class ProxyRoutingProtocolServer : IConnectionProtocolServer, ICon
         originServer is IConnectionRefusalWriter writer
             ? writer.WriteRefusalAsync(connection, refusal, cancellationToken)
             : ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Hands the engine the redactor of the server behind this one (ADR-0182): the origin servers when it
+    /// redacts, else the proxy servers, else one that passes every byte through. The redaction context does
+    /// not say whether the listen URL is a proxys, and the HTTP servers redactor masks
+    /// <c>Authorization</c> and <c>Proxy-Authorization</c> on either kind.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>The redactor for the exchange.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        originServer is IExchangeBytesRedactingServer origin ? origin.CreateRedactor(context)
+        : proxyServer is IExchangeBytesRedactingServer proxy ? proxy.CreateRedactor(context)
+        : new PassThroughRedactor();
 }

@@ -19,8 +19,18 @@ namespace Surl.Composition;
 /// <param name="events">The instance's event stream.</param>
 /// <param name="faults">The instance's fault plan.</param>
 /// <param name="stores">The instance's stores.</param>
-internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores) : IControlTarget
+/// <param name="log">The instance log, where removing the last account or proxy account is warned (BL-1477).</param>
+internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores, TextWriter log) : IControlTarget
 {
+    /// <summary>Creates a target whose warnings go nowhere.</summary>
+    /// <param name="events">The instance's event stream.</param>
+    /// <param name="faults">The instance's fault plan.</param>
+    /// <param name="stores">The instance's stores.</param>
+    public ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores)
+        : this(events, faults, stores, TextWriter.Null)
+    {
+    }
+
     // Any listen URL the parser accepts: the item is read as the command line reads --fault, so there is one grammar.
     private const string AnyListenUrl = "http://127.0.0.1:0";
 
@@ -175,36 +185,82 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     /// <inheritdoc/>
     public Task AddAccountAsync(string user, string password, CancellationToken cancellationToken)
     {
-        stores.RemoveAccount(user);
-        stores.AddAccount(new Account(user, password));
+        try
+        {
+            stores.AddAccount(new Account(user, password));
+        }
+        catch (ArgumentException)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, $"user {user} already has an account");
+        }
+
         return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken) =>
-        Task.FromResult(stores.RemoveAccount(user));
+    public Task<bool> SetAccountPasswordAsync(string user, string password, CancellationToken cancellationToken) =>
+        SettingAPassword(() => stores.SetAccountPassword(user, password), password);
+
+    /// <inheritdoc/>
+    public Task<bool> SetProxyAccountPasswordAsync(string user, string password, CancellationToken cancellationToken) =>
+        SettingAPassword(() => stores.SetProxyAccountPassword(user, password), password);
+
+    /// <inheritdoc/>
+    public Task<bool> SetTlsSrpAccountPasswordAsync(string user, string password, CancellationToken cancellationToken) =>
+        SettingAPassword(() => stores.SetTlsSrpAccountPassword(user, password), password);
+
+    private static Task<bool> SettingAPassword(Func<bool> set, string password) =>
+        password.Length == 0
+            ? throw new ControlRefusalException(ControlRefusalKind.BadRequest, "the password must not be empty")
+            : RefusingAnAbsentStore(set);
+
+    /// <inheritdoc/>
+    public Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken)
+    {
+        var isRemoved = stores.RemoveAccount(user);
+        if (isRemoved && !stores.HasAccounts)
+        {
+            log.WriteLine("surl: warning: no account left; the server now needs no login");
+        }
+
+        return Task.FromResult(isRemoved);
+    }
 
     /// <inheritdoc/>
     public Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken) =>
-        RefusingAnAbsentStore(() =>
-        {
-            stores.RemoveProxyAccount(user);
-            stores.AddProxyAccount(new Account(user, password));
-            return true;
-        });
+        RefusingAnAbsentStore(() => AddingANewName(() => stores.AddProxyAccount(new Account(user, password)), $"user {user} already has a proxy account"));
 
     /// <inheritdoc/>
     public Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken) =>
-        RefusingAnAbsentStore(() => stores.RemoveProxyAccount(user));
+        RefusingAnAbsentStore(() =>
+        {
+            var isRemoved = stores.RemoveProxyAccount(user);
+            if (isRemoved && !stores.HasProxyAccounts)
+            {
+                log.WriteLine("surl: warning: no proxy account left; the proxy now needs no login");
+            }
+
+            return isRemoved;
+        });
 
     /// <inheritdoc/>
     public Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken) =>
-        RefusingAnAbsentStore(() =>
+        RefusingAnAbsentStore(() => AddingANewName(() => stores.AddTlsSrpAccount(user, password), $"user {user} already has a TLS-SRP account"));
+
+    // A name that already has an account is a conflict and the account is kept (ADR-0132 amendment 1).
+    private static bool AddingANewName(Action add, string conflictMessage)
+    {
+        try
         {
-            stores.RemoveTlsSrpAccount(user);
-            stores.AddTlsSrpAccount(user, password);
-            return true;
-        });
+            add();
+        }
+        catch (ArgumentException)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, conflictMessage);
+        }
+
+        return true;
+    }
 
     /// <inheritdoc/>
     public Task<bool> RemoveTlsSrpAccountAsync(string user, CancellationToken cancellationToken) =>
@@ -249,7 +305,7 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     {
         var boxes = Found(stores.ListMailboxes(owner));
 
-        return Task.FromResult<IReadOnlyList<ControlMailbox>>([.. boxes.Select(box => new ControlMailbox(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity))]);
+        return Task.FromResult<IReadOnlyList<ControlMailbox>>([.. boxes.Select(box => new ControlMailbox(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity, box.Use))]);
     }
 
     /// <inheritdoc/>

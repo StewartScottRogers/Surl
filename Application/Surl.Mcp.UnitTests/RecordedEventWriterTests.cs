@@ -36,6 +36,12 @@ public sealed class RecordedEventWriterTests
             """{"sequence":9,"at":"2026-11-05T10:00:00.0000000+00:00","kind":"store_changed","store":"content","change":"renamed","name":"b.txt","byte_count":5,"exchange_id":4,"previous_name":"a.txt"}""");
 
     [TestMethod]
+    public void WriteEvent_StoreChangedDeliveredFor_WritesTheAddressesAsAnArray() =>
+        AssertWritten(
+            new StoreChangedEvent(StoreKind.Mail, StoreChange.Written, "INBOX", 5, 4) { DeliveredFor = ["a@x", "b@x"] },
+            """{"sequence":9,"at":"2026-11-05T10:00:00.0000000+00:00","kind":"store_changed","store":"mail","change":"written","name":"INBOX","byte_count":5,"exchange_id":4,"delivered_for":["a@x","b@x"]}""");
+
+    [TestMethod]
     public void WriteEvent_StoreChangedWithNoExchangeByteCountOrPreviousName_LeavesThemOut() =>
         AssertWritten(
             new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountAdded, "alice", null, null),
@@ -137,6 +143,8 @@ public sealed class RecordedEventWriterTests
         public List<string> Names { get; } = [];
 
         public void Text(string name, string? value) => Names.Add(name);
+
+        public void TextList(string name, IReadOnlyList<string>? values) => Names.Add(name);
 
         public void Number(string name, long? value) => Names.Add(name);
 

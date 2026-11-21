@@ -89,6 +89,49 @@ public sealed class TlsSrpAccounts
         return entry;
     }
 
+    /// <summary>
+    /// Changes the password of a known account while handshakes run (ADR-0132 amendment 1). The
+    /// verifier is re-derived from the new password with a fresh salt drawn as <see cref="Add"/>
+    /// draws it; the account keeps its group, and the entry is swapped whole. The password is not
+    /// kept. Publishing <c>AccountRemoved</c> then <c>AccountAdded</c> is the host's job, as for
+    /// <see cref="Add"/>; this class has no publisher.
+    /// </summary>
+    /// <param name="userName">The user name; already known.</param>
+    /// <param name="password">The new password, hashed as UTF-8; not empty.</param>
+    /// <param name="random">The salt's source.</param>
+    /// <returns>The entry now held.</returns>
+    /// <exception cref="ArgumentException">The user name is not known, or the password is empty.</exception>
+    public SrpVerifierEntry SetPassword(string userName, string password, RandomNumberGenerator random)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(password);
+        ArgumentNullException.ThrowIfNull(random);
+        if (password.Length == 0)
+        {
+            throw new ArgumentException("The password must not be empty.", nameof(password));
+        }
+
+        lock (gate)
+        {
+            if (!entries.TryGetValue(userName, out var existing))
+            {
+                throw new ArgumentException($"The SRP user '{userName}' has no account.", nameof(userName));
+            }
+
+            var salt = new byte[AddedSaltLength];
+            do
+            {
+                random.GetBytes(salt);
+            }
+            while (salt[0] == 0);
+
+            var verifier = Srp6a.ComputeVerifier(existing.Group, salt, Encoding.UTF8.GetBytes(userName), Encoding.UTF8.GetBytes(password));
+            var entry = new SrpVerifierEntry(userName, salt, Srp6a.ToUnsignedBigEndian(verifier), existing.Group);
+            entries[userName] = entry;
+            return entry;
+        }
+    }
+
     /// <summary>Removes an account; a later handshake for it gets a simulated one.</summary>
     /// <param name="userName">The user name.</param>
     /// <returns>Whether the account was known.</returns>

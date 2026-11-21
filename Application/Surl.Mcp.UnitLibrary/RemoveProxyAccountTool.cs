@@ -5,7 +5,7 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>remove_proxy_account</c> tool (ADR-0170 decision 4): removes a proxy account, one given at start included, through
-/// <c>Surl.Api</c>'s <c>SurlServer.ProxyAccounts.Remove</c>. Result <c>{"user"}</c>. An account the server does not have, or a
+/// <c>Surl.Api</c>'s <c>SurlServer.ProxyAccounts.Remove</c>. Result <c>{"user"}</c>, plus a <c>warning</c> member and a second text block when no proxy account is left (the proxy then needs no login). An account the server does not have, or a
 /// server that holds no such accounts, is an <c>isError</c> result.
 /// </summary>
 public static class RemoveProxyAccountTool
@@ -16,7 +16,8 @@ public static class RemoveProxyAccountTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Remove a proxy account from a running Surl server, one given at start included, from its next login on. "
-        + "Undoes add_proxy_account.";
+        + "Undoes add_proxy_account. Removing the last proxy account leaves the proxy needing no login, so anyone may then use it; "
+        + "the result then carries a warning, and add_proxy_account closes the proxy again.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -44,13 +45,28 @@ public static class RemoveProxyAccountTool
         var user = arguments.GetProperty("user").GetString()!;
         try
         {
-            return running.Server.ProxyAccounts.Remove(user)
-                ? ToolResults.FromObject(writer => writer.WriteString("user", user))
-                : McpToolResult.FromFailure($"server {running.ServerId} has no proxy account {user}");
+            var accounts = running.Server.ProxyAccounts;
+            if (!accounts.Remove(user))
+            {
+                return McpToolResult.FromFailure($"server {running.ServerId} has no proxy account {user}");
+            }
+
+            return accounts.HasAccounts ? ToolResults.FromObject(writer => writer.WriteString("user", user)) : OpenedProxy(running, user);
         }
         catch (InvalidOperationException)
         {
             return McpToolResult.FromFailure($"server {running.ServerId} holds no proxy accounts, so its proxies are anonymous");
         }
+    }
+
+    private static McpToolResult OpenedProxy(RunningSurlServer running, string user)
+    {
+        var warning = $"server {running.ServerId} has no proxy account left and its proxy now needs no login";
+        var opened = ToolResults.FromObject(writer =>
+        {
+            writer.WriteString("user", user);
+            writer.WriteString("warning", warning);
+        });
+        return new McpToolResult([.. opened.TextContent, warning], opened.StructuredContent);
     }
 }

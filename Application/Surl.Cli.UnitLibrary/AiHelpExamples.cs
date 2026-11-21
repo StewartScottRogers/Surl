@@ -76,6 +76,13 @@ public static class AiHelpExamples
             ["curl -u ann@example.com:secret imap://127.0.0.1:<port>/"])
             with { Precondition = AiHelpExamplePrecondition.MailboxFileExists },
         Serving(
+            "mail",
+            "Give a mailbox's folders their special uses",
+            ["--mail-domain", "example.com", "--mailbox", "ann@example.com:pw;folders=Sent=sent,Drafts=drafts,Archive", "imap://127.0.0.1:0/"],
+            ["Listening on imap://127.0.0.1:<port>/"],
+            [],
+            ["curl -u ann@example.com:pw imap://127.0.0.1:<port>/"]),
+        Serving(
             "messages",
             "Retain everything published under a topic",
             ["--allow-anonymous", "--topic", "shop/#;retain", "mqtt://127.0.0.1:0/"],

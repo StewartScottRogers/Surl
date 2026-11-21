@@ -133,7 +133,7 @@ What it holds:
   (`Sequence` and `At`, stamped by the stream, not the publisher) and its records
   `ExchangeStartedEvent`, `ExchangeBytesEvent` (with `ExchangeDirection`), `ExchangeEndedEvent`,
   `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`; a `Renamed`
-  change carries its old name in `PreviousName`, ADR-0129; a `Committed` change names
+  change carries its old name in `PreviousName`, ADR-0129; a mail delivery may carry `DeliveredFor`, the envelope addresses that resolved to the copy's owner, ADR-0053 Amendment 1; a `Committed` change names
   `$group/<group id, % and / percent-encoded>/<canonical topic>`, ADR-0145 decision 10),
   `FaultAppliedEvent`, `HookFailedEvent` (with `HookFailure`) and `ConsumerGroupChangedEvent` (with
   `ConsumerGroupChange`, ADR-0145 decision 10; BL-946); no event carries a password,

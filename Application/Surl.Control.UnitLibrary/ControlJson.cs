@@ -54,6 +54,8 @@ internal sealed record ControlEventJson
 
     public string? PreviousName { get; init; }
 
+    public IReadOnlyList<string>? DeliveredFor { get; init; }
+
     public string? RuleId { get; init; }
 
     public string? FaultKind { get; init; }
@@ -119,7 +121,7 @@ internal sealed record ControlSnapshotIdJson(string SnapshotId);
 internal sealed record ControlZonesJson(IReadOnlyList<string> Zones);
 
 /// <summary>One mailbox in the answer to <c>GET /v1/mail/{owner}</c>.</summary>
-internal sealed record ControlMailboxJson(string Name, int MessageCount, int UnseenCount, uint UidValidity);
+internal sealed record ControlMailboxJson(string Name, int MessageCount, int UnseenCount, uint UidValidity, string? Use = null);
 
 /// <summary>The answer to <c>GET /v1/mail/{owner}</c>.</summary>
 internal sealed record ControlMailboxesJson(IReadOnlyList<ControlMailboxJson> Mailboxes);
@@ -185,6 +187,12 @@ internal sealed record ControlAccountRequestJson
     public string? Password { get; init; }
 }
 
+/// <summary>The body of <c>PUT /v1/accounts/{user}</c> and its proxy and TLS-SRP twins.</summary>
+internal sealed record ControlPasswordRequestJson
+{
+    public string? Password { get; init; }
+}
+
 /// <summary>
 /// The control endpoint's JSON, by source generation so nothing is read by reflection: snake_case names, null
 /// members left out, and a request member the endpoint does not know refused.
@@ -202,6 +210,7 @@ internal sealed record ControlAccountRequestJson
 [JsonSerializable(typeof(ControlErrorJson))]
 [JsonSerializable(typeof(ControlMessageRequestJson))]
 [JsonSerializable(typeof(ControlAccountRequestJson))]
+[JsonSerializable(typeof(ControlPasswordRequestJson))]
 [JsonSerializable(typeof(ControlMailboxesJson))]
 [JsonSerializable(typeof(ControlMailMessagesJson))]
 [JsonSerializable(typeof(ControlMailMessageJson))]

@@ -46,14 +46,14 @@ public sealed partial class MailboxStore
         lock (storeLock)
         {
             var configured = ThrowIfOnDisk("reset");
-            ThrowIfUidValiditiesRunOut(configured.Values.Sum(names => names.Length));
+            ThrowIfUidValiditiesRunOut(configured.Values.Sum(folders => folders.Length));
             DropOwnersNotIn(configured.Keys);
-            foreach (var (owner, names) in configured)
+            foreach (var (owner, folders) in configured)
             {
                 EmptyOwner(owner);
-                foreach (var name in names)
+                foreach (var (name, use) in folders)
                 {
-                    owner.Mailboxes.Add(name, new StoredMailbox(name, IssueUidValidity(), 1));
+                    owner.Mailboxes.Add(name, new StoredMailbox(name, IssueUidValidity(), 1) { Use = use });
                 }
             }
 
@@ -230,7 +230,7 @@ public sealed partial class MailboxStore
         pending.Body.Write(message);
         pending.Close();
         var outcome = CheckPending(pending);
-        return outcome == MailStoreOutcome.Succeeded ? DeliverPending(inboxOwners, pending, StoreChange.Seeded, exchange: null) : outcome;
+        return outcome == MailStoreOutcome.Succeeded ? DeliverPending(inboxOwners.ConvertAll(owner => new OwnerDelivery(owner, null)), pending, StoreChange.Seeded, exchange: null) : outcome;
     }
 
     /// <summary>
@@ -238,7 +238,7 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <exception cref="InvalidOperationException">The store is on disk: a test fixture must
     /// never empty a real directory (ADR-0124 decision 3).</exception>
-    private Dictionary<OwnerMailboxes, string[]> ThrowIfOnDisk(string done) =>
+    private Dictionary<OwnerMailboxes, (string Name, string? Use)[]> ThrowIfOnDisk(string done) =>
         files is null
             ? configuredMailboxes!
             : throw new InvalidOperationException($"The mail store is on disk under {files.IndexPath}, so it cannot be {done}.");
@@ -266,7 +266,7 @@ public sealed partial class MailboxStore
 
     private StoredMailbox RestoreMailbox(MailboxCopy copy)
     {
-        var mailbox = new StoredMailbox(copy.Name, IssueUidValidity(), copy.NextUid);
+        var mailbox = new StoredMailbox(copy.Name, IssueUidValidity(), copy.NextUid) { Use = copy.Use };
         foreach (var message in copy.Messages)
         {
             mailbox.Messages.Add(message.Uid, new StoredMessage(message.Uid, message.Body, message.InternalDate, message.Flags));
@@ -302,5 +302,5 @@ public sealed partial class MailboxStore
     }
 
     private static MailboxCopy CopyMailbox(StoredMailbox mailbox) =>
-        new(mailbox.Name, mailbox.NextUid, [.. mailbox.Messages.Values.Select(message => new MessageCopy(message.Uid, message.Body, message.InternalDate, message.Flags))]);
+        new(mailbox.Name, mailbox.NextUid, [.. mailbox.Messages.Values.Select(message => new MessageCopy(message.Uid, message.Body, message.InternalDate, message.Flags))], mailbox.Use);
 }

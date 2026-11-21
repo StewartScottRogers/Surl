@@ -63,6 +63,9 @@ internal sealed class FakeControlTarget : IControlTarget
         return Found;
     }
 
+    /// <summary>What <see cref="IControlTarget.WritesDeliveredTo"/> answers.</summary>
+    public bool WritesDeliveredTo { get; set; }
+
     public Task SeedMailAsync(string recipient, ReadOnlyMemory<byte> message, CancellationToken cancellationToken)
     {
         Record($"SeedMail {recipient} {Encoding.UTF8.GetString(message.Span)}");
@@ -118,6 +121,27 @@ internal sealed class FakeControlTarget : IControlTarget
         Record($"AddAccount {user} {password}");
 
         return Task.CompletedTask;
+    }
+
+    public Task<bool> SetAccountPasswordAsync(string user, string password, CancellationToken cancellationToken)
+    {
+        Record($"SetAccountPassword {user} {password}");
+
+        return Task.FromResult(Found);
+    }
+
+    public Task<bool> SetProxyAccountPasswordAsync(string user, string password, CancellationToken cancellationToken)
+    {
+        Record($"SetProxyAccountPassword {user} {password}");
+
+        return Task.FromResult(Found);
+    }
+
+    public Task<bool> SetTlsSrpAccountPasswordAsync(string user, string password, CancellationToken cancellationToken)
+    {
+        Record($"SetTlsSrpAccountPassword {user} {password}");
+
+        return Task.FromResult(Found);
     }
 
     public Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken)

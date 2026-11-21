@@ -155,3 +155,24 @@ and `LOGOUT` responses above and `SELECT=NO try later`, the tagged `NO` a rule
 | Folder | curl arguments | curl sends after `CAPABILITY` and `LOGIN alice p` | exit |
 | --- | --- | --- | --- |
 | `fault-select` | `-sS -u alice:p 'imap://127.0.0.1:18143/INBOX;UID=1'` | `SELECT INBOX`, then `LOGOUT` | 67, `curl: (67) Select failed` |
+
+## SPECIAL-USE (BL-1485)
+
+Recorded on 2026-11-20 from the repository root, in Windows PowerShell, on port 18143, from the
+same pinned build (SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) with
+`Record-CurlExchange.ps1 -Imap`. The greeting and `CAPABILITY` carry the capabilities above plus
+`SPECIAL-USE`; `LOGIN`, `APPEND` and `LOGOUT` are answered as above; `LIST` gives `INBOX` with
+`\HasNoChildren` and `Sent`, `Drafts` and `Trash` with `\HasNoChildren \Sent`, `\HasNoChildren \Drafts`
+and `\HasNoChildren \Trash`. Every case also gives `-sS -u u:p`, and curl exited 0 on each. These
+folders are not replayed by `RecordedFixtureTests`; they are measurements for BL-1486.
+
+| Folder | curl arguments | curl sends after `CAPABILITY` and `LOGIN u p` | stdout |
+| --- | --- | --- | --- |
+| `special-use-list` | `imap://127.0.0.1:18143/` | `LIST "" *` | the four `* LIST` lines as served, attributes included |
+| `special-use-list-return` | `-X 'LIST "" "*" RETURN (SPECIAL-USE)' imap://127.0.0.1:18143/` | the command as given | the same four lines |
+| `special-use-list-select` | `-X 'LIST (SPECIAL-USE) "" "*"' imap://127.0.0.1:18143/` | the command as given | the same four lines |
+| `special-use-append-sent` | `-T mail.txt imap://127.0.0.1:18143/Sent` | `APPEND Sent (\Seen) {33}`, the message after `+` | none |
+
+Upstream curl 8.21.0 does not use SPECIAL-USE on its own: it never sent `RETURN (SPECIAL-USE)`, a
+selection option or any use attribute unasked, it addressed `Sent` by the name in the URL, and it
+printed the server's `LIST` lines, attributes included, unchanged.

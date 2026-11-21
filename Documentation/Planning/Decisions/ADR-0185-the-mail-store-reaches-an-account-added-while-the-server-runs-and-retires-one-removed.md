@@ -33,7 +33,7 @@ account's mailbox still takes mail. No ADR said what an added or removed account
    `NoSuchAccount` (SMTP accepts and discards, as for any unknown recipient), and `Seed` stores nothing. This
    is the precedent of `LoadAsync`, which keeps owners that are no longer accounts unreached. **Re-adding the
    same name in the same run reaches the owner again with its mail as it was**, which is what
-   `ComposedControlTarget`'s replace-by-remove-then-add (a password change) needs. The retired mail still counts
+   a password change (`SetPassword`, which publishes `AccountRemoved` then `AccountAdded`) needs. The retired mail still counts
    against the store's bounds.
 3. **Reset.** Reset keeps ADR-0131 decision 2 with "configured" read as: the owners and mailboxes present when
    the constructor finished. Reset empties every owner, recreates its configured mailboxes, **drops every owner

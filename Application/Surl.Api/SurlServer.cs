@@ -49,7 +49,7 @@ public sealed class SurlServer : IAsyncDisposable
         Directory = new SurlServerDirectory(composedServing.Stores, ThrowIfStopped);
         Zones = new SurlServerZones(composedServing.Stores, ThrowIfStopped);
         Accounts = new SurlServerAccounts(composedServing.Stores, instruments.Log);
-        ProxyAccounts = new SurlServerProxyAccounts(composedServing.Stores);
+        ProxyAccounts = new SurlServerProxyAccounts(composedServing.Stores, instruments.Log);
         TlsSrpAccounts = new SurlServerTlsSrpAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }

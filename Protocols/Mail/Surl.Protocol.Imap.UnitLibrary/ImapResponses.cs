@@ -40,6 +40,7 @@ internal static class ImapResponses
     public const string OverQuota = "NO [OVERQUOTA] Mailbox is over its quota";
     public const string Id = "* ID NIL";
     public const string MailboxMissingTryCreate = "NO [TRYCREATE] Mailbox does not exist";
+    public const string UseNotAllowed = "NO [USEATTR] The use cannot be given to this mailbox";
     public const string ReadOnly = "NO [READ-ONLY] Mailbox is read-only";
     public const string TooBig = "NO [TOOBIG] Message exceeds the size limit";
     public const string StoreFull = "NO [OVERQUOTA] The mail store is full";
@@ -57,6 +58,8 @@ internal static class ImapResponses
     {
         [MailStoreOutcome.MailboxMissing] = MailboxMissing,
         [MailStoreOutcome.AlreadyExists] = "NO [ALREADYEXISTS] Mailbox already exists",
+        [MailStoreOutcome.FolderUseUnknown] = UseNotAllowed,
+        [MailStoreOutcome.FolderUseTaken] = UseNotAllowed,
         [MailStoreOutcome.InboxCannotBeDeleted] = "NO [CANNOT] INBOX cannot be deleted",
         [MailStoreOutcome.InvalidName] = InvalidMailboxName,
         [MailStoreOutcome.StoreFull] = StoreFull,

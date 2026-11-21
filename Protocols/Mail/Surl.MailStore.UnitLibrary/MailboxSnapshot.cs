@@ -8,4 +8,5 @@ namespace Surl.MailStore;
 /// <param name="UidValidity">The mailbox's <c>UIDVALIDITY</c>.</param>
 /// <param name="NextUid">The UID the next message stored in the mailbox gets.</param>
 /// <param name="Messages">The mailbox's messages in ascending UID order.</param>
-public sealed record MailboxSnapshot(string Name, uint UidValidity, uint NextUid, IReadOnlyList<MailMessageSummary> Messages);
+/// <param name="Use">The mailbox's RFC 6154 use (<see cref="MailFolderUse"/>), or <see langword="null"/> for none.</param>
+public sealed record MailboxSnapshot(string Name, uint UidValidity, uint NextUid, IReadOnlyList<MailMessageSummary> Messages, string? Use = null);

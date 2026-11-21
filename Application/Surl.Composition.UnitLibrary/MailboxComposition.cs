@@ -34,6 +34,11 @@ public sealed class MailboxComposition
     }
 
     /// <summary>
+    /// The <c>protocols=</c> list of each mailbox, in order; <see langword="null"/> for one that gave none.
+    /// </summary>
+    public IEnumerable<IReadOnlyList<string>?> MailboxProtocols => mailboxes.Select(mailbox => mailbox.Protocols);
+
+    /// <summary>
     /// The configuration the mail store resolves recipients against; <see langword="null"/> without <c>--mail-domain</c>.
     /// </summary>
     public MailDomainConfiguration? MailDomains { get; private set; }
@@ -191,7 +196,7 @@ public sealed class MailboxComposition
             commandLine.MailAliases.Select(alias => new MailAlias(alias.Address, alias.Targets)),
             commandLine.MailCatchAlls.Select(catchAll => new MailCatchAll(catchAll.Domain, catchAll.Address)),
             mailboxes.Where(mailbox => mailbox.QuotaBytes is not null || mailbox.Folders.Count != 0)
-                .Select(mailbox => new MailboxSettings(mailbox.Address, mailbox.QuotaBytes, mailbox.Folders)),
+                .Select(mailbox => new MailboxSettings(mailbox.Address, mailbox.QuotaBytes, mailbox.Folders, mailbox.FolderUses)),
             sharedFolders);
 
     private static string QuotaAndFolders(ConfiguredMailbox mailbox) =>

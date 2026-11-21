@@ -92,6 +92,26 @@ public sealed class MailboxStoreLoadTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_DeliveredToEnabledTrue_GivesAStoreThatReportsIt()
+    {
+        var files = new MailStoreFiles(NewFileSystem(), StateFolder);
+
+        var store = await MailboxStore.LoadAsync(files, [], true, new SettableTimeProvider(), deliveredToEnabled: true, cancellationToken: TestContext.CancellationToken);
+
+        Assert.IsTrue(store.DeliveredToEnabled);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_DeliveredToEnabledOmitted_GivesAStoreThatReportsFalse()
+    {
+        var files = new MailStoreFiles(NewFileSystem(), StateFolder);
+
+        var store = await MailboxStore.LoadAsync(files, [], true, new SettableTimeProvider(), cancellationToken: TestContext.CancellationToken);
+
+        Assert.IsFalse(store.DeliveredToEnabled);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_MissingIndex_IsAnEmptyStoreWithAnInboxPerAccountAndWritesNothingUntilSaved()
     {
         var fileSystem = NewFileSystem();

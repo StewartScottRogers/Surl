@@ -93,7 +93,7 @@ public sealed class LookupToolsTests
     [TestMethod]
     [DataRow("set_key", """{"server_id": "s1", "key": "k", "value": "v"}""", "Keyspace: A key in database 0 was refused: This instance holds no Redis keyspace.")]
     [DataRow("add_dns_zone", """{"server_id": "s1", "apex": "example.com", "zone_text": "x"}""", "Zones: The zone example.com was refused: This instance holds no DNS zones.")]
-    [DataRow("add_ldap_entries", """{"server_id": "s1", "ldif": "dn: dc=x\nobjectClass: domain\ndc: x\n"}""", "Directory: The LDIF entries was refused: This instance holds no LDAP directory.")]
+    [DataRow("add_ldap_entries", """{"server_id": "s1", "ldif": "dn: dc=x\nobjectClass: domain\ndc: x\n"}""", "Directory: The LDIF was refused: This instance holds no LDAP directory.")]
     public async Task SeedingAStoreNoListenUrlServes_IsAnErrorNamingTheStore(string tool, string arguments, string expected)
     {
         await using var host = await StartHostAsync("http://127.0.0.1:0");

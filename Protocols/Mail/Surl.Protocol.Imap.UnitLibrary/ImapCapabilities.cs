@@ -17,8 +17,9 @@ internal static class ImapCapabilities
     /// <param name="maxUploadBytes"><c>--max-filesize</c>; 0 means no limit, and no <c>APPENDLIMIT</c>.</param>
     /// <param name="canUpgrade">Whether the connection is plaintext on a server that can upgrade
     /// it, so <c>STARTTLS</c> is offered before a login.</param>
+    /// <param name="isSpecialUseOffered">Whether the store holds a folder use, so <c>SPECIAL-USE CREATE-SPECIAL-USE</c> follow <c>MOVE</c> (ADR-0055, Amendment 1).</param>
     /// <returns>The capabilities, space-separated.</returns>
-    public static string List(MailLoginOffer? loginOffer, long maxUploadBytes, bool canUpgrade)
+    public static string List(MailLoginOffer? loginOffer, long maxUploadBytes, bool canUpgrade, bool isSpecialUseOffered)
     {
         List<string> capabilities = ["IMAP4rev1"];
         if (loginOffer is not null)
@@ -27,6 +28,11 @@ internal static class ImapCapabilities
         }
 
         capabilities.AddRange(["UIDPLUS", "UNSELECT", "NAMESPACE", "CHILDREN", "ID", "MOVE"]);
+        if (isSpecialUseOffered)
+        {
+            capabilities.AddRange(["SPECIAL-USE", "CREATE-SPECIAL-USE"]);
+        }
+
         if (maxUploadBytes > 0)
         {
             capabilities.Add("APPENDLIMIT=" + maxUploadBytes.ToString(CultureInfo.InvariantCulture));

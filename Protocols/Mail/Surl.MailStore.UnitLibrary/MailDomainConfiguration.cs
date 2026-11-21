@@ -106,7 +106,25 @@ public sealed class MailDomainConfiguration
             throw new ArgumentException($"The quota of {address} is not above 0.", nameof(settings));
         }
 
-        return new MailboxSettings(address, settings.QuotaBytes, [.. settings.Folders.Select(ValidFolderName)]);
+        return new MailboxSettings(address, settings.QuotaBytes, [.. settings.Folders.Select(ValidFolderName)], NormaliseFolderUses(address, settings.FolderUses));
+    }
+
+    private static Dictionary<string, string> NormaliseFolderUses(string address, IReadOnlyDictionary<string, string>? folderUses)
+    {
+        var uses = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (folder, use) in folderUses ?? new Dictionary<string, string>())
+        {
+            var name = ValidFolderName(folder);
+            var canonical = MailFolderUse.Canonical(use);
+            if (canonical is null || MailboxName.Canonical(name) == MailboxName.Inbox || uses.ContainsValue(canonical))
+            {
+                throw new ArgumentException($"The use {use} of folder {name} of {address} is not an RFC 6154 use, is for INBOX, or is held by another folder.", nameof(folderUses));
+            }
+
+            uses.Add(name, canonical);
+        }
+
+        return uses;
     }
 
     private static string ValidFolderName(string name)

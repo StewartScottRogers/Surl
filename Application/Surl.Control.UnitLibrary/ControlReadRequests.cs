@@ -39,7 +39,7 @@ internal sealed class ControlReadRequests(IControlTarget target, ControlAnswers 
     public async Task<HttpAnswer> ListMailboxesAsync(ControlRequest request)
     {
         var mailboxes = await target.ListMailboxesAsync(request.Parameters[0], request.CancellationToken);
-        var body = new ControlMailboxesJson([.. mailboxes.Select(box => new ControlMailboxJson(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity))]);
+        var body = new ControlMailboxesJson([.. mailboxes.Select(box => new ControlMailboxJson(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity, box.Use))]);
 
         return answers.Json(request.Http, HttpStatus.Ok, body, ControlJsonContext.Default.ControlMailboxesJson);
     }

@@ -38,6 +38,23 @@ public sealed class ReadBackToolsTests
     }
 
     [TestMethod]
+    public async Task ListMailboxes_ShowsUseOnlyForAMailboxThatHasOne()
+    {
+        await using var host = new McpTestHost();
+        var started = await CallAsync(
+            host.StartServer,
+            """{"listen_urls": ["smtp://127.0.0.1:0"], "arguments": ["--mail-domain", "example.com", "--mailbox", "alice@example.com:secret;folders=Sent=sent,Work"]}""");
+        Assert.IsFalse(started.IsError, started.TextContent.FirstOrDefault());
+
+        var result = await CallAsync(host.ListMailboxes, """{"server_id": "s1", "owner": "alice@example.com"}""");
+
+        var boxes = Ok(result).GetProperty("mailboxes").EnumerateArray().ToDictionary(box => box.GetProperty("name").GetString()!);
+        Assert.AreEqual(@"\Sent", boxes["Sent"].GetProperty("use").GetString());
+        Assert.IsFalse(boxes["Work"].TryGetProperty("use", out _));
+        Assert.IsFalse(boxes["INBOX"].TryGetProperty("use", out _));
+    }
+
+    [TestMethod]
     public async Task SeededFiles_ReadBackAsTheFileAndTheFolderListing()
     {
         await using var host = await StartSeededHostAsync();

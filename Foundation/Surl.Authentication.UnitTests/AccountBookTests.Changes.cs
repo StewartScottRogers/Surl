@@ -250,6 +250,66 @@ public sealed partial class AccountBookTests
     }
 
     [TestMethod]
+    public async Task SetPassword_ReDerivesEveryCredentialKeepsSchemesAndPublishesRemovedThenAdded()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var book = new AccountBook([new Account("bob", BobPassword) { Schemes = new HashSet<string> { "mqtt" } }], events);
+        var policy = PolicyFixture.Create(book.ForScheme("mqtt"), clock);
+
+        book.SetPassword("bob", "newpass");
+
+        Assert.AreEqual(PasswordLoginVerdict.Accepted, (await SettleAsync(policy.CheckPasswordLoginAsync(MqttLogin("bob", "newpass"), CancellationToken.None))).Result);
+        Assert.AreNotEqual(PasswordLoginVerdict.Accepted, (await SettleAsync(policy.CheckPasswordLoginAsync(MqttLogin("bob", BobPassword), CancellationToken.None))).Result);
+        Assert.IsFalse(book.ForScheme("ftp").UserNames.Contains("bob"));
+        var digest = new DigestAuthenticationMethod(book, new FixedDigestNonceBook(FixedDigestNonceBook.FixtureNonce));
+        Assert.AreEqual(HttpCredentialOutcome.Accepted, (await digest.VerifyAsync(DigestAnswer("bob", "newpass"), PolicyFixture.Get(), CancellationToken.None)).Outcome);
+        CollectionAssert.AreEqual(
+            new SurlEvent[]
+            {
+                new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountRemoved, "bob", null, null),
+                new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountAdded, "bob", null, null),
+            },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public void SetPassword_UnknownUser_ThrowsAndPublishesNothing()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var book = new AccountBook([Alice], events);
+
+        var thrown = Assert.ThrowsExactly<ArgumentException>(() => book.SetPassword("bob", "x"));
+
+        Assert.Contains("bob", thrown.Message);
+        Assert.IsEmpty(events.Events);
+    }
+
+    [TestMethod]
+    public void SetPassword_EmptyPasswordOrNullArguments_Throw()
+    {
+        var book = new AccountBook([Alice]);
+
+        Assert.ThrowsExactly<ArgumentException>(() => book.SetPassword("alice", string.Empty));
+        Assert.ThrowsExactly<ArgumentNullException>(() => book.SetPassword("alice", null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => book.SetPassword(null!, "x"));
+    }
+
+    [TestMethod]
+    public async Task SetPassword_ThenResetReturnsToTheConfiguredPasswordAndRestoreToTheChangedOne()
+    {
+        var book = new AccountBook([Bob]);
+        var policy = PolicyFixture.Create(book, clock);
+        book.SetPassword("bob", "newpass");
+        var snapshot = book.TakeSnapshot();
+
+        book.Reset();
+        Assert.AreEqual(PasswordLoginVerdict.Accepted, (await SettleAsync(policy.CheckPasswordLoginAsync(MqttLogin("bob", BobPassword), CancellationToken.None))).Result);
+
+        book.Restore(snapshot);
+        Assert.AreEqual(PasswordLoginVerdict.Accepted, (await SettleAsync(policy.CheckPasswordLoginAsync(MqttLogin("bob", "newpass"), CancellationToken.None))).Result);
+    }
+
+    [TestMethod]
     public async Task ThirtyTwoConcurrentLogins_WhileTheAccountIsAddedAndRemoved_SeeOnlyAcceptedOrRefused()
     {
         var book = new AccountBook([Alice]);

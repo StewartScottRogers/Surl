@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Surl.Extended.Protocol.SignalR;
+using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -12,7 +13,7 @@ namespace Surl.Composition;
 /// A <see cref="SignalRProtocolServer"/> is built on a path's first exchange and kept for the run; paths are
 /// compared as the hub path, so <c>/chat</c> and <c>/chat/</c> are one hub.
 /// </remarks>
-public sealed class SignalRHubRoutingProtocolServer : IConnectionProtocolServer
+public sealed class SignalRHubRoutingProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     private readonly Func<SignalRHubPath, SignalRProtocolServer> createServer;
     private readonly ConcurrentDictionary<string, SignalRProtocolServer> servers = new(StringComparer.Ordinal);
@@ -62,4 +63,12 @@ public sealed class SignalRHubRoutingProtocolServer : IConnectionProtocolServer
 
         return ServerFor(context.ListenUrl).ServeAsync(connection, context);
     }
+
+    /// <summary>
+    /// Hands the engine the redactor every hub server uses (ADR-0182), so the log shows
+    /// <c>Authorization: Basic ****</c>; it does not depend on the hub path.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>The HTTP request-head redactor.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => HttpExchangeRedaction.CreateRedactor();
 }

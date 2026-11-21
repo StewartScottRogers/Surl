@@ -26,6 +26,22 @@ public sealed partial class ConfiguredMailboxReaderTests
             AcceptedWithSettings("ann@example.com:pw;folders=Archive,Work/2026,INBOX,a%2Cb").Folders.ToArray());
 
     [TestMethod]
+    public void Read_FoldersWithUses_YieldsEachUseAtTheLastEquals()
+    {
+        var mailbox = AcceptedWithSettings("ann@example.com:pw;folders=Sent=sent,Drafts=Drafts,Archive,a=b=TRASH");
+
+        CollectionAssert.AreEqual(new[] { "Sent", "Drafts", "Archive", "a=b" }, mailbox.Folders.ToArray());
+        CollectionAssert.AreEquivalent(
+            new Dictionary<string, string> { ["Sent"] = "sent", ["Drafts"] = "drafts", ["a=b"] = "trash" },
+            mailbox.FolderUses.ToDictionary(pair => pair.Key, pair => pair.Value));
+        Assert.IsFalse(mailbox.FolderUses.ContainsKey("Archive"));
+    }
+
+    [TestMethod]
+    public void Read_FoldersWithoutUses_HasNoFolderUses() =>
+        Assert.IsEmpty(AcceptedWithSettings("ann@example.com:pw;folders=Sent").FolderUses);
+
+    [TestMethod]
     public void Read_EveryKey_IsReadInAnyOrderAndCase()
     {
         var mailbox = AcceptedWithSettings("Ann@Example.com:pw;FOLDERS=Sent;Quota=2k;protocols=imap");
@@ -45,6 +61,9 @@ public sealed partial class ConfiguredMailboxReaderTests
     [DataRow("ann@example.com:pw;quota=1;quota=2", "key quota is given twice", DisplayName = "Quota twice")]
     [DataRow("ann@example.com:pw;folders=Sent,Sent", "member Sent is given twice", DisplayName = "Folder twice")]
     [DataRow("ann@example.com:pw;folders=Sent,", "an empty field", DisplayName = "Empty folder")]
+    [DataRow("ann@example.com:pw;folders=Sent=bogus", "folder use bogus is not one of all, archive, drafts, flagged, junk, sent, trash", DisplayName = "Bogus use")]
+    [DataRow("ann@example.com:pw;folders=A=sent,B=SENT", "use sent is given to two folders", DisplayName = "Use twice")]
+    [DataRow("ann@example.com:pw;folders==sent", "an empty field", DisplayName = "Use with no folder")]
     [DataRow("ann@example.com:pw;folders=a%09b", "a control character", DisplayName = "Control character in a folder")]
     [DataRow("ann@example.com:pw;folders=a;nosuch=1", "unknown key nosuch", DisplayName = "Unknown key")]
     public void Read_RefusedSettingsItem_GivesTheReasonAndAnEmptyMailbox(string argument, string reason)
@@ -83,7 +102,7 @@ public sealed partial class ConfiguredMailboxReaderTests
     public void Reading_IsNamedByTheWholeItemShape()
     {
         Assert.AreEqual(
-            "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]",
+            "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>[=<use>],...]",
             ConfiguredMailboxReader.Reading.Type.Name);
         Assert.IsNull(ConfiguredMailboxReader.Reading.Read("ann@example.com:pw;quota=1", out _));
     }

@@ -290,41 +290,69 @@ internal sealed partial class SmtpSession
 
     // The trace fields, then the body as it is unstuffed, are streamed into a pending message;
     // every path that does not deliver it deletes its pending file (ADR-0050, decision 7).
+    // With the store's DeliveredToEnabled and a recipient to deliver to, each owner's copy has its own
+    // pending message with its own Delivered-To lines (ADR-0053 Amendment 1, decisions 2 to 5).
     private async ValueTask<bool> ReceiveMessageAsync(SmtpMailTransaction accepted)
     {
         transaction = null;
-        var traceFields = SmtpTraceFields.Build(accepted.ReversePath, heloDomain!, connection.RemoteEndPoint, ReceivedProtocol, context.TimeProvider.GetUtcNow());
+        var receivedAt = context.TimeProvider.GetUtcNow();
+        var perOwner = mailStore.DeliveredToEnabled && accepted.Deliverable.Count > 0;
+        IReadOnlyList<IReadOnlyList<string>?> deliveredToPerMessage = perOwner
+            ? [.. accepted.Deliverable.Select(accepted.PathsReaching)]
+            : [null];
         await WriteLineAsync(SmtpReplies.StartData, CancellationToken);
 
-        using var pending = mailStore.CreatePendingMessage();
-        await pending.Body.WriteAsync(traceFields, CancellationToken);
-        var read = await reader.ReadDotStuffedBodyAsync(pending.Body, CancellationToken);
+        var pendings = new List<PendingMessage>();
+        try
+        {
+            foreach (var deliveredTo in deliveredToPerMessage)
+            {
+                var pending = mailStore.CreatePendingMessage();
+                pendings.Add(pending);
+                await pending.Body.WriteAsync(SmtpTraceFields.Build(accepted.ReversePath, heloDomain!, connection.RemoteEndPoint, ReceivedProtocol, receivedAt, deliveredTo), CancellationToken);
+            }
+
+            return await ReadAndDeliverAsync(accepted, pendings, perOwner);
+        }
+        finally
+        {
+            pendings.ForEach(pending => pending.Dispose());
+        }
+    }
+
+    private async ValueTask<bool> ReadAndDeliverAsync(SmtpMailTransaction accepted, List<PendingMessage> pendings, bool perOwner)
+    {
+        using var tee = new SmtpTeeStream(pendings.ConvertAll(pending => pending.Body));
+        var read = await reader.ReadDotStuffedBodyAsync(tee, CancellationToken);
         if (read.Outcome == DotStuffedBodyReadOutcome.Closed)
         {
             context.Log.Note("The client closed the connection part way through a message; nothing was stored.");
             return false;
         }
 
-        if (read.Outcome == DotStuffedBodyReadOutcome.BodyTooLarge || IsPastMaxFilesize(pending.Length))
+        // The longest owner's copy decides: its Delivered-To lines count against --max-filesize.
+        if (read.Outcome == DotStuffedBodyReadOutcome.BodyTooLarge || IsPastMaxFilesize(pendings.Max(pending => pending.Length)))
         {
             context.Log.Note($"Message refused: past --max-filesize after {read.BytesWritten} bytes");
             await WriteLimitReplyAsync(SmtpReplies.MessageTooLarge);
             return false;
         }
 
-        return await ReplyAsync(await DeliverAsync(accepted, pending));
+        return await ReplyAsync(await DeliverAsync(accepted, pendings, perOwner));
     }
 
     // --max-filesize bounds the trace fields and the body together; 0 is no limit (ADR-0053, decision 6).
     private bool IsPastMaxFilesize(long messageBytes) =>
         context.Limits.MaxUploadBytes > 0 && messageBytes > context.Limits.MaxUploadBytes;
 
-    private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, PendingMessage message)
+    private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, List<PendingMessage> pendings, bool perOwner)
     {
-        var outcome = await mailStore.DeliverAsync(accepted.Deliverable, message, CancellationToken, context);
+        var outcome = perOwner
+            ? await mailStore.DeliverAsync([.. accepted.Deliverable.Select((recipient, index) => new MailOwnerCopy(recipient, pendings[index]))], CancellationToken, context)
+            : await mailStore.DeliverAsync(accepted.Deliverable, pendings[0], CancellationToken, context);
         if (outcome != MailStoreOutcome.Succeeded)
         {
-            return RefuseMessage(outcome, message);
+            return RefuseMessage(outcome, pendings.FirstOrDefault(pending => pending.StorageFailure is not null) ?? pendings[0]);
         }
 
         foreach (var path in accepted.Discarded)
@@ -332,7 +360,7 @@ internal sealed partial class SmtpSession
             context.Log.Note($"Mail for {SmtpLogText.Render(Encoding.UTF8.GetBytes(path))} discarded: no such account");
         }
 
-        context.Log.Note($"Message stored: {message.Length} bytes for {accepted.Deliverable.Count} recipients");
+        context.Log.Note($"Message stored: {pendings.Max(pending => pending.Length)} bytes for {accepted.Deliverable.Count} recipients");
         await SaveMailStoreAsync();
         return SmtpReplies.MessageAccepted;
     }

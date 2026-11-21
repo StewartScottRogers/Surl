@@ -48,6 +48,23 @@ internal sealed class RecordedEventWriter : ISurlEventMemberWriter
     }
 
     /// <inheritdoc />
+    public void TextList(string name, IReadOnlyList<string>? values)
+    {
+        if (values is null)
+        {
+            return;
+        }
+
+        _writer.WriteStartArray(MemberName(name));
+        foreach (var value in values)
+        {
+            _writer.WriteStringValue(value);
+        }
+
+        _writer.WriteEndArray();
+    }
+
+    /// <inheritdoc />
     public void Number(string name, long? value)
     {
         if (value is { } number)

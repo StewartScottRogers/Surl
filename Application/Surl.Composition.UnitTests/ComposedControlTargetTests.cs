@@ -235,18 +235,47 @@ public sealed class ComposedControlTargetTests
     }
 
     [TestMethod]
-    public async Task AddAccountAsyncAndRemoveAccountAsync_AnAccount_AddReplaceAndRemoveIt()
+    public async Task AddAccountAsyncAndRemoveAccountAsync_AnAccount_AddAndRemoveIt()
     {
         await using var serving = await ComposeAsync("-u", "alice:secret");
         var target = TargetOf(serving);
 
         await target.AddAccountAsync("bob", "builder", TestContext.CancellationToken);
-        await target.AddAccountAsync("alice", "changed", TestContext.CancellationToken);
 
-        // Replacing alice removes her and adds her again, after bob.
-        CollectionAssert.AreEqual(new[] { "bob", "alice" }, serving.Stores.Accounts.UserNames.ToArray());
+        CollectionAssert.AreEqual(new[] { "alice", "bob" }, serving.Stores.Accounts.UserNames.ToArray());
         Assert.IsTrue(await target.RemoveAccountAsync("bob", TestContext.CancellationToken));
         Assert.IsFalse(await target.RemoveAccountAsync("bob", TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task AddAccountAsync_ANameThatHasAnAccount_IsAConflictAndKeepsTheAccount()
+    {
+        await using var serving = await ComposeAsync("-u", "alice:secret");
+        var target = TargetOf(serving);
+
+        var refusal = await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddAccountAsync("alice", "changed", TestContext.CancellationToken));
+
+        Assert.AreEqual(ControlRefusalKind.Conflict, refusal.Kind);
+        Assert.AreEqual("user alice already has an account", refusal.Message);
+        CollectionAssert.AreEqual(new[] { "alice" }, serving.Stores.Accounts.UserNames.ToArray());
+        Assert.IsTrue(serving.Stores.Accounts.CheckPassword("alice", "secret"u8));
+    }
+
+    [TestMethod]
+    public async Task SetAccountPasswordAsync_KnownAndUnknownUserAndEmptyPassword_ChangesAnswersAndRefuses()
+    {
+        await using var serving = await ComposeAsync("-u", "alice:secret");
+        var target = TargetOf(serving);
+
+        var known = await target.SetAccountPasswordAsync("alice", "changed", TestContext.CancellationToken);
+        var unknown = await target.SetAccountPasswordAsync("nobody", "changed", TestContext.CancellationToken);
+        var empty = await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.SetAccountPasswordAsync("alice", "", TestContext.CancellationToken));
+
+        Assert.IsTrue(known);
+        Assert.IsFalse(unknown);
+        Assert.AreEqual(ControlRefusalKind.BadRequest, empty.Kind);
+        Assert.IsTrue(serving.Stores.Accounts.CheckPassword("alice", "changed"u8));
+        Assert.IsFalse(serving.Stores.Accounts.CheckPassword("alice", "secret"u8));
     }
 
     [TestMethod]
@@ -279,7 +308,7 @@ public sealed class ComposedControlTargetTests
     }
 
     [TestMethod]
-    public async Task ProxyAndTlsSrpAccounts_AddReplaceAndRemove_ChangeTheirOwnStores()
+    public async Task ProxyAndTlsSrpAccounts_AddRefuseADuplicateSetPasswordAndRemove_ChangeTheirOwnStores()
     {
         var start = await SurlServerComposition.ComposeAsync(
             StartTestSeams.Parse(["-U", "pat:pw", "--tlsuser", "jsmith", "--tlspassword", "abc", "--allow-anonymous", "https://127.0.0.1:0/"]), new StartTestSeams().Seams, TestContext.CancellationToken);
@@ -287,10 +316,18 @@ public sealed class ComposedControlTargetTests
         var target = TargetOf(serving);
 
         await target.AddProxyAccountAsync("bob", "builder", TestContext.CancellationToken);
-        await target.AddProxyAccountAsync("bob", "changed", TestContext.CancellationToken);
+        var proxyTwice = await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddProxyAccountAsync("bob", "changed", TestContext.CancellationToken));
         await target.AddTlsSrpAccountAsync("carol", "pw", TestContext.CancellationToken);
-        await target.AddTlsSrpAccountAsync("carol", "pw2", TestContext.CancellationToken);
+        var srpTwice = await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddTlsSrpAccountAsync("carol", "pw2", TestContext.CancellationToken));
 
+        Assert.AreEqual(ControlRefusalKind.Conflict, proxyTwice.Kind);
+        Assert.AreEqual("user bob already has a proxy account", proxyTwice.Message);
+        Assert.AreEqual(ControlRefusalKind.Conflict, srpTwice.Kind);
+        Assert.AreEqual("user carol already has a TLS-SRP account", srpTwice.Message);
+        Assert.IsTrue(await target.SetProxyAccountPasswordAsync("bob", "rotated", TestContext.CancellationToken));
+        Assert.IsFalse(await target.SetProxyAccountPasswordAsync("eve", "rotated", TestContext.CancellationToken));
+        Assert.IsTrue(await target.SetTlsSrpAccountPasswordAsync("carol", "rotated", TestContext.CancellationToken));
+        Assert.IsFalse(await target.SetTlsSrpAccountPasswordAsync("eve", "rotated", TestContext.CancellationToken));
         Assert.IsTrue(await target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken));
         Assert.IsFalse(await target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken));
         Assert.IsTrue(await target.RemoveTlsSrpAccountAsync("carol", TestContext.CancellationToken));
@@ -309,6 +346,8 @@ public sealed class ComposedControlTargetTests
             await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken)),
             await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddTlsSrpAccountAsync("bob", "pw", TestContext.CancellationToken)),
             await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.RemoveTlsSrpAccountAsync("bob", TestContext.CancellationToken)),
+            await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.SetProxyAccountPasswordAsync("bob", "pw", TestContext.CancellationToken)),
+            await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.SetTlsSrpAccountPasswordAsync("bob", "pw", TestContext.CancellationToken)),
         };
 
         Assert.IsTrue(refusals.All(refusal => refusal.Kind == ControlRefusalKind.Conflict));

@@ -162,7 +162,7 @@ public sealed partial class ComposedStores
         foreach (var name in mail.ListMailboxes(view))
         {
             _ = mail.ReadMailbox(view, name, out var snapshot);
-            boxes.Add(new(snapshot!.Name, snapshot.Messages.Count, snapshot.Messages.Count(message => !message.Flags.HasFlag(MailFlags.Seen)), snapshot.UidValidity));
+            boxes.Add(new(snapshot!.Name, snapshot.Messages.Count, snapshot.Messages.Count(message => !message.Flags.HasFlag(MailFlags.Seen)), snapshot.UidValidity, snapshot.Use));
         }
 
         return boxes.Count == 0
@@ -634,6 +634,26 @@ public sealed partial class ComposedStores
     }
 
     /// <summary>
+    /// Gives an account a new password while the server runs, as <see cref="AccountBook.SetPassword"/> does:
+    /// <c>AccountRemoved</c> then <c>AccountAdded</c> are published, the mail-store owner is untouched
+    /// (ADR-0132 amendment 1).
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password, never empty.</param>
+    /// <returns>Whether an account had that name; when none did, nothing changed.</returns>
+    public bool SetAccountPassword(string userName, string password)
+    {
+        if (!accounts.UserNames.Contains(userName))
+        {
+            return false;
+        }
+
+        accounts.SetPassword(userName, password);
+
+        return true;
+    }
+
+    /// <summary>
     /// Removes an account while the server runs, as <see cref="AccountBook.Remove"/> does.
     /// </summary>
     /// <remarks>
@@ -654,6 +674,9 @@ public sealed partial class ComposedStores
 
     /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
     public bool HasAccounts => accounts.HasAccounts;
+
+    /// <summary>Whether any proxy account is left, so a proxy login is required; false too when no proxy account store is composed.</summary>
+    public bool HasProxyAccounts => proxyAccounts?.HasAccounts ?? false;
 
     /// <summary>
     /// Returns every store to its configured state, one at a time in <see cref="StoreOrder"/>.

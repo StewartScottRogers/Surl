@@ -64,7 +64,7 @@ public sealed class SurlServerMail
         throwIfStopped();
         return SurlReadResults.Completed<IReadOnlyList<SurlMailboxInfo>>(() =>
             [.. SurlReadResults.ValueOrThrow(stores.ListMailboxes(owner))
-                .Select(box => new SurlMailboxInfo(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity))]);
+                .Select(box => new SurlMailboxInfo(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity, box.Use))]);
     }
 
     /// <summary>

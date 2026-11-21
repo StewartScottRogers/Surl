@@ -22,12 +22,14 @@ internal static class SmtpTraceFields
     /// <param name="protocol">RFC 3848's word for the session: <c>SMTP</c>, <c>ESMTP</c>, <c>ESMTPS</c> and so on.</param>
     /// <param name="receivedAt">When the <c>354</c> was sent.</param>
     /// <returns>The two lines, CRLF after each.</returns>
-    public static byte[] Build(string reversePath, byte[] heloDomain, EndPoint remoteEndPoint, string protocol, DateTimeOffset receivedAt)
+    /// <param name="deliveredTo">The envelope addresses to write as <c>Delivered-To</c> lines ahead of <c>Return-Path</c>, as sent (RFC 9228); <see langword="null"/> writes none.</param>
+    public static byte[] Build(string reversePath, byte[] heloDomain, EndPoint remoteEndPoint, string protocol, DateTimeOffset receivedAt, IReadOnlyList<string>? deliveredTo = null)
     {
         var date = receivedAt.UtcDateTime.ToString("ddd, dd MMM yyyy HH:mm:ss +0000", CultureInfo.InvariantCulture);
+        var deliveredToLines = string.Concat((deliveredTo ?? []).Select(address => $"Delivered-To: {address}\r\n"));
         byte[][] parts =
         [
-            Encoding.UTF8.GetBytes($"Return-Path: <{reversePath}>\r\nReceived: from "),
+            Encoding.UTF8.GetBytes($"{deliveredToLines}Return-Path: <{reversePath}>\r\nReceived: from "),
             heloDomain,
             Encoding.ASCII.GetBytes($" ({AddressLiteral(remoteEndPoint)}) by surl with {protocol}; {date}\r\n"),
         ];

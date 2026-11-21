@@ -18,6 +18,21 @@ internal sealed class SmtpMailTransaction(string reversePath)
     private readonly List<MailRecipient> deliverable = [];
     private readonly HashSet<string> deliverableOwners = new(StringComparer.Ordinal);
     private readonly List<string> discarded = [];
+    private readonly List<(string Path, MailRecipient Recipient)> resolved = [];
+
+    /// <summary>
+    /// The paths, as sent and in <c>RCPT</c> order, that resolved to the owners of one deliverable recipient: for a
+    /// named owner every recipient that reached any of its owners, for the anonymous owner that recipient's own path
+    /// (ADR-0053 Amendment 1, decisions 2 and 4).
+    /// </summary>
+    /// <param name="deliverableRecipient">An element of <see cref="Deliverable"/>.</param>
+    /// <returns>The paths its copy's <c>Delivered-To</c> lines name.</returns>
+    public IReadOnlyList<string> PathsReaching(MailRecipient deliverableRecipient) =>
+        [.. resolved
+            .Where(entry => deliverableRecipient.OwnerName.Length == 0
+                ? ReferenceEquals(entry.Recipient, deliverableRecipient)
+                : entry.Recipient.OwnerNames.Any(deliverableRecipient.OwnerNames.Contains))
+            .Select(entry => entry.Path)];
 
     /// <summary>
     /// The <c>MAIL FROM</c> path between its brackets; empty for <c>&lt;&gt;</c>.
@@ -49,6 +64,11 @@ internal sealed class SmtpMailTransaction(string reversePath)
     public void AddRecipient(string path, MailRecipient? recipient)
     {
         AcceptedRecipientCount++;
+        if (recipient is not null)
+        {
+            resolved.Add((path, recipient));
+        }
+
         if (recipient is null)
         {
             discarded.Add(path);

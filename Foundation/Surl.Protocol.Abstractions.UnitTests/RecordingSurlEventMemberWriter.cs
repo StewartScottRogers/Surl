@@ -9,6 +9,8 @@ internal sealed class RecordingSurlEventMemberWriter : ISurlEventMemberWriter
 
     public void Text(string name, string? value) => Members.Add((name, value));
 
+    public void TextList(string name, IReadOnlyList<string>? values) => Members.Add((name, values is null ? null : string.Join("|", values)));
+
     public void Number(string name, long? value) => Members.Add((name, value?.ToString()));
 
     public void Flag(string name, bool value) => Members.Add((name, value ? "true" : "false"));

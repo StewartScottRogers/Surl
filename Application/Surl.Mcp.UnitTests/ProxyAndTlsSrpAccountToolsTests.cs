@@ -35,6 +35,19 @@ public sealed class ProxyAndTlsSrpAccountToolsTests
     }
 
     [TestMethod]
+    public async Task RemoveProxyAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheProxyNeedsNoLogin()
+    {
+        await using var host = await StartProxyHostAsync();
+
+        var result = await CallAsync(host.RemoveProxyAccount, """{"server_id": "s1", "user": "alice"}""");
+
+        Assert.IsFalse(result.IsError);
+        Assert.HasCount(2, result.TextContent);
+        Assert.AreEqual("server s1 has no proxy account left and its proxy now needs no login", result.TextContent[1]);
+        StringAssert.Contains(result.TextContent[0], "\"warning\"");
+    }
+
+    [TestMethod]
     public async Task ProxyAccount_Refusals_NameTheServerAndUser()
     {
         await using var host = await StartProxyHostAsync();

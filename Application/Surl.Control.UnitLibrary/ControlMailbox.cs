@@ -5,4 +5,5 @@ namespace Surl.Control;
 /// <param name="MessageCount">How many messages it holds.</param>
 /// <param name="UnseenCount">How many of them lack <c>\Seen</c>.</param>
 /// <param name="UidValidity">Its <c>UIDVALIDITY</c>.</param>
-public sealed record ControlMailbox(string Name, int MessageCount, int UnseenCount, uint UidValidity);
+/// <param name="Use">Its special use text (such as <c>sent</c>), or <see langword="null"/> when it has none.</param>
+public sealed record ControlMailbox(string Name, int MessageCount, int UnseenCount, uint UidValidity, string? Use = null);

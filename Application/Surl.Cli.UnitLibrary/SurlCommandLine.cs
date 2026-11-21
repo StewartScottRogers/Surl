@@ -101,6 +101,13 @@ public sealed record SurlCommandLine
     public bool AllowZoneTransfer { get; init; }
 
     /// <summary>
+    /// <c>--mail-delivered-to</c>: the mail store keeps each owner's own copy of a message, beginning with one
+    /// <c>Delivered-To</c> line per envelope address that reached it (ADR-0053 amendment 1 decision 1). Off by
+    /// default, when stored mail has the bytes it always had.
+    /// </summary>
+    public bool DeliveredTo { get; init; }
+
+    /// <summary>
     /// <c>--max-connections</c>: concurrent connections and datagram flows, all listeners
     /// together; 0 is no limit. 1024 by default.
     /// </summary>

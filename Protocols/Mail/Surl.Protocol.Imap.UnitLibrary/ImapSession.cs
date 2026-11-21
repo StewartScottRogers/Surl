@@ -113,7 +113,7 @@ internal sealed partial class ImapSession
 
     // Asked afresh each time: it changes with the login and with TLS (ADR-0055, decision 2).
     private string Capabilities =>
-        ImapCapabilities.List(view is null ? mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession) : null, context.Limits.MaxUploadBytes, CanUpgrade);
+        ImapCapabilities.List(view is null ? mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession) : null, context.Limits.MaxUploadBytes, CanUpgrade, mailStore.HoldsAnyFolderUse);
 
     // STARTTLS is offered, and answered, only on a plaintext connection of a server that can
     // upgrade (ADR-0055, decision 11).
@@ -343,7 +343,7 @@ internal sealed partial class ImapSession
         var decodedPattern = ImapMailboxName.Decode(pattern);
         return decodedReference is null || decodedPattern is null
             ? ImapResponse.Only(ImapResponses.InvalidMailboxName)
-            : new ImapResponse(ImapMailboxList.Lines(command, mailStore.ListMailboxes(view!), decodedReference + decodedPattern), ImapResponses.Completed(command));
+            : new ImapResponse(ImapMailboxList.Lines(command, mailStore.ListMailboxes(view!), decodedReference + decodedPattern, mailStore.ReadMailboxUses(view!)), ImapResponses.Completed(command));
     }
 
     private ImapResponse Status(ImapArguments arguments)

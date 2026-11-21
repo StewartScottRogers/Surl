@@ -13,10 +13,11 @@ internal static class ImapMailboxList
     /// <param name="command"><c>LIST</c> or <c>LSUB</c>.</param>
     /// <param name="mailboxNames">The view's mailbox names, as the store lists them.</param>
     /// <param name="pattern">The reference and the pattern, decoded and joined.</param>
+    /// <param name="uses">The RFC 6154 use of each mailbox that has one, by name; it follows the children attribute (ADR-0055, Amendment 1).</param>
     /// <returns>One <c>* LIST</c> or <c>* LSUB</c> line per match. <c>LIST</c> also lists each
     /// parent level that is not a mailbox but has one below it as <c>\Noselect \HasChildren</c>,
     /// and answers an empty pattern with the delimiter's line.</returns>
-    public static IReadOnlyList<string> Lines(string command, IReadOnlyList<string> mailboxNames, string pattern)
+    public static IReadOnlyList<string> Lines(string command, IReadOnlyList<string> mailboxNames, string pattern, IReadOnlyDictionary<string, string> uses)
     {
         var isList = command == "LIST";
         if (pattern.Length == 0)
@@ -31,7 +32,7 @@ internal static class ImapMailboxList
             .Where(name => Matches(name, pattern))
             .OrderBy(name => name != "INBOX")
             .ThenBy(name => name, StringComparer.Ordinal)
-            .Select(name => $"* {command} ({Attributes(name, mailboxes, mailboxNames)}) \"/\" {ImapMailboxName.ToWire(name)}")
+            .Select(name => $"* {command} ({Attributes(name, mailboxes, mailboxNames, uses)}) \"/\" {ImapMailboxName.ToWire(name)}")
             .ToList();
     }
 
@@ -89,12 +90,11 @@ internal static class ImapMailboxList
         }
     }
 
-    private static string Attributes(string name, HashSet<string> mailboxes, IReadOnlyList<string> mailboxNames)
+    private static string Attributes(string name, HashSet<string> mailboxes, IReadOnlyList<string> mailboxNames, IReadOnlyDictionary<string, string> uses)
     {
         var prefix = name + ImapMailboxName.Delimiter;
         var hasChildren = mailboxNames.Any(other => other.StartsWith(prefix, StringComparison.Ordinal));
         return !mailboxes.Contains(name) ? @"\Noselect \HasChildren"
-            : hasChildren ? @"\HasChildren"
-            : @"\HasNoChildren";
+            : (hasChildren ? @"\HasChildren" : @"\HasNoChildren") + (uses.TryGetValue(name, out var use) ? " " + use : string.Empty);
     }
 }

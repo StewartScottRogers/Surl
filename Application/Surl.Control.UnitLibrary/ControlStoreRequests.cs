@@ -65,11 +65,20 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
         ControlRequestBody.RequireMediaType(request.Http, "message/rfc822");
         var message = await ControlRequestBody.ReadAsync(request.Http, request.CancellationToken);
-        await target.SeedMailAsync(recipient, message, request.CancellationToken);
+        await target.SeedMailAsync(recipient, target.WritesDeliveredTo ? WithDeliveredTo(recipient, message) : message, request.CancellationToken);
 
         return answers.NoContent(request.Http);
     }
 
+    private static byte[] WithDeliveredTo(string recipient, ReadOnlyMemory<byte> message)
+    {
+        var line = Encoding.UTF8.GetBytes($"Delivered-To: {recipient}\r\n");
+        var stamped = new byte[line.Length + message.Length];
+        line.CopyTo(stamped, 0);
+        message.CopyTo(stamped.AsMemory(line.Length));
+
+        return stamped;
+    }
     /// <summary><c>PUT /v1/files/{path}</c>: writes the body as the file.</summary>
     /// <param name="request">The request.</param>
     /// <returns><c>204</c>.</returns>
@@ -173,6 +182,37 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
     /// <returns><c>204</c>; <c>404</c> for an unknown TLS-SRP account; <c>409</c> when TLS-SRP is not configured.</returns>
     public Task<HttpAnswer> RemoveTlsSrpAccountAsync(ControlRequest request) =>
         RemoveAccountFromAsync(request, target.RemoveTlsSrpAccountAsync, "TLS-SRP account");
+
+    /// <summary><c>PUT /v1/accounts/{user}</c>: gives the account the JSON body's password (ADR-0132 amendment 1).</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>404</c> for an unknown account; <c>400</c> for an empty password.</returns>
+    public Task<HttpAnswer> SetAccountPasswordAsync(ControlRequest request) =>
+        SetPasswordOfAsync(request, target.SetAccountPasswordAsync, "account");
+
+    /// <summary><c>PUT /v1/proxy-accounts/{user}</c>: gives the proxy account the JSON body's password.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>404</c> for an unknown proxy account; <c>400</c> for an empty password; <c>409</c> when none is configured.</returns>
+    public Task<HttpAnswer> SetProxyAccountPasswordAsync(ControlRequest request) =>
+        SetPasswordOfAsync(request, target.SetProxyAccountPasswordAsync, "proxy account");
+
+    /// <summary><c>PUT /v1/tls-srp-accounts/{user}</c>: gives the TLS-SRP account the JSON body's password.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>404</c> for an unknown TLS-SRP account; <c>400</c> for an empty password; <c>409</c> when TLS-SRP is not configured.</returns>
+    public Task<HttpAnswer> SetTlsSrpAccountPasswordAsync(ControlRequest request) =>
+        SetPasswordOfAsync(request, target.SetTlsSrpAccountPasswordAsync, "TLS-SRP account");
+
+    private async Task<HttpAnswer> SetPasswordOfAsync(ControlRequest request, Func<string, string, CancellationToken, Task<bool>> setPassword, string kind)
+    {
+        var body = await ReadJsonAsync(request, ControlJsonContext.Default.ControlPasswordRequestJson);
+        if (string.IsNullOrEmpty(body.Password))
+        {
+            throw new ControlErrorException(ControlError.BadRequest("give a password, not empty"));
+        }
+
+        return await setPassword(request.Parameters[0], body.Password, request.CancellationToken)
+            ? answers.NoContent(request.Http)
+            : throw NotFound($"no {kind} is named {request.Parameters[0]}");
+    }
 
     private async Task<HttpAnswer> AddAccountToAsync(ControlRequest request, Func<string, string, CancellationToken, Task> add)
     {

@@ -91,7 +91,7 @@ public sealed partial class MailboxStore
     private OwnerMailboxes? anonymousOwner;
     private MailDomainRouter? router;
     private MailStoreFiles? files;
-    private readonly Dictionary<OwnerMailboxes, string[]>? configuredMailboxes;
+    private readonly Dictionary<OwnerMailboxes, (string Name, string? Use)[]>? configuredMailboxes;
     private readonly string[] configuredAccountNames = [];
     private ulong nextFileNumber;
     private uint lastUidValidity;
@@ -145,7 +145,7 @@ public sealed partial class MailboxStore
     {
         ArgumentNullException.ThrowIfNull(accountNames);
         anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
-        configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Keys.ToArray());
+        configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Values.Select(mailbox => (mailbox.Name, mailbox.Use)).ToArray());
         configuredAccountNames = [.. accounts.Keys];
 
         // A new store starts with no change: its INBOXes are where it begins, not a change to it.
@@ -201,6 +201,7 @@ public sealed partial class MailboxStore
     /// <see langword="null"/> to publish nothing.</param>
     /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
     /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
+    /// <param name="deliveredToEnabled">The value of <see cref="DeliveredToEnabled"/>; false by default.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The loaded store.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
@@ -222,11 +223,15 @@ public sealed partial class MailboxStore
         MailDomainConfiguration? mailDomains = null,
         ISurlEventPublisher? events = null,
         IFaultPlan? faults = null,
+        bool deliveredToEnabled = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(accountNames);
-        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults);
+        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults)
+        {
+            DeliveredToEnabled = deliveredToEnabled,
+        };
         var index = await files.ReadIndexAsync(cancellationToken);
         if (index is not null)
         {
@@ -243,6 +248,14 @@ public sealed partial class MailboxStore
     /// checked again here as a second line of defence; 0 means no limit.
     /// </summary>
     public long MaxMessageBytes { get; }
+
+    /// <summary>
+    /// Whether the delivering servers write a <c>Delivered-To</c> line per envelope address into each owner's copy
+    /// (ADR-0053 Amendment 1, decisions 1 and 4); false unless the composition root sets it. The store only carries
+    /// the setting: the SMTP server reads it and builds each owner's own copy for
+    /// <see cref="Deliver(IReadOnlyList{MailOwnerCopy}, ExchangeContext)"/>.
+    /// </summary>
+    public bool DeliveredToEnabled { get; init; }
 
     /// <summary>
     /// The most messages the store holds, every owner and mailbox together.
@@ -423,12 +436,12 @@ public sealed partial class MailboxStore
             var outcome = CheckPending(message);
             return outcome != MailStoreOutcome.Succeeded || recipients.Count == 0
                 ? outcome
-                : DeliverUnlessOutOfSpace(recipients.SelectMany(recipient => recipient.Owners).ToList(), message, exchange);
+                : DeliverUnlessOutOfSpace(DeliveriesOf(recipients), message, exchange);
         }
     }
 
     /// <summary>
-    /// As <see cref="Deliver"/>, but awaits the fault plan's answer before the store's lock, so a
+    /// As <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/>, but awaits the fault plan's answer before the store's lock, so a
     /// <see cref="Surl.Protocol.Abstractions.IFaultPlan"/> that answers later can refuse the write with
     /// <see cref="MailStoreOutcome.QuotaExceeded"/> (BL-868, ADR-0127 decision 5).
     /// </summary>
@@ -436,7 +449,7 @@ public sealed partial class MailboxStore
     /// <param name="message">The pending message, its bytes all written; disposed whatever the outcome.</param>
     /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
     /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
-    /// <returns>As <see cref="Deliver"/> returns.</returns>
+    /// <returns>As <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> returns.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
     /// or disposed already.</exception>
@@ -458,8 +471,8 @@ public sealed partial class MailboxStore
                 return outcome;
             }
 
-            var inboxOwners = recipients.SelectMany(recipient => recipient.Owners).ToList();
-            var targets = inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
+            var inboxOwners = DeliveriesOf(recipients);
+            var targets = inboxOwners.Select(delivery => delivery.Owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
             return await IsOutOfSpaceAsync(targets, exchange, cancellationToken).ConfigureAwait(false)
                 ? MailStoreOutcome.QuotaExceeded
                 : DeliverPending(inboxOwners, message, StoreChange.Delivered, exchange);
@@ -508,15 +521,158 @@ public sealed partial class MailboxStore
         }
     }
 
-    private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message, ExchangeContext? exchange) =>
-        IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)), exchange)
+    /// <summary>
+    /// Delivers each of <paramref name="copies"/> to the <c>INBOX</c> of the owners of its recipient, every owner's copy its own
+    /// message with its own message file, all of them or none (ADR-0053 Amendment 1, decisions 3 and 4; ADR-0050 decision 3).
+    /// Every delivery's <see cref="Surl.Protocol.Abstractions.StoreChangedEvent.DeliveredFor"/> is that copy's
+    /// <see cref="MailOwnerCopy.DeliveredFor"/>, in the order given. One refusal stores nothing for any owner. Every
+    /// pending message is disposed whatever the outcome: kept as a message file when stored, deleted when not.
+    /// </summary>
+    /// <param name="copies">The copies, each with its own pending message, its bytes all written.</param>
+    /// <param name="exchange">The exchange behind the write, as <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> takes it.</param>
+    /// <returns>As <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> returns, with <see cref="MailStoreOutcome.QuotaExceeded"/> when any owner's quota or the out-of-space fault refuses it.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="copies"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">A pending message was stored, refused or disposed already.</exception>
+    public MailStoreOutcome Deliver(IReadOnlyList<MailOwnerCopy> copies, ExchangeContext? exchange = null)
+    {
+        ArgumentNullException.ThrowIfNull(copies);
+        try
+        {
+            var outcome = CloseAndCheck(copies);
+            if (outcome != MailStoreOutcome.Succeeded || copies.Count == 0)
+            {
+                return outcome;
+            }
+
+            return IsOutOfSpace(InboxTargetsOf(copies), exchange) ? MailStoreOutcome.QuotaExceeded : DeliverCopiesPending(copies, exchange);
+        }
+        finally
+        {
+            DisposeAll(copies);
+        }
+    }
+
+    /// <summary>
+    /// As <see cref="Deliver(IReadOnlyList{MailOwnerCopy}, ExchangeContext)"/>, but awaits the fault plan's answer before the store's lock.
+    /// </summary>
+    /// <param name="copies">The copies, each with its own pending message.</param>
+    /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
+    /// <param name="exchange">The exchange behind the write.</param>
+    /// <returns>As <see cref="Deliver(IReadOnlyList{MailOwnerCopy}, ExchangeContext)"/> returns.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="copies"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">A pending message was stored, refused or disposed already.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public async Task<MailStoreOutcome> DeliverAsync(IReadOnlyList<MailOwnerCopy> copies, CancellationToken cancellationToken, ExchangeContext? exchange = null)
+    {
+        ArgumentNullException.ThrowIfNull(copies);
+        try
+        {
+            var outcome = CloseAndCheck(copies);
+            if (outcome != MailStoreOutcome.Succeeded || copies.Count == 0)
+            {
+                return outcome;
+            }
+
+            return await IsOutOfSpaceAsync(InboxTargetsOf(copies), exchange, cancellationToken).ConfigureAwait(false)
+                ? MailStoreOutcome.QuotaExceeded
+                : DeliverCopiesPending(copies, exchange);
+        }
+        finally
+        {
+            DisposeAll(copies);
+        }
+    }
+
+    private static List<OwnerDelivery> DeliveriesOf(IEnumerable<MailRecipient> recipients) =>
+        [.. recipients.SelectMany(recipient => recipient.Owners.Select(owner => new OwnerDelivery(owner, recipient.DeliveredFor)))];
+
+    private MailStoreOutcome CloseAndCheck(IReadOnlyList<MailOwnerCopy> copies)
+    {
+        foreach (var copy in copies)
+        {
+            copy.Message.Close();
+        }
+
+        return copies.Select(copy => CheckPending(copy.Message)).Where(outcome => outcome != MailStoreOutcome.Succeeded).DefaultIfEmpty(MailStoreOutcome.Succeeded).First();
+    }
+
+    private static void DisposeAll(IReadOnlyList<MailOwnerCopy> copies)
+    {
+        foreach (var copy in copies)
+        {
+            copy.Message.Dispose();
+        }
+    }
+
+    private static IEnumerable<(string, string)> InboxTargetsOf(IReadOnlyList<MailOwnerCopy> copies) =>
+        copies.SelectMany(copy => copy.Recipient.OwnerNames).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
+
+    private MailStoreOutcome DeliverCopiesPending(IReadOnlyList<MailOwnerCopy> copies, ExchangeContext? exchange)
+    {
+        lock (storeLock)
+        {
+            var deliveries = copies.Select(copy => copy.Recipient.Owners.Select(owner => new OwnerDelivery(owner, copy.DeliveredFor)).ToList()).ToList();
+            var parts = copies.SelectMany((copy, index) => deliveries[index].Select(delivery => (delivery.Owner, copy.Message.Length))).ToList();
+            if (parts.GroupBy(part => part.Owner).Any(owner => !WithinQuota(owner.Key, owner.Sum(part => part.Length))))
+            {
+                return MailStoreOutcome.QuotaExceeded;
+            }
+
+            if (!HasRoomFor(parts.ConvertAll(part => part.Owner.Inbox), copies.Sum(copy => copy.Message.Length)))
+            {
+                return MailStoreOutcome.StoreFull;
+            }
+
+            var bodies = KeepBodies(copies);
+            if (bodies is null)
+            {
+                return MailStoreOutcome.StorageFailed;
+            }
+
+            for (var index = 0; index < bodies.Count; index++)
+            {
+                DeliverBody(deliveries[index], bodies[index], StoreChange.Delivered, exchange);
+            }
+
+            changeCount++;
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Keeps every copy's pending message as its own message file, or none: when one cannot be kept, those already kept are let go.
+    /// </summary>
+    private List<MessageBody>? KeepBodies(IReadOnlyList<MailOwnerCopy> copies)
+    {
+        var bodies = new List<MessageBody>();
+        foreach (var copy in copies)
+        {
+            var body = KeepBody(copy.Message);
+            if (body is null)
+            {
+                bodies.ForEach(kept =>
+                {
+                    kept.ReferenceCount++;
+                    Unreference(kept);
+                });
+                return null;
+            }
+
+            bodies.Add(body);
+        }
+
+        return bodies;
+    }
+
+    private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerDelivery> inboxOwners, PendingMessage message, ExchangeContext? exchange) =>
+        IsOutOfSpace(inboxOwners.Select(delivery => delivery.Owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)), exchange)
             ? MailStoreOutcome.QuotaExceeded
             : DeliverPending(inboxOwners, message, StoreChange.Delivered, exchange);
 
-    private bool IsAnyOwnerOverQuota(List<OwnerMailboxes> inboxOwners, long messageLength) =>
-        inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, messageLength * copies.Count()));
+    private bool IsAnyOwnerOverQuota(List<OwnerDelivery> inboxOwners, long messageLength) =>
+        inboxOwners.GroupBy(delivery => delivery.Owner).Any(copies => !WithinQuota(copies.Key, messageLength * copies.Count()));
 
-    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message, StoreChange change, ExchangeContext? exchange)
+    private MailStoreOutcome DeliverPending(List<OwnerDelivery> inboxOwners, PendingMessage message, StoreChange change, ExchangeContext? exchange)
     {
         lock (storeLock)
         {
@@ -525,7 +681,7 @@ public sealed partial class MailboxStore
                 return MailStoreOutcome.QuotaExceeded;
             }
 
-            var inboxes = inboxOwners.ConvertAll(owner => owner.Inbox);
+            var inboxes = inboxOwners.ConvertAll(delivery => delivery.Owner.Inbox);
             if (!HasRoomFor(inboxes, message.Length))
             {
                 return MailStoreOutcome.StoreFull;
@@ -538,6 +694,7 @@ public sealed partial class MailboxStore
             }
 
             DeliverBody(inboxOwners, body, change, exchange);
+            changeCount++;
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -982,6 +1139,7 @@ public sealed partial class MailboxStore
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The new mailbox's name.</param>
     /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="use">The RFC 6154 use the mailbox gets (<see cref="MailFolderUse"/>, with or without the backslash), or <see langword="null"/> for none; <see cref="MailStoreOutcome.FolderUseUnknown"/> or <see cref="MailStoreOutcome.FolderUseTaken"/> refuse it.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
     /// <see cref="MailStoreOutcome.InvalidName"/>, <see cref="MailStoreOutcome.AlreadyExists"/> or
@@ -989,19 +1147,25 @@ public sealed partial class MailboxStore
     /// when no <c>UIDVALIDITY</c> is left to give.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null)
+    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null, string? use = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(mailboxName);
         lock (storeLock)
         {
             var outcome = CheckNewMailbox(view, mailboxName);
+            var canonicalUse = MailFolderUse.Canonical(use);
+            if (outcome == MailStoreOutcome.Succeeded)
+            {
+                outcome = CheckUse(view.Owner!, use, canonicalUse);
+            }
+
             if (outcome != MailStoreOutcome.Succeeded)
             {
                 return outcome;
             }
 
-            var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1);
+            var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1) { Use = canonicalUse };
             AddMailbox(view.Owner!, created);
             changeCount++;
             PublishMailbox(StoreChange.Written, view.Owner!, created, exchange);
@@ -1081,7 +1245,8 @@ public sealed partial class MailboxStore
             }
 
             var owner = view.Owner!;
-            var renamed = new StoredMailbox(newMailboxName, IssueUidValidity(), mailbox!.NextUid) { Messages = mailbox.Messages };
+            var renamed = new StoredMailbox(newMailboxName, IssueUidValidity(), mailbox!.NextUid) { Messages = mailbox.Messages, Use = mailbox.Use };
+            mailbox.Use = null;
             mailbox.Messages = [];
             if (!renamesInbox)
             {
@@ -1411,9 +1576,10 @@ public sealed partial class MailboxStore
                 quotas.Add(owner, quota);
             }
 
-            foreach (var folder in mailbox.Folders)
+            var uses = mailbox.FolderUses ?? new Dictionary<string, string>();
+            foreach (var folder in mailbox.Folders.Concat(uses.Keys))
             {
-                AddConfiguredMailbox(owner, folder);
+                AddConfiguredMailbox(owner, folder, uses.GetValueOrDefault(folder));
             }
         }
     }
@@ -1449,7 +1615,7 @@ public sealed partial class MailboxStore
     /// exists; <c>INBOX</c> always does.
     /// </summary>
     /// <exception cref="InvalidOperationException">It would pass <see cref="MaxMailboxes"/>.</exception>
-    private void AddConfiguredMailbox(OwnerMailboxes owner, string name)
+    private void AddConfiguredMailbox(OwnerMailboxes owner, string name, string? use = null)
     {
         if (owner.Find(name) is not null)
         {
@@ -1461,7 +1627,7 @@ public sealed partial class MailboxStore
             throw new InvalidOperationException($"The configured mailbox {name} of {owner.Name} would pass the store's {MaxMailboxes} mailboxes.");
         }
 
-        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1));
+        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1) { Use = use });
         changeCount++;
     }
 
@@ -1538,6 +1704,59 @@ public sealed partial class MailboxStore
         return view.Owner.Find(mailboxName) is null ? CheckRoomForMailbox(addsMailbox) : MailStoreOutcome.AlreadyExists;
     }
 
+    /// <summary>
+    /// Whether <paramref name="owner"/> may give a mailbox <paramref name="use"/> (given as asked,
+    /// <paramref name="canonicalUse"/> as <see cref="MailFolderUse.Canonical"/> spells it): none
+    /// asked is always fine.
+    /// </summary>
+    private static MailStoreOutcome CheckUse(OwnerMailboxes owner, string? use, string? canonicalUse)
+    {
+        if (use is null)
+        {
+            return MailStoreOutcome.Succeeded;
+        }
+
+        if (canonicalUse is null)
+        {
+            return MailStoreOutcome.FolderUseUnknown;
+        }
+
+        return owner.Mailboxes.Values.Any(held => held.Use == canonicalUse) ? MailStoreOutcome.FolderUseTaken : MailStoreOutcome.Succeeded;
+    }
+
+    /// <summary>
+    /// The RFC 6154 use of each of the view's own mailboxes that has one, by mailbox name; empty
+    /// for an empty view. Shared folders have none.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <returns>Mailbox name to use in its canonical spelling, such as <c>\Sent</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> is <see langword="null"/>.</exception>
+    public IReadOnlyDictionary<string, string> ReadMailboxUses(MailView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        lock (storeLock)
+        {
+            var held = view.Owner?.Mailboxes.Values.Where(mailbox => mailbox.Use is not null && !HidesAsShared(view, mailbox.Name)) ?? [];
+            return held.ToDictionary(mailbox => mailbox.Name, mailbox => mailbox.Use!, StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Whether any mailbox of any owner holds an RFC 6154 use right now. IMAP advertises
+    /// <c>SPECIAL-USE</c> only while this is true (ADR-0055, Amendment 1), and the answer does not
+    /// depend on a login.
+    /// </summary>
+    public bool HoldsAnyFolderUse
+    {
+        get
+        {
+            lock (storeLock)
+            {
+                return owners.Values.Any(owner => owner.Mailboxes.Values.Any(mailbox => mailbox.Use is not null));
+            }
+        }
+    }
+
     private MailStoreOutcome CheckRoomForMailbox(bool addsMailbox)
     {
         if (addsMailbox && mailboxCount >= MaxMailboxes)
@@ -1595,16 +1814,14 @@ public sealed partial class MailboxStore
     private bool HasRoomForCopies(StoredMailbox destination, int count) =>
         messageCount + (long)count <= MaxMessages && destination.CanGiveUids(count);
 
-    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body, StoreChange change, ExchangeContext? exchange)
+    private void DeliverBody(List<OwnerDelivery> inboxOwners, MessageBody body, StoreChange change, ExchangeContext? exchange)
     {
         var now = timeProvider.GetUtcNow();
-        foreach (var owner in inboxOwners)
+        foreach (var (owner, deliveredFor) in inboxOwners)
         {
             var place = new MailboxPlace(owner, owner.Inbox);
-            PublishMessage(change, place, AddMessage(place.Mailbox, body, now, MailFlags.None), exchange);
+            PublishMessage(change, place, AddMessage(place.Mailbox, body, now, MailFlags.None), exchange, deliveredFor);
         }
-
-        changeCount++;
     }
 
     /// <summary>

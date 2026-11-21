@@ -481,7 +481,10 @@ For test suites not written in .NET: HTTP and JSON on loopback, off by default.
   | `PUT /v1/files/{path}` | the file's bytes | `204` |
   | `DELETE /v1/files/{path}` | | `204` |
   | `POST /v1/messages` | JSON `topic` or `queue`, `payload_text` or `payload_base64`, `retain` | `204` |
-  | `POST /v1/accounts` | JSON `user`, `password` | `204` |
+  | `POST /v1/accounts` | JSON `user`, `password` | `204`, or `409 conflict` when the name has an account (ADR-0132 amendment 1) |
+  | `PUT /v1/accounts/{user}` | JSON `password` | `204`, or `404 not_found` (ADR-0132 amendment 1) |
+  | `PUT /v1/proxy-accounts/{user}` | JSON `password` | `204`, or `404 not_found` |
+  | `PUT /v1/tls-srp-accounts/{user}` | JSON `password` | `204`, or `404 not_found` |
   | `DELETE /v1/accounts/{user}` | | `204` |
   | `POST /v1/reset` | | `204` |
   | `POST /v1/snapshots` | | `201 {"snapshot_id": "p1"}` |
@@ -494,7 +497,7 @@ For test suites not written in .NET: HTTP and JSON on loopback, off by default.
 - **Errors** are JSON `{"error": "<code>", "message": "<text>"}`: `400 bad_request` (a malformed query,
   JSON or fault item, with the reader's refusal text), `401 unauthorized`, `403 forbidden`,
   `404 not_found` (an unknown path, fault, snapshot or account), `405 method_not_allowed`,
-  `409 conflict` (a disk store asked to reset, snapshot or restore; a snapshot over its bound),
+  `409 conflict` (a disk store asked to reset, snapshot or restore; a snapshot over its bound; an account added twice),
   `413 too_large`, `415 unsupported_media_type`.
 - **Changes are published** on the event stream like any other store change or fault application.
 
@@ -514,6 +517,9 @@ For test suites not written in .NET: HTTP and JSON on loopback, off by default.
   | `put_file` | `path`, `text` or `base64` | `{"path", "byte_count"}` | BL-812 |
   | `publish_message` | `topic` or `queue`, `payload` or `payload_base64`, `retain` | `{"published": true}` | BL-812 |
   | `add_account` | `user`, `password` | `{"user"}` - never the password | BL-812 |
+  | `set_account_password` | `server_id`, `user`, `password` | `{"user"}` - never the password | ADR-0132 amendment 1 |
+  | `set_proxy_account_password` | `server_id`, `user`, `password` | `{"user"}` | ADR-0132 amendment 1 |
+  | `set_tls_srp_account_password` | `server_id`, `user`, `password` | `{"user"}` | ADR-0132 amendment 1 |
   | `reset_server` | | `{"server_id"}` | BL-812 |
   | `snapshot_server` | | `{"snapshot_id"}` | BL-812 |
   | `restore_server` | `snapshot_id` | `{"server_id", "snapshot_id"}` | BL-812 |

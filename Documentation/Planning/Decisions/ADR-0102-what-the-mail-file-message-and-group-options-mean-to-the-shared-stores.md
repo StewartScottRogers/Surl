@@ -171,7 +171,8 @@ order, the first step that matches deciding; local parts compare as ADR-0050 dec
   is not a secret; a password never appears. So at runtime an alias always ends in owners, and
   expansion needs no depth limit beyond the alias count.
 - **One copy per owner per message.** However many `RCPT`s, aliases and catch-alls name an owner,
-  it receives one copy (ADR-0053's "two `RCPT`s naming the same account deliver one copy").
+  it receives one copy (ADR-0053's "two `RCPT`s naming the same account deliver one copy"). With `--mail-delivered-to` the copy carries one `Delivered-To` per envelope
+  address that reached its owner (ADR-0053 amendment 1).
 - **`--mail-catch-all`** widens access (ADR-0101 decision 4: warned at every start): mail to every
   unknown local part of its domain is kept instead of discarded.
 - **POP3 and IMAP are untouched by resolution**: they read an owner's mailboxes after a login.
@@ -182,7 +183,8 @@ order, the first step that matches deciding; local parts compare as ADR-0050 dec
   `--mailbox` account logs in on the mail schemes only: `smtp`, `smtps`, `imap`, `imaps`, `pop3`,
   `pop3s`. **Why:** a mailbox password is a mail credential; letting it open FTP or SMB would widen
   access beyond what the option names. Given, it replaces that list and may name any scheme a
-  registered server speaks (`protocols=imap,ftp` opens FTP on purpose).
+  registered server speaks and makes a login on (`protocols=imap,ftp` opens FTP on purpose; amended
+  2026-11-20, BL-1483, section 4.3: `gopher` and other login-less schemes are refused).
 - **`quota=<bytes>`** bounds the bytes of every message in the owner's own mailboxes, each copy at
   its full size (ADR-0050 decision 7's shared message files do not discount it). `0` is refused
   (row 10, `key quota needs a value above 0`). The quota is configuration, never persisted; usage is
@@ -520,6 +522,30 @@ topic restricted by access rows could never serve TFTP, Gopher or `--allow-anony
   servers answer exactly as before. The SSH server is composed once for `scp` and once for `sftp`,
   each registered alone through `SingleSchemeServer`, so `protocols=sftp` admits one and not the
   other. Decided by Claude under Stewart's delegation.
+- **Amendment, 2026-11-20 (BL-1483) - `protocols=` may not name a scheme no login is made on.**
+  Decided by Claude under Stewart's delegation. No upstream curl behaviour is involved.
+  - **Rule.** A scheme in a `protocols=` list is refused with exit 2 (`SurlExitCode` usage) when the
+    server registered for it makes no login, with the text `scheme <scheme> has no login`. Such an
+    account would start and then be reachable nowhere, which is the silent unreachability ADR-0101
+    decision 4 exists to prevent (secure by default; say what it does). Allowing and warning was
+    rejected: the sentence is a typo-catcher, and a warning is easy to miss in a test log.
+  - **What counts as "no login".** Derived, never listed: a registration in `Surl.Composition`'s
+    `ProtocolServerRegistrations` states whether its server asks its `AuthenticationPolicy` for a login
+    (a `MakesLogin` flag on the registration, true for those built from `AuthenticationPolicyFor`).
+    Today the schemes with none are `gopher`, `tftp`, `dict`, `telnet`; the list grows with each new
+    server's registration, so no central switch is edited. An unregistered scheme keeps the existing
+    `unknown scheme <scheme>` refusal.
+  - **When.** At start, in `Surl.Composition`, after the registrations are built and before any
+    `Listening on` line, because only composition knows the registrations; `Surl.Cli` keeps its parse-time
+    check for a scheme no server speaks. The same check applies to `surl.Api` and `surl.Mcp` starts, which
+    compose the same way.
+  - **Covers.** `protocols=` on `--mailbox`, `--mailbox-file` rows and `--user-ldap`'s accounts where it reads
+    the same key; not `--topic-map`, whose schemes name message endpoints, not logins.
+  - **Corrections.** ADR-0101 decision 4's sentence "A scheme no registered server speaks ... is refused" stays
+    true but is not the whole rule: it is read with this amendment, which adds the no-login refusal.
+    ADR-0102 decision 1.4's "may name any scheme a registered server speaks" is overruled to "any scheme
+    a registered server speaks and makes a login on".
+  - **Follow-up tasks:** the code and tests, and the `--aihelp`/`--manual` text, are filed from BL-1483.
 
 ### 5. What `Surl.Composition` composes, and what `surl -v` notes
 

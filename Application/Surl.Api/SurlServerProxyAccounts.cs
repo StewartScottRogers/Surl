@@ -13,7 +13,13 @@ public sealed class SurlServerProxyAccounts
 {
     private readonly ComposedStores stores;
 
-    internal SurlServerProxyAccounts(ComposedStores stores) => this.stores = stores;
+    private readonly TextWriter log;
+
+    internal SurlServerProxyAccounts(ComposedStores stores, TextWriter log)
+    {
+        this.stores = stores;
+        this.log = log;
+    }
 
     /// <summary>
     /// Adds a proxy account. Publishes a <see cref="Protocol.Abstractions.StoreChangedEvent"/> with
@@ -37,6 +43,12 @@ public sealed class SurlServerProxyAccounts
     }
 
     /// <summary>Removes a proxy account, one given at start included.</summary>
+    /// <remarks>
+    /// Removing the last proxy account leaves the proxy needing no login. That stays allowed;
+    /// <see cref="HasAccounts"/> turns <see langword="false"/> and a line
+    /// <c>surl: warning: no proxy account left; the proxy now needs no login</c> goes to
+    /// <see cref="SurlServerOptions.Log"/>. <see cref="Add"/> closes it again.
+    /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns><see langword="true"/> when a proxy account had that name.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="userName"/> is null.</exception>
@@ -44,6 +56,45 @@ public sealed class SurlServerProxyAccounts
     public bool Remove(string userName)
     {
         ArgumentNullException.ThrowIfNull(userName);
-        return stores.RemoveProxyAccount(userName);
+        var isRemoved = stores.RemoveProxyAccount(userName);
+        if (isRemoved && !HasAccounts)
+        {
+            log.WriteLine("surl: warning: no proxy account left; the proxy now needs no login");
+        }
+
+        return isRemoved;
     }
+
+    /// <summary>
+    /// Changes a proxy account's password, keeping every other account. Publishes
+    /// <see cref="Protocol.Abstractions.StoreChange.AccountRemoved"/> then
+    /// <see cref="Protocol.Abstractions.StoreChange.AccountAdded"/> on
+    /// <see cref="Protocol.Abstractions.StoreKind.ProxyAccounts"/>, and never warns that no account is left.
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="password"/> is empty, or no proxy account has that user name.</exception>
+    /// <exception cref="InvalidOperationException">The server holds no proxy accounts.</exception>
+    public void SetPassword(string userName, string password)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(password);
+        if (password.Length == 0)
+        {
+            throw new ArgumentException("A password may not be empty.", nameof(password));
+        }
+
+        if (!stores.RemoveProxyAccount(userName))
+        {
+            throw new ArgumentException("No proxy account has that user name.", nameof(userName));
+        }
+
+        stores.AddProxyAccount(new Account(userName, password));
+    }
+
+    /// <summary>
+    /// Whether a proxy account is left. <see langword="false"/> means the proxy needs no login.
+    /// </summary>
+    public bool HasAccounts => stores.HasProxyAccounts;
 }

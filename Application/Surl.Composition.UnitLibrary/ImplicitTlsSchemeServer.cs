@@ -57,17 +57,4 @@ public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer, IExchan
     /// <returns>The registered server's redactor, or one that passes every byte through.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
         Server is IExchangeBytesRedactingServer redacting ? redacting.CreateRedactor(context) : new PassThroughRedactor();
-
-    private sealed class PassThroughRedactor : IReceivedBytesRedactor
-    {
-        public void Redact(ReadOnlySpan<byte> received, System.Buffers.ArrayBufferWriter<byte> output) => System.Buffers.BuffersExtensions.Write(output, received);
-
-        public void ObserveSent(ReadOnlySpan<byte> sent)
-        {
-        }
-
-        public void Flush(System.Buffers.ArrayBufferWriter<byte> output)
-        {
-        }
-    }
 }
