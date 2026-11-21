@@ -8,7 +8,7 @@ depends-on: [BL-1512]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1514 — Show a mailbox's use in the surl-mcp mailbox tool
 
@@ -22,13 +22,16 @@ ADR-0055 Amendment 1, decision 6. Depends on `SurlMailboxInfo.Use` in Surl.Api (
 
 ## Acceptance criteria
 
-- [ ] The tool result includes `"use"` for a mailbox with a use and omits it otherwise, so existing results are byte-identical.
-- [ ] The tool's description and output schema (if any) name the `use` field.
-- [ ] Tests exist and pass, coverage stays 100%, and `dotnet build` of both projects with `-warnaserror` is clean.
+- [x] The tool result includes `"use"` for a mailbox with a use and omits it otherwise, so existing results are byte-identical.
+- [x] The tool's description and output schema (if any) name the `use` field.
+- [x] Tests exist and pass, coverage stays 100%, and `dotnet build` of both projects with `-warnaserror` is clean.
 
 ## Notes
+
+- `use` is written only when non-null; description and doc comment name it. The tool has no output schema.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. list_mailboxes shows a mailbox's use when it has one

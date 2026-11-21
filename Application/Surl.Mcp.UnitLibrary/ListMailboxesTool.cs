@@ -6,7 +6,7 @@ namespace Surl.Mcp;
 /// <summary>
 /// The <c>list_mailboxes</c> tool (ADR-0164 decision 6): lists an account's mailboxes on a running server's mail
 /// store, through <c>Surl.Api</c>'s <c>SurlServer.Mail.ListMailboxesAsync</c>. Result <c>{"mailboxes": [{"name",
-/// "message_count", "unseen_count", "uid_validity"}]}</c>. It changes no flag and publishes no event; an absent
+/// "message_count", "unseen_count", "uid_validity", "use"?}]}</c> (<c>use</c>, such as <c>\Sent</c>, only for a mailbox that has one). It changes no flag and publishes no event; an absent
 /// account is an <c>isError</c> result with the API's message.
 /// </summary>
 public static class ListMailboxesTool
@@ -17,7 +17,7 @@ public static class ListMailboxesTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "List an account's mailboxes on a running Surl server's mail store: name, message count, unseen count and "
-        + "UIDVALIDITY. Changes no flag.";
+        + "UIDVALIDITY, and its RFC 6154 use (such as \\Sent) when it has one. Changes no flag.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -52,6 +52,11 @@ public static class ListMailboxesTool
                 writer.WriteNumber("message_count", mailbox.MessageCount);
                 writer.WriteNumber("unseen_count", mailbox.UnseenCount);
                 writer.WriteNumber("uid_validity", mailbox.UidValidity);
+                if (mailbox.Use is not null)
+                {
+                    writer.WriteString("use", mailbox.Use);
+                }
+
                 writer.WriteEndObject();
             }
 
