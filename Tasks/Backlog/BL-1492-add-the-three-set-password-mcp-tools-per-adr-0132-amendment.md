@@ -4,7 +4,7 @@ title: Add the three set-password MCP tools per ADR-0132 amendment 1
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1482, BL-1493, BL-1494]
+depends-on: [BL-1482, BL-1493, BL-1494, BL-1491, BL-1505]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20
@@ -30,3 +30,4 @@ completed:
 ## Log
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Backlog. Needs Surl.Api SetPassword on the account, proxy and TLS-SRP views: waits for BL-1491 and BL-1505
