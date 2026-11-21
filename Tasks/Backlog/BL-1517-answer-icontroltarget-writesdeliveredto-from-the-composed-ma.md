@@ -1,5 +1,5 @@
 ---
-id: BL-1515
+id: BL-1517
 title: Answer IControlTarget.WritesDeliveredTo from the composed mail store
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1515 — Answer IControlTarget.WritesDeliveredTo from the composed mail store
+# BL-1517 — Answer IControlTarget.WritesDeliveredTo from the composed mail store
 
 ## Goal
 

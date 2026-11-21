@@ -29,7 +29,7 @@ ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Control.UnitLibrary/Co
 
 ## Notes
 
-- Decision: the endpoint cannot see the store option, so `IControlTarget` gained a default-false `WritesDeliveredTo`; the endpoint prepends the line. The composed target answering it is BL-1515 (needs BL-1502). A discarded recipient stays the target store's existing behaviour: the endpoint hands the message over and the store stores nothing, as before.
+- Decision: the endpoint cannot see the store option, so `IControlTarget` gained a default-false `WritesDeliveredTo`; the endpoint prepends the line. The composed target answering it is BL-1517 (needs BL-1502). A discarded recipient stays the target store's existing behaviour: the endpoint hands the message over and the store stores nothing, as before.
 
 ## Log
 
