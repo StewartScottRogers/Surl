@@ -50,3 +50,4 @@ from which clock and in what form; any implementation it calls for is filed as t
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
