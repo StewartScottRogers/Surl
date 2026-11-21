@@ -8,7 +8,7 @@ depends-on: [BL-1520, BL-1529, BL-1530]
 touches: [Surl.Core.UnitLibrary, Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1521 — Release the connection slot when the client leaves during an Accept-stage delay per BL-1520's ADR-0141 amendment
 
@@ -31,17 +31,20 @@ Stand-in: no store; a test sees the early end as the `ExchangeEndedEvent` on the
 
 ## Acceptance criteria
 
-- [ ] A `ServingEngineTests.Faults.cs` test: under `delay;ms=60000` and a one-connection-per-address limit, a client that half-closes during the hold ends its exchange without the `ManualTimeProvider` advancing, and a second connection from the same address is served, not refused.
-- [ ] The same for a client whose connection is reset (its read throws `IOException`) during the hold.
-- [ ] A test that a client which sends its request and stays connected is served after the delay with every byte it sent, as `ServeAsync_DelayRule_HoldsTheExchangeUntilTheClockAdvancesByTheDelay_AndPublishesIt` shows today.
-- [ ] A test that the exchange log holds the note BL-1520's amendment names when the hold ends early.
-- [ ] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean and `dotnet test Foundation/Surl.Core.UnitTests --filter "TestCategory!=Integration"` passes, with 100% line and branch coverage of the changed files; no test needs `TestCategory=Integration`.
-- [ ] Core's own `IConnection` wrappers (`IdleClockRestartingConnection`, `RecordingConnection`, `DroppingAfterBytesConnection`) forward `WatchForPeerCloseAsync`; the idle-clock wrapper does not restart the idle clock for it (ADR-0141 Amendment 2 decision 2).
-- [ ] `Foundation/Surl.Core.UnitLibrary/CLAUDE.md` states that an `Accept`-stage hold ends when the client leaves.
+- [x] A `ServingEngineTests.Faults.cs` test: under `delay;ms=60000` and a one-connection-per-address limit, a client that half-closes during the hold ends its exchange without the `ManualTimeProvider` advancing, and a second connection from the same address is served, not refused.
+- [x] The same for a client whose connection is reset (its read throws `IOException`) during the hold.
+- [x] A test that a client which sends its request and stays connected is served after the delay with every byte it sent, as `ServeAsync_DelayRule_HoldsTheExchangeUntilTheClockAdvancesByTheDelay_AndPublishesIt` shows today.
+- [x] A test that the exchange log holds the note BL-1520's amendment names when the hold ends early.
+- [x] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean and `dotnet test Foundation/Surl.Core.UnitTests --filter "TestCategory!=Integration"` passes, with 100% line and branch coverage of the changed files; no test needs `TestCategory=Integration`.
+- [x] Core's own `IConnection` wrappers (`IdleClockRestartingConnection`, `RecordingConnection`, `DroppingAfterBytesConnection`) forward `WatchForPeerCloseAsync`; the idle-clock wrapper does not restart the idle clock for it (ADR-0141 Amendment 2 decision 2).
+- [x] `Foundation/Surl.Core.UnitLibrary/CLAUDE.md` states that an `Accept`-stage hold ends when the client leaves.
 
 ## Notes
+
+Decided by Claude: no new ADR; ADR-0141 amendment 2 already decides it. Engine races the Accept delay against `WatchForPeerCloseAsync(64 KiB)`; a half-close or reset ends the exchange unserved (abort after reset), note per decision 3, slot freed by `RunExchangeAsync`. Datagram flows pass no connection and are held in full. Existing hold tests that used half-closing `InMemoryConnection`s now use `peerHalfClosesWhenExhausted: false`. Tests: `ServingEngineTests.AcceptHoldPeerLeaving.cs`, `CoreConnectionWrappersWatchTests.cs`; 100% line/branch on the changed files.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. An Accept-stage delay hold ends when the client half-closes or resets, freeing its connection slot; wrappers forward the watch

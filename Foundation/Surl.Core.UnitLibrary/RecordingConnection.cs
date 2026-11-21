@@ -45,6 +45,10 @@ internal sealed class RecordingConnection(IConnection connection, IExchangeLog l
     public ValueTask<byte?> PeekByteAsync(TimeSpan wait, CancellationToken cancellationToken) =>
         connection.PeekByteAsync(wait, cancellationToken);
 
+    /// <inheritdoc/>
+    public ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken) =>
+        connection.WatchForPeerCloseAsync(maxBufferedBytes, cancellationToken);
+
     /// <summary>
     /// Writes to the connection, then reports the bytes as sent.
     /// </summary>
