@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md, Documentation/Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1552 — Decide whether a recorded exchange chunk carries the time its bytes crossed
 
@@ -35,14 +35,14 @@ from which clock and in what form; any implementation it calls for is filed as t
 
 ## Acceptance criteria
 
-- [ ] ADR-0099 (decision 7) or ADR-0103 (decision 3), whichever owns the shape, has an amendment saying yes or
+- [x] ADR-0099 (decision 7) or ADR-0103 (decision 3), whichever owns the shape, has an amendment saying yes or
   no, with the reasons by the standing rules.
-- [ ] If yes, the amendment names the member in `SurlExchangeChunk`, in `get_exchanges`' chunk JSON and in the
+- [x] If yes, the amendment names the member in `SurlExchangeChunk`, in `get_exchanges`' chunk JSON and in the
   control endpoint's exchange JSON, its source (`ExchangeBytesEvent.At`) and its format (ISO 8601 UTC with
   `"O"`, as `started_at` is written).
-- [ ] If yes, one task per project pair is filed with `task-board.ps1 new` (`Surl.Api`; `Surl.Mcp.UnitLibrary`;
+- [x] If yes, one task per project pair is filed with `task-board.ps1 new` (`Surl.Api`; `Surl.Mcp.UnitLibrary`;
   `Surl.Control.UnitLibrary`), each depending on this one, and the amendment names their IDs.
-- [ ] If no, the amendment says how a test that needs the timing gets it instead (for example `get_events`'
+- [x] (No branch not taken: decision is yes, so no "no" amendment is needed.)
   `exchange_started` and `exchange_ended` times), and the Log line of this task says no task was filed.
 
 ## Notes
@@ -53,3 +53,4 @@ Decided yes: `at` from `ExchangeBytesEvent.At`, optional last parameter, ISO 860
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Decided yes: chunks carry at (ADR-0099 amendment 2026-11-21, ADR-0103 amendment 2); filed BL-1556, BL-1557, BL-1558
