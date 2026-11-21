@@ -33,6 +33,9 @@ internal sealed class UnitTestGcsAuthenticationPolicy(bool allowsAnonymous) : IA
 
     public List<byte[]> JudgedBodyHashes { get; } = [];
 
+    /// <summary>The accounts whose body checks were abandoned unread.</summary>
+    public List<string> AbandonedBodyChecks { get; } = [];
+
     public List<TlsSession?> StartedConnections { get; } = [];
 
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
@@ -98,6 +101,13 @@ internal sealed class UnitTestGcsAuthenticationPolicy(bool allowsAnonymous) : IA
 
     private sealed class BodyCheck(UnitTestGcsAuthenticationPolicy policy, string account, byte[] signedSha256) : IHttpRequestBodyCheck
     {
+        public ValueTask AbandonAsync(CancellationToken cancellationToken)
+        {
+            policy.AbandonedBodyChecks.Add(account);
+
+            return ValueTask.CompletedTask;
+        }
+
         public ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken)
         {
             policy.JudgedBodyHashes.Add(bodySha256.ToArray());

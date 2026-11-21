@@ -44,6 +44,20 @@ public sealed class GcsPutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SignedPutWithUploadsOff_AbandonsTheBodyCheckAndKeepsThe403()
+    {
+        var harness = new GcsServerHarness();
+        harness.Policy.SignedAccounts[GcsSignedRequests.PutAuthorization] = GcsSignedRequests.AccessId;
+        harness.CreateFolder("example-bucket");
+
+        var response = await harness.SendRawAsync(GcsSignedRequests.Request("PUT", "hello world"));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+        Assert.AreEqual(GcsSignedRequests.AccessId, harness.Policy.AbandonedBodyChecks.Single());
+        Assert.AreEqual(0, harness.Policy.JudgedBodyHashes.Count);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutWithMetadata_IsReturnedByALaterRead()
     {
         var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
