@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1551 — Say in get_events' and wait_for_event's kinds description that exchange_bytes is never kept
 
@@ -34,18 +34,21 @@ are read with `get_exchanges`.
 
 ## Acceptance criteria
 
-- [ ] The `kinds` description in `EventToolFilter`'s schema says `exchange_bytes` events are never kept, so
+- [x] The `kinds` description in `EventToolFilter`'s schema says `exchange_bytes` events are never kept, so
   they are never returned or waited for, and that `get_exchanges` shows the bytes.
-- [ ] A test asserts both tools' input schemas carry that description.
-- [ ] A test asserts `get_events` with `kinds: ["exchange_bytes"]` after an exchange returns no events and is
+- [x] A test asserts both tools' input schemas carry that description.
+- [x] A test asserts `get_events` with `kinds: ["exchange_bytes"]` after an exchange returns no events and is
   not an error, pinning today's behaviour.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and
   `dotnet test Application/Surl.Mcp.UnitTests --filter "TestCategory!=Integration"` passes.
-- [ ] `Application/Surl.Mcp.UnitLibrary/CLAUDE.md`'s `GetEventsTool` entry says `exchange_bytes` is in the enum but never kept.
+- [x] `Application/Surl.Mcp.UnitLibrary/CLAUDE.md`'s `GetEventsTool` entry says `exchange_bytes` is in the enum but never kept.
 
 ## Notes
+
+Description-only change; enum keeps exchange_bytes. Tests added in GetEventsToolTests (both schemas, empty result for exchange_bytes).
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. kinds description says exchange_bytes is never kept; get_exchanges shows bytes

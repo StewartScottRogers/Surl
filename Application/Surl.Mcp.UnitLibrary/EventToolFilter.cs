@@ -31,7 +31,7 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
               "items": { "type": "string", "enum": [
         """ + KindEnumList() + """
               ] },
-              "description": "Only events of these kinds" },
+              "description": "Only events of these kinds. exchange_bytes is in the list but is never kept, so asking for it finds no events and a wait for it times out; read the bytes of an exchange with get_exchanges" },
         """ + SchemeAndListenUrlProperties + """
         ,
             "account": { "type": "string", "minLength": 1,
