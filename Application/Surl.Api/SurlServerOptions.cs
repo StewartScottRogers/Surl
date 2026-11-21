@@ -193,7 +193,7 @@ public sealed class SurlServerOptions
     public IList<string> MailDomains { get; } = [];
 
     /// <summary>
-    /// The mailboxes and their logins (<c>--mailbox</c>, once each): <c>&lt;address&gt;:&lt;password&gt;[;...]</c>.
+    /// The mailboxes and their logins (<c>--mailbox</c>, once each): <c>&lt;address&gt;:&lt;password&gt;[;...]</c>, where <c>folders=&lt;name&gt;[=&lt;use&gt;],...</c> creates folders with an RFC 6154 use.
     /// None by default. A mailbox holds a password, so it is never written to the log.
     /// </summary>
     public IList<string> Mailboxes { get; } = [];

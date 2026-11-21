@@ -324,7 +324,7 @@ last, and returns a copy; they throw `ObjectDisposedException` once the server i
 
 | Member | Returns |
 | --- | --- |
-| `Mail.ListMailboxesAsync(owner)` | `IReadOnlyList<SurlMailboxInfo>` (`Name`, `MessageCount`, `UnseenCount`, `UidValidity`) |
+| `Mail.ListMailboxesAsync(owner)` | `IReadOnlyList<SurlMailboxInfo>` (`Name`, `MessageCount`, `UnseenCount`, `UidValidity`, `Use`) |
 | `Mail.ListMessagesAsync(owner, mailbox, afterUid = 0, limit = 100)` | `SurlMessagePage` (`Messages` of `Uid`, `Size`, `Flags`, `InternalDate`; `HasMore`) |
 | `Mail.ReadMessageAsync(owner, mailbox, uid)` | `SurlMailMessage` (`Summary`, `Bytes`) |
 | `Files.ReadAsync(path)` | `SurlFileContents` (`Bytes`, `ByteCount`, `ModifiedAt`, `ContentType`) |

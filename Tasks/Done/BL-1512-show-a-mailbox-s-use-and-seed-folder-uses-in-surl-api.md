@@ -8,7 +8,7 @@ depends-on: [BL-1509]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1512 — Show a mailbox's use and seed folder uses in Surl.Api
 
@@ -22,15 +22,18 @@ ADR-0055 Amendment 1, decision 6. Depends on the composition task (BL-1509), whi
 
 ## Acceptance criteria
 
-- [ ] The Api's mailbox configuration accepts `folders` items as `<name>[=<use>]`, with the command line's refusals for an unknown or doubled use.
-- [ ] `SurlMailboxInfo` has a trailing `Use` that is null without a use and the use text with one.
-- [ ] `ListMailboxesAsync` fills `Use`; after a store reset the configured use is back.
-- [ ] Two instances started side by side with different uses do not see each other's.
-- [ ] Tests exist and pass, and `dotnet build` of both projects with `-warnaserror` is clean.
+- [x] The Api's mailbox configuration accepts `folders` items as `<name>[=<use>]`, with the command line's refusals for an unknown or doubled use.
+- [x] `SurlMailboxInfo` has a trailing `Use` that is null without a use and the use text with one.
+- [x] `ListMailboxesAsync` fills `Use`; after a store reset the configured use is back.
+- [x] Two instances started side by side with different uses do not see each other's.
+- [x] Tests exist and pass, and `dotnet build` of both projects with `-warnaserror` is clean.
 
 ## Notes
+
+The Api passes `Mailboxes` items through to the command-line parser, so `folders=<name>[=<use>]` and its refusals needed no new parsing; tests pin them. Only `SurlMailboxInfo.Use` and its fill were added.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Surl.Api seeds folder uses and ListMailboxesAsync returns Use
