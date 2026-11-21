@@ -45,3 +45,4 @@ Stand-in: no store; a test sees the early end as the `ExchangeEndedEvent` on the
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Lane 2 could not integrate: fast tests failed twice (Surl.Core.UnitTests: ServeAsync_ClientResetsDuringAnAcceptDelay_AbortsTheExchangeAtOnce_AndFreesItsSlot, ServeAsync_ClientHalfClosesDuringAnAcceptDelay_EndsTheExchangeAtOnce_AndFreesItsSlot; then Surl.Extended.Protocol.DnsQuery.UnitTests: ServeAsync_TcpQueryUnderADelayRule_IsAnsweredOnlyAfterTheDelay) after rebasing onto the other lanes' work. The work is on branch factory/BL-1521-lane-2-20261121-011657; start with git cherry-pick --no-commit factory/BL-1521-lane-2-20261121-011657 and fix it.
