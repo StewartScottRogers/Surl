@@ -171,7 +171,8 @@ order, the first step that matches deciding; local parts compare as ADR-0050 dec
   is not a secret; a password never appears. So at runtime an alias always ends in owners, and
   expansion needs no depth limit beyond the alias count.
 - **One copy per owner per message.** However many `RCPT`s, aliases and catch-alls name an owner,
-  it receives one copy (ADR-0053's "two `RCPT`s naming the same account deliver one copy").
+  it receives one copy (ADR-0053's "two `RCPT`s naming the same account deliver one copy"). With `--mail-delivered-to` the copy carries one `Delivered-To` per envelope
+  address that reached its owner (ADR-0053 amendment 1).
 - **`--mail-catch-all`** widens access (ADR-0101 decision 4: warned at every start): mail to every
   unknown local part of its domain is kept instead of discarded.
 - **POP3 and IMAP are untouched by resolution**: they read an owner's mailboxes after a login.
