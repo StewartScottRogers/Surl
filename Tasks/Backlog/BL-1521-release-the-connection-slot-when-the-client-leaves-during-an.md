@@ -4,7 +4,7 @@ title: Release the connection slot when the client leaves during an Accept-stage
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1520]
+depends-on: [BL-1520, BL-1529, BL-1530]
 touches: [Surl.Core.UnitLibrary, Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-20
@@ -36,6 +36,7 @@ Stand-in: no store; a test sees the early end as the `ExchangeEndedEvent` on the
 - [ ] A test that a client which sends its request and stays connected is served after the delay with every byte it sent, as `ServeAsync_DelayRule_HoldsTheExchangeUntilTheClockAdvancesByTheDelay_AndPublishesIt` shows today.
 - [ ] A test that the exchange log holds the note BL-1520's amendment names when the hold ends early.
 - [ ] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean and `dotnet test Foundation/Surl.Core.UnitTests --filter "TestCategory!=Integration"` passes, with 100% line and branch coverage of the changed files; no test needs `TestCategory=Integration`.
+- [ ] Core's own `IConnection` wrappers (`IdleClockRestartingConnection`, `RecordingConnection`, `DroppingAfterBytesConnection`) forward `WatchForPeerCloseAsync`; the idle-clock wrapper does not restart the idle clock for it (ADR-0141 Amendment 2 decision 2).
 - [ ] `Foundation/Surl.Core.UnitLibrary/CLAUDE.md` states that an `Accept`-stage hold ends when the client leaves.
 
 ## Notes

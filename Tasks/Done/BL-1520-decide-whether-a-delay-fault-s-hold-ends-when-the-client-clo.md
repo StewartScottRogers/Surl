@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1520 — Decide whether a delay fault's hold ends when the client closes or resets its connection
 
@@ -35,15 +35,18 @@ Stand-in: no store; a test observes the early end on the event stream (`Exchange
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering points 1 to 4 above for the `Accept` and `Command` stages.
-- [ ] The amendment names the type and member that sees the client leave, the project it lives in, and how no byte the client sent before leaving is lost to a server that is still served.
-- [ ] The amendment states the exchange-log note's text and what is published when a hold ends early.
-- [ ] Every implementation task the amendment needs beyond BL-1521 (a contract member, a `Surl.Networking` change, each command-stage server family) is filed, and BL-1521's `depends-on` lists the ones it needs.
-- [ ] `Documentation/Planning/Decisions/README.md`'s ADR-0141 row mentions the amendment.
+- [x] `Documentation/Planning/Decisions/ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering points 1 to 4 above for the `Accept` and `Command` stages.
+- [x] The amendment names the type and member that sees the client leave, the project it lives in, and how no byte the client sent before leaving is lost to a server that is still served.
+- [x] The amendment states the exchange-log note's text and what is published when a hold ends early.
+- [x] Every implementation task the amendment needs beyond BL-1521 (a contract member, a `Surl.Networking` change, each command-stage server family) is filed, and BL-1521's `depends-on` lists the ones it needs.
+- [x] `Documentation/Planning/Decisions/README.md`'s ADR-0141 row mentions the amendment.
 
 ## Notes
+
+Decided in ADR-0141 Amendment 2: new default member IConnection.WatchForPeerCloseAsync (read-ahead buffer, 64 KiB) rather than PeekByteAsync; half-close counts as leaving; H2/H3 unchanged. Filed BL-1529 (Abstractions), BL-1530 (Networking), BL-1531 (BytePacedConnection), BL-1532 (HTTP/1.x, RTSP, WebSocket); BL-1521 now depends on BL-1529 and BL-1530 and also forwards Core wrappers.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0141 Amendment 2 decides a delay hold ends when the client leaves; BL-1529..1532 filed, BL-1521 depends on 1529/1530
