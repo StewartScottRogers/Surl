@@ -101,3 +101,4 @@ tolerated.
 - 2026-11-21: Fix committed (ec03182d1): ConnectionLimits.RefusalSettleDelay (50 ms from ComposeConnectionLimits) holds a refusal until curl's connect check has finished (ServingEngine.SettleBeforeRefusalAsync, ServingEngine.cs); ADR-0006 amendment 2; fast tests for the delay, shutdown during it and the property. Tests still assert the original exit codes. Remaining: once pushed, dispatch release.yml on the shift branch, confirm 'Conformance against the published osx-arm64' passes, record the run id.
 - 2026-11-21: Doing -> Backlog. Fix committed (ec03182d1, refusal settle delay); needs it pushed, then a Release dry run on the shift branch to prove osx-arm64 conformance passes
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Blocked. Waiting for run:44949044537 (release.yml dry run on factory/phase-1 with the refusal settle delay fix ec03182d1; osx-arm64 conformance must pass)
