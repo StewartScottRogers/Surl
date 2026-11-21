@@ -8,7 +8,7 @@ depends-on: [BL-1480]
 touches: [Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1481 — Pin through Surl.Api that an open IMAP session sees mail sent over SMTP on its next NOOP
 
@@ -33,12 +33,12 @@ session with `INBOX` selected gets `* <n> EXISTS` on its next `NOOP` after mail 
 
 ## Acceptance criteria
 
-- [ ] A named test in `Application/Surl.Api.UnitTests` (e.g. `SurlServerTests.ImapSeesNewMail.cs`) logs in over IMAP, selects an `INBOX`
+- [x] A named test in `Application/Surl.Api.UnitTests` (e.g. `SurlServerTests.ImapSeesNewMail.cs`) logs in over IMAP, selects an `INBOX`
       holding no message, sends one message over SMTP to that account, then sends `NOOP`: the IMAP answer holds `* 1 EXISTS`
       before `OK NOOP completed`, and a `FETCH 1 BODY[]` after it returns the message.
-- [ ] The same with `server.Mail.DeliverAsync` instead of SMTP (`* 1 EXISTS`, then `* 2 EXISTS` after a second delivery).
-- [ ] The test waits on the delivery's event, never on a delay, and uses the injected `TimeProvider` if it needs time.
-- [ ] `dotnet test Application/Surl.Api.UnitTests --filter "TestCategory!=Integration"` is green and no test needs
+- [x] The same with `server.Mail.DeliverAsync` instead of SMTP (`* 1 EXISTS`, then `* 2 EXISTS` after a second delivery).
+- [x] The test waits on the delivery's event, never on a delay, and uses the injected `TimeProvider` if it needs time.
+- [x] `dotnet test Application/Surl.Api.UnitTests --filter "TestCategory!=Integration"` is green and no test needs
       `TestCategory=Integration`.
 
 ## Notes
@@ -49,3 +49,4 @@ session with `INBOX` selected gets `* <n> EXISTS` on its next `NOOP` after mail 
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Two Surl.Api tests pin that an open IMAP session is told EXISTS on NOOP after SMTP and DeliverAsync delivery; BL-1480 found no defect needing a pre-fix failure check
