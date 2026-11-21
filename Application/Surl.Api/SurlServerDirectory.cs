@@ -55,7 +55,7 @@ public sealed class SurlServerDirectory
         }
         catch (InvalidOperationException refused)
         {
-            throw new SurlSeedRefusedException(StoreKind.Directory, refused.Message.TrimEnd('.'), "The LDIF entries");
+            throw new SurlSeedRefusedException(StoreKind.Directory, refused.Message.TrimEnd('.'), "The LDIF");
         }
     }
 }

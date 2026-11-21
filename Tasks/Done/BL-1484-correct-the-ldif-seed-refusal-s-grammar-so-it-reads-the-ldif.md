@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1484 — Correct the LDIF seed refusal's grammar so it reads The LDIF was refused, not The LDIF entries was refused
 
@@ -31,14 +31,17 @@ A refused LDAP seed through `Surl.Api`'s `Directory` or `surl-mcp`'s `add_ldap_e
 
 ## Acceptance criteria
 
-- [ ] `SurlServerDirectory.cs` passes `"The LDIF"`, and the refusal reads `Directory: The LDIF was refused: This instance holds no LDAP directory.`
-- [ ] `LookupToolsTests`' `add_ldap_entries` row expects that text and passes.
-- [ ] `grep -rn "LDIF entries was" Application` finds nothing.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean and the fast tests are green.
+- [x] `SurlServerDirectory.cs` passes `"The LDIF"`, and the refusal reads `Directory: The LDIF was refused: This instance holds no LDAP directory.`
+- [x] `LookupToolsTests`' `add_ldap_entries` row expects that text and passes.
+- [x] `grep -rn "LDIF entries was" Application` finds nothing.
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+Message-text change only: noun phrase now "The LDIF". Build clean; Surl.Mcp.UnitTests 381 and Surl.Api.UnitTests 367 green.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. LDIF seed refusal reads 'The LDIF was refused'
