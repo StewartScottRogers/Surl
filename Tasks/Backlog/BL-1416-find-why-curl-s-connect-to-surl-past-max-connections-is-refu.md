@@ -81,3 +81,4 @@ tolerated.
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Reset-logging commit e293e3b72 is unpushed from this lane and the dispatch cap (2 per 12h) lifts 2026-11-21 04:45 UTC; next run dispatches release.yml on the shift branch, blocks on run:id, and reads surl's stderr for the reset note
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Backlog. Reset-logging commit e293e3b72 is pushed (on origin/factory/phase-1) but the dispatch cap (2 per 12h) still refuses until 2026-11-21 04:45 UTC; next run dispatches release.yml on factory/phase-1, blocks on run:id and reads surl's stderr for the reset note
