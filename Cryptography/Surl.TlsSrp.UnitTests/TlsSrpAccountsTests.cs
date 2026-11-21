@@ -170,6 +170,66 @@ public sealed class TlsSrpAccountsTests
     }
 
     [TestMethod]
+    public void SetPassword_KnownUser_ReDerivesTheVerifierAndFindSeesIt()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+        var before = accounts.Find("jsmith"u8.ToArray(), new UnitTestRepeatingRandomNumberGenerator([1]));
+
+        var entry = accounts.SetPassword("jsmith", "new", new UnitTestRepeatingRandomNumberGenerator([5]));
+
+        var after = accounts.Find("jsmith"u8.ToArray(), new UnitTestRepeatingRandomNumberGenerator([1]));
+        Assert.IsFalse(after.IsSimulated);
+        Assert.AreSame(before.Group, after.Group);
+        CollectionAssert.AreEqual(entry.Verifier, after.Verifier);
+        CollectionAssert.AreEqual(Enumerable.Repeat((byte)5, 16).ToArray(), after.Salt);
+        CollectionAssert.AreNotEqual(before.Verifier, after.Verifier);
+        Assert.HasCount(1, accounts.TakeSnapshot().Entries);
+    }
+
+    [TestMethod]
+    public void SetPassword_SaltStartingWithZero_IsDrawnAgain()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+
+        var entry = accounts.SetPassword("jsmith", "new", new UnitTestZeroThenSevenRandomNumberGenerator());
+
+        Assert.AreEqual(7, entry.Salt[0]);
+    }
+
+    [TestMethod]
+    public void SetPassword_UnknownUser_ThrowsAndChangesNothing()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+
+        var error = Assert.ThrowsExactly<ArgumentException>(() => accounts.SetPassword("bob", "pw", RandomNumberGenerator.Create()));
+
+        StringAssert.Contains(error.Message, "bob");
+        Assert.HasCount(1, accounts.TakeSnapshot().Entries);
+    }
+
+    [TestMethod]
+    public void SetPassword_EmptyPassword_ThrowsAndKeepsTheVerifier()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+
+        Assert.ThrowsExactly<ArgumentException>(() => accounts.SetPassword("jsmith", "", RandomNumberGenerator.Create()));
+
+        var found = accounts.Find("jsmith"u8.ToArray(), RandomNumberGenerator.Create());
+        CollectionAssert.AreEqual(UnitTestSrpClient.Verifier("jsmith", "abc"), found.Verifier);
+    }
+
+    [TestMethod]
+    public void SetPassword_NullArguments_Throw()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+        var random = RandomNumberGenerator.Create();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.SetPassword(null!, "x", random));
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.SetPassword("jsmith", null!, random));
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.SetPassword("jsmith", "x", null!));
+    }
+
+    [TestMethod]
     public void Find_NullArguments_Throw()
     {
         var accounts = UnitTestSrpClient.Accounts();
