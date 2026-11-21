@@ -46,3 +46,4 @@ Stand-in: `surl-mcp` is how an agent seeds a stand-in; a seed too large must fai
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
