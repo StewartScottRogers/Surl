@@ -404,6 +404,23 @@ public sealed class MailboxCompositionTests
     }
 
     [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task LoadMailStoreAsync_MailDeliveredTo_SetsDeliveredToEnabledOnTheStore(bool deliveredTo, bool withFiles)
+    {
+        var commandLine = StartTestSeams.Parse(Url) with { DeliveredTo = deliveredTo };
+        var files = withFiles ? new MailStoreFiles(new InMemoryContentFileSystem(TimeProvider.System), "mail") : null;
+
+        var (store, failure) = await SurlServerComposition.LoadMailStoreAsync(
+            files, commandLine, ["ann"], TimeProvider.System, TestContext.CancellationToken);
+
+        Assert.IsNull(failure);
+        Assert.AreEqual(deliveredTo, store!.DeliveredToEnabled);
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_AnAliasWhoseTargetNamesNoMailbox_ExitsWith2AndTheAdrsText()
     {
         var commandLine = WithMail(StartTestSeams.Parse(Url), ["example.com"], [new ConfiguredMailbox("ann@example.com", "a", null)]) with

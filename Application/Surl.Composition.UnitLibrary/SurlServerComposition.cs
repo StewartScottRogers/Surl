@@ -552,7 +552,10 @@ public static partial class SurlServerComposition
             if (files is null)
             {
                 return (new MailboxStore(
-                    accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults), null);
+                    accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults)
+                {
+                    DeliveredToEnabled = commandLine.DeliveredTo,
+                }, null);
             }
 
             return (await MailboxStore.LoadAsync(
@@ -564,6 +567,7 @@ public static partial class SurlServerComposition
                 mailDomains: mailDomains,
                 events: events,
                 faults: faults,
+                deliveredToEnabled: commandLine.DeliveredTo,
                 cancellationToken: cancellationToken), null);
         }
         catch (MailStoreLoadException failure)
