@@ -13,7 +13,9 @@ internal sealed class SftpTestChannel(params byte[][] inbound) : ISshChannelData
     private readonly Queue<ReadOnlyMemory<byte>> chunks = new(inbound.Select(chunk => (ReadOnlyMemory<byte>)chunk));
     private int taken;
 
-    public InMemoryConnection Connection { get; } = new([]);
+    // The scripted client stays open: a half-close here would look to a command-stage delay hold
+    // (CommandStageFaults.WatchForPeerCloseAsync) like a client that left, ending the hold early.
+    public InMemoryConnection Connection { get; } = new([], peerHalfClosesWhenExhausted: false);
 
     IConnection ISshChannelDataStream.Connection => Connection;
 
