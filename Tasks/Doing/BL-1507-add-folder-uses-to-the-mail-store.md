@@ -34,3 +34,4 @@ ADR-0055 Amendment 1 (`Documentation/Planning/Decisions/ADR-0055-how-the-imap-se
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
