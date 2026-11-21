@@ -65,3 +65,4 @@ named peer still cannot crash surl.
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Backlog. Fix and test committed; needs the shift to push it before a macOS ci run can be dispatched (dispatch refuses unpushed refs).
+- 2026-11-21: Backlog -> Doing.
