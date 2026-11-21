@@ -36,6 +36,12 @@ public interface IControlTarget
     /// <returns>Whether a rule had that ID.</returns>
     bool RemoveFault(string faultId);
 
+    /// <summary>
+    /// Whether the instance writes <c>Delivered-To</c> lines into stored mail (<c>--mail-delivered-to</c>, ADR-0053
+    /// amendment 1 decision 6). When true the endpoint puts one <c>Delivered-To: &lt;recipient&gt;</c> line ahead of a
+    /// message it seeds. False unless a target says otherwise, so a target written before the option is unchanged.
+    /// </summary>
+    bool WritesDeliveredTo => false;
     /// <summary>Delivers a message to a mail recipient as a seed.</summary>
     /// <param name="recipient">The recipient address.</param>
     /// <param name="message">The message, as RFC 5322 bytes.</param>

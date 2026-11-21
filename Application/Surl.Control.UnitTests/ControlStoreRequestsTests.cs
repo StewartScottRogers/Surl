@@ -108,6 +108,27 @@ public sealed class ControlStoreRequestsTests
     }
 
     [TestMethod]
+    public async Task SeedMailAsync_DeliveredToOn_PutsOneDeliveredToLineAheadOfTheBody()
+    {
+        var target = new FakeControlTarget { WritesDeliveredTo = true };
+
+        var response = await Serve(target, Request("POST", "/v1/mail?to=a%40x", "message/rfc822", "Subject: hi\r\n\r\nbody"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "SeedMail a@x Delivered-To: a@x\r\nSubject: hi\r\n\r\nbody" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task SeedMailAsync_DeliveredToOff_HandsOverThePostedBytesUnchanged()
+    {
+        var target = new FakeControlTarget { WritesDeliveredTo = false };
+
+        _ = await Serve(target, Request("POST", "/v1/mail?to=a%40x", "message/rfc822", "Subject: hi\r\n\r\nbody"));
+
+        CollectionAssert.AreEqual(new[] { "SeedMail a@x Subject: hi\r\n\r\nbody" }, target.Calls);
+    }
+
+    [TestMethod]
     [DataRow("/v1/mail")]
     [DataRow("/v1/mail?to=")]
     public async Task SeedMailAsync_NoRecipient_Is400(string requestTarget)

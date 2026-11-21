@@ -65,11 +65,20 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
         ControlRequestBody.RequireMediaType(request.Http, "message/rfc822");
         var message = await ControlRequestBody.ReadAsync(request.Http, request.CancellationToken);
-        await target.SeedMailAsync(recipient, message, request.CancellationToken);
+        await target.SeedMailAsync(recipient, target.WritesDeliveredTo ? WithDeliveredTo(recipient, message) : message, request.CancellationToken);
 
         return answers.NoContent(request.Http);
     }
 
+    private static byte[] WithDeliveredTo(string recipient, ReadOnlyMemory<byte> message)
+    {
+        var line = Encoding.UTF8.GetBytes($"Delivered-To: {recipient}\r\n");
+        var stamped = new byte[line.Length + message.Length];
+        line.CopyTo(stamped, 0);
+        message.CopyTo(stamped.AsMemory(line.Length));
+
+        return stamped;
+    }
     /// <summary><c>PUT /v1/files/{path}</c>: writes the body as the file.</summary>
     /// <param name="request">The request.</param>
     /// <returns><c>204</c>.</returns>

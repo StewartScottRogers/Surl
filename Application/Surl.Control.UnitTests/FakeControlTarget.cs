@@ -63,6 +63,9 @@ internal sealed class FakeControlTarget : IControlTarget
         return Found;
     }
 
+    /// <summary>What <see cref="IControlTarget.WritesDeliveredTo"/> answers.</summary>
+    public bool WritesDeliveredTo { get; set; }
+
     public Task SeedMailAsync(string recipient, ReadOnlyMemory<byte> message, CancellationToken cancellationToken)
     {
         Record($"SeedMail {recipient} {Encoding.UTF8.GetString(message.Span)}");
