@@ -8,7 +8,7 @@ depends-on: [BL-1529]
 touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1531 — Forward WatchForPeerCloseAsync through BytePacedConnection
 
@@ -22,9 +22,9 @@ A mail server's command-stage hold through `BytePacedConnection` still ends when
 
 ## Acceptance criteria
 
-- [ ] `BytePacedConnection.WatchForPeerCloseAsync` forwards to the inner connection and returns its outcome.
-- [ ] A test shows an SMTP, IMAP or POP3 `Delay;stage=command` hold over `InMemoryConnection` ends at the client's half-close.
-- [ ] Coverage 100% of the changed files; build clean with warnings as errors.
+- [x] `BytePacedConnection.WatchForPeerCloseAsync` forwards to the inner connection and returns its outcome.
+- [x] A test shows an SMTP, IMAP or POP3 `Delay;stage=command` hold over `InMemoryConnection` ends at the client's half-close.
+- [x] Coverage 100% of the changed files; build clean with warnings as errors.
 
 ## Notes
 
@@ -32,3 +32,4 @@ A mail server's command-stage hold through `BytePacedConnection` still ends when
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. BytePacedConnection forwards WatchForPeerCloseAsync; a command-stage hold through it ends at the client's half-close

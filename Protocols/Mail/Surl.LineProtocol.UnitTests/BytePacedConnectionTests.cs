@@ -88,6 +88,45 @@ public sealed class BytePacedConnectionTests
         Assert.IsTrue(inner.Disposed);
     }
 
+    [TestMethod]
+    public async Task WatchForPeerCloseAsync_ForwardsToTheWrappedConnection_AndReturnsItsOutcome()
+    {
+        var closing = new BytePacedConnection(new InMemoryConnection([]), new ManualTimeProvider());
+        var resetting = new BytePacedConnection(new InMemoryConnection([], peerResetsWhenExhausted: true), new ManualTimeProvider());
+
+        Assert.AreEqual(PeerWatchOutcome.PeerClosed, await closing.WatchForPeerCloseAsync(16, TestContext.CancellationToken));
+        Assert.AreEqual(PeerWatchOutcome.PeerReset, await resetting.WatchForPeerCloseAsync(16, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task CommandStageDelay_HeldThroughAPacedConnection_EndsWhenTheClientHalfCloses()
+    {
+        var delay = new FaultRule("slow", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var idleClock = new RecordingIdleClock();
+        var context = new ExchangeContext(
+            3,
+            new ListenUrl("pop3", "127.0.0.1", 110),
+            new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 110),
+            new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 50000),
+            log,
+            clock,
+            TestContext.CancellationToken)
+        {
+            Faults = new ScriptedFaultPlan(delay),
+            IdleClock = idleClock,
+        };
+        await using var paced = new BytePacedConnection(new InMemoryConnection([]), clock);
+
+        var rule = await CommandStageFaults.FindAndApplyAsync(
+            context, paced, new FaultPoint(FaultStage.Command) { ExchangeId = 3, Command = "RETR" }, "RETR");
+
+        Assert.AreSame(delay, rule);
+        Assert.AreEqual(1, idleClock.RestartCount);
+        StringAssert.Contains(log.Notes.Last(), "the client closed the connection during the hold");
+    }
+
     // Waits until the paced write is parked on its delay, so the test never races the writer.
     private async Task WaitForTimerAsync(ManualTimeProvider clock, int count)
     {

@@ -49,6 +49,10 @@ public sealed class BytePacedConnection : IConnection
         inner.PeekByteAsync(wait, cancellationToken);
 
     /// <inheritdoc />
+    public ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken) =>
+        inner.WatchForPeerCloseAsync(maxBufferedBytes, cancellationToken);
+
+    /// <inheritdoc />
     public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         for (var index = 0; index < bytes.Length; index++)
