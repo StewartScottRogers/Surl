@@ -44,3 +44,4 @@ Stand-in: no store; a test sees the early end as the `ExchangeEndedEvent` on the
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
