@@ -65,3 +65,4 @@ server refuses the request without reading it, and the implementation it calls f
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
