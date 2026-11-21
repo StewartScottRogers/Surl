@@ -33,3 +33,4 @@ Amendment 2 decisions 2, 3 and 6. `PeerWatchOutcome` (`NotWatched`, `PeerClosed`
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
