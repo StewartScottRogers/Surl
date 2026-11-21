@@ -95,3 +95,4 @@ tolerated.
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Backlog. Dispatch cap (2 per 12h; dispatches 08:32Z and 09:55Z) refuses another Release dry run until about 20:32 UTC 2026-11-21; next run dispatches release.yml on factory/phase-1, blocks on run:id and reads curl -v and surl stderr
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Dispatch cap (2 per 12h; dispatches 08:32Z and 09:55Z) still refuses a Release dry run until about 20:32 UTC 2026-11-21; next run dispatches release.yml on factory/phase-1, blocks on run:id and reads curl -v and surl stderr
