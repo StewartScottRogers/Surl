@@ -39,6 +39,20 @@ public sealed class RecordedExchangeWriterTests
     }
 
     [TestMethod]
+    public void WriteExchanges_ChunkWithATime_WritesAtAsIso8601Utc()
+    {
+        var chunk = new SurlExchangeChunk(
+            SurlExchangeDirection.Received,
+            "a"u8.ToArray(),
+            At: new DateTimeOffset(2026, 11, 21, 8, 30, 0, TimeSpan.FromHours(2)));
+
+        var (exchanges, _) = Write([Record(1, false, chunk)]);
+
+        var written = Assert.ContainsSingle(exchanges[0].GetProperty("chunks").EnumerateArray());
+        Assert.AreEqual("2026-11-21T06:30:00.0000000+00:00", written.GetProperty("at").GetString());
+    }
+
+    [TestMethod]
     public void WriteExchanges_TextAndAControlCharacterChunk_WritesTheFirstAsTextAndTheSecondAsBase64InOrder()
     {
         var text = "220 ready\r\n\tok\n"u8.ToArray();
