@@ -19,6 +19,7 @@ public sealed class InMemoryConnection : IConnection
 {
     private readonly ReadOnlyMemory<byte>[] inboundChunks;
     private readonly bool peerHalfClosesWhenExhausted;
+    private readonly bool peerResetsWhenExhausted;
     private readonly TlsSession upgradeTlsSession;
     private readonly bool upgradeFails;
     private readonly TimeProvider peekClock;
@@ -53,6 +54,11 @@ public sealed class InMemoryConnection : IConnection
     /// Times a <see cref="PeekByteAsync"/> that waits past the end of a script whose client does
     /// not half-close; <see cref="TimeProvider.System"/> when <see langword="null"/>.
     /// </param>
+    /// <param name="peerResetsWhenExhausted">
+    /// Whether the client resets the connection once the script is exhausted, so
+    /// <see cref="WatchForPeerCloseAsync"/> reports <see cref="PeerWatchOutcome.PeerReset"/>; a read after the
+    /// script still follows <paramref name="peerHalfClosesWhenExhausted"/>.
+    /// </param>
     public InMemoryConnection(
         IEnumerable<ReadOnlyMemory<byte>> inboundChunks,
         EndPoint? localEndPoint = null,
@@ -61,7 +67,8 @@ public sealed class InMemoryConnection : IConnection
         TlsSession? initialTlsSession = null,
         TlsSession? upgradeTlsSession = null,
         bool upgradeFails = false,
-        TimeProvider? peekClock = null)
+        TimeProvider? peekClock = null,
+        bool peerResetsWhenExhausted = false)
     {
         ArgumentNullException.ThrowIfNull(inboundChunks);
 
@@ -69,6 +76,7 @@ public sealed class InMemoryConnection : IConnection
         LocalEndPoint = localEndPoint ?? new IPEndPoint(IPAddress.Loopback, 80);
         RemoteEndPoint = remoteEndPoint ?? new IPEndPoint(IPAddress.Loopback, 50000);
         this.peerHalfClosesWhenExhausted = peerHalfClosesWhenExhausted;
+        this.peerResetsWhenExhausted = peerResetsWhenExhausted;
         TlsSession = initialTlsSession;
         this.upgradeTlsSession = upgradeTlsSession ?? DefaultUpgradeTlsSession;
         this.upgradeFails = upgradeFails;
@@ -162,6 +170,39 @@ public sealed class InMemoryConnection : IConnection
         return null;
     }
 
+    /// <summary>
+    /// Watches the script: the bytes left unread are kept for the next <see cref="ReadAsync"/>, and
+    /// the outcome is <see cref="PeerWatchOutcome.BufferFull"/> when more than
+    /// <paramref name="maxBufferedBytes"/> remain, else, past the end of the script,
+    /// <see cref="PeerWatchOutcome.PeerReset"/> when the client resets, <see cref="PeerWatchOutcome.PeerClosed"/>
+    /// when it half-closes, and otherwise a wait until cancelled or aborted.
+    /// </summary>
+    /// <param name="maxBufferedBytes">The most the watch reads ahead; must be positive.</param>
+    /// <param name="cancellationToken">Ends the watch.</param>
+    /// <returns>Why the watch ended.</returns>
+    public async ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken)
+    {
+        ThrowIfUnusable(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBufferedBytes);
+
+        if (UnreadByteCount() > maxBufferedBytes)
+        {
+            return PeerWatchOutcome.BufferFull;
+        }
+
+        if (peerResetsWhenExhausted)
+        {
+            return PeerWatchOutcome.PeerReset;
+        }
+
+        if (!peerHalfClosesWhenExhausted)
+        {
+            await WaitForCancellationOrAbortAsync(cancellationToken);
+        }
+
+        return PeerWatchOutcome.PeerClosed;
+    }
+
     /// <inheritdoc/>
     public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
@@ -244,6 +285,18 @@ public sealed class InMemoryConnection : IConnection
         }
 
         return count;
+    }
+
+    private int UnreadByteCount()
+    {
+        var count = 0;
+
+        for (var index = chunkIndex; index < inboundChunks.Length; index++)
+        {
+            count += inboundChunks[index].Length;
+        }
+
+        return count - chunkOffset;
     }
 
     private async Task<int> WaitForCancellationOrAbortAsync(CancellationToken cancellationToken)

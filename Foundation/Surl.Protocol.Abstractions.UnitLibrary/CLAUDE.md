@@ -154,6 +154,7 @@ What it holds:
   or a `Drop` (`IConnection.Abort()`), each noted and published once as a `FaultAppliedEvent`, and
   hands any other kind back. An overload without a connection (ADR-0141 amendment 1) leaves ending a dropped exchange to the caller, as the HTTP servers do. `RecordingIdleClock` is its test double. `ReportedListenUrl.Format` is
   the listen URL as the instance reports it, for events and a rule's `listener`.
+- The hold's watch for the client leaving (ADR-0141 amendment 2; BL-1529): `IConnection.WatchForPeerCloseAsync(maxBufferedBytes, token)` reads ahead into a bounded buffer and returns a `PeerWatchOutcome` (`NotWatched`, `PeerClosed`, `PeerReset`, `BufferFull`); read-ahead bytes come back first from the next `ReadAsync`. The default member returns `NotWatched` at once, so a connection that cannot watch holds its full delay. The connection overload of `CommandStageFaults.FindAndApplyAsync` races a `Delay` against it and ends the hold at `PeerClosed` or `PeerReset` (noting `Exchange <id>: the client closed|reset the connection during the hold by fault rule <id>.`), restarting the idle clock either way. `InMemoryConnection` watches its script (`peerResetsWhenExhausted` scripts a reset; a script that half-closes, the default, ends a hold at once, so a test of a full-length hold passes `peerHalfClosesWhenExhausted: false`).
 
 - The seedable identifier source (ADR-0124, decision 6; BL-851): `IIdentifierRandom.NextBytes`,
   for non-secret generated identifiers only - never keys, nonces, challenges, salts or tokens. It

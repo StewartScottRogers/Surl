@@ -64,6 +64,19 @@ public interface IConnection : IAsyncDisposable
         throw new NotSupportedException($"{GetType().Name} cannot peek at the client's next byte.");
 
     /// <summary>
+    /// Watches for the client leaving while the server is not reading, by reading ahead into a
+    /// bounded buffer (ADR-0141, amendment 2, decision 2). Every byte read ahead is returned by the
+    /// next <see cref="ReadAsync"/> first, in order. The default returns
+    /// <see cref="PeerWatchOutcome.NotWatched"/> at once, so a connection that cannot watch behaves as before.
+    /// </summary>
+    /// <param name="maxBufferedBytes">The most the watch reads ahead; must be positive.</param>
+    /// <param name="cancellationToken">Ends the watch; bytes already read ahead are kept.</param>
+    /// <returns>Why the watch ended.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> ended the watch.</exception>
+    ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(PeerWatchOutcome.NotWatched);
+
+    /// <summary>
     /// Hands every byte of <paramref name="bytes"/> to the transport.
     /// </summary>
     /// <param name="bytes">The bytes to send.</param>
