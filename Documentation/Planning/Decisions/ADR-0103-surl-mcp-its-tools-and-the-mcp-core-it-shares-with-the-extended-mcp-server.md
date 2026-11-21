@@ -457,5 +457,5 @@ BL-1523 (the scan, the refusal and the library's `CLAUDE.md`, in `Surl.McpServin
 
 Decided by Claude under Stewart's delegation, 2026-11-21. Decision 3's chunk
 `{direction, encoding, data, layer, stream_id}` gains `at`, the ISO 8601 UTC time (`"O"`) the bytes crossed,
-from `ExchangeBytesEvent.At`. The reasons and the tasks (BL-1557 here, BL-1556 and BL-1558 beside it) are in
+from `ExchangeBytesEvent.At`. The reasons and the tasks (BL-1557 here, BL-1559 and BL-1558 beside it) are in
 ADR-0099's amendment of 2026-11-21, which owns the record's shape.

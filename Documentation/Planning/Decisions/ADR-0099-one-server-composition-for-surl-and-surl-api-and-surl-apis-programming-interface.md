@@ -431,5 +431,5 @@ and ADR-0103 decision 3's chunk JSON never decided against a time; it was never 
 4. **Why nullable.** A chunk built by hand in a test has no time; `null` is written as an omitted `at`,
    never as an invented time.
 
-**Acted on by** BL-1556 (`Surl.Api`), then BL-1557 (`Surl.Mcp.UnitLibrary`, `get_exchanges`) and BL-1558
+**Acted on by** BL-1559 (`Surl.Api`), then BL-1557 (`Surl.Mcp.UnitLibrary`, `get_exchanges`) and BL-1558
 (`Surl.Control.UnitLibrary`, the exchange writer). Each depends on BL-1552.

@@ -4,7 +4,7 @@ title: Write at on each control endpoint exchange chunk
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1552, BL-1556]
+depends-on: [BL-1552, BL-1559]
 touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-21

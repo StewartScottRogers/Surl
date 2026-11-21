@@ -47,10 +47,10 @@ from which clock and in what form; any implementation it calls for is filed as t
 
 ## Notes
 
-Decided yes: `at` from `ExchangeBytesEvent.At`, optional last parameter, ISO 8601 "O". Filed BL-1556, BL-1557, BL-1558.
+Decided yes: `at` from `ExchangeBytesEvent.At`, optional last parameter, ISO 8601 "O". Filed BL-1559, BL-1557, BL-1558.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
-- 2026-11-21: Doing -> Done. Decided yes: chunks carry at (ADR-0099 amendment 2026-11-21, ADR-0103 amendment 2); filed BL-1556, BL-1557, BL-1558
+- 2026-11-21: Doing -> Done. Decided yes: chunks carry at (ADR-0099 amendment 2026-11-21, ADR-0103 amendment 2); filed BL-1559, BL-1557, BL-1558
