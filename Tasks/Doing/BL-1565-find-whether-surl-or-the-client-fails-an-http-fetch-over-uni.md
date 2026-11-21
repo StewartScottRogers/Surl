@@ -58,3 +58,4 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Backlog. Conformance test written and green on Windows; the Release dry run needs this commit pushed first (dispatch refuses an unpushed ref), so re-run after the shift integrates it
+- 2026-11-21: Backlog -> Doing.
