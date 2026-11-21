@@ -33,3 +33,4 @@ ADR-0053 Amendment 1 decision 7: the mail store's delivery event gains `Delivere
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
