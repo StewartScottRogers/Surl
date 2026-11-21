@@ -31,3 +31,4 @@ A mail server's command-stage hold through `BytePacedConnection` still ends when
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
