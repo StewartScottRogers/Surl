@@ -4,7 +4,7 @@ title: Write Delivered-To in the surl-mcp seed_mail tool
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1487, BL-1498, BL-1500]
+depends-on: [BL-1487, BL-1498, BL-1500, BL-1515, BL-1503]
 touches: [Surl.Mcp.UnitLibrary, Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20
@@ -29,7 +29,10 @@ ADR-0053 Amendment 1 decision 6. File: `Application/Surl.Mcp.UnitLibrary/SeedMai
 
 ## Notes
 
+- 2026-11-20: The store's Seed publishes DeliveredFor null and nothing exposes whether the option is on to a host, so the tool cannot meet criterion 3 inside Surl.Mcp alone. BL-1515 (MailStore and Composition) adds both; BL-1503 (Surl.Api) must carry the setting to Mail.DeliverAsync first, because Surl.Mcp reaches the store only through Surl.Api.
+
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Backlog. Waiting for BL-1515 (MailStore and Composition: seed DeliveredFor, expose the option) and BL-1503 (Surl.Api Mail.DeliverAsync)
