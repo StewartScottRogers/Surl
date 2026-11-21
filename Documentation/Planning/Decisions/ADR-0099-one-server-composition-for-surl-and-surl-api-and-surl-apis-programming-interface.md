@@ -410,3 +410,26 @@ every default keeps today's behaviour.
   checkout; whatever it decides, decision 4 keeps every property a spelling of a command-line option.
 - `Surl.Composition`'s public types are not a supported API; changing them is not a breaking change of
   `Surl.Api`.
+
+## Amendment 2026-11-21: an exchange chunk carries the time its bytes crossed (BL-1552)
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), 2026-11-21, in BL-1552.
+Surly cookbook bug report 2026-11-21, item 3: `get_exchanges` chunks carry no timestamps. Decision 7's record
+and ADR-0103 decision 3's chunk JSON never decided against a time; it was never asked.
+
+**Decision: yes.**
+
+1. **The member.** `SurlExchangeChunk` gains `DateTimeOffset? At = null` as its last positional parameter,
+   after `StreamId`, so every existing construction keeps compiling (configuration only grows).
+2. **The source.** `ExchangeBytesEvent.At`, which the instance's injected `TimeProvider` stamped when the bytes
+   were read or written. No second clock is read, so a test on a manual clock gets the same times every run
+   (deterministic), and a `delay` fault (ADR-0124 decision 4) shows as the gap between a request chunk's
+   time and the answer chunk's.
+3. **The JSON.** `get_exchanges`' chunk and the control endpoint's exchange chunk gain `at`: ISO 8601 UTC
+   written with `"O"`, as `started_at` is, after `stream_id`. Existing members, order and defaults are
+   unchanged.
+4. **Why nullable.** A chunk built by hand in a test has no time; `null` is written as an omitted `at`,
+   never as an invented time.
+
+**Acted on by** BL-1556 (`Surl.Api`), then BL-1557 (`Surl.Mcp.UnitLibrary`, `get_exchanges`) and BL-1558
+(`Surl.Control.UnitLibrary`, the exchange writer). Each depends on BL-1552.

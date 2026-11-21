@@ -47,6 +47,8 @@ from which clock and in what form; any implementation it calls for is filed as t
 
 ## Notes
 
+Decided yes: `at` from `ExchangeBytesEvent.At`, optional last parameter, ISO 8601 "O". Filed BL-1556, BL-1557, BL-1558.
+
 ## Log
 
 - 2026-11-21: Created.
