@@ -32,3 +32,4 @@ ADR-0053 Amendment 1 decision 6. File: `Application/Surl.Mcp.UnitLibrary/SeedMai
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
