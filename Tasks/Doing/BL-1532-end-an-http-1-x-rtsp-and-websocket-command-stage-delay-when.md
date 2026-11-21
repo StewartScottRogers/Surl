@@ -31,3 +31,4 @@ An HTTP/1.x, RTSP or WebSocket command-stage `delay` hold ends when the client c
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
