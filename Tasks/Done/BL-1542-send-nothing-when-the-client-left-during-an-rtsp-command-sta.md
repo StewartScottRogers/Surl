@@ -8,7 +8,7 @@ depends-on: [BL-1541]
 touches: [Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary, Protocols/Http/Surl.Protocol.Rtsp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1542 — Send nothing when the client left during an RTSP command-stage delay hold
 
@@ -22,8 +22,8 @@ ADR-0141 Amendment 3. Uses the `HttpCommandFaults` change of BL-1541 (RtspReques
 
 ## Acceptance criteria
 
-- [ ] The goal holds, shown by named unit tests that fail without the change.
-- [ ] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
+- [x] The goal holds, shown by named unit tests that fail without the change.
+- [x] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
 
 ## Notes
 
@@ -33,3 +33,4 @@ RtspRequestResponder.AnswerLetInRequestAsync now uses FindAndApplyWithClientOutc
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. RTSP sends nothing and ends the session when the client left during a command-stage delay hold
