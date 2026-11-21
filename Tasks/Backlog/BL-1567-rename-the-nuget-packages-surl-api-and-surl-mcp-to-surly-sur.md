@@ -60,3 +60,4 @@ becomes `Surly.Surl.Mcp`, from the next release (v0.1.3). Every document that na
 
 - 2026-11-21: Created. Stewart approved the rename in session.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Lane 1 could not integrate: fast tests failed twice (Surl.Core.UnitTests failed; then Surl.Protocol.Gopher.UnitTests: ServeAsync_CommandStageDelayRule_HoldsTheAnswerFor500MsThenAnswersAsUsual) after rebasing onto the other lanes' work. The work is on branch factory/BL-1567-lane-1-20261121-124639; start with git cherry-pick --no-commit factory/BL-1567-lane-1-20261121-124639 and fix it.
