@@ -69,3 +69,21 @@ this decision also changes what a later subscriber on `mqtt5`, NATS, STOMP, AMQP
   `--aihelp mqtt` sentence (`AiHelpProse.cs`, and `AiHelpExamples` if it describes the old behaviour), and
   the fixture in `SurlServerCompositionTests.MessageBus.cs`.
 - **BL-1378:** the MQTT `Integration` tests with pinned upstream curl, seeding with `--topic ...;retain`.
+
+## Amendment 1 (2026-11-20, BL-1475): a retained seed ignores the `--topic` retain filter
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"). No package, no threshold
+change, no download.
+
+A retained seed - `SurlServer.Messages.PublishAsync(topic, payload, retain: true)`, `surl-mcp`'s
+`publish_message` with `retain` true, and the control endpoint's publish - is kept on **any** topic, including
+one outside every `--topic <filter>;retain` rule. Only a client publish consults that rule.
+
+**Why.** `--topic ...;retain` exists because upstream curl cannot set RETAIN 1 (decision 3); it stands in for a
+flag a curl client lacks. A seed states its RETAIN flag explicitly and is the test's own set-up of state (the
+stand-in rule "Controllable"); refusing it would force a test to declare `--topic` just to seed. A seed that
+the filter silently dropped would also be a surprise. No refusal error is introduced.
+
+**Pinned by** `SurlServerTests.Messages_PublishAsyncRetained_OnATopicOutsideTheRetainFilter_IsStillKept` and
+`StoreToolsTests.PublishMessage_RetainedOnATopicOutsideTheRetainFilter_IsStillKept`; stated in the `Surl.Api`
+README, the `publish_message` description and `surl --aihelp mqtt`.

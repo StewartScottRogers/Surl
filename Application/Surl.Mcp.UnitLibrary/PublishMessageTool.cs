@@ -17,7 +17,8 @@ public static class PublishMessageTool
     internal const string Description =
         "Publish a message on a topic (optionally retained for later subscribers) or put one into an existing queue "
         + "on a running Surl server's message bus, as a client would, so its MQTT and other messaging servers deliver "
-        + "it. Give the payload as UTF-8 text or base64, at most 16 MiB.";
+        + "it. A retained message is kept on any topic, even one outside the server's --topic ...;retain filters "
+        + "(a seed is explicit test setup). Give the payload as UTF-8 text or base64, at most 16 MiB.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

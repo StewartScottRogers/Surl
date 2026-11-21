@@ -93,6 +93,20 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task Messages_PublishAsyncRetained_OnATopicOutsideTheRetainFilter_IsStillKept()
+    {
+        var seams = new ApiTestSeams();
+        var options = StoreOptions(Mqtt);
+        options.Topics.Add("sensors/#;retain");
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+
+        await server.Messages.PublishAsync("t/1", "hi"u8.ToArray(), retain: true, TestContext.CancellationToken);
+        var written = await ServeBytesAsync(seams, "mqtt", MqttSubscribeToT1AsAlice);
+
+        Assert.IsTrue(Contains(written, RetainedHiOnT1), Convert.ToHexString(written));
+    }
+
+    [TestMethod]
     public async Task Messages_EnqueueAsync_IsDeliveredToAStompSubscriberOfTheQueueAFakeClientDeclared()
     {
         var seams = new ApiTestSeams();

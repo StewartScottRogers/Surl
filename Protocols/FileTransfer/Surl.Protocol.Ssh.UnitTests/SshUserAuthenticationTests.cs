@@ -255,6 +255,39 @@ public sealed class SshUserAuthenticationTests
     }
 
     [TestMethod]
+    public async Task AnswerLoginRequest_RefusedPublicKeyQuery_NotesTheMethodUserKeyTypeAndFingerprint()
+    {
+        var blob = UserKeyBlob("ecdsa-sha2-nistp256");
+        var (client, serving) = await OpenAsync(new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob("rsa-sha2-256") });
+
+        client.Send(LoginRequest("publickey", [0], String("ecdsa-sha2-nistp256"), Str(blob)));
+
+        CollectionAssert.AreEqual(Failure, await client.ReceiveAsync());
+        await CloseAsync(client, serving);
+        var requestNotes = client.Log.Notes.Where(note => note.StartsWith("SSH login request: publickey", StringComparison.Ordinal)).ToArray();
+        CollectionAssert.AreEqual(
+            new[] { $"SSH login request: publickey for alice, key ecdsa-sha2-nistp256 SHA-256 {Convert.ToBase64String(SHA256.HashData(blob))}" },
+            requestNotes);
+    }
+
+    [TestMethod]
+    public async Task AnswerLoginRequest_RefusedSignedPublicKey_NotesTheMethodUserKeyTypeAndFingerprint()
+    {
+        var blob = UserKeyBlob("ecdsa-sha2-nistp256");
+        var (client, serving) = await OpenAsync(new SshTestAuthenticationPolicy { AuthorizedKeyBlob = blob });
+
+        client.Send(SignedRequest(client, "ecdsa-sha2-nistp256", tamper: true));
+
+        CollectionAssert.AreEqual(Failure, await client.ReceiveAsync());
+        await CloseAsync(client, serving);
+        var requestNotes = client.Log.Notes.Where(note => note.StartsWith("SSH login request: publickey", StringComparison.Ordinal)).ToArray();
+        CollectionAssert.AreEqual(
+            new[] { $"SSH login request: publickey for alice, key ecdsa-sha2-nistp256 SHA-256 {Convert.ToBase64String(SHA256.HashData(blob))}" },
+            requestNotes);
+        CollectionAssert.Contains(client.Log.Notes.ToArray(), "Login refused: publickey alice");
+    }
+
+    [TestMethod]
     public async Task AnswerLoginRequest_PublicKeyQueryForAnotherKey_IsRefusedAndCounted()
     {
         var (client, serving) = await OpenAsync(new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob("rsa-sha2-256") });
