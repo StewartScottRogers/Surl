@@ -34,3 +34,4 @@ ADR-0055 Amendment 1, decision 2, and ADR-0101's `--mailbox` row. Code: `Applica
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
