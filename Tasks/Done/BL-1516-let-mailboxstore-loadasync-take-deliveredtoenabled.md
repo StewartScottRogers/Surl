@@ -8,7 +8,7 @@ depends-on: [BL-1507]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1516 — Let MailboxStore.LoadAsync take DeliveredToEnabled
 
@@ -22,8 +22,8 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A `MailboxStore` test: `LoadAsync` with `deliveredToEnabled: true` gives a store whose `DeliveredToEnabled` is true; omitted, false.
-- [ ] `dotnet build` is clean and the MailStore fast tests pass at 100% line and branch coverage.
+- [x] A `MailboxStore` test: `LoadAsync` with `deliveredToEnabled: true` gives a store whose `DeliveredToEnabled` is true; omitted, false.
+- [x] `dotnet build` is clean and the MailStore fast tests pass at 100% line and branch coverage.
 
 ## Notes
 
@@ -31,3 +31,4 @@ completed:
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. MailboxStore.LoadAsync takes deliveredToEnabled (default false) and sets DeliveredToEnabled

@@ -113,5 +113,5 @@ addresses) and store them all or none with the same refusals as the single-messa
 every pending message whatever the outcome. If a later copy's file cannot be kept, the earlier files are released (their
 file numbers are not reused). One batch is one change. Every `Delivered` event carries `DeliveredFor`: the copy's list, in the
 order given; the single-message overloads publish the addresses a `MailRecipient` records through
-`MailRecipient.ForAddresses`, else null (as before). `MailboxStore.DeliveredToEnabled` (init-only, default false) is only
+`MailRecipient.ForAddresses`, else null (as before). `MailboxStore.DeliveredToEnabled` (init-only, default false; `LoadAsync`'s `deliveredToEnabled` sets it) is only
 carried here: the composition root sets it and the SMTP server reads it. The index format is unchanged.

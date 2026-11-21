@@ -201,6 +201,7 @@ public sealed partial class MailboxStore
     /// <see langword="null"/> to publish nothing.</param>
     /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
     /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
+    /// <param name="deliveredToEnabled">The value of <see cref="DeliveredToEnabled"/>; false by default.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The loaded store.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
@@ -222,11 +223,15 @@ public sealed partial class MailboxStore
         MailDomainConfiguration? mailDomains = null,
         ISurlEventPublisher? events = null,
         IFaultPlan? faults = null,
+        bool deliveredToEnabled = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(accountNames);
-        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults);
+        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults)
+        {
+            DeliveredToEnabled = deliveredToEnabled,
+        };
         var index = await files.ReadIndexAsync(cancellationToken);
         if (index is not null)
         {
