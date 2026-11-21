@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1537 — State in the --aihelp testing topic that a refused password never spends a refuse-login rule
 
@@ -28,10 +28,10 @@ Stand-in: no store, no new event. The sentence tells a test that seeds `refuse-l
 
 ## Acceptance criteria
 
-- [ ] The `--fault` paragraph of the `testing` topic in `AiHelpProse.cs` states that a `refuse-login` rule is asked only after the credentials match, so a wrong password neither fires it nor spends its `times`, citing nothing but what ADR-0128 decision 4 says.
-- [ ] A new test `AiHelpTextTests.Answer_Testing_SaysARefusedPasswordNeverSpendsARefuseLoginRule` in `Application/Surl.Cli.UnitTests` passes and asserts the sentence appears in `surl --aihelp testing`.
-- [ ] The existing `--aihelp` completeness and example tests in `Surl.Cli.UnitTests` and `Surl.Console.UnitTests` still pass (`CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` included).
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green; no test needs `TestCategory=Integration`.
+- [x] The `--fault` paragraph of the `testing` topic in `AiHelpProse.cs` states that a `refuse-login` rule is asked only after the credentials match, so a wrong password neither fires it nor spends its `times`, citing nothing but what ADR-0128 decision 4 says.
+- [x] A new test `AiHelpTextTests.Answer_Testing_SaysARefusedPasswordNeverSpendsARefuseLoginRule` in `Application/Surl.Cli.UnitTests` passes and asserts the sentence appears in `surl --aihelp testing`.
+- [x] The existing `--aihelp` completeness and example tests in `Surl.Cli.UnitTests` and `Surl.Console.UnitTests` still pass (`CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` included).
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green; no test needs `TestCategory=Integration`.
 
 ## Notes
 
@@ -39,3 +39,4 @@ Stand-in: no store, no new event. The sentence tells a test that seeds `refuse-l
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Added the refuse-login sentence to the testing topic; test added; build and fast tests green
