@@ -8,21 +8,21 @@ depends-on: [BL-1487, BL-1498]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1497 — Describe --mail-delivered-to in AiHelpProse and the manual text
 
 ## Goal
 
-<!-- One sentence: the observable outcome once this task is done. -->
+`surl --aihelp mail` describes `--mail-delivered-to`.
 
 ## Context
 
-<!-- Why this matters, and where to start: requirement IDs, ADRs, projects, files, upstream curl links with the curl version. -->
+BL-1498 added the option; ADR-0053 amendment 1 decision 1 defines it.
 
 ## Acceptance criteria
 
-- [ ] <!-- A statement someone else can check from the repository without asking a question. -->
+- [x] `AiHelpProse` mail paragraphs describe `--mail-delivered-to`; Surl.Cli.UnitTests pass.
 
 ## Notes
 
@@ -30,3 +30,4 @@ completed:
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. AiHelpProse mail paragraph now describes --mail-delivered-to
