@@ -8,7 +8,7 @@ depends-on: [BL-1553, BL-1561, BL-1562]
 touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1563 — Abandon the body check when the HTTP server refuses before the body (ADR-0045 amendment 1)
 
@@ -22,12 +22,15 @@ ADR-0045 amendment 1 (BL-1553) decides what an abandoned body-bound login publis
 
 ## Acceptance criteria
 
-- [ ] HttpProtocolServer tests: an uploads-off signed PUT publishes the event and the status, body and delay are as before.
-- [ ] Build clean, fast tests green, 100% coverage held.
+- [x] HttpProtocolServer tests: an uploads-off signed PUT publishes the event and the status, body and delay are as before.
+- [x] Build clean, fast tests green, 100% coverage held.
 
 ## Notes
+
+The HTTP answerer calls AbandonAsync on the body check at each exit that skips judging it: upload limit, unreadable framing, and a body that ends early or too large (HTTP and PUT paths). Uploads-off signed PUTs are still read and judged, so they are not abandoned; answers are unchanged.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Answerer abandons the body check on every unjudged exit; tests green

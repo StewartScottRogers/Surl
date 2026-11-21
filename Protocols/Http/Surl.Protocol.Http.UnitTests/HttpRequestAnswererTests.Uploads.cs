@@ -189,6 +189,20 @@ public sealed partial class HttpRequestAnswererTests
         Assert.HasCount(1, bodyCheck.JudgedBodySha256s);
     }
 
+    [TestMethod]
+    public async Task AnswerAsync_PutWhoseBodyEndsEarlyUnderABodyBoundLogin_AbandonsTheBodyCheck()
+    {
+        var (_, store) = UploadStore();
+        var bodyCheck = new UnitTestRequestBodyCheck(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "ann"));
+        var body = new UnitTestCopyingRequestBody(RecordedUpload, HttpRequestBodyDiscardOutcome.Incomplete);
+
+        var answer = await UploadAnswerer(store, BodyBoundLogin(bodyCheck)).AnswerAsync(Request("PUT", "/up.bin", body), TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpStatus.BadRequest, answer.Status);
+        Assert.AreEqual(1, bodyCheck.AbandonCount);
+        Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+    }
+
     private static UnitTestAuthenticationPolicy BodyBoundLogin(UnitTestRequestBodyCheck bodyCheck) =>
         new(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "ann", BodyCheck: bodyCheck));
 

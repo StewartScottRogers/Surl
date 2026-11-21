@@ -60,6 +60,11 @@ internal sealed partial class HttpRequestAnswerer
             : HttpRequestBodyDiscardOutcome.Discarded;
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
+            if (bodyCheck is not null)
+            {
+                await bodyCheck.AbandonAsync(cancellationToken);
+            }
+
             return RefuseBody(request, bodyOutcome, challenges);
         }
 

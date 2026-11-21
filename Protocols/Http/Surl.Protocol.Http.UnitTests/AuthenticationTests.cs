@@ -390,6 +390,18 @@ public sealed class AuthenticationTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_UploadsOffSignedPut_IsJudgedNotAbandonedAndStillAnswers405()
+    {
+        var bodyCheck = BodyCheckAccepting(BodySha256);
+
+        var (connection, _) = await ServeAsync(BodyBindingPolicy(bodyCheck), Put("body"));
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 405 Method Not Allowed\r\n");
+        Assert.HasCount(1, bodyCheck.JudgedBodySha256s);
+        Assert.AreEqual(0, bodyCheck.AbandonCount);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_BodyBoundLoginExpectingContinue_Sends100ContinueBeforeReadingTheBody()
     {
         var (connection, _) = await ServeAsync(BodyBindingPolicy(BodyCheckAccepting(BodySha256)), Put("body", "Expect: 100-continue\r\n"));
@@ -406,6 +418,7 @@ public sealed class AuthenticationTests
 
         StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 413 Content Too Large\r\n");
         Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+        Assert.AreEqual(1, bodyCheck.AbandonCount);
     }
 
     [TestMethod]
@@ -419,6 +432,7 @@ public sealed class AuthenticationTests
         StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 400 Bad Request\r\n");
         Assert.AreEqual("PUT /upload: the body was malformed or ended early; answered 400 and closed.", log.Notes[0]);
         Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+        Assert.AreEqual(1, bodyCheck.AbandonCount);
     }
 
     [TestMethod]
@@ -434,6 +448,7 @@ public sealed class AuthenticationTests
             "PUT /upload: the login is bound to the body, and the body's framing is not one the server reads; answered 400 and closed.",
             log.Notes[0]);
         Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+        Assert.AreEqual(1, bodyCheck.AbandonCount);
     }
 
     [TestMethod]

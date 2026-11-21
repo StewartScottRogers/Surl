@@ -90,11 +90,15 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         var uploadRefusal = RefuseUploadPastLimit(request, challenges);
         if (uploadRefusal is not null)
         {
+            await bodyCheck.AbandonAsync(cancellationToken);
+
             return uploadRefusal;
         }
 
         if (!request.Body.IsReadable)
         {
+            await bodyCheck.AbandonAsync(cancellationToken);
+
             return Refuse(request, HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the login is bound to the body, and the body's framing is not one the server reads");
         }
 
@@ -107,6 +111,8 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         var bodyOutcome = await request.Body.DiscardAsync(bodyHash, cancellationToken);
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
+            await bodyCheck.AbandonAsync(cancellationToken);
+
             return RefuseBody(request, bodyOutcome, challenges);
         }
 
