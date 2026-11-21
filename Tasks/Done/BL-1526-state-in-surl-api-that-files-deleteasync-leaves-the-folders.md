@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Api]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1526 — State in Surl.Api that Files.DeleteAsync leaves the folders on the path
 
@@ -28,9 +28,9 @@ No behaviour changes; this is a docs task, so no test is added. Stand-in: tests 
 
 ## Acceptance criteria
 
-- [ ] `SurlServerFiles.DeleteAsync`'s XML `<summary>` states that the folders on the path are left in place, as a client's delete leaves them (ADR-0161 decision 1), and names `SurlServer.ResetAsync` as the way back to the configured state.
-- [ ] `Application/Surl.Api/README.md`'s "Seed, reset, snapshot" section states the same.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean.
+- [x] `SurlServerFiles.DeleteAsync`'s XML `<summary>` states that the folders on the path are left in place, as a client's delete leaves them (ADR-0161 decision 1), and names `SurlServer.ResetAsync` as the way back to the configured state.
+- [x] `Application/Surl.Api/README.md`'s "Seed, reset, snapshot" section states the same.
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean.
 
 ## Notes
 
@@ -38,3 +38,4 @@ No behaviour changes; this is a docs task, so no test is added. Stand-in: tests 
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Stated in DeleteAsync summary and README that folders stay; build clean
