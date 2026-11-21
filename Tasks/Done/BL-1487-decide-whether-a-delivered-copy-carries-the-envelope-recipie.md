@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1487 — Decide whether a delivered copy carries the envelope recipient it was delivered for, as a Delivered-To field or otherwise
 
@@ -39,17 +39,24 @@ catch-all or Bcc'd copy was for, and files the work.
 
 ## Acceptance criteria
 
-- [ ] `ADR-0053` gains an amendment, marked "Decided by Claude under Stewart's delegation", that decides yes or no and, if yes, the
+- [x] `ADR-0053` gains an amendment, marked "Decided by Claude under Stewart's delegation", that decides yes or no and, if yes, the
       field name and exact bytes, where it goes relative to `Return-Path` and `Received`, one or several per copy, which delivery
       paths add it, whether an option turns it on, and whether the store's event names the recipient.
-- [ ] The amendment names any ADR-0102 decision 1.3 text it changes and the `--aihelp` paragraph that must follow.
-- [ ] task-planner files the follow-up tasks (SMTP server, mail store or hosts, help text; at most two projects each), each depending on
+- [x] The amendment names any ADR-0102 decision 1.3 text it changes and the `--aihelp` paragraph that must follow.
+- [x] task-planner files the follow-up tasks (SMTP server, mail store or hosts, help text; at most two projects each), each depending on
       this task, and their IDs are in this task's Log; or, if the answer is no, the Log says why and how a test tells the copies apart.
-- [ ] No `.cs` file changes in this task.
+- [x] No `.cs` file changes in this task.
 
 ## Notes
+
+Decided yes: ADR-0053 Amendment 1 - opt-in `--mail-delivered-to` (default off keeps today's bytes), `Delivered-To: <address>`
+first, one per envelope address reaching the owner in RCPT order, per-owner copies delivered as one batch (keeps Bcc hidden and
+all-or-none), non-SMTP paths add it too, and the delivery event always names the recipient (`DeliveredFor`). ADR-0102 decision 1.3
+bullet and the AiHelpProse mail store paragraph / glossary row follow (BL-1496, BL-1497). No `.cs` file changed.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Follow-ups filed by task-planner: BL-1488, BL-1489, BL-1490, BL-1491, BL-1492, BL-1493, BL-1494, BL-1495, BL-1496, BL-1497.
+- 2026-11-20: Doing -> Done. ADR-0053 amendment 1 decides an opt-in Delivered-To field and DeliveredFor event member; follow-ups BL-1488..BL-1497 filed

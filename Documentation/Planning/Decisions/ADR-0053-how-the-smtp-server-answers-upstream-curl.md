@@ -467,3 +467,65 @@ Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformanc
 - A stored message is some 150 bytes larger than the body curl sent, and those bytes count against
   `--max-filesize`.
 - `Record-CurlExchange.ps1` gains `-SmtpMaxMessageBytes`, described in its help.
+
+## Amendment 1 (2026-11-20): a delivered copy can name the envelope recipient it was delivered for
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-20, in
+  BL-1487 (Surly cookbook bug report item 10: a test cannot tell which address a catch-all or `Bcc`'d
+  copy was for).
+- **Amends:** decision 6 (the trace fields, and the sentence that no field names a recipient) and
+  [ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+  decision 1.3's "One copy per owner per message" bullet. Nothing else changes; decision 6 as written
+  is what a start without the new option does.
+
+### Decision: yes, as an opt-in `Delivered-To` field, and always in the event
+
+1. **Off by default.** Configuration only grows and defaults keep today's bytes, so a stored message
+   is exactly decision 6's two lines and the body unless `--mail-delivered-to` is given. The option
+   is a mail-store setting, a boolean like `--mail-catch-all`'s siblings, and is also a field of the
+   one configuration model (`Surl.Api`, `surl-mcp`, `-K` file, control endpoint). It widens nothing a
+   peer may do, so it needs no start-up warning.
+2. **The field.** `Delivered-To: <address>` then CRLF, where `<address>` is the `RCPT TO` path's
+   bytes between its brackets as sent (no angle brackets, as Postfix and Gmail write it; RFC 9228
+   registers the field). It goes **first**, ahead of `Return-Path`, as a final-delivery agent
+   prepends it, so a stored message is: the `Delivered-To` lines, `Return-Path`, `Received`, the body.
+3. **One field per envelope recipient that resolved to the owner, in `RCPT` order.** The one-copy
+   rule stands (an owner gets one copy however many `RCPT`s, aliases or catch-alls reach it) and the
+   copy lists every address that reached its owner, so a copy reached by `a@x` and by the alias
+   `b@x` carries `Delivered-To: a@x` and `Delivered-To: b@x`. A recipient the server discarded (no
+   account, no catch-all) names no owner and writes no field.
+4. **Each owner's copy is therefore its own message.** Decision 6's "each recipient's copy is the
+   same file" holds only without the option. With it, the SMTP server builds one pending message per
+   owner, each with only that owner's addresses, and delivers them as one batch, so ADR-0050
+   decision 3's all-or-none still holds (one refusal stores nothing for any owner). This is what
+   keeps the `Bcc` promise of decision 6: an owner reads only the addresses that reached it, never
+   another owner's. RFC 9228's note that a `Bcc` recipient is revealed to whoever reads the copy
+   therefore applies only to that recipient's own owner.
+5. **Size.** The added lines count against `--max-filesize` exactly as the trace fields do; the body
+   reader's budget is `MaxUploadBytes` minus the longest owner's trace bytes, `Delivered-To` lines
+   included.
+6. **Delivery without SMTP.** `Surl.Api`'s `Mail.DeliverAsync`, `surl-mcp`'s `seed_mail` and the
+   control endpoint's `POST /v1/mail?to=` write the same field when the option is on, one line for
+   the `to` address they were given, ahead of the message they were handed. They write no
+   `Return-Path` or `Received` today and still write none. A message IMAP `APPEND` stores gets no
+   `Delivered-To` (decision 6 already excludes it from trace fields; it is delivered to no envelope
+   recipient).
+7. **The event names the recipient, whatever the option.** The mail store's delivery
+   `StoreChangedEvent` gains `DeliveredFor`, the list of envelope addresses (as sent, in `RCPT`
+   order) that resolved to the owner of the copy, an optional member that older subscribers ignore.
+   Events go to the test's own host, not to another mailbox's reader, so no privacy question arises
+   and a test can tell the copies apart even without the option.
+8. **Not chosen:** `X-Original-To` (Postfix-only; one field name is enough), a `for <recipient>`
+   clause in `Received` (still rejected: decision 6's reasoning stands), and a single `Delivered-To`
+   on every copy naming all recipients (it would reveal `Bcc`).
+
+### What follows
+
+- ADR-0102 decision 1.3's "One copy per owner per message" bullet gains: "With
+  `--mail-delivered-to` the copy carries one `Delivered-To` per envelope address that reached its
+  owner (ADR-0053 amendment 1)."
+- `AiHelpProse`'s mail store paragraph, and the trace fields row in `Documentation/Wiki/Glossary.md`,
+  must say the option exists, the field's place and bytes, and that it counts against
+  `--max-filesize`; the option needs its `--aihelp` facts and category entries (root `CLAUDE.md`).
+- Follow-up tasks: the option and its configuration field; the SMTP server's per-owner copies and
+  field; the mail store's `DeliveredFor` event member; the non-SMTP delivery paths; help text.
