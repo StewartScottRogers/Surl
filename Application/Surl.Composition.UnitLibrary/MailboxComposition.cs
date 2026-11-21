@@ -196,7 +196,7 @@ public sealed class MailboxComposition
             commandLine.MailAliases.Select(alias => new MailAlias(alias.Address, alias.Targets)),
             commandLine.MailCatchAlls.Select(catchAll => new MailCatchAll(catchAll.Domain, catchAll.Address)),
             mailboxes.Where(mailbox => mailbox.QuotaBytes is not null || mailbox.Folders.Count != 0)
-                .Select(mailbox => new MailboxSettings(mailbox.Address, mailbox.QuotaBytes, mailbox.Folders)),
+                .Select(mailbox => new MailboxSettings(mailbox.Address, mailbox.QuotaBytes, mailbox.Folders, mailbox.FolderUses)),
             sharedFolders);
 
     private static string QuotaAndFolders(ConfiguredMailbox mailbox) =>

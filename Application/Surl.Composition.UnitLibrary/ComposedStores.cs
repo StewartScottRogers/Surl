@@ -162,7 +162,7 @@ public sealed partial class ComposedStores
         foreach (var name in mail.ListMailboxes(view))
         {
             _ = mail.ReadMailbox(view, name, out var snapshot);
-            boxes.Add(new(snapshot!.Name, snapshot.Messages.Count, snapshot.Messages.Count(message => !message.Flags.HasFlag(MailFlags.Seen)), snapshot.UidValidity));
+            boxes.Add(new(snapshot!.Name, snapshot.Messages.Count, snapshot.Messages.Count(message => !message.Flags.HasFlag(MailFlags.Seen)), snapshot.UidValidity, snapshot.Use));
         }
 
         return boxes.Count == 0
