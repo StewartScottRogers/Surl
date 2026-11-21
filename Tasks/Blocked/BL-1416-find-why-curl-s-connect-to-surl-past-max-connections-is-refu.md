@@ -88,3 +88,4 @@ tolerated.
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Backlog. Run 44885355387 passed without reproducing; max-connections tests now run curl with -v so a failure names curl's connect errno (unpushed from this lane). Next run: dispatch release.yml on the shift branch once that commit is pushed (1 of 2 dispatches used in the last 12h), block on run:id, read curl -v and surl stderr
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Blocked. Waiting for run:44891838149 (release.yml dry run on factory/phase-1 with curl -v in the max-connections tests; read curl's connect errno and surl stderr)
