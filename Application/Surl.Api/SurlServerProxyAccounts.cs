@@ -66,6 +66,34 @@ public sealed class SurlServerProxyAccounts
     }
 
     /// <summary>
+    /// Changes a proxy account's password, keeping every other account. Publishes
+    /// <see cref="Protocol.Abstractions.StoreChange.AccountRemoved"/> then
+    /// <see cref="Protocol.Abstractions.StoreChange.AccountAdded"/> on
+    /// <see cref="Protocol.Abstractions.StoreKind.ProxyAccounts"/>, and never warns that no account is left.
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="password"/> is empty, or no proxy account has that user name.</exception>
+    /// <exception cref="InvalidOperationException">The server holds no proxy accounts.</exception>
+    public void SetPassword(string userName, string password)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(password);
+        if (password.Length == 0)
+        {
+            throw new ArgumentException("A password may not be empty.", nameof(password));
+        }
+
+        if (!stores.RemoveProxyAccount(userName))
+        {
+            throw new ArgumentException("No proxy account has that user name.", nameof(userName));
+        }
+
+        stores.AddProxyAccount(new Account(userName, password));
+    }
+
+    /// <summary>
     /// Whether a proxy account is left. <see langword="false"/> means the proxy needs no login.
     /// </summary>
     public bool HasAccounts => stores.HasProxyAccounts;
