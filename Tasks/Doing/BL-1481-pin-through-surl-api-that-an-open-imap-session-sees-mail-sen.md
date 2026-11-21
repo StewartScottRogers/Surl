@@ -48,3 +48,4 @@ session with `INBOX` selected gets `* <n> EXISTS` on its next `NOOP` after mail 
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
