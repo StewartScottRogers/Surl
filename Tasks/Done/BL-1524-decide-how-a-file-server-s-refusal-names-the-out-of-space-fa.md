@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0129-what-the-content-store-publishes-and-how-it-runs-out-of-space.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1524 — Decide how a file server's refusal names the out-of-space fault rule instead of the upload limit
 
@@ -28,14 +28,17 @@ Stand-in: tests already observe the fault through the `FaultAppliedEvent` on the
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0129-what-the-content-store-publishes-and-how-it-runs-out-of-space.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", stating how a server learns that a fault rule (and which) refused the upload, and the note's text for FTP, TFTP and HTTP.
-- [ ] The amendment states that the bytes each server sends for the refusal do not change.
-- [ ] The implementation tasks are filed, one per library and its `.UnitTests` twin (the store's contract first, then each server family), each naming the note text it pins.
-- [ ] `Documentation/Planning/Decisions/README.md`'s ADR-0129 row mentions the amendment.
+- [x] `Documentation/Planning/Decisions/ADR-0129-what-the-content-store-publishes-and-how-it-runs-out-of-space.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", stating how a server learns that a fault rule (and which) refused the upload, and the note's text for FTP, TFTP and HTTP.
+- [x] The amendment states that the bytes each server sends for the refusal do not change.
+- [x] The implementation tasks are filed, one per library and its `.UnitTests` twin (the store's contract first, then each server family), each naming the note text it pins.
+- [x] `Documentation/Planning/Decisions/README.md`'s ADR-0129 row mentions the amendment.
 
 ## Notes
+
+Decided: ADR-0129 amendment 1 carries the refusing rule on the per-exchange ContentCaller (RefusedByFaultRuleId), fewest servers changed. Filed BL-1534 (store), BL-1535 (FTP, TFTP), BL-1536 (HTTP PUT). SMB, CoAP, S3, Azure, GCS and MCP write_file keep today's note until a later task.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0129 amendment 1 decides the refusing rule rides on ContentCaller; BL-1534..1536 filed
