@@ -38,29 +38,42 @@ public static class HttpCommandFaults
     /// <returns>The chosen-error or drop rule to act on, or <see langword="null"/>.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
     public static async ValueTask<FaultRule?> FindAndApplyAsync(
+        ExchangeContext context, string method, string? path, string? accountName, IConnection? connection = null) =>
+        (await FindAndApplyWithClientOutcomeAsync(context, method, path, accountName, connection)).Rule;
+
+    /// <summary>
+    /// <see cref="FindAndApplyAsync"/> that also reports whether a <see cref="FaultKind.Delay"/> hold
+    /// ended because the client left (ADR-0141 amendment 3), so an HTTP/1.x server can answer nothing.
+    /// </summary>
+    /// <param name="context">The exchange: its listen URL, plan, log and cancellation.</param>
+    /// <param name="method">The request's method, or <c>GET</c> for a WebSocket upgrade.</param>
+    /// <param name="path">The request path without its query, or <see langword="null"/> when the request names none.</param>
+    /// <param name="accountName">The account the request logged in as; <see langword="null"/> or empty when anonymous.</param>
+    /// <param name="connection">The connection a hold watches, as for <see cref="FindAndApplyAsync"/>.</param>
+    /// <returns>The rule to act on (or <see langword="null"/>) and how the client left during a hold, if it did.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
+    public static async ValueTask<CommandStageFaultResult> FindAndApplyWithClientOutcomeAsync(
         ExchangeContext context, string method, string? path, string? accountName, IConnection? connection = null)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         var point = CommandPoint(context, method, path, accountName);
-        var rule = await (connection is null
-            ? CommandStageFaults.FindAndApplyAsync(context, point, path ?? method)
-            : CommandStageFaults.FindAndApplyAsync(context, connection, point, path ?? method));
+        var found = connection is null
+            ? new CommandStageFaultResult(await CommandStageFaults.FindAndApplyAsync(context, point, path ?? method), PeerWatchOutcome.NotWatched)
+            : await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(context, connection, point, path ?? method);
+        var rule = found.Rule;
         if (rule is null or { Kind: FaultKind.Error or FaultKind.Drop })
         {
-            return rule;
+            return found;
         }
 
-        if (rule.Kind == FaultKind.Delay)
+        if (rule.Kind != FaultKind.Delay)
         {
-            return null;
+            context.Log.Note($"{method} {path}: fault rule {rule.Id} asks for {rule.Kind} at the command stage, which this server does not apply; answered as without it.");
         }
 
-        context.Log.Note($"{method} {path}: fault rule {rule.Id} asks for {rule.Kind} at the command stage, which this server does not apply; answered as without it.");
-
-        return null;
+        return found with { Rule = null };
     }
-
     /// <summary>
     /// <see cref="FindAndApplyAsync"/> for a server that applies only the <see cref="FaultKind.Error"/>
     /// kind at the command stage (the S3, Azure Storage and Google Cloud Storage servers, ADR-0134

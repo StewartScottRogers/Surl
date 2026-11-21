@@ -60,7 +60,13 @@ internal sealed partial class HttpRequestAnswerer
     private async Task<HttpAnswer?> AnswerChosenErrorAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges)
     {
         var path = RequestPath(request.Target);
-        var rule = await HttpCommandFaults.FindAndApplyAsync(context, request.Method, path, accountName, holdConnection);
+        var found = await HttpCommandFaults.FindAndApplyWithClientOutcomeAsync(context, request.Method, path, accountName, holdConnection);
+        if (found.ClientLeft is PeerWatchOutcome.PeerClosed or PeerWatchOutcome.PeerReset)
+        {
+            return DroppedAnswer;
+        }
+
+        var rule = found.Rule;
         if (rule is null)
         {
             return null;

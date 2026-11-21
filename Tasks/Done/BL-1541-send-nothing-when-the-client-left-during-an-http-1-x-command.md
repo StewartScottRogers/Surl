@@ -8,7 +8,7 @@ depends-on: [BL-1540]
 touches: [Protocols/Http/Surl.HttpMessage.UnitLibrary, Protocols/Http/Surl.HttpMessage.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1541 — Send nothing when the client left during an HTTP/1.x command-stage delay hold
 
@@ -22,12 +22,15 @@ ADR-0141 Amendment 3 decisions 1, 3 and 4. `HttpCommandFaults.cs:44` turns `Dela
 
 ## Acceptance criteria
 
-- [ ] The goal holds, shown by named unit tests that fail without the change.
-- [ ] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
+- [x] The goal holds, shown by named unit tests that fail without the change.
+- [x] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
 
 ## Notes
+
+New HttpCommandFaults.FindAndApplyWithClientOutcomeAsync returns the BL-1540 result; HttpRequestAnswerer answers DroppedAnswer (nothing written, connection aborted) when the client closed or reset during the hold. FindAndApplyAsync is unchanged for RTSP, WebSocket and the cloud servers. HTTP/2 and HTTP/3 unchanged (no hold connection).
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. HTTP/1.x sends nothing and aborts when the client left during a command-stage delay hold
