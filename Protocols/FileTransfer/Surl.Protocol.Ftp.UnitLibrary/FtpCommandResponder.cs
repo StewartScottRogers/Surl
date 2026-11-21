@@ -762,7 +762,9 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
                 return TransferComplete;
             case ContentUploadResult.TooLarge:
                 upload.AbortConnection();
-                return NoteFailedTransfer("552 Upload exceeds the size limit", $"The upload grew past the limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes; the partial upload was deleted and the data connection was reset.");
+                return NoteFailedTransfer("552 Upload exceeds the size limit", contentCaller!.RefusedByFaultRuleId is { } ruleId
+                    ? $"The upload was refused by the fault rule {ruleId} (out-of-space); the partial upload was deleted and the data connection was reset."
+                    : $"The upload grew past the limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes; the partial upload was deleted and the data connection was reset.");
             default:
                 return NotPermitted;
         }

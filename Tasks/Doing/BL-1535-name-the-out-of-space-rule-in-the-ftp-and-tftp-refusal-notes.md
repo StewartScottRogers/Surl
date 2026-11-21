@@ -29,6 +29,8 @@ ADR-0129 amendment 1 (BL-1524) decides this; read it first. The wire bytes do no
 
 ## Notes
 
+- TFTP note omits the request label prefix, as the ADR and criterion give the sentence exactly. The caller used for the mapping is now passed to the write transfer; FTP reads the same caller it mapped with. With an out-of-space rule the store refuses before the data connection opens (FTP: no 150, TFTP: ERROR 3 replaces ACK 0); the 552 and ERROR 3 bytes are unchanged.
+
 ## Log
 
 - 2026-11-21: Created.

@@ -11,6 +11,7 @@ namespace Surl.Protocol.Tftp;
 /// <param name="context">The exchange: its log, clock and cancellation.</param>
 /// <param name="contentStore">Where the upload is written.</param>
 /// <param name="mapping">The upload's mapped location.</param>
+/// <param name="caller">The caller that makes the upload; it names the out-of-space rule that refuses it.</param>
 /// <param name="negotiation">The block size, retransmission timeout and OACK.</param>
 /// <param name="label">What the log calls the request, e.g. <c>Write of "up.txt" (octet)</c>.</param>
 internal sealed class TftpWriteTransfer(
@@ -18,6 +19,7 @@ internal sealed class TftpWriteTransfer(
     ExchangeContext context,
     ContentStore contentStore,
     ContentPathMapping mapping,
+    ContentCaller caller,
     TftpNegotiation negotiation,
     string label)
 {
@@ -56,6 +58,10 @@ internal sealed class TftpWriteTransfer(
         await AnswerAsync(result, upload);
     }
 
+    private string TooLargeNote(TftpUploadStream upload) => caller.RefusedByFaultRuleId is { } ruleId
+        ? $"The write was refused by the fault rule {ruleId} (out-of-space); the transfer was ended with an error."
+        : $"{label}: the upload grew past the limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes in block {upload.BlocksReceived}; the partial file was deleted and the transfer ended with ERROR 3.";
+
     private async Task AnswerAsync(ContentUploadResult result, TftpUploadStream upload)
     {
         switch (result)
@@ -65,7 +71,7 @@ internal sealed class TftpWriteTransfer(
                 context.Log.Note($"{label}: {upload.BlocksReceived} blocks were written to {mapping.Location} and acknowledged.");
                 break;
             case ContentUploadResult.TooLarge:
-                context.Log.Note($"{label}: the upload grew past the limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes in block {upload.BlocksReceived}; the partial file was deleted and the transfer ended with ERROR 3.");
+                context.Log.Note(TooLargeNote(upload));
                 await lockStep.SendAsync(TftpPacket.ForError(TftpErrorCode.DiskFull, TftpProtocolServer.DiskFullMessage));
                 break;
             default:
