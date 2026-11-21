@@ -4,7 +4,7 @@ Starts and stops a Surl server in-process, for a .NET test suite, with no `surl`
 Surl is the server-side mate of curl: for each protocol upstream curl speaks, it is the server
 that answers, so a test can run against it in place of the real web, mail or file server.
 
-The `Surl.Api` NuGet package is one package with nothing else to restore: every Surl assembly
+The `Surly.Surl.Api` NuGet package is one package with nothing else to restore: every Surl assembly
 it needs is inside it.
 
 ```csharp

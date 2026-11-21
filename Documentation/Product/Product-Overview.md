@@ -977,7 +977,7 @@ ADR-0147):
   meta-package is the one package, for tests (`CLAUDE.md`).
 - **Publishing:** native ahead-of-time, one file, no runtime needed, for two executables:
   `surl` and `surl-mcp` (`Surl.Mcp`, ADR-0103). `Surl.Api` and `Surl.Mcp` are also packed as
-  the NuGet packages `Surl.Api` and `Surl.Mcp` (a .NET tool of type `McpServer`); no release is
+  the NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` (a .NET tool of type `McpServer`); no release is
   tagged, so none is published yet.
 - **Platforms:** Windows, Linux and macOS, on x64 and Arm64.
 - **Licensing:** MIT (`LICENSE.txt`). Upstream test data copied in for `Surl.Conformance`

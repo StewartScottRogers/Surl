@@ -368,15 +368,15 @@ jobs:
             $reader = [System.IO.StreamReader]::new($entry.Open())
             try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
           }
-          $api = Read-Package 'Surl.Api'
+          $api = Read-Package 'Surly.Surl.Api'
           $names = @($api.Entries.FullName)
           foreach ($required in 'README.md', 'LICENSE.txt', 'lib/net10.0/Surl.Api.dll', 'lib/net10.0/Surl.Composition.UnitLibrary.dll', 'lib/net10.0/Surl.Cli.UnitLibrary.dll') {
             if ($names -notcontains $required) { throw "Surl.Api's package holds no $required." }
           }
-          if ((Read-Entry $api 'Surl.Api.nuspec') -match '<dependency ') { throw "Surl.Api's package depends on another package." }
+          if ((Read-Entry $api 'Surly.Surl.Api.nuspec') -match '<dependency ') { throw "Surl.Api's package depends on another package." }
           $api.Dispose()
-          $mcp = Read-Package 'Surl.Mcp'
-          $nuspec = Read-Entry $mcp 'Surl.Mcp.nuspec'
+          $mcp = Read-Package 'Surly.Surl.Mcp'
+          $nuspec = Read-Entry $mcp 'Surly.Surl.Mcp.nuspec'
           if ($nuspec -notmatch '<packageType name="McpServer"') { throw "Surl.Mcp's package is not of type McpServer." }
           $server = (Read-Entry $mcp '.mcp/server.json') | ConvertFrom-Json
           if ($server.version -ne $env:VERSION) { throw "Surl.Mcp's server.json is version $($server.version), not $env:VERSION." }
