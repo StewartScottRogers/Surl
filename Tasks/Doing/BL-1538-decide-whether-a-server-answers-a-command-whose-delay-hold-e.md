@@ -44,3 +44,4 @@ Stand-in: no store. The point of the decision is what a test observes on the eve
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
