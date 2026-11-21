@@ -32,3 +32,4 @@ Decided by BL-1522's amendment 1 to ADR-0103 (decision 3): the limit stays 4 MiB
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
