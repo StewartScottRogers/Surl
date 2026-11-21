@@ -1,5 +1,5 @@
 ---
-id: BL-1556
+id: BL-1561
 title: Add AbandonAsync to IHttpRequestBodyCheck (ADR-0045 amendment 1)
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-21
 completed:
 ---
-# BL-1556 — Add AbandonAsync to IHttpRequestBodyCheck (ADR-0045 amendment 1)
+# BL-1561 — Add AbandonAsync to IHttpRequestBodyCheck (ADR-0045 amendment 1)
 
 ## Goal
 

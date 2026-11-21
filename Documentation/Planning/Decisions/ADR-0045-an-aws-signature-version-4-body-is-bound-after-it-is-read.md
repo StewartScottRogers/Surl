@@ -127,9 +127,9 @@ asserting "the client's login was judged" saw different things on `gs`, `s3` and
 
 ### Implementation tasks
 
-- BL-1556: the `AbandonAsync` contract in `Surl.Protocol.Abstractions` (`HttpRequestBodyCheckTests`).
-- BL-1557: `HttpAuthenticationSession` and `AwsSigV4AuthenticationMethod` publish on abandon
+- BL-1561: the `AbandonAsync` contract in `Surl.Protocol.Abstractions` (`HttpRequestBodyCheckTests`).
+- BL-1562: `HttpAuthenticationSession` and `AwsSigV4AuthenticationMethod` publish on abandon
   (`HttpAuthenticationSessionTests`: abandoned with a sent hash, without one, faulted).
-- BL-1558: the HTTP server abandons when it refuses before the body (`HttpProtocolServer` tests).
-- BL-1559: `gs` abandons on an uploads-off refusal (`GcsPutObjectTests`, event asserted).
+- BL-1563: the HTTP server abandons when it refuses before the body (`HttpProtocolServer` tests).
+- BL-1564: `gs` abandons on an uploads-off refusal (`GcsPutObjectTests`, event asserted).
 - BL-1560: `s3` abandons on an uploads-off refusal and for refused multipart writes (`S3PutObjectTests`).

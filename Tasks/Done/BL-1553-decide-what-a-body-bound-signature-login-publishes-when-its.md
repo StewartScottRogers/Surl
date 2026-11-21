@@ -66,4 +66,4 @@ server refuses the request without reading it, and the implementation it calls f
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
-- 2026-11-21: Doing -> Done. ADR-0045 amendment 1 decides abandoned body-bound logins; BL-1556..1560 filed
+- 2026-11-21: Doing -> Done. ADR-0045 amendment 1 decides abandoned body-bound logins; BL-1561..1560 filed

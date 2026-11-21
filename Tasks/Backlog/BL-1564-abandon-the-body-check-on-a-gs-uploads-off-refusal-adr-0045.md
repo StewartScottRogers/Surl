@@ -1,16 +1,16 @@
 ---
-id: BL-1559
+id: BL-1564
 title: Abandon the body check on a gs uploads-off refusal (ADR-0045 amendment 1)
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1553, BL-1556, BL-1557]
+depends-on: [BL-1553, BL-1561, BL-1562]
 touches: [Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary, Surl.Extended.Protocol.GoogleCloudStorage.UnitTests]
 requirement: none
 created: 2026-11-21
 completed:
 ---
-# BL-1559 — Abandon the body check on a gs uploads-off refusal (ADR-0045 amendment 1)
+# BL-1564 — Abandon the body check on a gs uploads-off refusal (ADR-0045 amendment 1)
 
 ## Goal
 

@@ -4,7 +4,7 @@ title: Abandon the body check on an s3 refused write (ADR-0045 amendment 1)
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1553, BL-1556, BL-1557]
+depends-on: [BL-1553, BL-1561, BL-1562]
 touches: [Surl.Extended.Protocol.S3.UnitLibrary, Surl.Extended.Protocol.S3.UnitTests]
 requirement: none
 created: 2026-11-21

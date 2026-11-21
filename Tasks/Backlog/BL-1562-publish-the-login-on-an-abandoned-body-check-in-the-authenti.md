@@ -1,16 +1,16 @@
 ---
-id: BL-1557
+id: BL-1562
 title: Publish the login on an abandoned body check in the authentication session (ADR-0045 amendment 1)
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1553, BL-1556]
+depends-on: [BL-1553, BL-1561]
 touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-21
 completed:
 ---
-# BL-1557 — Publish the login on an abandoned body check in the authentication session (ADR-0045 amendment 1)
+# BL-1562 — Publish the login on an abandoned body check in the authentication session (ADR-0045 amendment 1)
 
 ## Goal
 
