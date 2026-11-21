@@ -85,3 +85,4 @@ tolerated.
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44885355387 (release.yml dry run on factory/phase-1 with the reset logging; read surl stderr for the refusal reset note)
 - 2026-11-21: Blocked -> Backlog. Run 44885355387 completed: success; read it with gh run view 44885355387
+- 2026-11-21: Backlog -> Doing.
