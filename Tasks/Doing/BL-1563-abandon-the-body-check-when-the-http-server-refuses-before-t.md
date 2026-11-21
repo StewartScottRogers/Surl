@@ -30,3 +30,4 @@ ADR-0045 amendment 1 (BL-1553) decides what an abandoned body-bound login publis
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
