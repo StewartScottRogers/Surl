@@ -38,3 +38,4 @@ Stand-in: no store, no new event. The sentence tells a test that seeds `refuse-l
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
