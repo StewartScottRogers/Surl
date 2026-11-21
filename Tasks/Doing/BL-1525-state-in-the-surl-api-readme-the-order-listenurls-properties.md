@@ -40,3 +40,4 @@ No behaviour changes; this is a docs task. Stand-in: a test suite that keeps sha
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
