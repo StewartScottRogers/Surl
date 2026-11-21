@@ -45,3 +45,4 @@ Stand-in: no store is involved; a test observes the drop as the `FaultAppliedEve
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
