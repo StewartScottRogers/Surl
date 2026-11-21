@@ -99,6 +99,27 @@ internal sealed class AccountStore
     }
 
     /// <summary>
+    /// Gives the account of <paramref name="userName"/> a new password, deriving every credential from it
+    /// and keeping the account's schemes, then publishes <see cref="StoreChange.AccountRemoved"/> and
+    /// <see cref="StoreChange.AccountAdded"/> for the user (ADR-0132, amendment 1, decision 3).
+    /// </summary>
+    /// <param name="userName">The user name, compared ordinally.</param>
+    /// <param name="password">The new password, never empty.</param>
+    /// <exception cref="ArgumentException">No account has that user name.</exception>
+    public void SetPassword(string userName, string password)
+    {
+        lock (changeLock)
+        {
+            var existing = current.Accounts.FirstOrDefault(account => account.UserName == userName)
+                ?? throw new ArgumentException($"User {userName} has no account.", nameof(userName));
+            var derived = Derive(new Account(userName, password) { Schemes = existing.Schemes });
+            Volatile.Write(ref current, new AccountSet([.. current.Accounts.Select(account => account.UserName == userName ? derived : account)]));
+            events.Publish(new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountRemoved, userName, null, null));
+            events.Publish(new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountAdded, userName, null, null));
+        }
+    }
+
+    /// <summary>
     /// Returns the set to exactly the accounts configured at start.
     /// </summary>
     public void Reset()

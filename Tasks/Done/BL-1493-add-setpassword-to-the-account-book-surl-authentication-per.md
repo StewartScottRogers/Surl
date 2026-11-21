@@ -8,7 +8,7 @@ depends-on: [BL-1482]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1493 — Add SetPassword to the account book (Surl.Authentication) per ADR-0132 amendment 1
 
@@ -22,11 +22,13 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `SetPassword` re-derives every credential, keeps scope, mailbox and groups, publishes `AccountRemoved` then `AccountAdded`, and throws `ArgumentException` for an unknown user or an empty password; unit tests prove each, with the 100% coverage gates held.
-- [ ] Reset returns to the configured password; a snapshot restores a changed password.
+- [x] `SetPassword` re-derives every credential, keeps scope, mailbox and groups, publishes `AccountRemoved` then `AccountAdded`, and throws `ArgumentException` for an unknown user or an empty password; unit tests prove each, with the 100% coverage gates held.
+- [x] Reset returns to the configured password; a snapshot restores a changed password.
 
 ## Notes
+- SetPassword lives in AccountStore (swap whole set, publishes AccountRemoved then AccountAdded); mailbox and groups are not held in this library, so only the scheme restriction needed keeping. Empty password throws ArgumentException.
 
 ## Log
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. AccountBook.SetPassword re-derives credentials, keeps scope, publishes removed then added

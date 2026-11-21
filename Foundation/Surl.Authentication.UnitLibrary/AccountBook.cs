@@ -172,6 +172,24 @@ public sealed class AccountBook
     }
 
     /// <summary>
+    /// Gives the account of <paramref name="userName"/> a new password while the server runs: every credential is
+    /// derived from it, the account's scheme restriction is kept, and <see cref="StoreChange.AccountRemoved"/> then
+    /// <see cref="StoreChange.AccountAdded"/> are published for the user. Sessions already logged in run on
+    /// (ADR-0132, amendment 1). A scheme view changes the book it was made from.
+    /// </summary>
+    /// <param name="userName">The user name, compared ordinally; the empty name is the Bearer token's account.</param>
+    /// <param name="password">The new password, never empty.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">The password is empty, or no account has that user name.</exception>
+    public void SetPassword(string userName, string password)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentException.ThrowIfNullOrEmpty(password);
+
+        store.SetPassword(userName, password);
+    }
+
+    /// <summary>
     /// Returns the accounts to exactly those configured at start, removing every account added
     /// since and bringing back every one removed, and publishes <see cref="StoreChange.Reset"/>.
     /// </summary>
