@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0045-an-aws-signature-version-4-body-is-bound-after-it-is-read.md]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1553 — Decide what a body-bound signature login publishes when its body is never read
 
@@ -50,14 +50,14 @@ server refuses the request without reading it, and the implementation it calls f
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0045-an-aws-signature-version-4-body-is-bound-after-it-is-read.md`
+- [x] `Documentation/Planning/Decisions/ADR-0045-an-aws-signature-version-4-body-is-bound-after-it-is-read.md`
   has an amendment that decides, for a body-bound login refused before its body is read, whether a
   `LoginJudgedEvent` is published, when, and with what `is_accepted`, with the reasons.
-- [ ] The amendment says whether the answer the client gets (status, body, refusal delay) changes; if it does
+- [x] The amendment says whether the answer the client gets (status, body, refusal delay) changes; if it does
   not, it says so.
-- [ ] The amendment lists each server it applies to (`gs`, `s3`, `http`, `az` if it binds bodies) and the
+- [x] The amendment lists each server it applies to (`gs`, `s3`, `http`, `az` if it binds bodies) and the
   file where each change lands.
-- [ ] One task per library and its `.UnitTests` twin is filed with `task-board.ps1 new`, each depending on
+- [x] One task per library and its `.UnitTests` twin is filed with `task-board.ps1 new`, each depending on
   this one and naming its tests, and the amendment names their IDs.
 
 ## Notes
@@ -66,3 +66,4 @@ server refuses the request without reading it, and the implementation it calls f
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0045 amendment 1 decides abandoned body-bound logins; BL-1556..1560 filed
