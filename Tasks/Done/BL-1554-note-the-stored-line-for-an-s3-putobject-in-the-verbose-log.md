@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1554 — Note the stored line for an S3 PutObject in the verbose log
 
@@ -42,19 +42,25 @@ upload landed as it does for an HTTP `PUT`.
 
 ## Acceptance criteria
 
-- [ ] A stored PutObject of 5 bytes to `/bucket/x` notes exactly `PUT /bucket/x: 200, 5 bytes stored at <location>`,
+- [x] A stored PutObject of 5 bytes to `/bucket/x` notes exactly `PUT /bucket/x: 200, 5 bytes stored at <location>`,
   `<location>` the mapping's `Location`, asserted in `S3PutObjectTests`.
-- [ ] A PutObject refused for uploads off, a bad `Content-MD5` or a failed index write notes no stored line,
+- [x] A PutObject refused for uploads off, a bad `Content-MD5` or a failed index write notes no stored line,
   each asserted.
-- [ ] A PutObject sent `aws-chunked` notes the decoded length, not the wire length.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary -warnaserror` is clean and
+- [x] A PutObject sent `aws-chunked` notes the decoded length, not the wire length.
+- [x] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary -warnaserror` is clean and
   `dotnet test Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests --filter "TestCategory!=Integration"`
   passes with `S3PutObject` at 100% line and branch coverage.
-- [ ] `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary/CLAUDE.md` names the note.
+- [x] `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary/CLAUDE.md` names the note.
 
 ## Notes
+
+- Decision: "a failed index write" is read as the index refusing the object (index full, `503`), which
+  removes the object. A storage failure rewriting the index file still leaves the object stored and
+  answered `200`, so the stored line is true there and is written.
+- The note is written in `S3PutObject.WriteAsync` after the metadata step succeeds.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. S3 PutObject notes 'PUT <target>: 200, <n> bytes stored at <location>' in the verbose log

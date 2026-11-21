@@ -220,9 +220,13 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             return reply.Error(commitRefusal);
         }
 
-        return await StoreMetadataAsync(request.Fields, target, mapping, ETagOf(received.Md5), cancellationToken) is { } metadataRefusal
-            ? reply.Error(metadataRefusal)
-            : Stored(reply, ETagOf(received.Md5), received.Checksum);
+        if (await StoreMetadataAsync(request.Fields, target, mapping, ETagOf(received.Md5), cancellationToken) is { } metadataRefusal)
+        {
+            return reply.Error(metadataRefusal);
+        }
+
+        log.Note($"{request.Method} {request.Target}: 200, {session.Length} bytes stored at {mapping.Location}");
+        return Stored(reply, ETagOf(received.Md5), received.Checksum);
     }
 
     // The body against what the request said of it: the signed x-amz-content-sha256 first

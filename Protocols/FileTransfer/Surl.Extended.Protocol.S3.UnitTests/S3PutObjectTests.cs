@@ -36,6 +36,38 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutObject_NotesTheStoredLineInTheHttpServersForm()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+
+        await harness.SendWithBodyAsync("PUT", "/bucket/x", "hello");
+
+        var note = harness.Log.Notes.Single(n => n.StartsWith("PUT /bucket/x: 200, 5 bytes stored at ", StringComparison.Ordinal));
+        Assert.IsGreaterThan("PUT /bucket/x: 200, 5 bytes stored at ".Length, note.Length);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutObjectRefused_NotesNoStoredLine()
+    {
+        var uploadsOff = new S3ServerHarness();
+        uploadsOff.CreateFolder("photos");
+        var badMd5 = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        badMd5.CreateFolder("photos");
+        var indexFull = new S3ServerHarness(exposure: S3ServerHarness.Writable, maxIndexEntries: 0);
+        indexFull.CreateFolder("photos");
+
+        await uploadsOff.SendWithBodyAsync("PUT", "/photos/a.txt", "hello world");
+        await badMd5.SendWithBodyAsync("PUT", "/photos/a.txt", "hello world!", $"Content-MD5: {HelloWorldContentMd5}");
+        await indexFull.SendWithBodyAsync("PUT", "/photos/a.txt", "x");
+
+        foreach (var harness in new[] { uploadsOff, badMd5, indexFull })
+        {
+            Assert.IsFalse(harness.Log.Notes.Any(note => note.Contains("bytes stored at", StringComparison.Ordinal)));
+        }
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutThenGet_ReadsBackTheBodyAndItsContentType()
     {
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
