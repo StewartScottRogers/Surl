@@ -141,6 +141,30 @@ public sealed class RtspFaultTests
     }
 
     [TestMethod]
+    public async Task DelayRuleAtTheCommandStage_SendsNothingWhenTheClientHalfClosesDuringTheHold()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+
+        var (connection, _, _, _) = await ServeWithFaultsAsync([RecordedRequest("libcurl-describe")], new ScriptedFaultPlan(rule));
+
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.IsTrue(connection.Aborted);
+    }
+
+    [TestMethod]
+    public async Task DelayRuleAtTheCommandStage_SendsNothingWhenTheClientResetsDuringTheHold()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+
+        var (connection, log, _, _) = await ServeWithFaultsAsync(
+            [RecordedRequest("libcurl-describe")], new ScriptedFaultPlan(rule), connection: new InMemoryConnection([RecordedRequest("libcurl-describe")], peerResetsWhenExhausted: true));
+
+        Assert.Contains("Exchange 1: the client reset the connection during the hold by fault rule f1.", log.Notes);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.IsTrue(connection.Aborted);
+    }
+
+    [TestMethod]
     public async Task DropRuleAtTheCommandStage_AbortsTheConnectionBeforeAnyByteOfTheAnswer()
     {
         var rule = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };

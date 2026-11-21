@@ -27,6 +27,8 @@ ADR-0141 Amendment 3. Uses the `HttpCommandFaults` change of BL-1541 (RtspReques
 
 ## Notes
 
+RtspRequestResponder.AnswerLetInRequestAsync now uses FindAndApplyWithClientOutcomeAsync; a PeerClosed or PeerReset hold aborts the connection and ends the session with nothing sent. Tests: half-close and reset cases in RtspFaultTests.
+
 ## Log
 
 - 2026-11-21: Created.
