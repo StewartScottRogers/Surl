@@ -32,3 +32,4 @@ ADR-0055 Amendment 1, decision 6. Depends on `ComposedMailboxInfo.Use` (BL-1509)
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
