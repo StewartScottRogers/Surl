@@ -114,6 +114,33 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp2Tests
         AssertServedOverHttp2(Hello, result);
     }
 
+    // BL-1548: over HTTP/2 the host the Signature Version 4 login checks comes from :authority.
+    [TestMethod]
+    public async Task GetWithAwsSigV4_HttpsByAlpn_IsServedOverHttp2()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("https", "--self-signed", "--user-file", accounts.Path);
+
+        var result = await RunUpstreamCurlAsync(
+            "-sS", "-f", "-k", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", Credentials, "-w", HttpVersion, surl.UrlOf("hello.txt"));
+
+        AssertServedOverHttp2(Hello, result);
+    }
+
+    [TestMethod]
+    public async Task GetWithAwsSigV4WrongSecret_HttpsByAlpn_ExitsHttpReturnedError()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("https", "--self-signed", "--user-file", accounts.Path);
+
+        var result = await RunUpstreamCurlAsync(
+            "-sS", "-f", "-k", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", $"{AccountsFile.User}:wrong", "-w", HttpVersion, surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(22, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "401");
+        CollectionAssert.AreEqual("2"u8.ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
+    }
+
     [TestMethod]
     public async Task GetWithBasic_PriorKnowledgeAllowPlaintextAuth_IsServedOverHttp2()
     {
