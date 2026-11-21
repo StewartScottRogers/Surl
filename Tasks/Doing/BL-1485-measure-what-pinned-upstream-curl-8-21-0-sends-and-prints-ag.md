@@ -47,3 +47,4 @@ with `\Sent`, `\Drafts`, `\Trash`, so BL-1486 decides from measurement whether a
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
