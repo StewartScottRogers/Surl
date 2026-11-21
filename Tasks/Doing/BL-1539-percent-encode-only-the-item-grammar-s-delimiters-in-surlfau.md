@@ -43,3 +43,4 @@ Stand-in: no store and no event change. A test reading `Faults.List()` or `list_
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
