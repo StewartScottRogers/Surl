@@ -8,7 +8,7 @@ depends-on: [BL-1508]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1511 — Write the --aihelp text for folders=<name>=<use>
 
@@ -22,14 +22,17 @@ ADR-0055 Amendment 1, decision 2. Depends on the parser (BL-1508), so the text d
 
 ## Acceptance criteria
 
-- [ ] The mail topic prose states the `folders=<name>[=<use>]` form, the seven uses (no backslash, case-insensitive), one use per folder and per owner, and that no use is ever implied by a name.
-- [ ] An `AiHelpExamples` entry shows `--mailbox "a@x:pw;folders=Sent=sent,Drafts=drafts,Archive"` with the output the test produces.
-- [ ] `AiHelpTextTests` and `CommandLineRunnerAiHelpTests` pass, including the examples replay test.
-- [ ] `dotnet build` of both projects with `-warnaserror` is clean and coverage stays 100%.
+- [x] The mail topic prose states the `folders=<name>[=<use>]` form, the seven uses (no backslash, case-insensitive), one use per folder and per owner, and that no use is ever implied by a name.
+- [x] An `AiHelpExamples` entry shows `--mailbox "a@x:pw;folders=Sent=sent,Drafts=drafts,Archive"` with the output the test produces.
+- [x] `AiHelpTextTests` and `CommandLineRunnerAiHelpTests` pass, including the examples replay test.
+- [x] `dotnet build` of both projects with `-warnaserror` is clean and coverage stays 100%.
 
 ## Notes
+
+Example uses `ann@example.com` with `--mail-domain example.com` (a mailbox must sit in a domain); `AiHelpExamplesTests` topic order grew by one `mail`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. mail --aihelp prose and example for folders=<name>=<use>
