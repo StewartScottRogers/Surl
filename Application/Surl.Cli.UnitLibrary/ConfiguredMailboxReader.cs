@@ -13,7 +13,7 @@ internal static class ConfiguredMailboxReader
     /// key <c>protocols</c>, the value key <c>quota</c> and the list key <c>folders</c>.
     /// </summary>
     public static readonly ConfigurationItemShape Shape = new(
-        "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]",
+        "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>[=<use>],...]",
         ':',
         ConfigurationItemValueKind.Text,
         new Dictionary<string, ConfigurationItemAttributeKind>(StringComparer.Ordinal)
@@ -47,6 +47,16 @@ internal static class ConfiguredMailboxReader
 
     /// <summary>A <c>quota=</c> of no whole byte (ADR-0102 decision 1.4, ADR-0101 decision 5 row 10).</summary>
     public const string QuotaNeedsValueAboveZero = "key quota needs a value above 0";
+
+    /// <summary>A <c>folders=</c> use that is not an RFC 6154 use (ADR-0055 amendment 1 decision 2, ADR-0101 decision 5 row 10).</summary>
+    /// <param name="use">The use as written.</param>
+    /// <returns><c>folder use &lt;use&gt; is not one of all, archive, drafts, flagged, junk, sent, trash</c>.</returns>
+    public static string FolderUseUnknown(string use) => $"folder use {use} is not one of {string.Join(", ", ConfiguredMailbox.FolderUseNames)}";
+
+    /// <summary>A use given to two folders of one mailbox (ADR-0055 amendment 1 decision 2, ADR-0101 decision 5 row 14).</summary>
+    /// <param name="use">The use, lower-cased.</param>
+    /// <returns><c>use &lt;use&gt; is given to two folders</c>.</returns>
+    public static string UseGivenToTwoFolders(string use) => $"use {use} is given to two folders";
 
     /// <summary>A mailbox address given twice, compared case-insensitively (ADR-0101 decision 5 row 14).</summary>
     /// <param name="address">The address as written.</param>
@@ -172,22 +182,29 @@ internal static class ConfiguredMailboxReader
     {
         mailbox = Empty;
         var schemes = new List<string>();
+        var folderUses = new Dictionary<string, string>(StringComparer.Ordinal);
         var folderNames = new List<string>();
         long? quotaBytes = null;
         var failure = CheckAddress(address, out var normalised)
             ?? CheckPassword(password)
             ?? CheckProtocols(protocols ?? [], isServedScheme, schemes)
             ?? CheckQuota(quota, out quotaBytes)
-            ?? CheckFolders(folders ?? [], folderNames);
+            ?? CheckFolders(folders ?? [], folderNames, folderUses);
         if (failure is null)
         {
             // The empty list is the one Array.Empty, so a mailbox with no folders equals one made without them.
             IReadOnlyList<string> givenFolders = folders is null ? Array.Empty<string>() : folderNames;
-            mailbox = new(normalised, password, protocols is null ? null : schemes, quotaBytes, givenFolders);
+            mailbox = new(normalised, password, protocols is null ? null : schemes, quotaBytes, givenFolders)
+            {
+                FolderUses = UsesOrNone(folderUses),
+            };
         }
 
         return failure;
     }
+
+    private static IReadOnlyDictionary<string, string> UsesOrNone(Dictionary<string, string> folderUses) =>
+        folderUses.Count == 0 ? ConfiguredMailbox.NoFolderUses : folderUses;
 
     private static string? CheckQuota(string? quota, out long? quotaBytes)
     {
@@ -207,13 +224,16 @@ internal static class ConfiguredMailboxReader
         return bytes < 1 ? QuotaNeedsValueAboveZero : null;
     }
 
-    private static string? CheckFolders(IReadOnlyList<string> folders, List<string> folderNames)
+    private static string? CheckFolders(IReadOnlyList<string> folders, List<string> folderNames, Dictionary<string, string> folderUses)
     {
-        foreach (var folder in folders)
+        foreach (var given in folders)
         {
+            var useAt = given.LastIndexOf('=');
+            var folder = useAt < 0 ? given : given[..useAt];
             var failure = (folder.Length == 0 ? ConfigurationItemReader.EmptyField : null)
                 ?? ConfiguredSharedFolderReader.CheckFolderName(folder)
-                ?? (folderNames.Contains(folder, StringComparer.Ordinal) ? ConfiguredGroupReader.MemberGivenTwice(folder) : null);
+                ?? (folderNames.Contains(folder, StringComparer.Ordinal) ? ConfiguredGroupReader.MemberGivenTwice(folder) : null)
+                ?? (useAt < 0 ? null : CheckUse(given[(useAt + 1)..], folder, folderUses));
             if (failure is not null)
             {
                 return failure;
@@ -222,6 +242,23 @@ internal static class ConfiguredMailboxReader
             folderNames.Add(folder);
         }
 
+        return null;
+    }
+
+    private static string? CheckUse(string written, string folder, Dictionary<string, string> folderUses)
+    {
+        var use = written.ToLowerInvariant();
+        if (!ConfiguredMailbox.FolderUseNames.Contains(use))
+        {
+            return FolderUseUnknown(written);
+        }
+
+        if (folderUses.ContainsValue(use))
+        {
+            return UseGivenToTwoFolders(use);
+        }
+
+        folderUses[folder] = use;
         return null;
     }
 

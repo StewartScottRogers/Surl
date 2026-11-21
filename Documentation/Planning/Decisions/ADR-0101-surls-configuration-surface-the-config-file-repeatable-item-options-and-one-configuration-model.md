@@ -200,7 +200,7 @@ or `pubsub` (one grant per member, so both rights need a third word, not a repea
 | `-K`, `--config` | `<file>` | | `surl` | none read | no | no |
 | `--url` | `<listen URL>` | | `surl` | none | no | no |
 | `--mail-domain` | `<domain>` | | `mail` | none: ADR-0050's store, the domain ignored | no | no |
-| `--mailbox` | `<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]` (separator `:`) | `protocols`, `quota` (ADR-0007's `<bytes>` syntax), `folders` | `mail`, `auth` | none | no: it adds an account with a password | yes |
+| `--mailbox` | `<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>[=<use>],...]` (separator `:`) | `protocols`, `quota` (ADR-0007's `<bytes>` syntax), `folders` | `mail`, `auth` | none | no: it adds an account with a password | yes |
 | `--mailbox-file` | `<file>` (CSV, below) | | `mail`, `auth` | none | no | no |
 | `--mail-alias` | `<address>=<address>,...` (separator `=`) | | `mail` | none | no | no |
 | `--mail-catch-all` | `<domain>=<address>` (separator `=`) | | `mail`, `security` | none | **yes**: mail to every address of the domain is accepted | no |

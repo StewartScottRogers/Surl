@@ -1,7 +1,7 @@
 namespace Surl.Cli;
 
 /// <summary>
-/// One mailbox from a <c>--mailbox &lt;address&gt;:&lt;password&gt;[;protocols=&lt;scheme&gt;,...][;quota=&lt;bytes&gt;][;folders=&lt;name&gt;,...]</c>
+/// One mailbox from a <c>--mailbox &lt;address&gt;:&lt;password&gt;[;protocols=&lt;scheme&gt;,...][;quota=&lt;bytes&gt;][;folders=&lt;name&gt;[=&lt;use&gt;],...]</c>
 /// item or a <c>--mailbox-file</c> record (ADR-0101 decision 4, ADR-0102 decisions 1.2 and 1.4): an account and a
 /// mail owner, both named by <see cref="Address"/>. Read by <see cref="ConfiguredMailboxReader"/> and
 /// <see cref="MailboxFileReader"/>.
@@ -27,6 +27,18 @@ namespace Surl.Cli;
 public sealed record ConfiguredMailbox(
     string Address, string Password, IReadOnlyList<string>? Protocols, long? QuotaBytes, IReadOnlyList<string> Folders)
 {
+    /// <summary>The uses a folder may be given, in the order ADR-0055 amendment 1 decision 2 lists them, written without the backslash.</summary>
+    public static IReadOnlyList<string> FolderUseNames { get; } = ["all", "archive", "drafts", "flagged", "junk", "sent", "trash"];
+
+    /// <summary>The <see cref="FolderUses"/> of a mailbox given none, one shared instance so such mailboxes are equal.</summary>
+    public static IReadOnlyDictionary<string, string> NoFolderUses { get; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// The <c>folders=&lt;name&gt;=&lt;use&gt;</c> uses: folder name to its use, lower-case, one of <see cref="FolderUseNames"/>,
+    /// each use at most once; empty by default (ADR-0055 amendment 1 decision 2). Every key is in <see cref="Folders"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> FolderUses { get; init; } = NoFolderUses;
+
     /// <summary>Creates a mailbox with no quota and no folders.</summary>
     /// <param name="address">The normalised address.</param>
     /// <param name="password">The account's password.</param>
