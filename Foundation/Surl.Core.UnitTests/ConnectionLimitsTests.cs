@@ -15,6 +15,15 @@ public sealed class ConnectionLimitsTests
     }
 
     [TestMethod]
+    public void RefusalSettleDelay_IsZeroUnlessSet_AndRejectsANegativeValue()
+    {
+        Assert.AreEqual(TimeSpan.Zero, ConnectionLimits.Default.RefusalSettleDelay);
+        Assert.AreEqual(TimeSpan.FromMilliseconds(50), ConnectionLimits.DefaultRefusalSettleDelay);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => ConnectionLimits.None with { RefusalSettleDelay = TimeSpan.FromTicks(-1) });
+    }
+
+    [TestMethod]
     public void None_IsZeroEverywhere()
     {
         Assert.AreEqual(new ConnectionLimits(0, 0, TimeSpan.Zero, TimeSpan.Zero), ConnectionLimits.None);

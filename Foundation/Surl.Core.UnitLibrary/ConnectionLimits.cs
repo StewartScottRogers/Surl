@@ -96,6 +96,24 @@ public sealed record ConnectionLimits
         init => field = RequireTimeout(value, nameof(MaxExchangeDuration));
     }
 
+    /// <summary>
+    /// How long a connection refused for being past a limit is left alone before its refusal is written:
+    /// 50 milliseconds. The command line sets it; a limit built any other way has none (BL-1416).
+    /// </summary>
+    public static readonly TimeSpan DefaultRefusalSettleDelay = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>
+    /// How long a refused connection waits, on the engine's clock, before the refusal is written, so the
+    /// client has finished checking its own connect: on macOS, upstream curl reports a connect as failed
+    /// (error 0) when the refusal and its close arrive first. <see cref="TimeSpan.Zero"/> writes at once.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative or above <see cref="MaxTimeout"/>.</exception>
+    public TimeSpan RefusalSettleDelay
+    {
+        get;
+        init => field = RequireTimeout(value, nameof(RefusalSettleDelay));
+    }
+
     private static int RequireCount(int value, string propertyName)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(value, propertyName);
