@@ -37,3 +37,4 @@ No behaviour changes; this is a docs task, so no test is added. Stand-in: tests 
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
