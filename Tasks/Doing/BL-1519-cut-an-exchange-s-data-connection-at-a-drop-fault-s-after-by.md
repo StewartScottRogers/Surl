@@ -45,3 +45,4 @@ The conformance stage proves it with pinned upstream curl 8.21.0: an `ftp://` `R
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
