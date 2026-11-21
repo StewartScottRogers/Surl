@@ -240,7 +240,7 @@ public sealed class SurlServerOptions
     public IList<string> ConfigFiles { get; } = [];
 
     /// <summary>
-    /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above.
+    /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above and after <see cref="ConfigFiles"/>.
     /// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c>, <c>--version</c>, <c>--log-file</c>,
     /// <c>--trace</c> and <c>--trace-ascii</c> belong to a host and are refused.
     /// </summary>

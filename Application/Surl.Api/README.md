@@ -48,6 +48,23 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
   | `ControlListenUrl`, `ControlTokenFile` | `--control`, `--control-token-file` |
 
+- A start is read as `surl` reads a command line, left to right, in this order: `ListenUrls`, then
+  each property that differs from its default, then `ConfigFiles` (`--config`), then
+  `AdditionalArguments`. A single-valued option given later wins, so a `max-filesize` line in a config
+  file beats the `MaxFileSize` property, and `AdditionalArguments` beats both. A repeatable option
+  adds up instead (`--user`, `--fault`, `--config` and the other once-each item options), so accounts
+  and faults from the properties, the files and `AdditionalArguments` all apply:
+
+  ```csharp
+  var options = new SurlServerOptions
+  {
+      ListenUrls = { "http://127.0.0.1:0" },
+      MaxFileSize = 1_000,                        // read first
+      ConfigFiles = { "shared.conf" },            // holds "max-filesize = 2000": wins over the property
+      AdditionalArguments = { "--max-filesize", "3000" },   // read last: the limit is 3000
+  };
+  ```
+
 - `AuthenticationMethods` is never null, so a collection initializer works
   (`AuthenticationMethods = { "basic" }`); assigning null leaves it empty.
 - `ListenUrls` may be empty when `ConfigFiles` or `AdditionalArguments` is given, since they may name

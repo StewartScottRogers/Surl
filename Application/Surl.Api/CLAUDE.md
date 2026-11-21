@@ -10,7 +10,7 @@ measures it by name.
 
 - `SurlServer.StartAsync(SurlServerOptions, CancellationToken)` turns the options into `surl`'s
   own words (`SurlServerArguments.Compose`: each listen URL, then each property that differs
-  from its default as the option it names, then `AdditionalArguments`), parses them with
+  from its default as the option it names, then `ConfigFiles` as `--config`, then `AdditionalArguments`), parses them with
   `Surl.Cli`'s `CommandLineParser` and starts them through `Surl.Composition`'s
   `SurlServerComposition.ComposeAsync` and `ComposedServing.ServeAsync`, the same start `surl`
   runs. So every default is `surl`'s and every refusal is `surl`'s: it throws

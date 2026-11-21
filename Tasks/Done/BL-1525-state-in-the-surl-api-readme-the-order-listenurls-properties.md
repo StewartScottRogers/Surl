@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Api]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1525 — State in the Surl.Api README the order ListenUrls, properties, ConfigFiles and AdditionalArguments are read in
 
@@ -30,14 +30,17 @@ No behaviour changes; this is a docs task. Stand-in: a test suite that keeps sha
 
 ## Acceptance criteria
 
-- [ ] `Application/Surl.Api/README.md` states the four-step order, that a single-valued option given later wins, that repeatable options add up, and gives one example (`MaxFileSize` property vs. a `max-filesize` line in a config file vs. `AdditionalArguments`).
-- [ ] `SurlServerArguments`' class `<summary>` names `ConfigFiles` in its place in the order.
-- [ ] `SurlServerOptions.AdditionalArguments`' `<summary>` ("read after the properties above") also says it is read after `ConfigFiles`.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean.
+- [x] `Application/Surl.Api/README.md` states the four-step order, that a single-valued option given later wins, that repeatable options add up, and gives one example (`MaxFileSize` property vs. a `max-filesize` line in a config file vs. `AdditionalArguments`).
+- [x] `SurlServerArguments`' class `<summary>` names `ConfigFiles` in its place in the order.
+- [x] `SurlServerOptions.AdditionalArguments`' `<summary>` ("read after the properties above") also says it is read after `ConfigFiles`.
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean.
 
 ## Notes
+
+- Checked: CommandLineOptions setters are `c with { ... }`, so a later single-valued option overwrites an earlier one. Also updated Surl.Api CLAUDE.md, which had the same incomplete order.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. README, SurlServerArguments and SurlServerOptions comments now state the read order

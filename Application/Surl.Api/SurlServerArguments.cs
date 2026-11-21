@@ -9,7 +9,9 @@ namespace Surl.Api;
 /// <summary>
 /// Turns <see cref="SurlServerOptions"/> into <c>surl</c>'s own words and parses them as
 /// <c>surl</c> does (ADR-0099, decision 4): each listen URL, then each property that differs from
-/// its default as the option it names, then <see cref="SurlServerOptions.AdditionalArguments"/>.
+/// its default as the option it names, then each <see cref="SurlServerOptions.ConfigFiles"/> entry as
+/// <c>--config</c>, then <see cref="SurlServerOptions.AdditionalArguments"/>. The last single-valued option wins;
+/// repeatable ones add up.
 /// </summary>
 internal static class SurlServerArguments
 {
