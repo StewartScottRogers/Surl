@@ -31,3 +31,4 @@ ADR-0102 section 4.3 amendment of 2026-11-20 (BL-1483). `AiHelpProse.cs:228` cur
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
