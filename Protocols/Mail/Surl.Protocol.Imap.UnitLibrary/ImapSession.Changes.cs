@@ -107,9 +107,35 @@ internal sealed partial class ImapSession
         }
     }
 
-    // CREATE drops one trailing "/" (RFC 3501, section 6.3.3); its parents are not created.
-    private ImapResponse CreateMailbox(ImapArguments arguments) =>
-        ChangeMailboxes(ReadNames(arguments, 1)?.Select(DropTrailingDelimiter).ToArray(), names => ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, names[0], context), "CREATE"));
+    // CREATE drops one trailing "/" (RFC 3501, section 6.3.3); its parents are not created. A
+    // "(USE (...))" parameter (RFC 6154, section 3) is read only while SPECIAL-USE is offered and
+    // names at most one use, as the store holds one use per mailbox (ADR-0055, Amendment 1).
+    private ImapResponse CreateMailbox(ImapArguments arguments)
+    {
+        var nameBytes = arguments.ReadSpacedAString();
+        var name = nameBytes is null ? null : DropTrailingDelimiter(ImapMailboxName.Decode(nameBytes));
+        IReadOnlyList<string>? uses = [];
+        if (nameBytes is not null && !arguments.IsAtEnd)
+        {
+            uses = arguments.TryReadSpace() ? arguments.ReadCreateUseList() : null;
+        }
+
+        return nameBytes is null || uses is null || !arguments.IsAtEnd ? InvalidArguments
+            : !IsMailboxName(name) ? ImapResponse.Only(ImapResponses.InvalidMailboxName)
+            : ImapResponse.Only(CreateMailboxWithUses(name!, uses));
+    }
+
+    private string CreateMailboxWithUses(string name, IReadOnlyList<string> uses)
+    {
+        if (uses.Count == 0)
+        {
+            return ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, name, context), "CREATE");
+        }
+
+        return uses.Count > 1 || !mailStore.HoldsAnyFolderUse
+            ? ImapResponses.UseNotAllowed
+            : ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, name, context, uses[0]), "CREATE");
+    }
 
     private ImapResponse DeleteMailbox(ImapArguments arguments) =>
         ChangeMailboxes(ReadNames(arguments, 1), names => ImapResponses.ForOutcome(mailStore.DeleteMailbox(view!, names[0], context), "DELETE"));

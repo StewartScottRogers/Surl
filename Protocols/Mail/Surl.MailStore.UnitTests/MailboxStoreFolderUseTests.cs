@@ -146,6 +146,18 @@ public sealed class MailboxStoreFolderUseTests
         Assert.ThrowsExactly<ArgumentNullException>(() => store.ReadMailboxUses(null!));
     }
 
+    [TestMethod]
+    public void HoldsAnyFolderUse_IsTrueOnlyWhileAMailboxHoldsAUse()
+    {
+        var none = NewStore(null);
+        var some = NewStore(new Dictionary<string, string> { ["Sent"] = "sent" });
+
+        Assert.IsFalse(none.HoldsAnyFolderUse);
+        Assert.IsTrue(some.HoldsAnyFolderUse);
+        Assert.AreEqual(MailStoreOutcome.Succeeded, some.DeleteMailbox(some.ViewFor(Ann), "Sent"));
+        Assert.IsFalse(some.HoldsAnyFolderUse);
+    }
+
     private static MailboxStore NewStore(IReadOnlyDictionary<string, string>? folderUses, string[]? folders = null) =>
         new(
             [],

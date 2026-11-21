@@ -1741,6 +1741,22 @@ public sealed partial class MailboxStore
         }
     }
 
+    /// <summary>
+    /// Whether any mailbox of any owner holds an RFC 6154 use right now. IMAP advertises
+    /// <c>SPECIAL-USE</c> only while this is true (ADR-0055, Amendment 1), and the answer does not
+    /// depend on a login.
+    /// </summary>
+    public bool HoldsAnyFolderUse
+    {
+        get
+        {
+            lock (storeLock)
+            {
+                return owners.Values.Any(owner => owner.Mailboxes.Values.Any(mailbox => mailbox.Use is not null));
+            }
+        }
+    }
+
     private MailStoreOutcome CheckRoomForMailbox(bool addsMailbox)
     {
         if (addsMailbox && mailboxCount >= MaxMailboxes)
