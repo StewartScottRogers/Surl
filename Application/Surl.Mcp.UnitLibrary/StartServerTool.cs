@@ -25,7 +25,9 @@ public static class StartServerTool
     internal const string Description =
         "Start a Surl protocol server that listens on the given URLs and answers clients as `surl` with the same "
         + "options would. Returns its ID and the URLs it bound. Use port 0 to let the system choose a free port. "
-        + "Read the `surl://aihelp` resources for every scheme and option.";
+        + "Read the `surl://aihelp` resources for every scheme and option. "
+        + "The whole `tools/call` message is at most 4 MiB (4194304 bytes); seed anything larger one file at a "
+        + "time with `put_file`.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

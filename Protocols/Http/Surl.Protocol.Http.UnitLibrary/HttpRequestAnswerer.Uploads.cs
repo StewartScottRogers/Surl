@@ -47,7 +47,7 @@ internal sealed partial class HttpRequestAnswerer
 
         await using (opening.Session)
         {
-            return await ReceiveUploadAsync(request, new PutTarget(mapping, opening, replaces), bodyCheck, challenges, cancellationToken);
+            return await ReceiveUploadAsync(request, new PutTarget(mapping, opening, replaces, caller), bodyCheck, challenges, cancellationToken);
         }
     }
 
@@ -60,6 +60,11 @@ internal sealed partial class HttpRequestAnswerer
             : HttpRequestBodyDiscardOutcome.Discarded;
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
+            if (bodyCheck is not null)
+            {
+                await bodyCheck.AbandonAsync(cancellationToken);
+            }
+
             return RefuseBody(request, bodyOutcome, challenges);
         }
 
@@ -104,7 +109,10 @@ internal sealed partial class HttpRequestAnswerer
         var committed = isTooLarge ? ContentUploadResult.TooLarge : await session.CommitAsync(cancellationToken);
         if (committed == ContentUploadResult.TooLarge)
         {
-            return Refuse(request, HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the body went past the upload limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes");
+            var refusalNote = target.Caller.RefusedByFaultRuleId is { } faultRuleId
+                ? $"the upload was refused by the fault rule {faultRuleId} (out-of-space)"
+                : $"the body went past the upload limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes";
+            return Refuse(request, HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: {refusalNote}");
         }
 
         if (committed != ContentUploadResult.Written)
@@ -168,5 +176,5 @@ internal sealed partial class HttpRequestAnswerer
 
     // Where a PUT's body goes: the mapped location, the upload opened there, and whether a file
     // was already there for it to replace.
-    private sealed record PutTarget(ContentPathMapping Mapping, ContentUploadOpeningOutcome Opening, bool Replaces);
+    private sealed record PutTarget(ContentPathMapping Mapping, ContentUploadOpeningOutcome Opening, bool Replaces, ContentCaller Caller);
 }

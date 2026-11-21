@@ -7,7 +7,7 @@ using Surl.Api;
 namespace Surl.Mcp;
 
 /// <summary>
-/// Writes recorded exchanges as <c>get_exchanges</c> shows them (ADR-0103 decision 3): each chunk as <c>text</c>
+/// Writes recorded exchanges as <c>get_exchanges</c> shows them (ADR-0103 decision 3): each chunk with its <c>at</c> time (ISO 8601 UTC) and as <c>text</c>
 /// when its bytes are well-formed UTF-8 holding no control character but tab, CR and LF, else as <c>base64</c>; at
 /// most <see cref="MaxShownBytesPerExchange"/> bytes of each exchange and <see cref="MaxShownBytesPerResult"/> in
 /// all, a cut ending a chunk early (backing off to the start of a UTF-8 sequence in a text chunk) and dropping the
@@ -114,6 +114,7 @@ internal static class RecordedExchangeWriter
             writer.WriteNumber("stream_id", streamId);
         }
 
+        writer.WriteString("at", chunk.At.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         writer.WriteString("encoding", isText ? "text" : "base64");
         writer.WriteString("data", isText ? Encoding.UTF8.GetString(shown) : Convert.ToBase64String(shown));
         writer.WriteEndObject();

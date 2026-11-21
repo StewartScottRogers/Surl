@@ -69,6 +69,66 @@ public sealed class HttpCommandFaultsTests
     }
 
     [TestMethod]
+    public async Task FindAndApplyAsync_ADelayWithAConnection_EndsWhenTheClientHalfClosesAndReturnsNull()
+    {
+        var delay = new FaultRule("f5", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([]);
+
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(new ScriptedFaultPlan(delay), log: log), "GET", "/a", null, connection);
+
+        Assert.IsNull(rule);
+        Assert.Contains("Exchange 7: the client closed the connection during the hold by fault rule f5.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyWithClientOutcomeAsync_AHoldTheClientHalfClosesDuring_ReportsPeerClosed()
+    {
+        var delay = new FaultRule("f5", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+
+        var found = await HttpCommandFaults.FindAndApplyWithClientOutcomeAsync(Context(new ScriptedFaultPlan(delay)), "GET", "/a", null, new InMemoryConnection([]));
+
+        Assert.IsNull(found.Rule);
+        Assert.AreEqual(PeerWatchOutcome.PeerClosed, found.ClientLeft);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyWithClientOutcomeAsync_AHoldTheClientKeeps_ReportsNotWatched()
+    {
+        var delay = new FaultRule("f5", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 1 };
+
+        var found = await HttpCommandFaults.FindAndApplyWithClientOutcomeAsync(Context(new ScriptedFaultPlan(delay)), "GET", "/a", null, new InMemoryConnection([], peerHalfClosesWhenExhausted: false));
+
+        Assert.IsNull(found.Rule);
+        Assert.AreEqual(PeerWatchOutcome.NotWatched, found.ClientLeft);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_ADelayWithAConnectionTheClientKeeps_IsAnsweredAfterTheDelay()
+    {
+        var delay = new FaultRule("f5", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 1 };
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
+
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(new ScriptedFaultPlan(delay), log: log), "GET", "/a", null, connection);
+
+        Assert.IsNull(rule);
+        Assert.DoesNotContain("the client closed", string.Join('\n', log.Notes), StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_ADelayWithNoConnection_IsNotWatchedAndRunsItsLength()
+    {
+        var delay = new FaultRule("f5", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 1 };
+        var log = new RecordingExchangeLog();
+
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(new ScriptedFaultPlan(delay), log: log), "GET", "/a", null);
+
+        Assert.IsNull(rule);
+        Assert.DoesNotContain("the client closed", string.Join('\n', log.Notes), StringComparison.Ordinal);
+    }
+
+    [TestMethod]
     public async Task FindChosenErrorAsync_ErrorRuleOrNone_IsReturned()
     {
         var error = new FaultRule("f6", FaultKind.Error) { Reply = "503" };

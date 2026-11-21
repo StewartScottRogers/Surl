@@ -146,6 +146,32 @@ public sealed class GetEventsToolTests
     }
 
     [TestMethod]
+    public async Task Handler_KindsNamingExchangeBytes_FindsNoEventsAndIsNoError()
+    {
+        await using var host = await StartAfterOneGetAsync();
+
+        var result = await McpTestHost.CallAsync(host.GetEvents, """{"server_id": "s1", "kinds": ["exchange_bytes"]}""", TestContext.CancellationToken);
+
+        Assert.IsFalse(result.IsError);
+        Assert.IsEmpty(Kinds(result.StructuredContent!.Value));
+    }
+
+    [TestMethod]
+    public void InputSchemas_OfBothEventTools_SayExchangeBytesIsNeverKept()
+    {
+        foreach (var schemaText in new[] { GetEventsTool.InputSchema, WaitForEventTool.InputSchema })
+        {
+            using var schema = JsonDocument.Parse(schemaText);
+            var kinds = schema.RootElement.GetProperty("properties").GetProperty("kinds");
+
+            var description = kinds.GetProperty("description").GetString()!;
+
+            StringAssert.Contains(description, "exchange_bytes is in the list but is never kept");
+            StringAssert.Contains(description, "get_exchanges");
+        }
+    }
+
+    [TestMethod]
     public void Create_NullServers_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => GetEventsTool.Create(null!));
 

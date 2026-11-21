@@ -51,6 +51,11 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
 
     public List<byte[]> JudgedBodyHashes { get; } = [];
 
+    /// <summary>
+    /// How many body checks were told the server answered without reading the body.
+    /// </summary>
+    public int AbandonedBodyChecks { get; private set; }
+
     public List<TlsSession?> StartedConnections { get; } = [];
 
     public List<LoginExchange?> StartedExchanges { get; } = [];
@@ -125,6 +130,13 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
 
     private sealed class BodyCheck(UnitTestS3AuthenticationPolicy policy, string contentSha256) : IHttpRequestBodyCheck
     {
+        public ValueTask AbandonAsync(CancellationToken cancellationToken)
+        {
+            policy.AbandonedBodyChecks++;
+
+            return ValueTask.CompletedTask;
+        }
+
         public ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken)
         {
             policy.JudgedBodyHashes.Add(bodySha256.ToArray());

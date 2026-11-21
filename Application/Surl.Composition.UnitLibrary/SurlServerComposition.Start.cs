@@ -99,6 +99,15 @@ public static partial class SurlServerComposition
             return $"(6) Could not resolve host: {listenUrl.Host}";
         }
 
+        if (listenUrl.UnixSocket is { } unixSocket)
+        {
+            var unixMessage = FormatUnixSocketBindFailure(bindFailure.Failure, unixSocket);
+            if (unixMessage is not null)
+            {
+                return unixMessage;
+            }
+        }
+
         var address = bindFailure.EndPoint is IPEndPoint endPoint ? endPoint.Address.ToString() : listenUrl.Host;
         var bracketed = address.Contains(':', StringComparison.Ordinal) ? $"[{address}]" : address;
         return $"(45) Could not bind {listenUrl.Scheme}://{bracketed}:{listenUrl.Port}/: {DescribeBindFailure(bindFailure.Failure)}";
@@ -124,6 +133,17 @@ public static partial class SurlServerComposition
         return $"(58) {url} needs a certificate: "
             + "give --cert <file>, or --self-signed for a throwaway one";
     }
+
+    // ADR-0094, decisions 3 and 5: the three refusals made before a Unix socket is bound.
+    private static string? FormatUnixSocketBindFailure(ListenerBindFailure failure, UnixSocketAddress unixSocket) => failure switch
+    {
+        ListenerBindFailure.UnixSocketPathTooLong =>
+            $"(45) Unix socket path too long: '{unixSocket.Name}' is {System.Text.Encoding.UTF8.GetByteCount(unixSocket.Name)} bytes"
+            + $" and this platform allows {UnixSocketBindRules.MaximumPathBytes(OperatingSystem.IsMacOS())}",
+        ListenerBindFailure.AddressInUse => $"(45) Could not bind {unixSocket.Name}: the path exists already",
+        ListenerBindFailure.AbstractUnixSocketUnsupported => "(45) Abstract Unix socket names exist only on Linux",
+        _ => null,
+    };
 
     private static string DescribeBindFailure(ListenerBindFailure failure) => failure switch
     {

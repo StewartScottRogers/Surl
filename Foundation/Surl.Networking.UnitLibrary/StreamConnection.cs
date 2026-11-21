@@ -37,7 +37,6 @@ internal sealed class StreamConnection : IConnection
     private readonly IConnectionTransportControl transportControl;
     private readonly ServerTlsHandshake? tlsHandshake;
     private readonly TimeProvider timeProvider;
-    private readonly byte[] peekedByte = new byte[1];
     private Stream stream;
     private Stream? securedStream;
     private bool writesCompleted;
@@ -46,7 +45,12 @@ internal sealed class StreamConnection : IConnection
     private bool upgradeUnfinished;
     private bool readPending;
     private bool writePending;
-    private Task<int>? peekRead;
+    private Task<int>? inflightRead;
+    private byte[] inflightBuffer = [];
+    private byte[] readAhead = [];
+    private int readAheadStart;
+    private int readAheadCount;
+    private bool peerEnded;
     private ITlsLoginJudge? tlsLoginJudge;
 
     /// <summary>
@@ -103,9 +107,7 @@ internal sealed class StreamConnection : IConnection
 
         try
         {
-            return peekRead is null
-                ? await stream.ReadAsync(buffer, cancellationToken)
-                : await TakePeekedByteAsync(buffer, cancellationToken);
+            return await ReadReadAheadOrTransportAsync(buffer, cancellationToken);
         }
         catch (ObjectDisposedException exception) when (aborted)
         {
@@ -131,15 +133,51 @@ internal sealed class StreamConnection : IConnection
         ThrowIfUnusable(cancellationToken);
         ArgumentOutOfRangeException.ThrowIfLessThan(wait, TimeSpan.Zero);
 
-        peekRead ??= ReadPeekedByteAsync();
+        if (readAheadCount == 0 && !peerEnded)
+        {
+            inflightRead ??= StartReadAhead(1);
+
+            try
+            {
+                await inflightRead.WaitAsync(wait, timeProvider, cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                return null;
+            }
+
+            await TakeFinishedReadAsync();
+        }
+
+        return readAheadCount == 0 ? null : readAhead[readAheadStart];
+    }
+
+    /// <summary>
+    /// Reads ahead from the transport, into a buffer of at most <paramref name="maxBufferedBytes"/>,
+    /// until the peer half-closes, resets, the buffer is full or the token ends the watch
+    /// (ADR-0141, amendment 2, decision 2). Every byte read ahead is returned first, in order, by
+    /// the next <see cref="ReadAsync"/>, or handed to the TLS handshake ahead of the transport.
+    /// The transport read in flight is never cancelled, so ending the watch loses nothing.
+    /// </summary>
+    /// <param name="maxBufferedBytes">The most the watch keeps read ahead; must be positive.</param>
+    /// <param name="cancellationToken">Ends the watch; the read goes on.</param>
+    /// <returns>Why the watch ended.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxBufferedBytes"/> is not positive.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> ended the watch.</exception>
+    public async ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken)
+    {
+        ThrowIfUnusable(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBufferedBytes);
+
+        readPending = true;
 
         try
         {
-            return await peekRead.WaitAsync(wait, timeProvider, cancellationToken) == 0 ? null : peekedByte[0];
+            return await WatchReadingAheadAsync(maxBufferedBytes, cancellationToken);
         }
-        catch (TimeoutException)
+        finally
         {
-            return null;
+            readPending = false;
         }
     }
 
@@ -227,7 +265,7 @@ internal sealed class StreamConnection : IConnection
 
         try
         {
-            var handshakeTransport = await TakePeekedByteAheadOfTransportAsync();
+            var handshakeTransport = await TakeReadAheadAheadOfTransportAsync();
             (securedStream, var session) = await tlsHandshake!.AuthenticateAsync(handshakeTransport, cancellationToken, tlsLoginJudge);
             stream = securedStream;
             TlsSession = session;
@@ -313,13 +351,77 @@ internal sealed class StreamConnection : IConnection
     private static IOException AbortedException(Exception? innerException) =>
         new("The connection was aborted.", innerException);
 
-    // Runs until a byte, the peer's half-close, a reset, Abort or disposal ends it; never cancelled,
-    // so a byte arriving after a peek's wait is still kept.
-    private async Task<int> ReadPeekedByteAsync()
+    private async ValueTask<PeerWatchOutcome> WatchReadingAheadAsync(int maxBufferedBytes, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            if (inflightRead is null)
+            {
+                if (peerEnded)
+                {
+                    return PeerWatchOutcome.PeerClosed;
+                }
+
+                if (readAheadCount >= maxBufferedBytes)
+                {
+                    return PeerWatchOutcome.BufferFull;
+                }
+
+                inflightRead = StartReadAhead(maxBufferedBytes - readAheadCount);
+            }
+
+            try
+            {
+                await inflightRead.WaitAsync(cancellationToken);
+            }
+            catch (IOException)
+            {
+                // The read stays, faulted: the server's next read sees the reset itself.
+                return PeerWatchOutcome.PeerReset;
+            }
+
+            await TakeFinishedReadAsync();
+        }
+    }
+
+    // The read-ahead bytes first, in order; else what the transport has, after waiting for a read already in flight.
+    private async ValueTask<int> ReadReadAheadOrTransportAsync(Memory<byte> buffer, CancellationToken cancellationToken)
+    {
+        if (readAheadCount == 0 && inflightRead is not null)
+        {
+            await inflightRead.WaitAsync(cancellationToken);
+            await TakeFinishedReadAsync();
+        }
+
+        if (readAheadCount > 0)
+        {
+            var served = Math.Min(buffer.Length, readAheadCount);
+
+            readAhead.AsSpan(readAheadStart, served).CopyTo(buffer.Span);
+            readAheadStart += served;
+            readAheadCount -= served;
+
+            return served;
+        }
+
+        return peerEnded ? 0 : await stream.ReadAsync(buffer, cancellationToken);
+    }
+
+    // Starts one read on the current stream that is never cancelled, so a byte arriving after a
+    // peek's wait or a watch's end is still kept; it runs until bytes, the peer's half-close, a
+    // reset, Abort or disposal ends it.
+    private Task<int> StartReadAhead(int size)
+    {
+        inflightBuffer = new byte[size];
+
+        return ReadAheadOnceAsync(inflightBuffer);
+    }
+
+    private async Task<int> ReadAheadOnceAsync(byte[] target)
     {
         try
         {
-            return await stream.ReadAsync(peekedByte, CancellationToken.None);
+            return await stream.ReadAsync(target, CancellationToken.None);
         }
         catch (ObjectDisposedException exception) when (aborted)
         {
@@ -327,29 +429,52 @@ internal sealed class StreamConnection : IConnection
         }
     }
 
-    private async Task<int> TakePeekedByteAsync(Memory<byte> buffer, CancellationToken cancellationToken)
+    // Appends a finished read's bytes behind the ones already read ahead. A faulted read stays
+    // in place, so every later call throws its exception again.
+    private async ValueTask TakeFinishedReadAsync()
     {
-        var count = await peekRead!.WaitAsync(cancellationToken);
+        var count = await inflightRead!;
 
-        peekRead = null;
-        peekedByte.AsSpan(0, count).CopyTo(buffer.Span);
+        inflightRead = null;
 
-        return count;
+        if (count == 0)
+        {
+            peerEnded = true;
+
+            return;
+        }
+
+        // Read-ahead is rare and small (a watch's bound is 64 KiB), so a new array per read keeps this simple.
+        var grown = new byte[readAheadCount + count];
+
+        readAhead.AsSpan(readAheadStart, readAheadCount).CopyTo(grown);
+        inflightBuffer.AsSpan(0, count).CopyTo(grown.AsSpan(readAheadCount));
+        readAhead = grown;
+        readAheadStart = 0;
+        readAheadCount = grown.Length;
     }
 
-    // Only called once ThrowIfCannotUpgrade has made sure any peek's read has finished.
-    private async Task<Stream> TakePeekedByteAheadOfTransportAsync()
+    // Only called once ThrowIfCannotUpgrade has made sure any read in flight has finished.
+    private async Task<Stream> TakeReadAheadAheadOfTransportAsync()
     {
-        if (peekRead is null)
+        if (inflightRead is not null)
+        {
+            await TakeFinishedReadAsync();
+        }
+
+        if (readAheadCount == 0)
         {
             return transportStream;
         }
 
-        var count = await peekRead;
+        var handedOver = readAhead.AsSpan(readAheadStart, readAheadCount).ToArray();
 
-        peekRead = null;
+        // The handshake reads them now, ahead of the transport; they are no longer the connection's to return.
+        readAhead = [];
+        readAheadStart = 0;
+        readAheadCount = 0;
 
-        return count == 0 ? transportStream : new PeekedBytePrefixStream(peekedByte[0], transportStream);
+        return new ReadAheadPrefixStream(handedOver, transportStream);
     }
 
     private async Task TryCompleteWritesAsync()
@@ -376,8 +501,8 @@ internal sealed class StreamConnection : IConnection
 
         try
         {
-            // A peek's read may still be waiting on the transport; two reads must not race.
-            if (peekRead is not null && await peekRead.WaitAsync(lingering.Token) == 0)
+            // A read in flight may still be waiting on the transport; two reads must not race.
+            if (peerEnded || (inflightRead is not null && await inflightRead.WaitAsync(lingering.Token) == 0))
             {
                 return;
             }
@@ -416,8 +541,8 @@ internal sealed class StreamConnection : IConnection
         }
     }
 
-    // A peek's read still waiting on the transport counts as a pending read.
-    private bool IsReadOrWritePending() => readPending || writePending || peekRead is { IsCompleted: false };
+    // A read ahead still waiting on the transport counts as a pending read.
+    private bool IsReadOrWritePending() => readPending || writePending || inflightRead is { IsCompleted: false };
 
     private void ThrowIfUnusable(CancellationToken cancellationToken)
     {

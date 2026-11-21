@@ -36,7 +36,7 @@ public sealed class WebTransportSessionDirectoryTests
         await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => client.StopSendingCode(Http3TestQuicClient.EncoderStreamId) is not null, Token);
 
         Assert.AreEqual(WebTransportHttp3Codes.BufferedStreamRejected, client.StopSendingCode(Http3TestQuicClient.EncoderStreamId));
-        Assert.Contains("Stream 6 names session 0, which is not open; it was reset and stopped with 0x3994bd84.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "Stream 6 names session 0, which is not open; it was reset and stopped with 0x3994bd84.", Token);
     }
 
     [TestMethod]

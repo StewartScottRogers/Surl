@@ -121,7 +121,7 @@ public sealed class McpStreamSession
     {
         if (message.Length == 0)
         {
-            await FinishAsync(Task.FromResult<byte[]?>(_dispatcher.AnswerMessageTooLong()), null, null).ConfigureAwait(false);
+            await FinishAsync(Task.FromResult<byte[]?>(_dispatcher.AnswerMessageTooLong(_reader.DiscardedRequestId)), null, null).ConfigureAwait(false);
             return;
         }
 

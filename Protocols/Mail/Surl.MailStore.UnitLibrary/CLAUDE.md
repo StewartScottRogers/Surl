@@ -115,3 +115,5 @@ file numbers are not reused). One batch is one change. Every `Delivered` event c
 order given; the single-message overloads publish the addresses a `MailRecipient` records through
 `MailRecipient.ForAddresses`, else null (as before). `MailboxStore.DeliveredToEnabled` (init-only, default false; `LoadAsync`'s `deliveredToEnabled` sets it) is only
 carried here: the composition root sets it and the SMTP server reads it. The index format is unchanged.
+
+Seeded `DeliveredFor` (BL-1515, ADR-0053 Amendment 1): `Seed` publishes each seeded copy's `Seeded` event with `DeliveredFor` holding the one `recipientPath` address with its angle brackets removed (an alias target's copies all name the alias address that was seeded). The bytes stored are unchanged; seeding never writes a `Delivered-To` header.

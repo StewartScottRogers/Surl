@@ -32,6 +32,7 @@
 - **Amended by (continued):** [ADR-0169](ADR-0169-what-a-quic-or-dtls-exchange-publishes-as-its-bytes.md) (decision 1: a QUIC or DTLS exchange also publishes its decrypted stream, datagram and record payloads and HTTP/3 decoded headers, as further layers of `ExchangeBytesEvent`).
 - **Amended by (continued):** [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (decisions 1, 3 and 4: `coaps` pre-shared-key logins are published and refusable, and the proxy and TLS-SRP accounts become stores a test controls).
 - **Amended by (continued):** [ADR-0171](ADR-0171-how-a-new-surlevent-kind-reaches-surl-api-surl-mcp-and-the-control-endpoint.md) (decision 2: event kinds are an extension point; a new `SurlEvent` record carries its own exchange, scheme, account and members).
+- **Amended (2026-11-21, BL-1518):** decision 4's `after-bytes` counts every byte the exchange sends on all its connections, data connections included; see the amendment before "Alternatives considered".
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
@@ -543,6 +544,52 @@ no error shape, so a rule never silently does nothing. **Every protocol server f
 `error` in its own task** and adds its row to decision 4's reply tables. Servers filed before this ADR
 and not yet built (STOMP, XMPP, gRPC, OCI, WebTransport, Socket.IO, SOCKS and the rest) are caught by one
 audit task that runs after the follow-ups and files a task per family still without the fault.
+
+## Amendment 2026-11-21: `after-bytes` counts every connection of the exchange (BL-1518)
+
+Decided by Claude under Stewart's delegation, 2026-11-21, in BL-1518, from the Surly cookbook's report
+of 2026-11-20 (item 1): `drop;after-bytes=N` on an `ftp://` listener counted control-connection bytes
+only, so a test of curl's `-C -` resume could not cut a `RETR` partway through the file. Decision 4's
+key table said "bytes sent" without saying on which connection; this says.
+
+**Which bytes.** `after-bytes` counts every byte the exchange sends, on its first (control) connection
+and on every data connection it opens (FTP's passive and active ones), added together in one count.
+A protocol with one connection counts exactly as before. For FTP the count now includes the data
+bytes, so `after-bytes=N` cuts after N bytes of control replies and file bytes together; a test that
+wants to cut a download partway through the file sets N past the control replies up to that `RETR`
+(the greeting, the login replies and the `150`), which the exchange log shows.
+
+**What is aborted.** When the count reaches N, the write that reaches it is cut at N, then the data
+connection being written is aborted (`IConnection.Abort`, a reset) **and** the control connection is
+aborted too. Every later read or write on either throws `IOException`, as on a connection the peer
+reset. The control connection is aborted, not answered with `426` or `451`, because a drop is a
+connection that vanishes and `error` is the kind that answers. Upstream curl 8.21.0 exits 56 when the
+control connection closes at `RETR` (the FTP library's `CLAUDE.md`, measured 2026-11-11); the exit code
+curl gives for this data reset, and the partial file it keeps for `-C -`, are measured in the
+implementation's conformance stage (BL-1519), not here.
+
+**Note and event.** Once per exchange, however many connections the drop aborts: the exchange-log note
+`Exchange <exchange id> dropped after <N> bytes sent by fault rule <rule id>.` (the text it has today)
+and one `FaultAppliedEvent` (rule ID, `Drop`, stage `Accept`, the exchange ID, the listen URL). The count
+is shared by the exchange's connections behind a lock, because a server may write the control and data
+connections from different tasks, and the drop happens once.
+
+**Contract.** `FaultRule.AfterBytes` in `Surl.Protocol.Abstractions` is unchanged: same type, same range,
+absent still meaning a drop before any byte. `--fault`'s key table gains no key, so `Surl.Cli`,
+`Surl.Composition`, `Surl.Api`, `Surl.Mcp.UnitLibrary`, `--aihelp` and the manual change only where
+they describe `after-bytes` as "bytes sent" (it becomes "bytes the exchange sends on all its
+connections"), in the same diff as the engine.
+
+**Projects the implementation changes:** `Surl.Core.UnitLibrary` and `Surl.Core.UnitTests`
+(`ServingEngine`, `ExchangeDataConnections`, `DroppingAfterBytesConnection`), which is BL-1519, plus
+that wording wherever a host's help or manual states it. A datagram flow
+(`SilencedAfterBytesDatagramFlow`) is not touched: it has one flow.
+
+**Why not a `connection=data` key (option 2).** A test cutting a download partway would still need a
+number it can only know after counting the control bytes, and the key would touch five hosts and their
+help for something one count over the exchange already says. Counting the whole exchange adds no key,
+changes nothing for a one-connection protocol and leaves "configuration only grows" untouched. A test
+that wants a cut at a chosen command uses a `stage=command` rule (ADR-0141).
 
 ## Alternatives considered
 

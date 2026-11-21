@@ -51,6 +51,17 @@ internal sealed class IdleClockRestartingConnection(IConnection connection, Exch
         connection.PeekByteAsync(wait, cancellationToken);
 
     /// <summary>
+    /// Watches the wrapped connection for the peer leaving and leaves the idle clock alone: an
+    /// Accept-stage hold keeps it paused, and bytes read ahead are not client activity until read
+    /// (ADR-0141, amendment 2, decision 2).
+    /// </summary>
+    /// <param name="maxBufferedBytes">The most the watch reads ahead.</param>
+    /// <param name="cancellationToken">Ends the watch.</param>
+    /// <returns>Why the watch ended.</returns>
+    public ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken) =>
+        connection.WatchForPeerCloseAsync(maxBufferedBytes, cancellationToken);
+
+    /// <summary>
     /// Writes to the connection, then restarts the idle clock.
     /// </summary>
     /// <param name="bytes">The bytes to send.</param>

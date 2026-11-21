@@ -36,6 +36,38 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutObject_NotesTheStoredLineInTheHttpServersForm()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+
+        await harness.SendWithBodyAsync("PUT", "/bucket/x", "hello");
+
+        var note = harness.Log.Notes.Single(n => n.StartsWith("PUT /bucket/x: 200, 5 bytes stored at ", StringComparison.Ordinal));
+        Assert.IsGreaterThan("PUT /bucket/x: 200, 5 bytes stored at ".Length, note.Length);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutObjectRefused_NotesNoStoredLine()
+    {
+        var uploadsOff = new S3ServerHarness();
+        uploadsOff.CreateFolder("photos");
+        var badMd5 = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        badMd5.CreateFolder("photos");
+        var indexFull = new S3ServerHarness(exposure: S3ServerHarness.Writable, maxIndexEntries: 0);
+        indexFull.CreateFolder("photos");
+
+        await uploadsOff.SendWithBodyAsync("PUT", "/photos/a.txt", "hello world");
+        await badMd5.SendWithBodyAsync("PUT", "/photos/a.txt", "hello world!", $"Content-MD5: {HelloWorldContentMd5}");
+        await indexFull.SendWithBodyAsync("PUT", "/photos/a.txt", "x");
+
+        foreach (var harness in new[] { uploadsOff, badMd5, indexFull })
+        {
+            Assert.IsFalse(harness.Log.Notes.Any(note => note.Contains("bytes stored at", StringComparison.Ordinal)));
+        }
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutThenGet_ReadsBackTheBodyAndItsContentType()
     {
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
@@ -104,6 +136,22 @@ public sealed class S3PutObjectTests
                 "<Code>AccessDenied</Code><Message>Access Denied</Message><Resource>/photos/a.txt</Resource><RequestId>{RequestId}</RequestId>"),
             response);
         Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "photos", "a.txt")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedPutObjectWithUploadsOff_AbandonsTheBodyCheckAndStillAnswers403()
+    {
+        var harness = new S3ServerHarness();
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBodyAsync(
+            "PUT", "/photos/a.txt", "hello world",
+            "Authorization: AWS4-HMAC-SHA256 x", $"x-amz-content-sha256: {UnitTestS3AuthenticationPolicy.ContentSha256Of("hello world")}");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+        StringAssert.Contains(response, "<Code>AccessDenied</Code><Message>Access Denied</Message>");
+        Assert.AreEqual(1, harness.Policy.AbandonedBodyChecks);
+        Assert.IsEmpty(harness.Policy.JudgedBodyHashes);
     }
 
     [TestMethod]

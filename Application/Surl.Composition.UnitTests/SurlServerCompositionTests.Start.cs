@@ -1,6 +1,7 @@
 using Surl.Cli;
 using Surl.Content;
 using Surl.MailStore;
+using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -426,4 +427,53 @@ public sealed partial class SurlServerCompositionTests
 
         Assert.AreEqual("(6) Could not resolve host: no-such-host.invalid", message);
     }
-}
+
+    [TestMethod]
+    public void FormatBindFailure_UnixSocketPathTooLong_NamesLengthAndLimit()
+    {
+        var path = "/tmp/" + new string('a', 115);
+        var bindFailure = new ListenerBindException(
+            new ListenUrl("http", "localhost", 80) { UnixSocket = new UnixSocketAddress(path, false) },
+            null, ListenerBindFailure.UnixSocketPathTooLong, null);
+
+        var message = SurlServerComposition.FormatBindFailure(bindFailure);
+
+        var limit = UnixSocketBindRules.MaximumPathBytes(OperatingSystem.IsMacOS());
+        Assert.AreEqual($"(45) Unix socket path too long: '{path}' is 120 bytes and this platform allows {limit}", message);
+    }
+
+    [TestMethod]
+    public void FormatBindFailure_UnixSocketPathExists_SaysThePathExistsAlready()
+    {
+        var bindFailure = new ListenerBindException(
+            new ListenUrl("http", "localhost", 80) { UnixSocket = new UnixSocketAddress("/tmp/site.sock", false) },
+            null, ListenerBindFailure.AddressInUse, null);
+
+        Assert.AreEqual(
+            "(45) Could not bind /tmp/site.sock: the path exists already",
+            SurlServerComposition.FormatBindFailure(bindFailure));
+    }
+
+    [TestMethod]
+    public void FormatBindFailure_AbstractUnixSocketUnsupported_SaysOnlyLinux()
+    {
+        var bindFailure = new ListenerBindException(
+            new ListenUrl("http", "localhost", 80) { UnixSocket = new UnixSocketAddress("site", true) },
+            null, ListenerBindFailure.AbstractUnixSocketUnsupported, null);
+
+        Assert.AreEqual(
+            "(45) Abstract Unix socket names exist only on Linux",
+            SurlServerComposition.FormatBindFailure(bindFailure));
+    }
+
+    [TestMethod]
+    public void FormatBindFailure_UnixSocketPermissionDenied_KeepsTheUsualMessage()
+    {
+        var bindFailure = new ListenerBindException(
+            new ListenUrl("http", "localhost", 80) { UnixSocket = new UnixSocketAddress("/tmp/site.sock", false) },
+            null, ListenerBindFailure.PermissionDenied, null);
+
+        Assert.AreEqual(
+            "(45) Could not bind http://localhost:80/: Permission denied",
+            SurlServerComposition.FormatBindFailure(bindFailure));
+    }}

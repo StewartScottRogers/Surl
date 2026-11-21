@@ -10,8 +10,10 @@ namespace Surl.Api;
 /// <param name="Bytes">The bytes, a copy the record owns.</param>
 /// <param name="Layer">Which layer the bytes belong to (ADR-0169 decision 2); <see cref="ExchangeBytesLayer.Wire"/> by default.</param>
 /// <param name="StreamId">The QUIC stream the bytes belong to, or <see langword="null"/> when they belong to none.</param>
+/// <param name="At">When the bytes crossed, as the <see cref="ExchangeBytesEvent"/> carried it from the instance's <see cref="TimeProvider"/>; default when built by hand.</param>
 public sealed record SurlExchangeChunk(
     SurlExchangeDirection Direction,
     ReadOnlyMemory<byte> Bytes,
     ExchangeBytesLayer Layer = ExchangeBytesLayer.Wire,
-    long? StreamId = null);
+    long? StreamId = null,
+    DateTimeOffset At = default);

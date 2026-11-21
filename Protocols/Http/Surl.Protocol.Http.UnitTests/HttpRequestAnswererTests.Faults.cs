@@ -147,7 +147,7 @@ public sealed partial class HttpRequestAnswererTests
         var idleClock = new RecordingIdleClock();
         var request = Ascii("GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nConnection: close\r\n\r\n");
 
-        var serving = ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule), time: time, idleClock: idleClock);
+        var serving = ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule), time: time, idleClock: idleClock, clientStays: true);
         await idleClock.FirstPause;
         var completedWhileHeld = serving.IsCompleted;
         time.Advance(TimeSpan.FromMilliseconds(499));
@@ -160,6 +160,32 @@ public sealed partial class HttpRequestAnswererTests
         Assert.StartsWith("HTTP/1.1 200 OK\r\n", Latin1(connection.WrittenBytes));
         Assert.IsFalse(idleClock.IsPaused);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/file.txt"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DelayRuleAtTheCommandStage_EndsWhenTheClientHalfClosesWithoutTheClockAdvancing()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+        var request = Ascii("GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nConnection: close\r\n\r\n");
+
+        var (connection, log, _, _) = await ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule));
+
+        Assert.Contains("Exchange 1: the client closed the connection during the hold by fault rule f1.", log.Notes);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.IsTrue(connection.Aborted);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DelayRuleAtTheCommandStage_SendsNothingWhenTheClientResetsDuringTheHold()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+        var request = Ascii("GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18050\r\n\r\n");
+
+        var (connection, log, _, _) = await ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule), clientResets: true);
+
+        Assert.Contains("Exchange 1: the client reset the connection during the hold by fault rule f1.", log.Notes);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.IsTrue(connection.Aborted);
     }
 
     [TestMethod]
@@ -225,16 +251,16 @@ public sealed partial class HttpRequestAnswererTests
     }
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log, RecordingSurlEventPublisher Events, ScriptedFaultPlan Plan)> ServeWithFaultsAsync(
-        byte[] request, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null, ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null)
+        byte[] request, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null, ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null, bool clientStays = false, bool clientResets = false)
     {
         var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "b"), Ascii(FileBody), FileTime);
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
-        var connection = new InMemoryConnection(RecordedFixture.Whole(request));
+        var connection = new InMemoryConnection(RecordedFixture.Whole(request), peerResetsWhenExhausted: clientResets);
         var log = new RecordingExchangeLog();
         var events = new RecordingSurlEventPublisher();
         var context = Context(log, time ?? new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock ?? (IIdleClock)NoIdleClock.Instance };
 
-        await new HttpProtocolServer(store, policy ?? new AnonymousAuthenticationPolicy()).ServeAsync(connection, context);
+        await new HttpProtocolServer(store, policy ?? new AnonymousAuthenticationPolicy()).ServeAsync(clientStays ? new UnwatchedInMemoryConnection(connection) : connection, context);
 
         return (connection, log, events, plan);
     }

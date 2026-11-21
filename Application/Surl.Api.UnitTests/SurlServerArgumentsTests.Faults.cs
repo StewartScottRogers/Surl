@@ -11,7 +11,7 @@ public sealed partial class SurlServerArgumentsTests
     {
         var fault = SurlFault.Delay(TimeSpan.FromMilliseconds(250)) with { Listener = HttpListenUrl };
 
-        var actual = AssertFaultComposesAs(fault, "delay;listener=http%3A%2F%2F127.0.0.1%3A0;ms=250");
+        var actual = AssertFaultComposesAs(fault, "delay;listener=http://127.0.0.1:0;ms=250");
 
         Assert.AreEqual(new ConfiguredFault(FaultKind.Delay) { Listener = HttpListenUrl, DelayMilliseconds = 250 }, actual);
     }
@@ -51,7 +51,7 @@ public sealed partial class SurlServerArgumentsTests
     {
         var fault = SurlFault.ProtocolError("503 Busy; later") with { Scheme = "http", Path = "/a b=c" };
 
-        var actual = AssertFaultComposesAs(fault, "error;scheme=http;path=%2Fa%20b%3Dc;reply=503%20Busy%3B%20later");
+        var actual = AssertFaultComposesAs(fault, "error;scheme=http;path=/a b%3Dc;reply=503 Busy%3B later");
 
         Assert.AreEqual(new ConfiguredFault(FaultKind.Error) { Scheme = "http", Path = "/a b=c", Reply = "503 Busy; later" }, actual);
     }

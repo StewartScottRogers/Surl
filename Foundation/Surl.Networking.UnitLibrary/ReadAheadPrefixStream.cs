@@ -1,16 +1,16 @@
 namespace Surl.Networking;
 
 /// <summary>
-/// Reads one byte a <see cref="StreamConnection"/> already peeked off its transport, then the
+/// Reads the bytes a <see cref="StreamConnection"/> already read ahead off its transport, then the
 /// transport's own bytes, and writes straight to the transport, so a TLS handshake started
-/// after a peek still sees the ClientHello's first byte (ADR-0113, decision 6).
+/// after a peek or a peer-close watch still sees every byte the client sent first (ADR-0113, decision 6; ADR-0141, amendment 2).
 /// </summary>
 /// <remarks>Disposing it leaves the transport open; the connection owns and disposes the transport.</remarks>
-/// <param name="peekedByte">The byte the connection peeked and has not handed out.</param>
-/// <param name="transport">The stream the byte was read from, which carries everything after it.</param>
-internal sealed class PeekedBytePrefixStream(byte peekedByte, Stream transport) : Stream
+/// <param name="readAheadBytes">The bytes the connection read ahead and has not handed out, in order.</param>
+/// <param name="transport">The stream the bytes were read from, which carries everything after them.</param>
+internal sealed class ReadAheadPrefixStream(byte[] readAheadBytes, Stream transport) : Stream
 {
-    private bool peekedByteRead;
+    private int readAheadOffset;
 
     /// <inheritdoc/>
     public override bool CanRead => true;
@@ -36,12 +36,18 @@ internal sealed class PeekedBytePrefixStream(byte peekedByte, Stream transport) 
     {
         ValidateBufferArguments(buffer, offset, count);
 
-        return TryReadPeekedByte(buffer.AsSpan(offset, count)) ? 1 : transport.Read(buffer, offset, count);
+        var served = TakeReadAheadBytes(buffer.AsSpan(offset, count));
+
+        return served > 0 ? served : transport.Read(buffer, offset, count);
     }
 
     /// <inheritdoc/>
-    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-        TryReadPeekedByte(buffer.Span) ? 1 : await transport.ReadAsync(buffer, cancellationToken);
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        var served = TakeReadAheadBytes(buffer.Span);
+
+        return served > 0 ? served : await transport.ReadAsync(buffer, cancellationToken);
+    }
 
     /// <inheritdoc/>
     public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
@@ -70,16 +76,13 @@ internal sealed class PeekedBytePrefixStream(byte peekedByte, Stream transport) 
     /// <inheritdoc/>
     public override void SetLength(long value) => throw new NotSupportedException();
 
-    private bool TryReadPeekedByte(Span<byte> destination)
+    private int TakeReadAheadBytes(Span<byte> destination)
     {
-        if (peekedByteRead || destination.IsEmpty)
-        {
-            return false;
-        }
+        var served = Math.Min(destination.Length, readAheadBytes.Length - readAheadOffset);
 
-        destination[0] = peekedByte;
-        peekedByteRead = true;
+        readAheadBytes.AsSpan(readAheadOffset, served).CopyTo(destination);
+        readAheadOffset += served;
 
-        return true;
+        return served;
     }
 }

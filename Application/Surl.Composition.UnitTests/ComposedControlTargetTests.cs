@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using Surl.Content;
 using Surl.Control;
@@ -82,6 +83,41 @@ public sealed class ComposedControlTargetTests
 
         Assert.IsTrue(subscription.TryRead(out var seeded));
         Assert.AreEqual(StoreChange.Seeded, ((StoreChangedEvent)seeded!).Change);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task WritesDeliveredTo_FollowsTheMailDeliveredToOption(bool on)
+    {
+        await using var serving = await ComposeAsync(on ? ["-u", "alice:secret", "--mail-delivered-to"] : ["-u", "alice:secret"]);
+
+        Assert.AreEqual(on, TargetOf(serving).WritesDeliveredTo);
+    }
+
+    [TestMethod]
+    [DataRow(false, "Subject: hi\r\n\r\nbody\r\n")]
+    [DataRow(true, "Delivered-To: alice@example.com\r\nSubject: hi\r\n\r\nbody\r\n")]
+    public async Task PostMail_ThroughTheEndpoint_StoresDeliveredToFirstOnlyWhenOn(bool on, string expected)
+    {
+        await using var serving = await ComposeAsync(on ? ["-u", "alice:secret", "--mail-delivered-to"] : ["-u", "alice:secret"]);
+        const string token = "0123456789abcdefghijklmnopqrstuv";
+        var endpoint = new ControlEndpoint(TargetOf(serving), new ControlToken(token));
+        const string body = "Subject: hi\r\n\r\nbody\r\n";
+        var request = $"POST /v1/mail?to=alice%40example.com HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {token}\r\nConnection: close\r\nContent-Type: message/rfc822\r\nContent-Length: {body.Length}\r\n\r\n{body}";
+        var peer = new IPEndPoint(IPAddress.Loopback, 50000);
+        var connection = new InMemoryConnection([Encoding.UTF8.GetBytes(request)], remoteEndPoint: peer);
+        var context = new ExchangeContext(
+            1, new ListenUrl("http", "127.0.0.1", 0).WithBoundPort(18999), new IPEndPoint(IPAddress.Loopback, 18999), peer,
+            new RecordingExchangeLog(), TimeProvider.System, TestContext.CancellationToken);
+
+        await endpoint.ServeAsync(connection, context);
+
+        StringAssert.StartsWith(Encoding.UTF8.GetString(connection.WrittenBytes), "HTTP/1.1 204");
+        var target = TargetOf(serving);
+        var page = await target.ListMessagesAsync("alice", "INBOX", 0, 10, TestContext.CancellationToken);
+        var stored = await target.ReadMessageAsync("alice", "INBOX", page.Messages.Single().Uid, TestContext.CancellationToken);
+        Assert.AreEqual(expected, Encoding.UTF8.GetString(stored.Bytes.Span));
     }
 
     [TestMethod]

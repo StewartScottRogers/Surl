@@ -32,6 +32,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     private readonly ExchangeContext context;
     private readonly ContentStore contentStore;
     private readonly IHttpAuthenticationSession authenticationSession;
+    private readonly IConnection? holdConnection;
 
     /// <summary>
     /// Creates an answerer for one connection.
@@ -39,8 +40,10 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where request paths are looked up.</param>
     /// <param name="authenticationSession">The connection's authentication session, which judges every request.</param>
-    public HttpRequestAnswerer(ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
+    /// <param name="holdConnection">The connection a command-stage delay watches for the client leaving (ADR-0141 amendment 2): the HTTP/1.x connection one request owns at a time; <see langword="null"/> for HTTP/2 and HTTP/3 streams, which share theirs.</param>
+    public HttpRequestAnswerer(ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession, IConnection? holdConnection = null)
     {
+        this.holdConnection = holdConnection;
         this.context = context;
         this.contentStore = contentStore;
         this.authenticationSession = authenticationSession;
@@ -87,11 +90,15 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         var uploadRefusal = RefuseUploadPastLimit(request, challenges);
         if (uploadRefusal is not null)
         {
+            await bodyCheck.AbandonAsync(cancellationToken);
+
             return uploadRefusal;
         }
 
         if (!request.Body.IsReadable)
         {
+            await bodyCheck.AbandonAsync(cancellationToken);
+
             return Refuse(request, HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the login is bound to the body, and the body's framing is not one the server reads");
         }
 
@@ -104,6 +111,8 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         var bodyOutcome = await request.Body.DiscardAsync(bodyHash, cancellationToken);
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
+            await bodyCheck.AbandonAsync(cancellationToken);
+
             return RefuseBody(request, bodyOutcome, challenges);
         }
 
@@ -202,11 +211,26 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     };
 
     // What the authentication session is shown of a request: never its body (ADR-0032, section 6).
+    // Over HTTP/2 and HTTP/3 the host is the :authority, never a field, and upstream curl signs it
+    // as `host` (ADR-0043 amendment, BL-1547), so the session is handed one when none was received.
     private static HttpAuthenticationRequest AuthenticationRequest(HttpRequest request) => new(
         request.Method,
         request.Target,
         request.Method is not ("GET" or "HEAD"),
-        request.Fields.ToArray());
+        FieldsWithHost(request));
+
+    private static KeyValuePair<string, string>[] FieldsWithHost(HttpRequest request)
+    {
+        var fields = request.Fields.ToList();
+
+        if (request.Authority is not null
+            && !fields.Exists(field => string.Equals(field.Key, "host", StringComparison.OrdinalIgnoreCase)))
+        {
+            fields.Add(new KeyValuePair<string, string>("host", request.Authority));
+        }
+
+        return fields.ToArray();
+    }
 
     // A 401 keeps the connection as a 404 does, because NTLM and Negotiate need the same
     // connection; one whose request announced a body, which is never read, and every 403

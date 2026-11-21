@@ -59,7 +59,7 @@ public sealed partial class SurlServerTests
             new SurlEventQuery { Kind = SurlEventKind.FaultApplied }, ExchangeTimeLimit, TestContext.CancellationToken);
         var echoed = await EchoOneAsync(seams, "ping");
 
-        Assert.AreEqual("drop;listener=echo%3A%2F%2F127.0.0.1%3A0", rules[0].Item);
+        Assert.AreEqual("drop;listener=echo://127.0.0.1:0", rules[0].Item);
         Assert.AreEqual("refuse-login;scheme=http", rules[1].Item);
         Assert.IsEmpty(dropped.WrittenToClient);
         Assert.AreEqual("f1", applied.RuleId);

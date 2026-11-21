@@ -169,6 +169,9 @@ internal static class Program
         registry.AddTool(RemoveProxyAccountTool.Create(servers));
         registry.AddTool(AddTlsSrpAccountTool.Create(servers));
         registry.AddTool(RemoveTlsSrpAccountTool.Create(servers));
+        registry.AddTool(SetAccountPasswordTool.Create(servers));
+        registry.AddTool(SetProxyAccountPasswordTool.Create(servers));
+        registry.AddTool(SetTlsSrpAccountPasswordTool.Create(servers));
         registry.AddTool(ResetServerTool.Create(servers));
         registry.AddTool(SnapshotServerTool.Create(servers));
         registry.AddTool(RestoreServerTool.Create(servers));

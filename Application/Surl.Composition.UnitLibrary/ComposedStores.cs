@@ -123,6 +123,12 @@ public sealed partial class ComposedStores
     internal AccountBook Accounts => accounts;
 
     /// <summary>
+    /// Whether <c>--mail-delivered-to</c> is on: SMTP then writes a <c>Delivered-To:</c> line into each
+    /// stored copy. Seeding never writes one; a host that seeds for the option reads this.
+    /// </summary>
+    public bool MailDeliveredToEnabled => mail.DeliveredToEnabled;
+
+    /// <summary>
     /// Delivers <paramref name="message"/> to <paramref name="recipient"/> as SMTP would, through
     /// <see cref="MailboxStore.Seed"/>, then saves the mail store, so a store on disk holds it too.
     /// Never consults the fault plan; publishes <see cref="StoreChange.Seeded"/> for each copy.

@@ -8,7 +8,7 @@ namespace Surl.Api;
 /// <param name="Item">
 /// The <c>--fault</c> item the rule spells, every value percent-encoded so <c>surl</c>'s reader reads it back as the
 /// same rule; it leaves out <c>times</c>, which <paramref name="Remaining"/> carries, so a spent rule still spells an
-/// item <c>surl</c> takes. E.g. <c>drop;listener=smtp%3A%2F%2F127.0.0.1%3A0</c>.
+/// item <c>surl</c> takes. E.g. <c>drop;listener=smtp://127.0.0.1:0</c>.
 /// </param>
 /// <param name="Remaining">
 /// How many more times the rule applies before it is spent, 0 once it is; <see langword="null"/> for a rule without

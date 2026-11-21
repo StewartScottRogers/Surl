@@ -77,7 +77,7 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   else the selected one. An `Error` rule is answered with the tagged rule reply (`NO ...` or
   `BAD ...`), `APPEND`'s in place of `+`; the store is untouched, a note is logged and one
   `FaultAppliedEvent` (target: the mailbox, else the verb) is published. A rule with no reply
-  answers `NO [UNAVAILABLE] Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901).
+  answers `NO [UNAVAILABLE] Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). A client that closes or resets during a `Delay` hold gets no answer and the session ends (ADR-0141 amendment 3, BL-1545).
 - `STARTTLS` (decision 11): `OK Begin TLS negotiation now`, then
   `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`; `BAD STARTTLS not
   available` without a certificate, `BAD Already using TLS` on a TLS connection.

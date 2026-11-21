@@ -88,6 +88,16 @@ public sealed class S3ObjectBodyReaderTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ChunkedUploadWorkedExample_NotesTheDecodedLengthAsStored()
+    {
+        var harness = Harness(WorkedExampleChain());
+
+        await harness.SendRawAsync(WorkedExample());
+
+        Assert.IsTrue(harness.Log.Notes.Any(note => note.StartsWith("PUT /examplebucket/chunkObject.txt: 200, 66560 bytes stored at ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ChunkedUploadWorkedExample_KeepsNoAwsChunkedContentEncoding()
     {
         var harness = Harness(WorkedExampleChain());

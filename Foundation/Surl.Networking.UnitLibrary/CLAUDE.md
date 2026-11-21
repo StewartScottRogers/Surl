@@ -125,13 +125,19 @@ protocol server.
   `ITlsLoginJudge`; `UpgradeToTlsAsync` passes it to `ServerTlsHandshake.AuthenticateAsync`, which
   wraps it in `TlsSrpLoginJudgeAdapter` for `TlsSrpServer`. An `SslStream` or TLS 1.3 handshake never
   calls it. `StreamConnectionTlsLoginJudgeTests` cover it.
-- The peek (ADR-0113, decision 6; BL-734). `StreamConnection.PeekByteAsync` starts one
-  one-byte read on the current stream and waits for it up to `wait` on the injected
-  `TimeProvider`; the read is never cancelled, so a byte arriving after the wait is kept for the
-  next peek or read, and the next `ReadAsync` returns the peeked byte alone. `UpgradeToTlsAsync`
-  refuses while that read is still waiting and otherwise hands the handshake a
-  `PeekedBytePrefixStream` - the peeked byte, then the transport - so the ClientHello arrives
-  whole. `DisposeAsync` waits for that read (within the lingering time) before discarding.
+- The peek and the read-ahead buffer (ADR-0113, decision 6; BL-734; ADR-0141 amendment 2, decision 2;
+  BL-1530). `StreamConnection` keeps one transport read in flight, never cancelled, and the bytes it
+  has read ahead in order. `PeekByteAsync` starts a one-byte read and waits for it up to `wait` on the
+  injected `TimeProvider`; a byte arriving after the wait is kept for the next peek or read.
+  `WatchForPeerCloseAsync(maxBufferedBytes, token)` reads ahead until the peer half-closes
+  (`PeerClosed`), the read throws `IOException` (`PeerReset`; the faulted read stays, so the next
+  `ReadAsync` throws it too, after the bytes read ahead) or `maxBufferedBytes` are held
+  (`BufferFull`); cancelling the token throws `OperationCanceledException` and loses nothing. The
+  next `ReadAsync` returns the read-ahead bytes first, in order. `UpgradeToTlsAsync` refuses while a
+  read is still waiting and otherwise hands the handshake a `ReadAheadPrefixStream` - the read-ahead
+  bytes, then the transport - so the ClientHello arrives whole. `DisposeAsync` waits for the read in
+  flight (within the lingering time) before discarding. `StreamConnectionPeekTests` and
+  `StreamConnectionWatchTests` (a scripted stream: bytes then FIN, bytes then reset) cover it.
 - TLS minimums (ADR-0006, section 4; BL-048). `ServerTlsSettings.AcceptedVersions` is a
   `TlsVersionRange` (public): a lowest and a highest of TLS 1.0, 1.1, 1.2, 1.3, TLS 1.2 to
   1.3 by default, whose `AcceptedProtocols` every handshake enables; a lowest above the

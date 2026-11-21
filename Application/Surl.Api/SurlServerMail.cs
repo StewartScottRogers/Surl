@@ -1,3 +1,4 @@
+using System.Text;
 using Surl.Composition;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
@@ -22,7 +23,7 @@ public sealed class SurlServerMail
 
     /// <summary>
     /// Delivers <paramref name="message"/> to <paramref name="address"/> as SMTP would after <c>RCPT TO:</c>, so
-    /// aliases, quotas and events apply; the fault plan is not consulted. Publishes a
+    /// aliases, quotas and events apply; with <c>--mail-delivered-to</c> on, one <c>Delivered-To: &lt;address&gt;</c> line precedes the message (nothing else is added); the fault plan is not consulted. Publishes a
     /// <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/>.
     /// </summary>
     /// <param name="address">The recipient, such as <c>alice@example.com</c>.</param>
@@ -35,7 +36,7 @@ public sealed class SurlServerMail
     public async Task DeliverAsync(string address, ReadOnlyMemory<byte> message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(address);
-        var result = await stores.SeedMailAsync(address, message, cancellationToken);
+        var result = await stores.SeedMailAsync(address, stores.MailDeliveredToEnabled ? WithDeliveredTo(address, message) : message, cancellationToken);
         if (result.Recipient != MailRecipientLookup.Deliverable)
         {
             throw new SurlSeedRefusedException(StoreKind.Mail, result.Recipient.ToString(), $"Mail for {address}");
@@ -116,6 +117,15 @@ public sealed class SurlServerMail
             var message = SurlReadResults.ValueOrThrow(stores.ReadMessage(owner, mailbox, SurlReadResults.UidOrThrow(uid, nameof(uid))));
             return new SurlMailMessage(Summarize(message.Summary), message.Bytes);
         });
+    }
+
+    private static byte[] WithDeliveredTo(string address, ReadOnlyMemory<byte> message)
+    {
+        var line = Encoding.UTF8.GetBytes($"Delivered-To: {address}\r\n");
+        var stamped = new byte[line.Length + message.Length];
+        line.CopyTo(stamped, 0);
+        message.CopyTo(stamped.AsMemory(line.Length));
+        return stamped;
     }
 
     private static SurlMessageSummary Summarize(ComposedMailMessageSummary summary) =>

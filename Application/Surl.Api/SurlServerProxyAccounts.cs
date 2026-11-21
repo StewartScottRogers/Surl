@@ -28,7 +28,8 @@ public sealed class SurlServerProxyAccounts
     /// <param name="userName">The user name.</param>
     /// <param name="password">The password.</param>
     /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="userName"/> holds <c>:</c>, or a proxy account of that user name exists.</exception>
+    /// <exception cref="ArgumentException"><paramref name="userName"/> holds <c>:</c>, or a proxy account of that user name exists
+    /// (use <see cref="SetPassword"/> to change its password).</exception>
     /// <exception cref="InvalidOperationException">The server holds no proxy accounts, so its proxies are anonymous and stay so.</exception>
     public void Add(string userName, string password)
     {
@@ -85,12 +86,10 @@ public sealed class SurlServerProxyAccounts
             throw new ArgumentException("A password may not be empty.", nameof(password));
         }
 
-        if (!stores.RemoveProxyAccount(userName))
+        if (!stores.SetProxyAccountPassword(userName, password))
         {
             throw new ArgumentException("No proxy account has that user name.", nameof(userName));
         }
-
-        stores.AddProxyAccount(new Account(userName, password));
     }
 
     /// <summary>

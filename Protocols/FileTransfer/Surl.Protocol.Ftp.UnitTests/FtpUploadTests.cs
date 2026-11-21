@@ -212,6 +212,23 @@ public sealed class FtpUploadTests
     }
 
     [TestMethod]
+    public async Task Stor_RefusedByAnOutOfSpaceRule_Answers552AndNamesTheRuleInTheNote()
+    {
+        var fileSystem = StandardFileSystem();
+        var dataConnection = new InMemoryConnection(Ascii(Upload));
+        var log = new RecordingExchangeLog();
+        var faults = new ScriptedFaultPlan(new FaultRule("f7", FaultKind.OutOfSpace));
+
+        var written = await ServeLoggedInAsync(
+            "EPSV\r\nSTOR b.txt\r\n", TestContext.CancellationToken, Passive(dataConnection), log, Store(fileSystem, faults: faults));
+
+        Assert.AreEqual(PassiveReply + "552 Upload exceeds the size limit\r\n", written);
+        CollectionAssert.AreEqual(
+            new[] { "The upload was refused by the fault rule f7 (out-of-space); the partial upload was deleted and the data connection was reset." },
+            log.Notes.ToArray());
+    }
+
+    [TestMethod]
     public async Task Appe_PastMaxFileSizeWithTheExistingLength_Answers552AndKeepsTheFile()
     {
         var fileSystem = StandardFileSystem();
@@ -270,8 +287,8 @@ public sealed class FtpUploadTests
 
     internal static readonly string[] StandardRootEntries = [".hidden", ".secret.txt", ".surl", "a.txt", "dir"];
 
-    internal static ContentStore Store(InMemoryContentFileSystem fileSystem, bool allowUploads = true, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes) =>
-        new(InMemoryContentFileSystem.RootPath, fileSystem, new ContentExposureOptions { AllowUploads = allowUploads, MaxUploadBytes = maxUploadBytes });
+    internal static ContentStore Store(InMemoryContentFileSystem fileSystem, bool allowUploads = true, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes, IFaultPlan? faults = null) =>
+        new(InMemoryContentFileSystem.RootPath, fileSystem, new ContentExposureOptions { AllowUploads = allowUploads, MaxUploadBytes = maxUploadBytes }, [], [], null, faults);
 
     internal static string ReadFile(InMemoryContentFileSystem fileSystem, params string[] segments)
     {

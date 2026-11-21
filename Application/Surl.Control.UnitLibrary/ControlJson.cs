@@ -83,8 +83,8 @@ internal sealed record ControlEventsJson(IReadOnlyList<ControlEventJson> Events,
 /// <summary>The answer to <c>GET /v1/events/wait</c>: the event, or <c>timed_out</c>.</summary>
 internal sealed record ControlEventWaitJson(ControlEventJson? Event, bool? TimedOut);
 
-/// <summary>One chunk of an exchange: the bytes that crossed the connection one way, as text or base64.</summary>
-internal sealed record ControlExchangeChunkJson(string Direction, string Encoding, string Data, string Layer, long? StreamId);
+/// <summary>One chunk of an exchange: the bytes that crossed the connection one way, as text or base64, and the ISO 8601 UTC time they crossed (<c>at</c>).</summary>
+internal sealed record ControlExchangeChunkJson(string Direction, string Encoding, string Data, string Layer, long? StreamId, string At);
 
 /// <summary>One exchange, in ADR-0103's <c>get_exchanges</c> shape with its listen URL and scheme.</summary>
 internal sealed record ControlExchangeJson(

@@ -48,6 +48,12 @@ public sealed class SurlServerFiles
     /// Deletes the file at <paramref name="path"/> as the test's own delete: no client permission is needed and the
     /// fault plan is not consulted. Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Deleted"/>.
     /// </summary>
+    /// <remarks>
+    /// Only the file goes. The folders on its path stay, empty or not, as a client's delete leaves them (ADR-0161
+    /// decision 1), although <c>PutAsync</c> makes any folder that is missing; so deleting a folder's only file leaves
+    /// the empty folder in a listing. <see cref="SurlServer.ResetAsync"/> (or restoring a snapshot) returns the
+    /// content store to its configured state.
+    /// </remarks>
     /// <param name="path">The file's request path, such as <c>/reports/a.txt</c>.</param>
     /// <returns>A task that completes once the file is gone.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>

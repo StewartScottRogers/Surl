@@ -69,7 +69,7 @@ internal static class ControlExchangeWriter
             isCut = bytes.ShownLength < chunk.Bytes.Length;
             if (bytes.ShownLength > 0)
             {
-                shown.Add(new ControlExchangeChunkJson(ControlEventKinds.SnakeCase(chunk.Direction), bytes.Encoding, bytes.Data, ControlEventKinds.SnakeCase(chunk.Layer), chunk.StreamId));
+                shown.Add(new ControlExchangeChunkJson(ControlEventKinds.SnakeCase(chunk.Direction), bytes.Encoding, bytes.Data, ControlEventKinds.SnakeCase(chunk.Layer), chunk.StreamId, ControlEventWriter.Timestamp(chunk.At)));
                 shownBytes += bytes.ShownLength;
             }
 

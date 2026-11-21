@@ -23,7 +23,7 @@ public sealed class WebTransportConnectAuthenticationTests
 
         Assert.AreEqual("401", response.Status);
         CollectionAssert.AreEqual(new[] { "www-authenticate: Basic realm=\"surl\"" }, response.RegularFields, "NTLM is bound to a connection, which WebTransport cannot offer.");
-        Assert.Contains("WebTransport CONNECT 0 to /echo was answered 401.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "WebTransport CONNECT 0 to /echo was answered 401.", Token);
     }
 
     [TestMethod]

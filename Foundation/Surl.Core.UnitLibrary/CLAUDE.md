@@ -37,3 +37,17 @@ connection (`UseTlsLoginJudge`, once its `ExchangeContext` exists, so implicit T
 `ShouldRefuseAsync` asks the fault plan at `FaultStage.Login` (exchange, listener, scheme, account) and, for a
 `RefuseLogin` rule only, publishes `FaultAppliedEvent`; `Judged` then publishes `LoginJudgedEvent` with mechanism
 `tls-srp` and `IsRefusedByFault` set when that refusal came first. No secret is in either event.
+
+A `Drop` rule with `after-bytes` counts every byte the exchange sends on all its connections (ADR-0124
+amendment, BL-1518/BL-1519): `ExchangeDropBudget` is one lock-guarded count shared by the control
+connection and every data connection (`ExchangeDataConnections.DropBudget`), each wrapped in a
+`DroppingAfterBytesConnection`. The write that reaches the count is cut at it, then every joined
+connection is aborted and the note and one `FaultAppliedEvent` are written once.
+
+An `Accept`-stage `Delay` hold ends when the client leaves (ADR-0141, amendment 2; BL-1521): the engine
+races the delay against `IConnection.WatchForPeerCloseAsync` (64 KiB read-ahead, bytes kept for a client that
+stays). A half-close or reset ends the exchange unserved with the note `Exchange <id>: the client
+closed|reset the connection during the hold by fault rule <rule id>.`, aborts the connection after a reset,
+and frees the `--max-connections` slots in `RunExchangeAsync`'s `finally`; the idle clock is restarted either
+way. `IdleClockRestartingConnection` (without restarting the idle clock), `RecordingConnection` and
+`DroppingAfterBytesConnection` forward the watch. A datagram flow has no peer to watch and is held in full.

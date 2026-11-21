@@ -504,7 +504,7 @@ public sealed class UpstreamCurlReadsMailFromSurlOverImapTests
         await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("h1 NOOP\r\n"), TestContext.CancellationToken);
         StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "h1 OK");
 
-        var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, ImapUrl(surl, "/INBOX;UID=1"));
+        var result = await RunUpstreamCurlAsync("-v", "-u", Credentials, ImapUrl(surl, "/INBOX;UID=1"));
 
         Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
     }

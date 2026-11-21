@@ -21,13 +21,38 @@ public sealed class SurlServerTlsSrpAccounts
     /// <param name="userName">The user name.</param>
     /// <param name="password">The password, taken as UTF-8.</param>
     /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
-    /// <exception cref="ArgumentException">A TLS-SRP account of that user name exists.</exception>
+    /// <exception cref="ArgumentException">A TLS-SRP account of that user name exists (use <see cref="SetPassword"/> to change its password).</exception>
     /// <exception cref="InvalidOperationException">The server was not started with TLS-SRP.</exception>
     public void Add(string userName, string password)
     {
         ArgumentNullException.ThrowIfNull(userName);
         ArgumentNullException.ThrowIfNull(password);
         stores.AddTlsSrpAccount(userName, password);
+    }
+
+    /// <summary>
+    /// Changes a TLS-SRP account's password, drawing a fresh salt from the instance's seedable random (ADR-0132
+    /// amendment 1). Publishes <see cref="Protocol.Abstractions.StoreChange.AccountRemoved"/> then
+    /// <see cref="Protocol.Abstractions.StoreChange.AccountAdded"/> on <see cref="Protocol.Abstractions.StoreKind.TlsSrpAccounts"/>.
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password, taken as UTF-8.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="password"/> is empty, or no TLS-SRP account has that user name.</exception>
+    /// <exception cref="InvalidOperationException">The server was not started with TLS-SRP.</exception>
+    public void SetPassword(string userName, string password)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(password);
+        if (password.Length == 0)
+        {
+            throw new ArgumentException("A password may not be empty.", nameof(password));
+        }
+
+        if (!stores.SetTlsSrpAccountPassword(userName, password))
+        {
+            throw new ArgumentException("No TLS-SRP account has that user name.", nameof(userName));
+        }
     }
 
     /// <summary>Removes a TLS-SRP account, one given at start included.</summary>

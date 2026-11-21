@@ -154,8 +154,9 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         // server listens on (ADR-0102 decision 2.2): a share closed to anonymous, or limited to other
         // schemes, maps as absent and gets ERROR 1; a write in a share anonymous may only read is the
         // store's NotPermitted, ERROR 2 (ADR-0102 decision 2.3).
-        var mapping = contentStore.MapRequestPathForCaller(TftpFileName.ToRequestPath(request.FileName), ContentCaller.ForExchange(context, null));
-        await (request.IsWrite ? AnswerWriteAsync(flow, context, request, mapping, label) : AnswerReadAsync(flow, context, request, mapping, label));
+        var caller = ContentCaller.ForExchange(context, null);
+        var mapping = contentStore.MapRequestPathForCaller(TftpFileName.ToRequestPath(request.FileName), caller);
+        await (request.IsWrite ? AnswerWriteAsync(flow, context, request, mapping, caller, label) : AnswerReadAsync(flow, context, request, mapping, label));
     }
 
     /// <summary>
@@ -210,7 +211,7 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         await new TftpReadTransfer(flow, context, contentStore, mapping, sentLength, negotiation, netasciiBytes).RunAsync();
     }
 
-    private async Task AnswerWriteAsync(IDatagramFlow flow, ExchangeContext context, TftpRequest request, ContentPathMapping mapping, string label)
+    private async Task AnswerWriteAsync(IDatagramFlow flow, ExchangeContext context, TftpRequest request, ContentPathMapping mapping, ContentCaller caller, string label)
     {
         if (WhyTheWriteIsRefused(mapping) is { } why)
         {
@@ -227,7 +228,7 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         }
 
         context.Log.Note($"{label}: receiving into {mapping.Location} in blocks of {negotiation.BlockSize}");
-        await new TftpWriteTransfer(flow, context, contentStore, mapping, negotiation, label).RunAsync();
+        await new TftpWriteTransfer(flow, context, contentStore, mapping, caller, negotiation, label).RunAsync();
     }
 
     private string? WhyTheWriteIsRefused(ContentPathMapping mapping) =>

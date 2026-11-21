@@ -21,6 +21,8 @@ internal sealed class McpInputLineReader
 
     private readonly ArrayBufferWriter<byte> _line = new();
 
+    private readonly McpDiscardedRequestIdScanner _idScanner = new();
+
     private int _start;
 
     private int _end;
@@ -37,6 +39,12 @@ internal sealed class McpInputLineReader
         _maximumMessageBytes = maximumMessageBytes;
         _buffer = new byte[bufferBytes];
     }
+
+    /// <summary>
+    /// Gets the <c>id</c> of the last line <see cref="ReadAsync" /> discarded for being too long, or
+    /// <see langword="null" /> when that line's id could not be read (ADR-0103 amendment 1).
+    /// </summary>
+    internal JsonRpcRequestId? DiscardedRequestId { get; private set; }
 
     /// <summary>Reads the next message.</summary>
     /// <param name="cancellationToken">Cancels the wait for input.</param>
@@ -82,12 +90,15 @@ internal sealed class McpInputLineReader
     {
         if (_discarding)
         {
+            _idScanner.Feed(bytes);
             return;
         }
 
         if (_line.WrittenCount + bytes.Length > _maximumMessageBytes + 1)
         {
             _discarding = true;
+            _idScanner.Feed(_line.WrittenSpan);
+            _idScanner.Feed(bytes);
             _line.Clear();
             return;
         }
@@ -102,7 +113,7 @@ internal sealed class McpInputLineReader
         if (_discarding)
         {
             _discarding = false;
-            return [];
+            return EndDiscardedLine();
         }
 
         ReadOnlySpan<byte> line = _line.WrittenSpan;
@@ -111,13 +122,21 @@ internal sealed class McpInputLineReader
             line = line[..^1];
         }
 
-        byte[]? message = line.Length switch
+        if (line.Length > _maximumMessageBytes)
         {
-            0 => null,
-            _ when line.Length > _maximumMessageBytes => [],
-            _ => line.ToArray(),
-        };
+            _idScanner.Feed(line);
+            _line.Clear();
+            return EndDiscardedLine();
+        }
+
+        byte[]? message = line.Length == 0 ? null : line.ToArray();
         _line.Clear();
         return message;
+    }
+
+    private byte[] EndDiscardedLine()
+    {
+        DiscardedRequestId = _idScanner.Finish();
+        return [];
     }
 }

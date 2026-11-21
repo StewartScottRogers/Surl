@@ -56,6 +56,57 @@ public sealed class McpInputLineReaderTests
     }
 
     [TestMethod]
+    [DataRow("""{"id":7,"params":{"p":"0123456789012345678901234567890123456789"}}""", 3, "7")]
+    [DataRow("""{"params":{"p":"\"id\":1 0123456789012345678901234567890123456789"},"id":"abc"}""", 3, "\"abc\"")]
+    [DataRow("""{"params":{"p":"0123456789012345678901234567890123456789"},"id":"a\"bc"}""", 1, "\"a\\\"bc\"")]
+    [DataRow("""{"id":5}""", 2, "5")]
+    [DataRow("""{"params":{"id":5,"p":"0123456789012345678901234567890123456789"}}""", 5, null)]
+    public async Task ReadAsync_LineOverTheLimit_ReportsTheIdItCouldRead(string line, int bufferBytes, string? expected)
+    {
+        McpInputLineReader reader = Reader(line + "\nef\n", maximumMessageBytes: line.Length == 8 ? 7 : 30, bufferBytes: bufferBytes);
+
+        byte[]? discarded = await reader.ReadAsync(CancellationToken.None);
+
+        Assert.IsNotNull(discarded);
+        Assert.IsEmpty(discarded);
+        Assert.AreEqual(expected, reader.DiscardedRequestId?.Value.GetRawText());
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_UnterminatedLastLineOverTheLimit_ReportsItsId()
+    {
+        McpInputLineReader reader = Reader("""{"id":3,"p":"0123456789"}""", maximumMessageBytes: 10, bufferBytes: 4);
+
+        await reader.ReadAsync(CancellationToken.None);
+
+        Assert.AreEqual("3", reader.DiscardedRequestId?.Value.GetRawText());
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_IdLongerThanTheScannerKeeps_ReportsNoIdAndStillDiscardsTheLine()
+    {
+        string longId = new('a', McpDiscardedRequestIdScanner.MaximumIdBytes + 10);
+        McpInputLineReader reader = Reader("{\"id\":\"" + longId + "\"}\nef\n", maximumMessageBytes: 20, bufferBytes: 7);
+
+        string?[] lines = await ReadAllAsync(reader);
+
+        CollectionAssert.AreEqual(new[] { string.Empty, "ef" }, lines);
+        Assert.IsNull(reader.DiscardedRequestId);
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_AfterAnOverLongLineWithAnId_NextOverLongLineWithNoneReportsNull()
+    {
+        McpInputLineReader reader = Reader("{\"id\":1,\"p\":\"" + new string('x', 40) + "\"}\n" + new string('y', 40) + "\n", maximumMessageBytes: 20, bufferBytes: 6);
+
+        await reader.ReadAsync(CancellationToken.None);
+        Assert.IsNotNull(reader.DiscardedRequestId);
+        await reader.ReadAsync(CancellationToken.None);
+
+        Assert.IsNull(reader.DiscardedRequestId);
+    }
+
+    [TestMethod]
     public async Task ReadAsync_AfterTheEnd_KeepsReturningNull()
     {
         McpInputLineReader reader = Reader(string.Empty, maximumMessageBytes: 4, bufferBytes: 3);

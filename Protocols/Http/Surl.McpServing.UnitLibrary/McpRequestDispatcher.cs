@@ -68,9 +68,10 @@ public sealed class McpRequestDispatcher
     /// Answers a message the transport discarded unread because it was longer than
     /// <see cref="McpSessionOptions.MaximumMessageBytes" />; the session continues.
     /// </summary>
-    /// <returns>The <see cref="JsonRpcErrorCodes.InvalidRequest" /> response, with a null <c>id</c>, naming the limit.</returns>
-    public byte[] AnswerMessageTooLong() =>
-        JsonRpcResponseWriter.WriteError(null, JsonRpcError.MessageTooLong(_options.MaximumMessageBytes));
+    /// <param name="requestId">The discarded message's own <c>id</c> when the transport could read it, otherwise <see langword="null" />.</param>
+    /// <returns>The <see cref="JsonRpcErrorCodes.InvalidRequest" /> response naming the limit, carrying <paramref name="requestId" /> or a null <c>id</c>.</returns>
+    public byte[] AnswerMessageTooLong(JsonRpcRequestId? requestId = null) =>
+        JsonRpcResponseWriter.WriteError(requestId, JsonRpcError.MessageTooLong(_options.MaximumMessageBytes));
 
     private Task<byte[]?> AnswerRequestAsync(JsonRpcRequest request, CancellationToken cancellationToken)
     {

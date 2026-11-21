@@ -80,3 +80,56 @@ Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 
 - A body that is not the one signed is refused for every service, and `s3 -T` is served.
 - The HTTP server reads a body before the login is final only for a verdict that asks it to;
   every other login is still judged before any body byte (ADR-0032 section 4).
+
+## Amendment 1 (2026-11-21, BL-1553): a body-bound login whose body is never read
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-21, in BL-1553.
+- **Amends:** decision 1 above and [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decision 1
+  ("every judged login publishes `LoginJudgedEvent`") for the one case below. It adds no byte to any answer.
+
+### Context
+
+A signed `PUT` whose login waits for the body (`HttpCredentialOutcome.AwaitingBody`) publishes its
+`LoginJudgedEvent` only when the body check finishes. A server that refuses the request *before* reading the
+body - uploads off (`403 AccessDenied`, ADR-0006 section 2), as `gs` `GcsPutObject.cs:48` and `s3`
+`S3PutObject.cs:45-47` and the multipart operations do - never runs that check, so no event is published, while
+a Bearer token, judged whole on the head, shows one (Surly cookbook bug report 2026-11-21, item 4). A test
+asserting "the client's login was judged" saw different things on `gs`, `s3` and `http`.
+
+### Decision
+
+1. **A refusal before the body is read abandons the body check, and abandoning publishes what the head proved.**
+   `IHttpRequestBodyCheck` gains `AbandonAsync(CancellationToken)`, which the server calls when it answers a
+   request without reading the body the check is waiting for. It returns nothing the server may use in the
+   answer: the answer is the one the server was already giving.
+2. **What is published.**
+   - A login whose signature the head already verified (an `x-<provider>-content-sha256` field sent, as
+     `SignatureV4Check.VerifyWithTheSentHash` checks): one `LoginJudgedEvent` for that account with
+     `is_accepted` true. The credential was proved; only the body's agreement with the sent hash is unchecked,
+     and the request is refused for a reason that has nothing to do with the credential.
+   - A login whose signature needs the body's hash (no content-hash field sent): nothing is published,
+     because nothing was judged - the secret cannot be tried without the body. This is the one case left
+     unevent-ed, and the stream still carries the refusing exchange itself.
+   - A faulted account (`refuse-login`, ADR-0124 decision 4) is published as `is_accepted` false, as every
+     faulted login is.
+3. **What the peer sees does not change.** Status, body and refusal delay of every answer are exactly as today;
+   `AbandonAsync` adds no wait and no byte. The event goes only to the instance's own stream, which the test's
+   owner reads, so a peer learns nothing about an account it did not already learn: the head-verified case
+   publishes only for a signature that was valid, to the owner.
+4. **Why not read the body, and why not always publish.** Reading and judging the body before an uploads-off
+   refusal breaks ADR-0006 section 2 (uploads off reads nothing) and decision 2 above. Publishing
+   `is_accepted` false for a login nobody refused would be false; publishing true for one whose secret was
+   never tried would be false too.
+5. **Applies to:** `http` (`HttpRequestAnswerer.Uploads.cs`, `HttpRequestAnswerer.cs`), `gs`
+   (`GcsPutObject.cs`, `GcsJsonObjectInsert.cs`, multipart and resumable writers), `s3` (`S3PutObject.cs`, the
+   multipart operations, `S3RequestAnswerer.cs`). `az` binds no body (no file there uses `BodyCheck`), so it is
+   unchanged. `Rtsp` and `Ws` refuse before any body and call `AbandonAsync` through the same HTTP head path.
+
+### Implementation tasks
+
+- BL-1561: the `AbandonAsync` contract in `Surl.Protocol.Abstractions` (`HttpRequestBodyCheckTests`).
+- BL-1562: `HttpAuthenticationSession` and `AwsSigV4AuthenticationMethod` publish on abandon
+  (`HttpAuthenticationSessionTests`: abandoned with a sent hash, without one, faulted).
+- BL-1563: the HTTP server abandons when it refuses before the body (`HttpProtocolServer` tests).
+- BL-1564: `gs` abandons on an uploads-off refusal (`GcsPutObjectTests`, event asserted).
+- BL-1560: `s3` abandons on an uploads-off refusal and for refused multipart writes (`S3PutObjectTests`).

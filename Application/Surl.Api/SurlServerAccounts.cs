@@ -29,7 +29,7 @@ public sealed class SurlServerAccounts
     /// <param name="password">The password.</param>
     /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="userName"/> holds <c>:</c>, which <c>--user</c> could not
-    /// spell, or an account of that user name exists.</exception>
+    /// spell, or an account of that user name exists (use <see cref="SetPassword"/> to change its password).</exception>
     public void Add(string userName, string password)
     {
         ArgumentNullException.ThrowIfNull(userName);
@@ -40,6 +40,31 @@ public sealed class SurlServerAccounts
         }
 
         stores.AddAccount(new Account(userName, password));
+    }
+
+    /// <summary>
+    /// Changes an account's password, keeping its scheme restriction, mailbox and groups (ADR-0132 amendment 1).
+    /// Publishes <see cref="Protocol.Abstractions.StoreChange.AccountRemoved"/> then
+    /// <see cref="Protocol.Abstractions.StoreChange.AccountAdded"/>, and never warns that no account is left.
+    /// Open sessions run on.
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="userName"/> or <paramref name="password"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="password"/> is empty, or no account has that user name.</exception>
+    public void SetPassword(string userName, string password)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(password);
+        if (password.Length == 0)
+        {
+            throw new ArgumentException("A password may not be empty.", nameof(password));
+        }
+
+        if (!stores.SetAccountPassword(userName, password))
+        {
+            throw new ArgumentException("No account has that user name.", nameof(userName));
+        }
     }
 
     /// <summary>

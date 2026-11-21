@@ -10,7 +10,7 @@ namespace Surl.Networking;
 /// apart from the socket so the fast tests cover every platform's arm: what is refused before a
 /// socket is made, the name the endpoint is bound with, and how an accepted client is named.
 /// </summary>
-internal static class UnixSocketBindRules
+public static class UnixSocketBindRules
 {
     /// <summary>
     /// The longest socket file path on Linux and Windows, in UTF-8 bytes: <c>sun_path</c>'s 108

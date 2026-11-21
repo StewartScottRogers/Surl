@@ -21,6 +21,18 @@ public sealed class UploadLimitTests
     }
 
     [TestMethod]
+    public async Task UploadRefusedByAnOutOfSpaceRule_AnswersTheSameError3AndNamesTheRuleInTheNote()
+    {
+        var fileSystem = FileSystem();
+        var faults = new ScriptedFaultPlan(new FaultRule("f7", FaultKind.OutOfSpace));
+        var (flow, log) = await ReplayAsync(Store(fileSystem, faults: faults), "write-accepted-no-options");
+
+        AssertSent([RecordedFixture.ServerDatagrams("write-too-large").Single()], flow);
+        Assert.IsNull(fileSystem.ReadFile(UploadPath));
+        Assert.AreEqual("The write was refused by the fault rule f7 (out-of-space); the transfer was ended with an error.", log.Notes[^1]);
+    }
+
+    [TestMethod]
     public async Task UploadOfExactlyMaxUploadBytes_IsWritten()
     {
         var fileSystem = FileSystem();

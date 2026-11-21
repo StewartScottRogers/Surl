@@ -1,14 +1,14 @@
 namespace Surl.Networking;
 
 [TestClass]
-public sealed class PeekedBytePrefixStreamTests
+public sealed class ReadAheadPrefixStreamTests
 {
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
     public async Task ReadAsync_Memory_ReturnsThePeekedByteThenTheTransportsBytes()
     {
-        var stream = new PeekedBytePrefixStream(0x16, new MemoryStream([0x03, 0x01]));
+        var stream = new ReadAheadPrefixStream([0x16], new MemoryStream([0x03, 0x01]));
         var buffer = new byte[8];
 
         var first = await stream.ReadAsync(buffer.AsMemory(), TestContext.CancellationToken);
@@ -24,7 +24,7 @@ public sealed class PeekedBytePrefixStreamTests
     [TestMethod]
     public async Task ReadAsync_EmptyBuffer_KeepsThePeekedByte()
     {
-        var stream = new PeekedBytePrefixStream(0x16, new MemoryStream([0x03]));
+        var stream = new ReadAheadPrefixStream([0x16], new MemoryStream([0x03]));
         var buffer = new byte[1];
 
         var empty = await stream.ReadAsync(Memory<byte>.Empty, TestContext.CancellationToken);
@@ -38,7 +38,7 @@ public sealed class PeekedBytePrefixStreamTests
     [TestMethod]
     public async Task ReadAsync_Array_ReturnsThePeekedByteFirst()
     {
-        var stream = new PeekedBytePrefixStream(0x16, new MemoryStream([0x03]));
+        var stream = new ReadAheadPrefixStream([0x16], new MemoryStream([0x03]));
         var buffer = new byte[4];
 
         var count = await stream.ReadAsync(buffer, 1, 3, TestContext.CancellationToken);
@@ -50,7 +50,7 @@ public sealed class PeekedBytePrefixStreamTests
     [TestMethod]
     public void Read_Array_ReturnsThePeekedByteThenTheTransportsBytes()
     {
-        var stream = new PeekedBytePrefixStream(0x16, new MemoryStream([0x03, 0x01]));
+        var stream = new ReadAheadPrefixStream([0x16], new MemoryStream([0x03, 0x01]));
         var buffer = new byte[8];
 
         var first = stream.Read(buffer, 0, 8);
@@ -66,7 +66,7 @@ public sealed class PeekedBytePrefixStreamTests
     [TestMethod]
     public void Read_NullBuffer_Throws()
     {
-        var stream = new PeekedBytePrefixStream(0x16, new MemoryStream());
+        var stream = new ReadAheadPrefixStream([0x16], new MemoryStream());
 
         Assert.ThrowsExactly<ArgumentNullException>(() => stream.Read(null!, 0, 1));
     }
@@ -75,7 +75,7 @@ public sealed class PeekedBytePrefixStreamTests
     public async Task Write_EveryOverload_WritesToTheTransport()
     {
         var transport = new MemoryStream();
-        var stream = new PeekedBytePrefixStream(0x16, transport);
+        var stream = new ReadAheadPrefixStream([0x16], transport);
 
         stream.Write([0x01], 0, 1);
         await stream.WriteAsync(new byte[] { 0x02 }.AsMemory(), TestContext.CancellationToken);
@@ -89,7 +89,7 @@ public sealed class PeekedBytePrefixStreamTests
     [TestMethod]
     public void Capabilities_ReadAndWriteButNoSeek()
     {
-        var stream = new PeekedBytePrefixStream(0x16, new MemoryStream());
+        var stream = new ReadAheadPrefixStream([0x16], new MemoryStream());
 
         Assert.IsTrue(stream.CanRead);
         Assert.IsTrue(stream.CanWrite);
@@ -105,10 +105,30 @@ public sealed class PeekedBytePrefixStreamTests
     public void Dispose_LeavesTheTransportOpen()
     {
         var transport = new MemoryStream();
-        var stream = new PeekedBytePrefixStream(0x16, transport);
+        var stream = new ReadAheadPrefixStream([0x16], transport);
 
         stream.Dispose();
 
         Assert.IsTrue(transport.CanRead);
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_SeveralReadAheadBytesAndASmallBuffer_ReturnsThemInOrderBeforeTheTransport()
+    {
+        var stream = new ReadAheadPrefixStream([1, 2, 3], new MemoryStream([4]));
+        var buffer = new byte[2];
+
+        var first = await stream.ReadAsync(buffer.AsMemory(), TestContext.CancellationToken);
+        var firstBytes = buffer.ToArray();
+        var second = await stream.ReadAsync(buffer.AsMemory(), TestContext.CancellationToken);
+        var secondByte = buffer[0];
+        var third = await stream.ReadAsync(buffer.AsMemory(), TestContext.CancellationToken);
+
+        Assert.AreEqual(2, first);
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, firstBytes);
+        Assert.AreEqual(1, second);
+        Assert.AreEqual((byte)3, secondByte);
+        Assert.AreEqual(1, third);
+        Assert.AreEqual((byte)4, buffer[0]);
     }
 }

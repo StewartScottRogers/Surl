@@ -408,3 +408,54 @@ for its decisions 3 and 7, and decides only the server's own project, tools, Str
     BL-468 (composition moved by BL-609 and BL-614).
 - ADR-0002 decision 3's table gains `Surl.McpServing.UnitLibrary`, referencing nothing; BL-619 creates the
   project and its `ProtocolIsolationTests` row.
+
+## Amendment 1 — an over-long message is answered with its own request id (BL-1522)
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-21, in BL-1522.
+- **Why:** Surly cookbook bug report 2026-11-20, item 2. `start_server` given about 5 MB of `files` never
+  returned. Decision 1's "The message limit" answered an over-long line `-32600` with a null `id`; an MCP
+  client matches a response to its request by `id`, so it never matched and the `tools/call` waited for ever.
+- **Specifications read.** JSON-RPC 2.0 (https://www.jsonrpc.org/specification, section 5, "Response object"):
+  an error response's `id` is the request's `id`, and "if there was an error in detecting the id in the
+  Request object (e.g. Parse error/Invalid Request), it MUST be Null". So null is right only when the `id`
+  could not be detected; when it can be, it is the request's. MCP revision 2025-06-18
+  (https://modelcontextprotocol.io/specification/2025-06-18/basic#responses) requires a response to
+  carry the same `id` as the request it answers, and a request's `id` must not be null, so a client has no
+  request to match a null-`id` response to.
+
+### Decisions
+
+1. **The refusal carries the request's own `id` when it can be read, without buffering the line.** While
+   discarding past the limit, the reader runs a streaming scan over the bytes it sees: it tracks JSON
+   nesting depth and string state (including `\"` and `\\` escapes) and records the value of a member named
+   `id` at depth 1 (the top-level object), whether it comes first or last. Reads that split the member name,
+   its value or an escape are handled because the scan state survives between reads. The scan keeps at most
+   256 bytes of `id` text; an `id` value longer than that, an `id` that is neither an integer nor a string,
+   or a second top-level `id` (the first read wins) leaves the `id` unread. A `"id":` inside a string, or at
+   depth 2 or more (for example inside `params`), is never taken. Memory stays the limit plus 256 bytes.
+2. **The exact refusal.** Code `-32600`, message `Invalid Request: the message is longer than <limit>
+   bytes` (text unchanged), `id` = the request's `id` as read (a JSON number or string, written back as it
+   was) when it can be read, and `null` when it cannot (none, nested only, malformed, over 256 bytes). The
+   session continues in both cases, as before.
+3. **The limit stays 4 MiB, and no `surl-mcp` option is added.** `start_server` holds whole files in memory
+   and the other caps (64 KiB and 1 MiB per result, 200 MiB of recordings) already bound memory; the fix for
+   the report is the answer, not a bigger limit. An agent splits a large seed into `put_file` calls. The
+   extended server keeps its `--max-message` (BL-463 decision 7).
+4. **The tool descriptions name the limit.** `start_server`'s says the whole message is at most 4 MiB and
+   that larger seeds go through `put_file`; `put_file`'s says the limit applies to one file's text plus its
+   JSON. BL-1533 writes it.
+5. **The extended MCP server gets the same answer.** It uses `Surl.McpServing`'s stream session, so
+   BL-1523's change reaches both hosts and neither host's code changes. Its `--max-message` value appears in
+   the message text as the limit does today.
+
+### Acted on by
+
+BL-1523 (the scan, the refusal and the library's `CLAUDE.md`, in `Surl.McpServing.UnitLibrary`) and BL-1533
+(the two tool descriptions). BL-1523 does not need BL-1533 to land first.
+
+## Amendment 2 — `get_exchanges` chunks carry `at` (BL-1552)
+
+Decided by Claude under Stewart's delegation, 2026-11-21. Decision 3's chunk
+`{direction, encoding, data, layer, stream_id}` gains `at`, the ISO 8601 UTC time (`"O"`) the bytes crossed,
+from `ExchangeBytesEvent.At`. The reasons and the tasks (BL-1557 here, BL-1559 and BL-1558 beside it) are in
+ADR-0099's amendment of 2026-11-21, which owns the record's shape.

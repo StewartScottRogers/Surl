@@ -13,6 +13,20 @@ public sealed class StartServerToolTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    public void Description_NamesTheFourMiBMessageLimitAndPointsAtPutFile()
+    {
+        StringAssert.Contains(StartServerTool.Description, "The whole `tools/call` message is at most 4 MiB (4194304 bytes)");
+        StringAssert.Contains(StartServerTool.Description, "`put_file`");
+    }
+
+    [TestMethod]
+    public void PutFileDescription_NamesTheSameLimitForOneFilesTextPlusItsJson()
+    {
+        StringAssert.Contains(PutFileTool.Description, "The whole `tools/call` message is at most 4 MiB (4194304 bytes)");
+        StringAssert.Contains(PutFileTool.Description, "one file's text plus its JSON");
+    }
+
+    [TestMethod]
     public async Task Handler_HttpOnLoopbackPortZero_ReturnsTheServersIdAndBoundUrl()
     {
         await using var host = new McpTestHost();

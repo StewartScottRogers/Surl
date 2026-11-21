@@ -74,6 +74,9 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     public bool RemoveFault(string faultId) => faults.Remove(faultId);
 
     /// <inheritdoc/>
+    public bool WritesDeliveredTo => stores.MailDeliveredToEnabled;
+
+    /// <inheritdoc/>
     public async Task SeedMailAsync(string recipient, ReadOnlyMemory<byte> message, CancellationToken cancellationToken)
     {
         var result = await stores.SeedMailAsync(recipient, message, cancellationToken);

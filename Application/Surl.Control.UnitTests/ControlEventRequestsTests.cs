@@ -221,8 +221,8 @@ public sealed class ControlEventRequestsTests
         Assert.AreEqual(
             "{\"exchanges\":[{\"exchange_id\":1,\"listen_url\":\"http://127.0.0.1:8080\",\"scheme\":\"http\",\"client\":\"127.0.0.1:50512\","
             + "\"started_at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\",\"chunks\":["
-            + "{\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"GET / HTTP/1.1\\r\\n\",\"layer\":\"wire\"},"
-            + "{\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"/w==\",\"layer\":\"decrypted\",\"stream_id\":4}],"
+            + "{\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"GET / HTTP/1.1\\r\\n\",\"layer\":\"wire\",\"at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\"},"
+            + "{\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"/w==\",\"layer\":\"decrypted\",\"stream_id\":4,\"at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\"}],"
             + "\"recorded_bytes\":17,\"shown_bytes\":17,\"is_cut\":false,\"is_truncated\":false}],"
             + "\"dropped_exchange_count\":0,\"has_more\":false}",
             Body(response));

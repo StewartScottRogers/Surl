@@ -138,6 +138,28 @@ internal static class UnitTestWebTransport
     public static void StopSending(Http3TestQuicClient client, ulong streamId, ulong code) =>
         client.Flow.DeliverFromClient(client.Quic.SealOneRtt(new QuicStopSendingFrame(streamId, code)));
 
+    /// <summary>
+    /// Waits, for at most five seconds, until <paramref name="log"/> holds <paramref name="note"/>, then returns. The server
+    /// writes a note on its own task, so a client that has seen a response may look before the note is there; fails with the
+    /// notes seen when it never appears.
+    /// </summary>
+    public static async Task WaitForNoteAsync(RecordingExchangeLog log, string note, CancellationToken cancellationToken)
+    {
+        using var patience = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        patience.CancelAfter(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (!log.Notes.Contains(note))
+            {
+                await Task.Delay(1, patience.Token);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            Assert.Fail($"The note \"{note}\" was not written within 5 s. Notes seen: {string.Join(" | ", log.Notes)}");
+        }
+    }
+
     /// <summary>Advances the clock a second at a time until <paramref name="condition"/> holds.</summary>
     public static Task AdvanceUntilAsync(Http3TestQuicClient client, ManualTimeProvider time, Func<bool> condition, CancellationToken cancellationToken) =>
         client.UntilAsync(

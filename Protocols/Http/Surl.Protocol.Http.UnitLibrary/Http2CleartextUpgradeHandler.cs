@@ -11,9 +11,10 @@ namespace Surl.Protocol.Http;
 /// the connection to HTTP/2 with that request as stream 1; every other request goes to the
 /// answerer as it is (RFC 7540 section 3.2; ADR-0081, decision 3; ADR-0091).
 /// </summary>
-/// <param name="answerer">Answers every request, the upgraded one on stream 1 included.</param>
+/// <param name="answerer">Answers every HTTP/1.x request that does not upgrade.</param>
 /// <param name="context">The exchange.</param>
-internal sealed class Http2CleartextUpgradeHandler(IHttpRequestHandler answerer, ExchangeContext context) : IHttpRequestHandler
+/// <param name="streamAnswerer">Answers each HTTP/2 stream once upgraded, the upgraded request on stream 1 included; it holds no connection, as streams share theirs (ADR-0141 amendment 2).</param>
+internal sealed class Http2CleartextUpgradeHandler(IHttpRequestHandler answerer, ExchangeContext context, IHttpRequestHandler streamAnswerer) : IHttpRequestHandler
 {
     /// <summary>The upgrade's status: <c>101 Switching Protocols</c>.</summary>
     public static readonly HttpStatus SwitchingProtocols = new(101, "Switching Protocols");
@@ -40,7 +41,7 @@ internal sealed class Http2CleartextUpgradeHandler(IHttpRequestHandler answerer,
             HttpAnswerBody.None,
             IsRefusal: false,
             LeavesRequestBodyUnread: false,
-            new Takeover(answerer, context, request, clientSettings)));
+            new Takeover(streamAnswerer, context, request, clientSettings)));
     }
 
     // Owns the connection once the 101 is written: HTTP/2, reading through the HTTP/1.x reader,

@@ -51,6 +51,10 @@ public sealed partial class ServingEngine
     /// </summary>
     public static readonly TimeSpan RefusalWriteDeadline = TimeSpan.FromSeconds(1);
 
+    // The most an Accept-stage hold reads ahead while it watches for the client leaving
+    // (ADR-0141, amendment 2, decision 2).
+    private const int PeerWatchBufferBytes = 64 * 1024;
+
     /// <summary>
     /// Creates the engine with ADR-0006's default connection limits,
     /// <see cref="ConnectionLimits.Default"/>.
@@ -752,7 +756,7 @@ public sealed partial class ServingEngine
             var recordingConnection = new RecordingConnection(connection, bytesLog);
             var dataConnections = new ExchangeDataConnections(dataConnectionOpener, bytesLog.PayloadLog, deadlines);
             var failure = await CaptureFailureAsync(() => FaultThenSecureThenServeAsync(
-                recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
+                recordingConnection, route, deadlines, context with { DataConnections = dataConnections }, dataConnections));
 
             // Never throws: a data connection that fails to dispose does not stop the exchange ending.
             await dataConnections.DisposeAsync();
@@ -774,18 +778,30 @@ public sealed partial class ServingEngine
     // decision 4): a drop without after-bytes aborts the connection unserved; one with
     // after-bytes lets the server send that many.
     private async Task FaultThenSecureThenServeAsync(
-        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
+        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context,
+        ExchangeDataConnections dataConnections)
     {
-        var drop = await ApplyAcceptDelayOrFindDropAsync(context, deadlines);
+        var (drop, left) = await ApplyAcceptDelayOrFindDropAsync(context, deadlines, connection);
 
-        if (drop is null)
+        if (left is PeerWatchOutcome.PeerClosed or PeerWatchOutcome.PeerReset)
+        {
+            // The client left during the hold (ADR-0141, amendment 2, decision 4): the exchange
+            // ends unserved, closed gracefully after a half-close and aborted after a reset.
+            if (left is PeerWatchOutcome.PeerReset)
+            {
+                connection.Abort();
+            }
+        }
+        else if (drop is null)
         {
             await SecureThenServeAsync(connection, route, deadlines, context);
         }
         else if (drop.AfterBytes is long afterBytes and > 0)
         {
-            var dropping = new DroppingAfterBytesConnection(
-                connection, afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+            var budget = new ExchangeDropBudget(
+                afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+            dataConnections.DropBudget = budget;
+            var dropping = new DroppingAfterBytesConnection(connection, budget);
             await SecureThenServeAsync(dropping, route, deadlines, context);
         }
         else
@@ -798,7 +814,10 @@ public sealed partial class ServingEngine
     // Asks the plan at Accept. A Delay rule holds the exchange, with its idle clock stopped, and
     // yields null; a Drop rule is handed back for the caller to apply; any other kind a plan may
     // hand back at Accept is not the engine's to apply.
-    private async Task<FaultRule?> ApplyAcceptDelayOrFindDropAsync(ExchangeContext context, ExchangeDeadlines deadlines)
+    // A connection exchange's hold also ends when the client leaves (ADR-0141, amendment 2); a
+    // datagram flow passes no connection and is held for the full delay.
+    private async Task<(FaultRule? Drop, PeerWatchOutcome Left)> ApplyAcceptDelayOrFindDropAsync(
+        ExchangeContext context, ExchangeDeadlines deadlines, IConnection? connection)
     {
         var point = new FaultPoint(FaultStage.Accept)
         {
@@ -814,11 +833,74 @@ public sealed partial class ServingEngine
             context.Log.Note($"Exchange {context.ExchangeId} held for {FormatSeconds(delay)} s by fault rule {rule.Id}.");
             PublishFaultApplied(rule, context);
             deadlines.PauseIdleClock();
-            await Task.Delay(delay, timeProvider, context.CancellationToken);
-            deadlines.RestartIdleClock();
+            PeerWatchOutcome left;
+
+            try
+            {
+                left = await HoldForDelayOrPeerLeavingAsync(delay, connection, context.CancellationToken);
+            }
+            finally
+            {
+                deadlines.RestartIdleClock();
+            }
+
+            if (left is PeerWatchOutcome.PeerClosed or PeerWatchOutcome.PeerReset)
+            {
+                var how = left is PeerWatchOutcome.PeerReset ? "reset" : "closed";
+                context.Log.Note($"Exchange {context.ExchangeId}: the client {how} the connection during the hold by fault rule {rule.Id}.");
+                return (null, left);
+            }
         }
 
-        return rule is { Kind: FaultKind.Drop } ? rule : null;
+        return (rule is { Kind: FaultKind.Drop } ? rule : null, PeerWatchOutcome.NotWatched);
+    }
+
+    // Waits out the delay, or until the client half-closes or resets, whichever comes first.
+    // Bytes the client sent are read ahead into the connection's bounded buffer and kept for the
+    // server's next read. Shutdown cancels the wait with OperationCanceledException as before.
+    private async Task<PeerWatchOutcome> HoldForDelayOrPeerLeavingAsync(
+        TimeSpan delay, IConnection? connection, CancellationToken cancellationToken)
+    {
+        using var holdEnded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var hold = Task.Delay(delay, timeProvider, holdEnded.Token);
+        var watch = connection is null ? Task.FromResult(PeerWatchOutcome.NotWatched) : WatchForPeerLeavingAsync(connection, holdEnded.Token);
+
+        try
+        {
+            if (await Task.WhenAny(hold, watch) == watch)
+            {
+                var left = await watch;
+
+                if (left is PeerWatchOutcome.PeerClosed or PeerWatchOutcome.PeerReset)
+                {
+                    return left;
+                }
+            }
+
+            await hold;
+
+            return PeerWatchOutcome.NotWatched;
+        }
+        finally
+        {
+            holdEnded.Cancel();
+        }
+    }
+
+    private static async Task<PeerWatchOutcome> WatchForPeerLeavingAsync(IConnection connection, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await connection.WatchForPeerCloseAsync(PeerWatchBufferBytes, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return PeerWatchOutcome.NotWatched;
+        }
+        catch (IOException)
+        {
+            return PeerWatchOutcome.PeerReset;
+        }
     }
 
     private void NoteAndPublishDrop(FaultRule rule, ExchangeContext context, string when)

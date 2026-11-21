@@ -6,6 +6,8 @@
   in BL-122.
 - **Builds on:** [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
   sections 1, 3, 4, 6 and 8.
+- **Amended by:** amendment 1 below (2026-11-21, decided by Claude under Stewart's delegation;
+  built by BL-1548): over HTTP/2 and HTTP/3 the signed `host` comes from `:authority`.
 
 ## Context
 
@@ -93,3 +95,46 @@ Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 
   word names an implemented method, so `Surl.Console` no longer refuses `aws-sigv4` with 2.
 - With `--auth aws-sigv4` alone, a request without a signature gets `403`, since no challenge
   can be offered (ADR-0032 section 4, step 5).
+
+## Amendment 1 (2026-11-21) — HTTP/2 and HTTP/3 sign `host` from `:authority`
+
+Decided by Claude under Stewart's delegation. Built by BL-1548; recorded first by BL-1547.
+
+### Problem
+
+Section 5 requires `host` in `SignedHeaders`, and section 1 rebuilds each signed field from the
+request's fields as received. Over HTTP/2 and HTTP/3 there is no `host` field to find: the HTTP
+server's request head keeps `:authority` apart from the regular fields, so
+`AwsSigV4CanonicalRequest.BuildHeaders` finds no `host`, returns `null`, and every HTTP/2 and
+HTTP/3 Signature Version 4 login is refused.
+
+### Evidence (upstream curl 8.21.0, tag `curl-8_21_0`, and the RFCs)
+
+- `lib/http_aws_sigv4.c`, `make_headers`: when the user set no `Host` header, the signed header
+  list starts with the `Host: <host>[:port]` line curl builds from the URL
+  (`data->state.aptr.host`, cut at the CR), else `host:<hostname>`. `host` is signed whatever the
+  HTTP version.
+- `lib/http.c`, `Curl_http_req_to_h2`: takes `:authority` from the request's `Host` header; and
+  `h2_permissible_field` (the `H2_NON_FIELD` list) drops `Host` from the HTTP/2 and HTTP/3 field
+  list. The server therefore receives `:authority: 127.0.0.1:8443` and no `host` field, while the
+  signature covers `host:127.0.0.1:8443`.
+- RFC 9113 section 8.3.1 (and RFC 9114 section 4.3.1): `:authority` carries what `Host` carries
+  in HTTP/1.1, and a gateway making an HTTP/1.1 request from it builds `Host` from `:authority`.
+
+### Decision
+
+1. **Over HTTP/2 and HTTP/3, when the request has no `host` field, the HTTP server hands the login
+   check a `host` field whose value is `:authority` as received** (no case change, no port added
+   or removed), so the canonical request holds the same `host:<value>` curl signed.
+2. **A request that also carries a `host` field is judged on the fields as received.** Nothing is
+   replaced, so a client that sends both is held to what it sent.
+3. **The change lives in the HTTP server (`HttpRequestAnswerer`, where the login request is
+   built), not in `Surl.Authentication` and not in the shared `HttpAuthenticationRequest`
+   contract.** The S3 and Cloud Storage servers answer HTTP/1.1 only (ADR-0108 decision 5,
+   ADR-0110), where `host` is already a field, so only the HTTP server has an `:authority` to
+   map; the authentication library stays ignorant of HTTP versions and the contract does not grow.
+
+### Consequences
+
+- A test using `https://` with `--aws-sigv4` gets the same answer over HTTP/1.1, HTTP/2 and
+  HTTP/3. No store, event or fault changes.

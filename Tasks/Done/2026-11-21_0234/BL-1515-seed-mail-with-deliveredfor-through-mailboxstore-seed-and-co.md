@@ -8,7 +8,7 @@ depends-on: [BL-1502, BL-1507]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1515 — Seed mail with DeliveredFor through MailboxStore.Seed and ComposedStores.SeedMailAsync
 
@@ -22,14 +22,18 @@ A seeded mail delivery (`MailboxStore.Seed`, `ComposedStores.SeedMailAsync`) pub
 
 ## Acceptance criteria
 
-- [ ] `MailboxStore.Seed` publishes `DeliveredFor` holding the one `recipientPath` address (brackets removed) on each seeded copy's event; a test pins it, and one pins that bytes stored are unchanged.
-- [ ] `ComposedStores.SeedMailAsync` carries it through, pinned by a `ComposedStores` test reading the event stream.
-- [ ] `ComposedStores` (or the mail seed result) exposes whether `DeliveredToEnabled` is on, pinned by a test.
-- [ ] The two projects' `CLAUDE.md` files describe it.
-- [ ] `dotnet build` is clean and the fast tests of both test projects pass.
+- [x] `MailboxStore.Seed` publishes `DeliveredFor` holding the one `recipientPath` address (brackets removed) on each seeded copy's event; a test pins it, and one pins that bytes stored are unchanged.
+- [x] `ComposedStores.SeedMailAsync` carries it through, pinned by a `ComposedStores` test reading the event stream.
+- [x] `ComposedStores` (or the mail seed result) exposes whether `DeliveredToEnabled` is on, pinned by a test.
+- [x] The two projects' `CLAUDE.md` files describe it.
+- [x] `dotnet build` is clean and the fast tests of both test projects pass.
 
 ## Notes
+
+Decision: the address is the path with one pair of angle brackets removed (no source-route or case change); an alias seed names the alias address on every copy, as SMTP names the RCPT address. Exposed as `ComposedStores.MailDeliveredToEnabled`.
 
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Seeded mail events carry DeliveredFor; ComposedStores.MailDeliveredToEnabled exposed

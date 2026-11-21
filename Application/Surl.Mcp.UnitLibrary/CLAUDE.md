@@ -21,7 +21,8 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     keeps the lines written during the start. Result `{server_id, listen_urls, bound_urls, log_lines}`. A
     `SurlServerStartException` is `isError` with `{exit_code, exit_code_name, lines}` and the text each line
     after `surl: `; an `ArgumentException` from `Surl.Api` or bad `files` is `isError` with its message alone;
-    a host rule broken is `isError` `refused: <rule>` with `{refused}`.
+    a host rule broken is `isError` `refused: <rule>` with `{refused}`. Its description (and `put_file`'s) names
+    the 4 MiB `tools/call` message limit (BL-1533); larger seeds go through `put_file`, one file per call.
   - `ListServersTool` (`list_servers`): `{servers: [{server_id, listen_urls, bound_urls, started_at,
     exchange_count, dropped_exchange_count}]}`; never an error.
   - `StopServerTool` (`stop_server`): `{server_id, exit_code, exit_code_name}`; an unknown ID is `isError`
@@ -31,9 +32,10 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     found with `SurlServer.FindExchanges`. Result `{server_id, exchanges: [{exchange_id, listen_url, scheme,
     client, started_at, chunks: [{direction, encoding, data}], recorded_bytes, shown_bytes, is_cut,
     is_truncated}], dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for
-    `stop_server`.
+    `stop_server`. Its description names the cut (65536 bytes of each exchange, 1 MiB in all) and the `is_cut`,
+    `shown_bytes` and `recorded_bytes` members, building the numbers from `RecordedExchangeWriter`'s constants (BL-1550).
   - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (derived from the event records, `EventToolFilter.AllKinds`; today `exchange_started`,
-    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`), `scheme`, `listen_url`,
+    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`; `exchange_bytes` is in the enum too but is never kept, so it finds nothing and its description says so, BL-1551), `scheme`, `listen_url`,
     `account`, `store` (a `StoreKind` in snake_case; a schema enum), `name` (a store change's name, exactly or as a
     segment prefix) and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
     has_more, dropped_event_count}`, oldest first.
@@ -46,7 +48,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     required and an unknown one is `isError` as for `stop_server`; any `InvalidOperationException` from
     `Surl.Api` (a seed a store refuses, a store on disk refusing reset or snapshot, a snapshot past 256 MiB, a
     257th fault rule) is `isError` with its message.
-    - `SeedMailTool` (`seed_mail`): `to`, and `message` (UTF-8) or `message_base64` -> `{delivered: true}`.
+    - `SeedMailTool` (`seed_mail`): `to`, and `message` (UTF-8) or `message_base64` -> `{delivered: true}`; on a server started with `--mail-delivered-to`, one `Delivered-To: <to>` line precedes the message (BL-1504).
     - `PutFileTool` (`put_file`): `path`, and `text` or `base64` -> `{path, byte_count}`; a path no request may name (relative, or with `..`) is `isError` saying why, e.g. `path <path> must start with /` (BL-1382, BL-1396).
     - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
       `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.
@@ -64,6 +66,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.
     - `RemoveAccountTool` (`remove_account`): `user` -> `{user}`, plus a `warning` member and a second text block `server <id> has no account left and now needs no login` when it was the last account (BL-1391); an account not held is `server <id> has no account <user>`.
     - `AddProxyAccountTool` / `AddTlsSrpAccountTool` (`add_proxy_account`, `add_tls_srp_account`): `user`, `password` -> `{user}`; a server without such accounts is refused (`holds no proxy accounts...`, `was not started with TLS-SRP`). `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool`: `user` -> `{user}`, same refusals (ADR-0170 decision 4).
+    - `SetAccountPasswordTool` / `SetProxyAccountPasswordTool` / `SetTlsSrpAccountPasswordTool` (`set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password`): `user`, `password` -> `{user}`, never the password; a user with no such account is `user <name> has no account`, and a server without proxy or TLS-SRP accounts is refused as the add tools refuse it (ADR-0132 amendment 1).
     - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
       an ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.

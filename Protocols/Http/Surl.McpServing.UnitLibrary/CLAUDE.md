@@ -41,7 +41,11 @@ What it holds, all in namespace `Surl.McpServing`, every type `public`:
 - The stdio session: `McpStreamSession.RunAsync(input, output, registry, options, token)` serves one
   session over a stream pair. `McpInputLineReader` reads newline-delimited messages (a trailing `\r` is
   dropped, an empty line skipped, an unterminated last line answered, a line over the limit read to its
-  newline and discarded, then answered `-32600` with a null `id`). Each response is written as one line
+  newline and discarded, then answered `-32600` `Invalid Request: the message is longer than <limit> bytes`
+  carrying the message's own `id`: `McpDiscardedRequestIdScanner` scans the bytes the reader discards
+  for a top-level `id` member, first or last, keeping at most 256 bytes of it and nothing else, and the
+  `id` is null only when none can be read - absent, only nested, not a string or number, malformed, over
+  256 bytes; ADR-0103 amendment 1). Each response is written as one line
   ending in `\n`, a whole line per write behind one lock, flushed. Up to `MaximumConcurrentRequests` (16)
   requests run at once; a slot is taken before each message is read, so the 17th waits unread.
   `notifications/cancelled` cancels the named request's token (a string id and a number id never match);

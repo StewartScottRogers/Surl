@@ -8,7 +8,7 @@ depends-on: [BL-1477, BL-1482, BL-1493, BL-1494]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1491 — Add SetPassword to Surl.Api's three account views per ADR-0132 amendment 1
 
@@ -22,8 +22,8 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `Accounts.SetPassword`, `ProxyAccounts.SetPassword` and `TlsSrpAccounts.SetPassword` change the password and throw `ArgumentException` for an unknown user, as amendment 1 says; tests prove each.
-- [ ] `Add` of an existing name still throws `ArgumentException` and its document comment says to use `SetPassword`.
+- [x] `Accounts.SetPassword`, `ProxyAccounts.SetPassword` and `TlsSrpAccounts.SetPassword` change the password and throw `ArgumentException` for an unknown user, as amendment 1 says; tests prove each.
+- [x] `Add` of an existing name still throws `ArgumentException` and its document comment says to use `SetPassword`.
 
 ## Notes
 
@@ -33,3 +33,7 @@ completed:
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Needs ComposedStores SetPassword wrappers in Application/Surl.Composition.UnitLibrary, which BL-1477 (Doing) touches; depends-on BL-1477
+- 2026-11-21: Backlog -> Doing.
+
+- 2026-11-21: ComposedStores wrappers already existed (BL-1477/1482/1493/1494). Added `Accounts.SetPassword` and `TlsSrpAccounts.SetPassword`; `ProxyAccounts.SetPassword` (BL-1505) now uses `SetProxyAccountPassword` instead of remove-then-add. `Add` document comments point to `SetPassword`. Tests in SurlServerTests.AccountsAndTlsSrpSetPassword.cs. Composition touches were not edited. BL-1505's proxy view is already in place.
+- 2026-11-21: Doing -> Done. SetPassword on the three Api account views

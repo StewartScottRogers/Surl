@@ -166,6 +166,29 @@ public sealed class ImapFaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "INBOX"), events.Events.Single());
     }
 
+    // ADR-0141 amendment 3: the client closed, or reset, while SELECT's delay held; nothing is
+    // answered to SELECT, the idle clock restarts and the session ends.
+    [TestMethod]
+    public async Task ServeAsync_ClientLeavesDuringASelectDelayHold_SendsNothingAndEndsTheSession()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "SELECT", DelayMilliseconds = 500 };
+        foreach (var resets in new[] { false, true })
+        {
+            var clock = new ManualTimeProvider();
+            var idleClock = new RecordingIdleClock();
+            var store = AccountStore(clock, "alice", "bob");
+            var connection = new InMemoryConnection(Bytes("A1 LOGIN alice p\r\nA2 SELECT INBOX\r\n"), peerResetsWhenExhausted: resets);
+            var context = Context(clock, TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(delay), IdleClock = idleClock };
+
+            await Server(store, new ScriptedLoginPolicy()).ServeAsync(connection, context).WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+            var written = Utf8(connection.WrittenBytes);
+            StringAssert.Contains(written, "A1 OK", resets.ToString());
+            Assert.DoesNotContain("A2 ", written, resets.ToString());
+            Assert.IsFalse(idleClock.IsPaused, resets.ToString());
+        }
+    }
+
     // ADR-0141: a command-stage drop aborts the connection in place of SELECT's answer; curl's
     // request is replayed from Fixtures/fault-select up to the SELECT it never sees answered.
     [TestMethod]
@@ -204,7 +227,7 @@ public sealed class ImapFaultTests
         var store = AccountStore(clock, "alice", "bob");
         Deliver(store, "alice", 1);
         var events = new RecordingSurlEventPublisher();
-        var connection = new InMemoryConnection(request);
+        var connection = new InMemoryConnection(request, peerHalfClosesWhenExhausted: false);
         var context = Context(clock, TestContext.CancellationToken) with { Faults = faults, Events = events, IdleClock = idleClock };
 
         return (Server(store, new ScriptedLoginPolicy()).ServeAsync(connection, context), connection, events);

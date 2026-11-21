@@ -47,6 +47,12 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     {
         if (!store.ExposureOptions.AllowUploads)
         {
+            // The body is never read, so the check that binds it is abandoned (ADR-0045 amendment 1).
+            if (bodyCheck is not null)
+            {
+                await bodyCheck.AbandonAsync(cancellationToken);
+            }
+
             return reply.Error(GcsError.AccessDenied);
         }
 

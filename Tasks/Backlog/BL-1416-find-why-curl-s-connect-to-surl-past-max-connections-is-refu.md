@@ -82,3 +82,13 @@ tolerated.
 - 2026-11-20: Doing -> Backlog. Reset-logging commit e293e3b72 is unpushed from this lane and the dispatch cap (2 per 12h) lifts 2026-11-21 04:45 UTC; next run dispatches release.yml on the shift branch, blocks on run:id, and reads surl's stderr for the reset note
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Reset-logging commit e293e3b72 is pushed (on origin/factory/phase-1) but the dispatch cap (2 per 12h) still refuses until 2026-11-21 04:45 UTC; next run dispatches release.yml on factory/phase-1, blocks on run:id and reads surl's stderr for the reset note
+- 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Blocked. Waiting for run:44885355387 (release.yml dry run on factory/phase-1 with the reset logging; read surl stderr for the refusal reset note)
+- 2026-11-21: Blocked -> Backlog. Run 44885355387 completed: success; read it with gh run view 44885355387
+- 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Run 44885355387 passed without reproducing; max-connections tests now run curl with -v so a failure names curl's connect errno (unpushed from this lane). Next run: dispatch release.yml on the shift branch once that commit is pushed (1 of 2 dispatches used in the last 12h), block on run:id, read curl -v and surl stderr
+- 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Blocked. Waiting for run:44891838149 (release.yml dry run on factory/phase-1 with curl -v in the max-connections tests; read curl's connect errno and surl stderr)
+- 2026-11-21: Blocked -> Backlog. Run 44891838149 completed: failure; read it with gh run view 44891838149
+- 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Run 44891838149 did not reproduce on osx-arm64 (its only failure was Publish linux-arm64; all five conformance jobs passed, osx-arm64 included); dispatch cap (2 per 12h) refuses another Release dry run until about 21:45 UTC 2026-11-21; next run dispatches release.yml on factory/phase-1, blocks on run:id and reads curl -v and surl stderr

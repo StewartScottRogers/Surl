@@ -140,8 +140,9 @@ public sealed class SmtpFaultTests
         var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RCPT", DelayMilliseconds = 500 };
         var clock = new ManualTimeProvider();
         var idleClock = new RecordingIdleClock();
+        var request = Ascii("EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<alice@x>\r\nQUIT\r\n");
         var (serving, connection, events) = StartServing(
-            Ascii("EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<alice@x>\r\nQUIT\r\n"), new ScriptedFaultPlan(delay), clock, idleClock);
+            request, new ScriptedFaultPlan(delay), clock, idleClock, new InMemoryConnection(request, peerHalfClosesWhenExhausted: false));
 
         await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
         var writtenAtTheHold = Utf8(connection.WrittenBytes);
@@ -157,6 +158,40 @@ public sealed class SmtpFaultTests
         Assert.IsFalse(idleClock.IsPaused);
         StringAssert.StartsWith(Utf8(connection.WrittenBytes), writtenAtTheHold + "250 2.1.5 Recipient OK\r\n");
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "alice@x"), events.Events.Single());
+    }
+
+    // ADR-0141, amendment 3 (BL-1544): a client that half-closes or resets during the hold gets no answer.
+    [TestMethod]
+    public async Task ServeAsync_ClientHalfClosesDuringARcptDelay_SendsNothingForRcptAndEndsTheSession()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RCPT", DelayMilliseconds = 600000 };
+        var clock = new ManualTimeProvider();
+        var request = Ascii("EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<alice@x>\r\nQUIT\r\n");
+        var (serving, connection, _) = StartServing(
+            request, new ScriptedFaultPlan(delay), clock, new RecordingIdleClock(), new InMemoryConnection(request));
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var written = Utf8(connection.WrittenBytes);
+        StringAssert.EndsWith(written, "250 2.1.0 Sender OK\r\n");
+        Assert.DoesNotContain("Recipient OK", written);
+        Assert.DoesNotContain("221", written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientResetsDuringARcptDelay_SendsNothingForRcptAndEndsTheSession()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RCPT", DelayMilliseconds = 600000 };
+        var clock = new ManualTimeProvider();
+        var request = Ascii("EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<alice@x>\r\nQUIT\r\n");
+        var (serving, connection, _) = StartServing(
+            request, new ScriptedFaultPlan(delay), clock, new RecordingIdleClock(), new InMemoryConnection(request, peerResetsWhenExhausted: true));
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var written = Utf8(connection.WrittenBytes);
+        StringAssert.EndsWith(written, "250 2.1.0 Sender OK\r\n");
+        Assert.DoesNotContain("Recipient OK", written);
     }
 
     // ADR-0141: a command-stage drop aborts the connection in place of bob's RCPT answer; curl's
@@ -178,10 +213,11 @@ public sealed class SmtpFaultTests
     }
 
     private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
-        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock)
+        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock,
+        InMemoryConnection? connection = null)
     {
         var events = new RecordingSurlEventPublisher();
-        var connection = new InMemoryConnection(request);
+        connection ??= new InMemoryConnection(request);
         var context = Context(clock, TestContext.CancellationToken) with { Faults = faults, Events = events, IdleClock = idleClock };
 
         return (Server(AliceAndBobStore(clock)).ServeAsync(connection, context), connection, events);

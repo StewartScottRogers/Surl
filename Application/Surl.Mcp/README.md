@@ -28,7 +28,7 @@ archives hold the same server as a native binary that needs no .NET runtime.
   same filters, or answers `timed_out`. `store` is a store in snake_case (`content`, `mail`, `bus`, ...) and
   `name` a path, mailbox, topic, queue, key or account, matched exactly or as a segment prefix
   (`/uploads` matches `/uploads/a.txt`, not `/uploads2`), case-sensitive; only store changes match either.
-- `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `add_proxy_account`, `remove_proxy_account`, `add_tls_srp_account`, `remove_tls_srp_account` - change a
+- `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `add_proxy_account`, `remove_proxy_account`, `add_tls_srp_account`, `remove_tls_srp_account`, `set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password` - change a
   running server's stores as a test would. `delete_file` takes a request `path` and answers `{path}`;
   `no file at <path>` when nothing, a folder or a hidden path is there. `remove_account` takes a `user`
   (an account given at start too) and answers `{user}`; `server <id> has no account <user>` when it holds

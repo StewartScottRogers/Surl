@@ -22,6 +22,15 @@ public sealed class PeekContractTests
         StringAssert.Contains(failure.Message, nameof(PeeklessConnection));
     }
 
+    [TestMethod]
+    public async Task WatchForPeerCloseAsync_ConnectionWithoutAWatch_ReportsNotWatchedAtOnce()
+    {
+        IConnection connection = new PeeklessConnection();
+
+        Assert.AreEqual(
+            PeerWatchOutcome.NotWatched,
+            await connection.WatchForPeerCloseAsync(16, TestContext.CancellationToken));
+    }
     private sealed class PeeklessConnection : IConnection
     {
         public EndPoint LocalEndPoint => throw new NotSupportedException();

@@ -38,7 +38,20 @@ internal sealed partial class Pop3Session
             Command = verb,
         };
 
-        return await CommandStageFaults.FindAndApplyAsync(context, connection, point, verb) switch
+        var result = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(context, connection, point, verb);
+        if (result.ClientLeft != PeerWatchOutcome.NotWatched)
+        {
+            // The client left during a delay hold (ADR-0141, amendment 3): send nothing and end
+            // the session; a reset aborts the connection, a half-close closes it gracefully.
+            if (result.ClientLeft == PeerWatchOutcome.PeerReset)
+            {
+                connection.Abort();
+            }
+
+            return false;
+        }
+
+        return result.Rule switch
         {
             { Kind: FaultKind.Error } rule => await AnswerChosenErrorAsync(verb, rule),
             { Kind: FaultKind.Drop } => false,

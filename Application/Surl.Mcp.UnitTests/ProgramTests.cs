@@ -48,7 +48,7 @@ public sealed class ProgramTests
                 StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
                 SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name,
                 ListMailboxesTool.Name, ListMessagesTool.Name, ReadMessageTool.Name, ReadFileTool.Name, ListFilesTool.Name, BrowseQueueTool.Name, ReadRetainedMessageTool.Name, ReadLogTool.Name, ReadKeyTool.Name, ListKeysTool.Name, ReadDirectoryTool.Name, ReadZoneTool.Name,
-                PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, AddProxyAccountTool.Name, RemoveProxyAccountTool.Name, AddTlsSrpAccountTool.Name, RemoveTlsSrpAccountTool.Name, ResetServerTool.Name,
+                PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, AddProxyAccountTool.Name, RemoveProxyAccountTool.Name, AddTlsSrpAccountTool.Name, RemoveTlsSrpAccountTool.Name, SetAccountPasswordTool.Name, SetProxyAccountPasswordTool.Name, SetTlsSrpAccountPasswordTool.Name, ResetServerTool.Name,
                 SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, ListFaultsTool.Name, RemoveFaultTool.Name,
             },
             names);
@@ -75,6 +75,9 @@ public sealed class ProgramTests
     [DataRow(RemoveProxyAccountTool.Name, RemoveProxyAccountTool.Description, new[] { "server_id", "user" })]
     [DataRow(AddTlsSrpAccountTool.Name, AddTlsSrpAccountTool.Description, new[] { "server_id", "user", "password" })]
     [DataRow(RemoveTlsSrpAccountTool.Name, RemoveTlsSrpAccountTool.Description, new[] { "server_id", "user" })]
+    [DataRow(SetAccountPasswordTool.Name, SetAccountPasswordTool.Description, new[] { "server_id", "user", "password" })]
+    [DataRow(SetProxyAccountPasswordTool.Name, SetProxyAccountPasswordTool.Description, new[] { "server_id", "user", "password" })]
+    [DataRow(SetTlsSrpAccountPasswordTool.Name, SetTlsSrpAccountPasswordTool.Description, new[] { "server_id", "user", "password" })]
     [DataRow(PublishMessageTool.Name, PublishMessageTool.Description, new[] { "server_id", "topic", "queue", "payload", "payload_base64", "retain" })]
     [DataRow(AddAccountTool.Name, AddAccountTool.Description, new[] { "server_id", "user", "password" })]
     [DataRow(SetKeyTool.Name, SetKeyTool.Description, new[] { "server_id", "key", "key_base64", "value", "value_base64", "database", "expire_ms" })]

@@ -460,6 +460,14 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Testing_SaysARefusedPasswordNeverSpendsARefuseLoginRule()
+    {
+        var page = AiHelpText.Answer("testing").Output;
+
+        StringAssert.Contains(page, "A `refuse-login` rule is asked only once a login's credentials match an account, so a wrong password is refused as usual and neither fires the rule nor spends one of its `times`.");
+    }
+
+    [TestMethod]
     [DataRow("allow-anonymous", "yes, for tests only")]
     [DataRow("self-signed", "yes, for tests only")]
     [DataRow("allow-uploads", "yes, widens what a peer may do")]

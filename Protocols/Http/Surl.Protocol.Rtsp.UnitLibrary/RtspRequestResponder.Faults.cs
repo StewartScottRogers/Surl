@@ -59,7 +59,16 @@ internal sealed partial class RtspRequestResponder
         var path = head.RequestTarget.StartsWith(AbsoluteUrlPrefix, StringComparison.OrdinalIgnoreCase)
             ? PresentationPath(head.RequestTarget)
             : null;
-        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName);
+        var found = await HttpCommandFaults.FindAndApplyWithClientOutcomeAsync(context, head.Method, path, accountName, connection);
+        if (found.ClientLeft is PeerWatchOutcome.PeerClosed or PeerWatchOutcome.PeerReset)
+        {
+            // ADR-0141 amendment 3: the client left during the hold, so nothing is answered.
+            connection.Abort();
+
+            return false;
+        }
+
+        var rule = found.Rule;
         if (rule is { Kind: FaultKind.Drop })
         {
             connection.Abort();

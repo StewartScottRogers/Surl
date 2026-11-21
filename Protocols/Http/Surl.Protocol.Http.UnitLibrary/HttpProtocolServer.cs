@@ -234,7 +234,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
-        var answerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession), connection);
+        var answerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession, connection), connection);
         if (connection.TlsSession is { ApplicationProtocol: not Http2OverTlsApplicationProtocol })
         {
             await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
@@ -242,6 +242,8 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
             return;
         }
 
+        // HTTP/2 streams share the connection, so their answerer holds none (ADR-0141 amendment 2).
+        var streamAnswerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession), connection);
         var preface = new Http2ConnectionPreface();
         if (!await ReadPrefaceWithinHeadTimeoutAsync(preface, connection, context))
         {
@@ -250,13 +252,13 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         if (preface.IsComplete)
         {
-            await new Http2ConnectionServer(new Http2StreamAnswerWriter(answerer, context), context, new AlreadyReadBytesConnection(connection, preface.BytesReadAfterPreface)).ServeAsync();
+            await new Http2ConnectionServer(new Http2StreamAnswerWriter(streamAnswerer, context), context, new AlreadyReadBytesConnection(connection, preface.BytesReadAfterPreface)).ServeAsync();
 
             return;
         }
 
         // Upgrade: h2c is cleartext only, so over TLS it is ignored (ADR-0081, decision 3).
-        IHttpRequestHandler http1Handler = connection.TlsSession is null ? new Http2CleartextUpgradeHandler(answerer, context) : answerer;
+        IHttpRequestHandler http1Handler = connection.TlsSession is null ? new Http2CleartextUpgradeHandler(answerer, context, streamAnswerer) : answerer;
         await new Http1ConnectionServer(http1Handler, context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
     }
 

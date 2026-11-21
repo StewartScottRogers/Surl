@@ -62,3 +62,35 @@ stored". Nothing here is a byte upstream curl sends or expects: these are test-f
 - A test can watch an upload over FTP land (`Written`, `/uploads/a.txt`) before reading it over
   HTTP, and make uploads under `/uploads` fail on purpose with `out-of-space;path=/uploads`.
 - `ExchangeId` on a content change is `null` until the exchange is carried to the store.
+
+## Amendment 1 (2026-11-21, BL-1524): a refusal by an `out-of-space` rule is noted by its rule
+
+**Decided by Claude under Stewart's delegation.** Decision 3 reused `TooLarge` for an `OutOfSpace`
+rule, so a file server's exchange-log note said "the upload grew past the limit of <n> bytes" when
+nothing had grown past anything, and named no rule. A log line that states something untrue is a
+defect (root `CLAUDE.md`, "Say what it does"). Options weighed: a distinct `ContentUploadResult`
+member (every file server's `switch` gains a case - FTP, TFTP, HTTP, SMB, CoAP, S3, Azure, GCS and
+the MCP `write_file` tool - and the enum is a public contract); the store writing the note itself
+(it has no exchange log); the rule's ID carried beside `TooLarge`. The last changes the fewest
+servers, so:
+
+1. **How a server learns the rule.** `ContentCaller` gains the read-only property
+   `RefusedByFaultRuleId` (`string?`, `null` until a refusal) and the store sets it, before it
+   answers `TooLarge`, on a caller built by `ContentCaller.ForExchange` (ADR-0168) - one instance
+   per exchange, so nothing is shared between exchanges or instances and no static state is added.
+   A caller not built for an exchange (seeds, shared default callers) is never written to and
+   keeps `null`. `ContentUploadResult` gains no member and every existing `switch` compiles and
+   means what it did.
+2. **The note.** A server that gets `TooLarge` reads `caller.RefusedByFaultRuleId`. When it is set the
+   note names the rule and states no limit; when it is `null` the note is today's, because the
+   upload really did grow past the limit:
+   - FTP: `The upload was refused by the fault rule <id> (out-of-space); the partial upload was deleted and the data connection was reset.`
+   - TFTP: `The write was refused by the fault rule <id> (out-of-space); the transfer was ended with an error.`
+   - HTTP `PUT`: `the upload was refused by the fault rule <id> (out-of-space)`.
+   The other servers (SMB, CoAP, S3, Azure, GCS, MCP `write_file`) take the same wording with their
+   own framing in later tasks; none is required for the three above to be true.
+3. **The wire does not change.** The status or reply each server sends for `TooLarge` (HTTP `413`,
+   FTP `552`, TFTP `ERROR 3`, and the others') is byte for byte what it was; only the exchange-log
+   note differs. ADR-0129 decision 3's answer of `TooLarge`, rather than HTTP `507`, stands.
+4. **Stand-in.** Tests keep observing the fault through `FaultAppliedEvent`; the note is for a person
+   reading the log.

@@ -25,7 +25,10 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   creates the key's folders (a file in the way, or a folder at the key, is
   `409 InvalidArgument`; a key the store cannot hold `400 InvalidArgument` with `ArgumentName`
   `key`); streams the body through `S3UploadStream` into a content-store upload session
-  (`400 IncompleteBody` when it ends early); answers `200` with the body's MD5 as `ETag`. A
+  (`400 IncompleteBody` when it ends early); answers `200` with the body's MD5 as `ETag`, and notes
+  `PUT <target>: 200, <n> bytes stored at <location>` in the exchange log (the HTTP server's form;
+  `<n>` the stored, decoded length; written only once the index accepted it, never for a refusal;
+  BL-1554; not for the zero-byte folder object, UploadPart or CompleteMultipartUpload). A
   zero-byte `PUT` of a key ending in `/` creates the folder and records it as a folder object
   (`503 ServiceUnavailable` when the index is full). A write the store or a share
   refuses is `403 AccessDenied`.

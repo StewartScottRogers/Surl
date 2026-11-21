@@ -223,6 +223,37 @@ public sealed partial class ContentStoreTests
     }
 
     [TestMethod]
+    public async Task WriteUploadAsync_OutOfSpaceRule_SetsTheRuleIdOnAnExchangeCallerButNotOnACallerForAnAccount()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("f7", FaultKind.OutOfSpace));
+        ContentStore store = EventStore(inMemory: true, events, faults);
+        ContentCaller exchangeCaller = ContentCaller.ForExchange(ExchangeOn(3, "ftp", 2121), "alice");
+        ContentCaller accountCaller = ContentCaller.ForAccount("alice", "ftp");
+        Assert.IsNull(exchangeCaller.RefusedByFaultRuleId);
+
+        ContentUploadResult refused = await store.WriteUploadAsync(store.MapRequestPathForCaller("/a.txt", exchangeCaller), Bytes("x"), CancellationToken.None);
+        await store.WriteUploadAsync(store.MapRequestPathForCaller("/b.txt", accountCaller), Bytes("x"), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.TooLarge, refused);
+        Assert.AreEqual("f7", exchangeCaller.RefusedByFaultRuleId);
+        Assert.IsNull(accountCaller.RefusedByFaultRuleId);
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_RealOverLimitUpload_LeavesTheRuleIdNull()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var store = new ContentStore(MemoryRoot, new InMemoryContentFileSystem(TimeProvider.System), UploadsOn with { MaxUploadBytes = 2 }, [], [], events);
+        ContentCaller caller = ContentCaller.ForExchange(ExchangeOn(5, "ftp", 2121), "alice");
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPathForCaller("/big.txt", caller), Bytes("too big"), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.TooLarge, result);
+        Assert.IsNull(caller.RefusedByFaultRuleId);
+    }
+
+    [TestMethod]
     public async Task WriteUploadAsync_AnonymousCallerForAnExchange_PublishesTheChangeOnTheExchangeWhileASeedStaysNull()
     {
         var events = new RecordingSurlEventPublisher();
