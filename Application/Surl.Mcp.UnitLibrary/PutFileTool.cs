@@ -17,7 +17,9 @@ public static class PutFileTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Write a file into a running Surl server's content store, as an upload would, so its HTTP, FTP, SFTP and "
-        + "other file servers serve it. Give the contents as UTF-8 text or base64, at most 16 MiB.";
+        + "other file servers serve it. Give the contents as UTF-8 text or base64, at most 16 MiB. "
+        + "The whole `tools/call` message is at most 4 MiB (4194304 bytes), so one file's text plus its JSON must "
+        + "fit in that.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

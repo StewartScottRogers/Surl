@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1533 — Name the 4 MiB message limit in the surl-mcp start_server and put_file tool descriptions
 
@@ -22,14 +22,17 @@ Decided by BL-1522's amendment 1 to ADR-0103 (decision 3): the limit stays 4 MiB
 
 ## Acceptance criteria
 
-- [ ] `StartServerTool`'s description states that the whole `tools/call` message is at most 4 MiB (4194304 bytes) and points at `put_file` for larger seeds.
-- [ ] `PutFileTool`'s description states the same limit applies to one file's text plus its JSON.
-- [ ] A unit test pins each sentence; `dotnet build -warnaserror` and the fast tests of `Surl.Mcp.UnitTests` pass.
-- [ ] Any `--aihelp` or README text that lists these tools' limits is updated in the same diff.
+- [x] `StartServerTool`'s description states that the whole `tools/call` message is at most 4 MiB (4194304 bytes) and points at `put_file` for larger seeds.
+- [x] `PutFileTool`'s description states the same limit applies to one file's text plus its JSON.
+- [x] A unit test pins each sentence; `dotnet build -warnaserror` and the fast tests of `Surl.Mcp.UnitTests` pass.
+- [x] Any `--aihelp` or README text that lists these tools' limits is updated in the same diff.
 
 ## Notes
+
+Added one sentence to each description and one pinning test each in StartServerToolTests; no --aihelp or README text lists these limits (checked), so only the project CLAUDE.md was updated.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. start_server and put_file descriptions name the 4 MiB message limit, pinned by tests

@@ -21,7 +21,8 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     keeps the lines written during the start. Result `{server_id, listen_urls, bound_urls, log_lines}`. A
     `SurlServerStartException` is `isError` with `{exit_code, exit_code_name, lines}` and the text each line
     after `surl: `; an `ArgumentException` from `Surl.Api` or bad `files` is `isError` with its message alone;
-    a host rule broken is `isError` `refused: <rule>` with `{refused}`.
+    a host rule broken is `isError` `refused: <rule>` with `{refused}`. Its description (and `put_file`'s) names
+    the 4 MiB `tools/call` message limit (BL-1533); larger seeds go through `put_file`, one file per call.
   - `ListServersTool` (`list_servers`): `{servers: [{server_id, listen_urls, bound_urls, started_at,
     exchange_count, dropped_exchange_count}]}`; never an error.
   - `StopServerTool` (`stop_server`): `{server_id, exit_code, exit_code_name}`; an unknown ID is `isError`
