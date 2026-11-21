@@ -8,7 +8,7 @@ depends-on: [BL-1553]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1561 — Add AbandonAsync to IHttpRequestBodyCheck (ADR-0045 amendment 1)
 
@@ -22,8 +22,8 @@ ADR-0045 amendment 1 (BL-1553) decides what an abandoned body-bound login publis
 
 ## Acceptance criteria
 
-- [ ] HttpRequestBodyCheckTests.AbandonAsync_ByDefault_CompletesWithoutEffect passes.
-- [ ] Build clean, fast tests green, 100% coverage held.
+- [x] HttpRequestBodyCheckTests.AbandonAsync_ByDefault_CompletesWithoutEffect passes.
+- [x] Build clean, fast tests green, 100% coverage held.
 
 ## Notes
 
@@ -31,3 +31,4 @@ ADR-0045 amendment 1 (BL-1553) decides what an abandoned body-bound login publis
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. IHttpRequestBodyCheck.AbandonAsync default no-op added

@@ -20,4 +20,13 @@ public interface IHttpRequestBodyCheck
     /// <returns>The verdict on the request, with its login note.</returns>
     ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(
         ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Called when the server answers without reading the body, so the check will never be asked
+    /// to judge it (ADR-0045 amendment 1). The default does nothing; it never changes what the
+    /// peer is sent.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task that completes when the check has noted the abandonment.</returns>
+    ValueTask AbandonAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;
 }
