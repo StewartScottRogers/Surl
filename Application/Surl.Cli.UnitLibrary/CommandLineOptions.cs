@@ -257,6 +257,8 @@ internal static class CommandLineOptions
             new("<alias>=<to>,...", "Forward an address (repeatable)", ["mail"], IsInShortList: false, Default: "none")),
         WithArgument<ConfiguredMailCatchAll>("mail-catch-all", null, ConfiguredMailCatchAllReader.Reading, (c, v) => c with { MailCatchAlls = [.. c.MailCatchAlls, v] },
             new("<domain>=<to>", "Catch unknown addresses (repeatable)", ["mail"], IsInShortList: false, Default: "none: mail to an unknown address is discarded")),
+        Flag("mail-delivered-to", null, negatable: true, (c, on) => c with { DeliveredTo = on },
+            new(null, "Write Delivered-To lines into stored mail", ["mail"], IsInShortList: false, Default: "off")),
         WithArgument<ConfiguredSharedFolder>("shared-folder", null, ConfiguredSharedFolderReader.Reading, (c, v) => c with { SharedFolders = [.. c.SharedFolders, v] },
             new("<name>=<who>,...", "Share an IMAP folder (repeatable)", ["mail"], IsInShortList: false, Default: "none")),
         WithArgument<string>("mailbox-file", null, OptionArgumentReader.Path, (c, v) => c with { MailboxFiles = [.. c.MailboxFiles, v] },
