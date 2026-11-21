@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1550 — State the per-exchange cut and its is_cut, shown_bytes and recorded_bytes members in get_exchanges' description
 
@@ -34,15 +34,15 @@ instead of reading "byte for byte" and taking a cut exchange for the whole one.
 
 ## Acceptance criteria
 
-- [ ] `GetExchangesTool.Description` states that at most 65536 bytes of each exchange and 1 MiB in all are
+- [x] `GetExchangesTool.Description` states that at most 65536 bytes of each exchange and 1 MiB in all are
   shown, and that a cut exchange has `is_cut` true, `shown_bytes` the bytes shown and `recorded_bytes` the
   bytes recorded; the numbers are built from `RecordedExchangeWriter.MaxShownBytesPerExchange` and
   `MaxShownBytesPerResult`, not typed again.
-- [ ] A test in `GetExchangesToolTests` asserts the description names `is_cut`, `shown_bytes`,
+- [x] A test in `GetExchangesToolTests` asserts the description names `is_cut`, `shown_bytes`,
   `recorded_bytes` and the two limits.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and
   `dotnet test Application/Surl.Mcp.UnitTests --filter "TestCategory!=Integration"` passes.
-- [ ] `Application/Surl.Mcp.UnitLibrary/CLAUDE.md`'s `GetExchangesTool` entry says the description names the cut.
+- [x] `Application/Surl.Mcp.UnitLibrary/CLAUDE.md`'s `GetExchangesTool` entry says the description names the cut.
 
 ## Notes
 
@@ -50,3 +50,4 @@ instead of reading "byte for byte" and taking a cut exchange for the whole one.
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. get_exchanges description now names the 65536/1 MiB cut and is_cut, shown_bytes, recorded_bytes

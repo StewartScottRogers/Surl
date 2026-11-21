@@ -32,7 +32,8 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     found with `SurlServer.FindExchanges`. Result `{server_id, exchanges: [{exchange_id, listen_url, scheme,
     client, started_at, chunks: [{direction, encoding, data}], recorded_bytes, shown_bytes, is_cut,
     is_truncated}], dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for
-    `stop_server`.
+    `stop_server`. Its description names the cut (65536 bytes of each exchange, 1 MiB in all) and the `is_cut`,
+    `shown_bytes` and `recorded_bytes` members, building the numbers from `RecordedExchangeWriter`'s constants (BL-1550).
   - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (derived from the event records, `EventToolFilter.AllKinds`; today `exchange_started`,
     `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`), `scheme`, `listen_url`,
     `account`, `store` (a `StoreKind` in snake_case; a schema enum), `name` (a store change's name, exactly or as a

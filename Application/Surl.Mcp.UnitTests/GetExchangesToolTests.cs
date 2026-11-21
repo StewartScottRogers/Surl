@@ -20,6 +20,18 @@ public sealed class GetExchangesToolTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    public void Description_NamesTheCutMembersAndBothLimits()
+    {
+        var description = GetExchangesTool.Description;
+
+        StringAssert.Contains(description, "is_cut");
+        StringAssert.Contains(description, "shown_bytes");
+        StringAssert.Contains(description, "recorded_bytes");
+        StringAssert.Contains(description, RecordedExchangeWriter.MaxShownBytesPerExchange.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        StringAssert.Contains(description, RecordedExchangeWriter.MaxShownBytesPerResult.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [TestMethod]
     public async Task Handler_AFakeClientsGet_ReturnsTheExchangeWithItsClientAndTheExactBytesReceivedAndSent()
     {
         var connection = new FakeConnection(CurlGetHello);

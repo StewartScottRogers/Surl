@@ -18,9 +18,13 @@ public static class GetExchangesTool
     public const string Name = "get_exchanges";
 
     /// <summary>The tool's description.</summary>
-    internal const string Description =
-        "Show what each client sent to a Surl server and what the server sent back, byte for byte, oldest first, "
-        + "with the listen URL and scheme each exchange came through, filtered by scheme and listen URL.";
+    internal static readonly string Description =
+        "Show what each client sent to a Surl server and what the server sent back, oldest first, "
+        + "with the listen URL and scheme each exchange came through, filtered by scheme and listen URL. "
+        + $"At most {RecordedExchangeWriter.MaxShownBytesPerExchange} bytes of each exchange and "
+        + $"{RecordedExchangeWriter.MaxShownBytesPerResult} bytes in all are shown, byte for byte up to that cut. "
+        + "A cut exchange has is_cut true, shown_bytes the bytes shown and recorded_bytes the bytes recorded; "
+        + "when is_cut is false the exchange is whole.";
 
     /// <summary>How many exchanges one call returns when <c>max_exchanges</c> is not given.</summary>
     internal const int DefaultMaxExchanges = 20;
