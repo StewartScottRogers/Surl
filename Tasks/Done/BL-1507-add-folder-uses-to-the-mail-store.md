@@ -31,6 +31,8 @@ ADR-0055 Amendment 1 (`Documentation/Planning/Decisions/ADR-0055-how-the-imap-se
 
 ## Notes
 
+Uses are strings in canonical RFC 6154 form (`\Sent`); `MailFolderUse.Canonical` accepts any case, backslash optional. New outcomes `FolderUseUnknown` (also for INBOX) and `FolderUseTaken`. `CreateMailbox` takes `use`; `ReadMailboxUses(view)` and `MailboxSnapshot.Use` read it. `FolderUses` keys are created even when not listed in `Folders`. The on-disk index does not persist uses (disk stores cannot reset or snapshot; persistence is out of scope here).
+
 ## Log
 
 - 2026-11-20: Created.
