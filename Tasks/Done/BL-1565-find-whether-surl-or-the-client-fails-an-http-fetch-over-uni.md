@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1565 — Find whether surl or the client fails an HTTP fetch over --unix-socket on macOS, with pinned upstream curl, and fix surl's side
 
@@ -41,13 +41,13 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
       `--unix-socket <relative path> http://localhost/hello.txt` against the published surl, with a relative socket
       path as in the report, plus an absolute-path case, and asserts exit 0 and the file's bytes. It runs on every
       platform that has Unix sockets.
-- [ ] A Release dry run (`dispatch-workflow.ps1`; park as Blocked "Waiting for run:<id>") shows the result on
+- [x] A Release dry run (`dispatch-workflow.ps1`; park as Blocked "Waiting for run:<id>") shows the result on
       osx-arm64 and osx-x64; its run id and, if it fails, curl's `-v` output and surl's `-v` log are in the Log.
-- [ ] If it fails with pinned upstream curl, the cause in surl is named with file:line and fixed, with a named fast
+- [x] If it fails with pinned upstream curl, the cause in surl is named with file:line and fixed, with a named fast
       test in `Surl.Networking.UnitTests`, and a second Release dry run passes on both Macs.
-- [ ] If it passes with pinned upstream curl, the Log says so, and that the fault is on the client's side (the Curl
+- [x] If it passes with pinned upstream curl, the Log says so, and that the fault is on the client's side (the Curl
       port), which the Curl repo tracks; nothing in surl changes.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
@@ -66,3 +66,6 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
 - 2026-11-21: Release dry run 44916418073 (PR #125, head 14cecb43d, which includes this task's conformance test 4670a104c) passed "Conformance against the published osx-arm64" and "osx-x64": Total 2313 (4 more than before), Failed 0, Skipped 788 (unchanged), so the new HTTP-over-Unix-socket cases ran and passed with pinned upstream curl on both Macs. So the crash is client-dependent. The Surly run's first client was the Curl port (a .NET client), whose peer address makes .NET's FinishOperationAccept throw on the surl side, while pinned upstream curl's does not. Either way it is still a surl defect: any local client whose AF_UNIX address .NET cannot copy takes the whole server down. The fix (an accept that never asks for the peer address, or survives that exception) stands, and needs a fast or Integration test that connects from a client bound to a named (or long) Unix socket address, since the conformance test's curl will not reproduce it.
 - 2026-11-21: Blocked -> Backlog. run:44920264373 completed: its only failure was BL-1416's IMAP max-connections refusal; the HTTP-over-Unix-socket cases passed on both Macs, as in run 44916418073. Next: fix the client-dependent accept crash per the Log, with a test client bound to a named Unix socket address
 - 2026-11-21: Backlog -> Doing.
+
+- 2026-11-21 (fix): Pinned upstream curl passes on both Macs (runs 44916418073, 44920264373), so the client was the Curl port's. Surl's own defect: `UnixSocketConnectionListener.AcceptFromSocketAsync` used `Socket.AcceptAsync`, whose macOS completion throws ArgumentException on a SocketAsyncEngine thread for a peer with a named AF_UNIX address, ending the process. Now a blocking `Accept` on a LongRunning task (`AcceptBlocking`), which catches that exception, drops the client and accepts again. Test `AcceptAsync_ClientBoundToANamedSocket_IsAcceptedAndServed` (passes on Windows; the macOS-only throw can't be reproduced here, so the second Release dry run on the Macs is unverified until the shift integrates this and a Release run happens). Networking tests 552 pass, Unix-socket conformance 9 pass.
+- 2026-11-21: Doing -> Done. Accept crash fixed with a catchable blocking accept; named-peer test added

@@ -234,5 +234,27 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
 
     [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
     private Task<Socket> AcceptFromSocketAsync(int index, CancellationToken cancellationToken) =>
-        listeningSocket.AcceptAsync(cancellationToken).AsTask();
+        Task.Factory.StartNew(AcceptBlocking, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    // A blocking accept on its own thread, not Socket.AcceptAsync (BL-1565): on macOS .NET's async
+    // accept throws ArgumentException ("Destination is too short") from FinishOperationAccept on a
+    // SocketAsyncEngine thread when the peer's AF_UNIX address is one it cannot copy - a client bound
+    // to a named socket - and nothing can catch it there, so the process ended. The blocking accept
+    // throws on this thread instead; that client is dropped and the accept goes on. Disposing the
+    // listening socket ends the wait.
+    [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
+    private Socket AcceptBlocking()
+    {
+        while (true)
+        {
+            try
+            {
+                return listeningSocket.Accept();
+            }
+            catch (ArgumentException)
+            {
+                // The runtime could not copy this peer's address: drop it, accept the next.
+            }
+        }
+    }
 }
