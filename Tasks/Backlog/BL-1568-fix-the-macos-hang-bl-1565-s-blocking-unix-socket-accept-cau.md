@@ -67,3 +67,4 @@ named peer still cannot crash surl.
 - 2026-11-21: Doing -> Backlog. Fix and test committed; needs the shift to push it before a macOS ci run can be dispatched (dispatch refuses unpushed refs).
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44944499090 (ci on factory/phase-1, macOS proof of the polled Unix-socket accept)
+- 2026-11-21: Blocked -> Backlog. run:44944499090 (ci on factory/phase-1 with the polled Unix-socket accept) completed success: Build and test (macos-latest) and Upstream test cases (macos-latest) both finished and passed, as did ubuntu and windows
