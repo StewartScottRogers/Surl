@@ -32,3 +32,4 @@ ADR-0055 Amendment 1, decision 2. Depends on the parser (BL-1508), so the text d
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
