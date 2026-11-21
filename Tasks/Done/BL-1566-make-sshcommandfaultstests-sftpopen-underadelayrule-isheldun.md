@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1566 — Make SshCommandFaultsTests.SftpOpen_UnderADelayRule_IsHeldUntilTheClockAdvances500Ms_WithTheIdleClockPaused deterministic
 
@@ -32,19 +32,23 @@ can see a delay hold end early because its scripted client looks like it has lef
 
 ## Acceptance criteria
 
-- [ ] The Log names the cause with file:line (the test channel or the SSH channel's peer-close reporting).
-- [ ] The test's client stays open through the hold, as BL-1556 did for DNS; no production change unless the cause
+- [x] The Log names the cause with file:line (the test channel or the SSH channel's peer-close reporting).
+- [x] The test's client stays open through the hold, as BL-1556 did for DNS; no production change unless the cause
       shows SSH treating a channel's EOF as the client leaving when RFC 4254 says the session is still open.
-- [ ] Every other delay-under-hold test in `Surl.Protocol.Ssh.UnitTests` (search `UnderADelayRule`) gets the same
+- [x] Every other delay-under-hold test in `Surl.Protocol.Ssh.UnitTests` (search `UnderADelayRule`) gets the same
       open client; the Log lists them.
-- [ ] The changed tests pass 20 runs in a row locally
+- [x] The changed tests pass 20 runs in a row locally
       (`dotnet test Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests --filter "FullyQualifiedName~UnderADelayRule"`
       in a loop).
-- [ ] `dotnet build` clean and the full fast suite green.
+- [x] `dotnet build` clean and the full fast suite green.
 
 ## Notes
+
+Cause: `SftpTestChannel.cs:16` built `new InMemoryConnection([])`, which half-closes by default (`InMemoryConnection.cs:198-203`); `CommandStageFaults.cs:164` watches that connection, so a half-close seen before `IsPaused` was read ended the hold early (Ubuntu timing). Fix is in the shared channel: `peerHalfClosesWhenExhausted: false`. No production change; SFTP does not treat channel EOF as the client leaving. Only one test matches `UnderADelayRule` (`SshCommandFaultsTests.SftpOpen_UnderADelayRule_...`); it, and every other `SftpTestChannel` user, now has the open client. 20 consecutive filtered runs passed; build clean, fast suite green.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Fixed in SftpTestChannel; Doing -> Done.
+- 2026-11-21: Doing -> Done. SftpTestChannel's client now stays open, so the delay hold is not ended by a scripted half-close
