@@ -261,6 +261,10 @@ server.Accounts.Add("bob", "builder");                              // Remove("b
 it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
 goes to `Log`; `Accounts.Add` closes it again.
 
+`ProxyAccounts.Remove` of the last proxy account leaves the proxy needing no login: it stays allowed,
+`ProxyAccounts.HasAccounts` turns `false` and `surl: warning: no proxy account left; the proxy now needs no login`
+goes to `Log`; `ProxyAccounts.Add` closes it again.
+
 A retained seed (`Messages.PublishAsync(topic, payload, retain: true)`, `surl-mcp`'s `publish_message` and the
 control endpoint alike) is kept on any topic, including one outside every `--topic ...;retain` filter: the filter
 only decides what a client publish retains (a curl client cannot set RETAIN 1), and a seed is the test's own setup

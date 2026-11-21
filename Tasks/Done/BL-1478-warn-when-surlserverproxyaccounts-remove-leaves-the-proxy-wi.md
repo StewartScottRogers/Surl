@@ -8,7 +8,7 @@ depends-on: [BL-1477]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1478 — Warn when SurlServerProxyAccounts.Remove leaves the proxy with no account
 
@@ -33,15 +33,15 @@ A test that removes the last proxy account through `Surl.Api` is warned that the
 
 ## Acceptance criteria
 
-- [ ] `SurlServerProxyAccounts` takes the instance log; `Remove` of the last proxy account writes
+- [x] `SurlServerProxyAccounts` takes the instance log; `Remove` of the last proxy account writes
       `surl: warning: no proxy account left; the proxy now needs no login` once to `SurlServerOptions.Log`, and removing a
       non-last or unknown name writes nothing. Named tests in `Application/Surl.Api.UnitTests` (a new
       `SurlServerTests.ProxyAccountsOpen.cs`) pin both.
-- [ ] `SurlServerProxyAccounts.HasAccounts` exists with an XML doc, over `ComposedStores.HasProxyAccounts`, and a named test pins
+- [x] `SurlServerProxyAccounts.HasAccounts` exists with an XML doc, over `ComposedStores.HasProxyAccounts`, and a named test pins
       it true, then false after the last removal.
-- [ ] `Remove`'s XML remarks and `Application/Surl.Api/README.md` (beside the `Accounts.Remove` paragraph) say that removing the
+- [x] `Remove`'s XML remarks and `Application/Surl.Api/README.md` (beside the `Accounts.Remove` paragraph) say that removing the
       last proxy account leaves the proxy needing no login, warned.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green and `Surl.Api` keeps 100% line and
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green and `Surl.Api` keeps 100% line and
       branch coverage.
 
 ## Notes
@@ -52,3 +52,4 @@ A test that removes the last proxy account through `Surl.Api` is warned that the
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ProxyAccounts.Remove warns when the last proxy account goes; HasAccounts added
