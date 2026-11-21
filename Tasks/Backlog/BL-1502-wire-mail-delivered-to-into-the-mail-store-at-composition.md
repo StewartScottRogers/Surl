@@ -4,7 +4,7 @@ title: Wire --mail-delivered-to into the mail store at composition
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1487, BL-1498, BL-1500, BL-1515]
+depends-on: [BL-1487, BL-1498, BL-1500, BL-1516]
 touches: [Surl.Composition.UnitLibrary, Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
@@ -33,4 +33,4 @@ ADR-0053 Amendment 1 decision 1. `Application/Surl.Composition.UnitLibrary/Mailb
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
-- 2026-11-20: Doing -> Backlog. Needs MailboxStore.LoadAsync to take DeliveredToEnabled (MailStore project, touched by BL-1507 in Doing); filed BL-1515 and depend on it
+- 2026-11-20: Doing -> Backlog. Needs MailboxStore.LoadAsync to take DeliveredToEnabled (MailStore project, touched by BL-1507 in Doing); filed BL-1516 and depend on it

@@ -1,5 +1,5 @@
 ---
-id: BL-1515
+id: BL-1516
 title: Let MailboxStore.LoadAsync take DeliveredToEnabled
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1515 — Let MailboxStore.LoadAsync take DeliveredToEnabled
+# BL-1516 — Let MailboxStore.LoadAsync take DeliveredToEnabled
 
 ## Goal
 
