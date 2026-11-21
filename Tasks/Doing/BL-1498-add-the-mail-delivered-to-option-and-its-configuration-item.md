@@ -33,3 +33,4 @@ ADR-0053 Amendment 1 decision 1 (decided in BL-1487): the option is off by defau
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
