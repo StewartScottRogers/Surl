@@ -8,7 +8,7 @@ namespace Surl.Protocol.Imap;
 /// <see cref="FaultKind.Error"/> rule answers it with a tagged <c>NO</c> or <c>BAD</c> - the rule's
 /// reply - in place of the command, before the mail store is touched; a
 /// <see cref="FaultKind.Delay"/> rule holds the answer for the rule's <c>ms</c> with the idle clock
-/// paused; a <see cref="FaultKind.Drop"/> rule aborts the connection with no answer.
+/// paused; a client that leaves during the hold gets no answer and the session ends; a <see cref="FaultKind.Drop"/> rule aborts the connection with no answer.
 /// </summary>
 internal sealed partial class ImapSession
 {
@@ -46,7 +46,13 @@ internal sealed partial class ImapSession
             Command = verb,
         };
 
-        return await CommandStageFaults.FindAndApplyAsync(context, connection, point, mailbox ?? verb) switch
+        var found = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(context, connection, point, mailbox ?? verb);
+        if (found.ClientLeft is PeerWatchOutcome.PeerClosed or PeerWatchOutcome.PeerReset)
+        {
+            return false;
+        }
+
+        return found.Rule switch
         {
             { Kind: FaultKind.Error } rule => await AnswerChosenErrorAsync(verb, mailbox, rule),
             { Kind: FaultKind.Drop } => false,
