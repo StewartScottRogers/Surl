@@ -40,7 +40,7 @@ public sealed class WebTransportConnectFaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, "/echo"), events.Events.Single());
         Assert.AreEqual("CONNECT", faults.Points.Single().Command);
         Assert.AreEqual("webtransport", faults.Points.Single().Scheme);
-        Assert.Contains("WebTransport CONNECT to /echo was answered 503 by fault rule f1.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "WebTransport CONNECT to /echo was answered 503 by fault rule f1.", Token);
     }
 
     private async Task<(Http3TestResponse Response, ScriptedFaultPlan Faults)> ConnectLoggedInAsync(FaultRule rule, bool allowAnonymous, params (string Name, string Value)[] login)
@@ -116,7 +116,7 @@ public sealed class WebTransportConnectFaultTests
 
         Assert.AreEqual("200", response.Status);
         Assert.IsEmpty(events.Events);
-        Assert.Contains($"Fault rule f1 not applied to CONNECT /echo: {why}.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, $"Fault rule f1 not applied to CONNECT /echo: {why}.", Token);
     }
 
     [TestMethod]
@@ -159,7 +159,7 @@ public sealed class WebTransportConnectFaultTests
 
         Assert.IsEmpty(client.StreamSent(0).Data);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/echo"), events.Events.Single());
-        Assert.Contains("CONNECT dropped the connection, unanswered, by fault rule f1.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "CONNECT dropped the connection, unanswered, by fault rule f1.", Token);
     }
 
     [TestMethod]

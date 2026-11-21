@@ -37,6 +37,9 @@ any sibling test that asserts a log note right after a response, passes every ru
 
 ## Notes
 
+- Chose the test-side wait (not reordering the handler): `UnitTestWebTransport.WaitForNoteAsync(log, note, token)` polls with `Task.Delay(1)` up to 5 s and fails with the notes seen.
+- Tests moved onto it (all asserted a note right after a response/event): ConnectHandlerTests (accepted, 405), ConnectAuthenticationTests (401), ConnectFaultTests (503, not-applied, drop), SessionDirectoryTests (stream 6), SessionTests (closed code 7, CONNECT stream ended, max-filesize). Sites already waiting on the note or asserting an earlier one than the awaited one were left.
+
 ## Log
 
 - 2026-11-21: Created.

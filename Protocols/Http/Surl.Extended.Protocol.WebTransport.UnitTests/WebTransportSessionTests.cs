@@ -208,7 +208,7 @@ public sealed class WebTransportSessionTests
         Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.ResetCode(UnitTestWebTransport.ServerAnswerStreamId));
         Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.StopSendingCode(Http3TestQuicClient.EncoderStreamId));
         Assert.IsNull(client.ResetCode(0), "WTH3 6: the server closes the CONNECT stream with FIN.");
-        Assert.Contains("The client closed session 0 with code 7: by", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "The client closed session 0 with code 7: by", Token);
     }
 
     [TestMethod]
@@ -250,7 +250,7 @@ public sealed class WebTransportSessionTests
         await client.UntilAsync(() => client.StreamSent(0).Fin && client.ResetCode(4) is not null, Token);
 
         Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.ResetCode(4));
-        Assert.Contains("The client ended session 0's CONNECT stream.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "The client ended session 0's CONNECT stream.", Token);
     }
 
     [TestMethod]
@@ -537,7 +537,7 @@ public sealed class WebTransportSessionTests
         var close = "6843" + "1E" + "00000001" + Convert.ToHexString(Encoding.ASCII.GetBytes("session data limit reached"));
         Assert.AreEqual(close, Convert.ToHexString([.. client.Response(0).Body]), "ADR-0117 decision 8.");
         Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.ResetCode(4));
-        Assert.Contains("Session 0 was closed: its payload reached --max-filesize (4 bytes).", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "Session 0 was closed: its payload reached --max-filesize (4 bytes).", Token);
     }
 
     [TestMethod]

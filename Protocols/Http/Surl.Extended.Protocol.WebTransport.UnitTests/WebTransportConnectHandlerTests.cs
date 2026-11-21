@@ -27,7 +27,7 @@ public sealed class WebTransportConnectHandlerTests
         Assert.AreEqual("200", response.Status);
         Assert.HasCount(1, response.Fields, "WTH3 3.2: 200 and no other field.");
         Assert.IsFalse(response.Fin, "A 2xx establishes the session; the CONNECT stream stays open.");
-        Assert.Contains("WebTransport session 0 on /echo was accepted.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "WebTransport session 0 on /echo was accepted.", Token);
     }
 
     [TestMethod]
@@ -53,7 +53,7 @@ public sealed class WebTransportConnectHandlerTests
         Assert.AreEqual("405", response.Status);
         CollectionAssert.AreEqual(new[] { "allow: CONNECT" }, response.RegularFields);
         Assert.IsEmpty(client.Response(0).Body);
-        Assert.Contains("WebTransport CONNECT 0 to /echoes was answered 405.", log.Notes);
+        await UnitTestWebTransport.WaitForNoteAsync(log, "WebTransport CONNECT 0 to /echoes was answered 405.", Token);
     }
 
     [TestMethod]
