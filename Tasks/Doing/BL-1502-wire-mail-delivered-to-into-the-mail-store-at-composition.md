@@ -32,3 +32,4 @@ ADR-0053 Amendment 1 decision 1. `Application/Surl.Composition.UnitLibrary/Mailb
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
