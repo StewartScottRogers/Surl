@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1476 — Give Surl.Composition's routing servers the exchange-log redactor of the server they route to, so --proxy logs no Proxy-Authorization
 
@@ -50,18 +50,18 @@ is handed redacts as the server behind it does (ADR-0182).
 
 ## Acceptance criteria
 
-- [ ] `ProxyRoutingProtocolServer` and `SignalRHubRoutingProtocolServer` implement `IExchangeBytesRedactingServer`, and
+- [x] `ProxyRoutingProtocolServer` and `SignalRHubRoutingProtocolServer` implement `IExchangeBytesRedactingServer`, and
       `ProxyRoutingProtocolServerTests` has named tests: origin redacting gives the origin's redactor, origin not
       redacting gives the proxy's, neither gives one that passes bytes through unchanged.
-- [ ] A named test in `Application/Surl.Composition.UnitTests` starts a composed instance with `--proxy` and a proxy account
+- [x] A named test in `Application/Surl.Composition.UnitTests` starts a composed instance with `--proxy` and a proxy account
       (`-U alice:secret`) over `FakeListenerFactory`/`StartTestSeams`, sends a proxy `GET` with a wrong
       `Proxy-Authorization: Basic` and one with the right one, and finds `Proxy-Authorization: Basic ****` and no
       base64 credential in the `-v` log for both, and the 407 still sent.
-- [ ] A named test shows an origin `http` listen URL beside `--proxy` logs `Authorization: Basic ****`.
-- [ ] A named test composes every original and extended registration with a proxy listen URL and asserts that each
+- [x] A named test shows an origin `http` listen URL beside `--proxy` logs `Authorization: Basic ****`.
+- [x] A named test composes every original and extended registration with a proxy listen URL and asserts that each
       composed server whose wrapped server is an `IExchangeBytesRedactingServer` is one itself, so a new wrapper
       cannot drop redaction silently.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"`
       is green, and coverage stays at 100% line and branch for `Surl.Composition.UnitLibrary`.
 
 ## Notes
@@ -72,3 +72,4 @@ is handed redacts as the server behind it does (ADR-0182).
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ProxyRoutingProtocolServer and SignalRHubRoutingProtocolServer now implement IExchangeBytesRedactingServer; tests added
