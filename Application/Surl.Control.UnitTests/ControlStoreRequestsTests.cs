@@ -231,6 +231,65 @@ public sealed class ControlStoreRequestsTests
     }
 
     [TestMethod]
+    [DataRow("/v1/accounts", "account")]
+    [DataRow("/v1/proxy-accounts", "proxy account")]
+    [DataRow("/v1/tls-srp-accounts", "TLS-SRP account")]
+    public async Task AddAccountAsync_ANameThatHasAnAccount_Is409(string path, string kind)
+    {
+        var message = $"user bob already has an {kind}".Replace("an proxy", "a proxy").Replace("an TLS", "a TLS");
+        var target = new FakeControlTarget { Failure = new ControlRefusalException(ControlRefusalKind.Conflict, message) };
+
+        var response = await Serve(target, Request("POST", path, "application/json", "{\"user\":\"bob\",\"password\":\"s3cret-pass\"}"));
+
+        Assert.AreEqual("HTTP/1.1 409 Conflict", StatusLine(response));
+        Assert.Contains(message, Body(response));
+        Assert.DoesNotContain("s3cret-pass", response);
+    }
+
+    [TestMethod]
+    [DataRow("/v1/accounts/bob%20smith", "SetAccountPassword", "account")]
+    [DataRow("/v1/proxy-accounts/bob%20smith", "SetProxyAccountPassword", "proxy account")]
+    [DataRow("/v1/tls-srp-accounts/bob%20smith", "SetTlsSrpAccountPassword", "TLS-SRP account")]
+    public async Task SetPasswordAsync_KnownOrUnknownUser_Answers204Or404(string path, string call, string kind)
+    {
+        var target = new FakeControlTarget();
+
+        var known = await Serve(target, Request("PUT", path, "application/json", "{\"password\":\"s3cret-pass\"}"));
+        var unknown = await Serve(new FakeControlTarget { Found = false }, Request("PUT", path, "application/json", "{\"password\":\"s3cret-pass\"}"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(known));
+        CollectionAssert.AreEqual(new[] { $"{call} bob smith s3cret-pass" }, target.Calls);
+        Assert.AreEqual("HTTP/1.1 404 Not Found", StatusLine(unknown));
+        Assert.Contains($"no {kind} is named bob smith", Body(unknown));
+        Assert.DoesNotContain("s3cret-pass", Body(unknown));
+    }
+
+    [TestMethod]
+    [DataRow("{\"password\":\"\"}")]
+    [DataRow("{}")]
+    [DataRow("{\"user\":\"bob\",\"password\":\"x\"}")]
+    [DataRow("not json")]
+    public async Task SetPasswordAsync_AnEmptyOrMalformedBody_Is400AndCallsNothing(string body)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("PUT", "/v1/accounts/bob", "application/json", body));
+
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
+    [TestMethod]
+    public async Task SetPasswordAsync_TheTargetRefuses_AnswersItsStatus()
+    {
+        var target = new FakeControlTarget { Failure = new ControlRefusalException(ControlRefusalKind.Conflict, "TLS-SRP is not configured") };
+
+        var response = await Serve(target, Request("PUT", "/v1/tls-srp-accounts/bob", "application/json", "{\"password\":\"pw\"}"));
+
+        Assert.AreEqual("HTTP/1.1 409 Conflict", StatusLine(response));
+    }
+
+    [TestMethod]
     [DataRow("/v1/proxy-accounts", "AddProxyAccount")]
     [DataRow("/v1/tls-srp-accounts", "AddTlsSrpAccount")]
     public async Task AddProxyOrTlsSrpAccountAsync_UserAndPassword_AddsItAndAnswers204(string path, string call)

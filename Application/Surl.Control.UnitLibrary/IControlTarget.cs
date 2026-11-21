@@ -84,12 +84,33 @@ public interface IControlTarget
     /// <returns>The seed.</returns>
     Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken);
 
-    /// <summary>Adds an account, or replaces the password of one with the same name.</summary>
+    /// <summary>Adds an account (ADR-0132 amendment 1).</summary>
     /// <param name="user">The account name.</param>
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">Cancels the addition.</param>
-    /// <returns>The addition.</returns>
+    /// <returns>The addition; refused <see cref="ControlRefusalKind.Conflict"/> when an account has that name, which is kept.</returns>
     Task AddAccountAsync(string user, string password, CancellationToken cancellationToken);
+
+    /// <summary>Gives an account a new password, keeping its other members (ADR-0132 amendment 1).</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="password">The new password.</param>
+    /// <param name="cancellationToken">Cancels the change.</param>
+    /// <returns>Whether an account had that name; when none did, nothing changed.</returns>
+    Task<bool> SetAccountPasswordAsync(string user, string password, CancellationToken cancellationToken);
+
+    /// <summary>Gives a proxy account a new password (ADR-0132 amendment 1).</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="password">The new password.</param>
+    /// <param name="cancellationToken">Cancels the change.</param>
+    /// <returns>Whether a proxy account had that name; refused <see cref="ControlRefusalKind.Conflict"/> when none is configured.</returns>
+    Task<bool> SetProxyAccountPasswordAsync(string user, string password, CancellationToken cancellationToken);
+
+    /// <summary>Gives a TLS-SRP account a new password (ADR-0132 amendment 1).</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="password">The new password.</param>
+    /// <param name="cancellationToken">Cancels the change.</param>
+    /// <returns>Whether a TLS-SRP account had that name; refused <see cref="ControlRefusalKind.Conflict"/> when TLS-SRP is not configured.</returns>
+    Task<bool> SetTlsSrpAccountPasswordAsync(string user, string password, CancellationToken cancellationToken);
 
     /// <summary>Removes an account.</summary>
     /// <param name="user">The account name.</param>
@@ -97,7 +118,7 @@ public interface IControlTarget
     /// <returns>Whether an account had that name.</returns>
     Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken);
 
-    /// <summary>Adds a proxy account, or replaces the password of one with the same name (ADR-0170 decision 4).</summary>
+    /// <summary>Adds a proxy account (ADR-0170 decision 4; a name already taken is refused as for accounts).</summary>
     /// <param name="user">The account name.</param>
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">Cancels the addition.</param>
@@ -110,7 +131,7 @@ public interface IControlTarget
     /// <returns>Whether a proxy account had that name; refused <see cref="ControlRefusalKind.Conflict"/> when none is configured.</returns>
     Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken);
 
-    /// <summary>Adds a TLS-SRP account, or replaces the password of one with the same name (ADR-0170 decision 4).</summary>
+    /// <summary>Adds a TLS-SRP account (ADR-0170 decision 4; a name already taken is refused as for accounts).</summary>
     /// <param name="user">The account name.</param>
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">Cancels the addition.</param>

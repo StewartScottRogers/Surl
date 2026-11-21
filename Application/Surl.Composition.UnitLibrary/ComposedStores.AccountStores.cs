@@ -28,6 +28,60 @@ public sealed partial class ComposedStores
         Publish(StoreKind.ProxyAccounts, StoreChange.AccountAdded, account.UserName);
     }
 
+    /// <summary>
+    /// Gives a proxy account a new password while the server runs, publishing <see cref="StoreChange.AccountRemoved"/>
+    /// then <see cref="StoreChange.AccountAdded"/> on <see cref="StoreKind.ProxyAccounts"/> (ADR-0132 amendment 1).
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password, never empty.</param>
+    /// <returns>Whether a proxy account had that name; when none did, nothing changed or was published.</returns>
+    /// <exception cref="InvalidOperationException">No proxy account is configured.</exception>
+    public bool SetProxyAccountPassword(string userName, string password)
+    {
+        var book = ProxyBook();
+        if (!book.UserNames.Contains(userName))
+        {
+            return false;
+        }
+
+        book.SetPassword(userName, password);
+        PublishPasswordChange(StoreKind.ProxyAccounts, userName);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Gives a TLS-SRP account a new password while the server runs, with a fresh salt from the instance's
+    /// seedable random, publishing <see cref="StoreChange.AccountRemoved"/> then <see cref="StoreChange.AccountAdded"/>
+    /// on <see cref="StoreKind.TlsSrpAccounts"/> (ADR-0132 amendment 1).
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password, never empty.</param>
+    /// <returns>Whether a TLS-SRP account had that name; when none did, nothing changed or was published.</returns>
+    /// <exception cref="InvalidOperationException">TLS-SRP is not configured.</exception>
+    public bool SetTlsSrpAccountPassword(string userName, string password)
+    {
+        var (accounts, salts) = TlsSrp();
+        try
+        {
+            accounts.SetPassword(userName, password, salts);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        PublishPasswordChange(StoreKind.TlsSrpAccounts, userName);
+
+        return true;
+    }
+
+    private void PublishPasswordChange(StoreKind store, string userName)
+    {
+        Publish(store, StoreChange.AccountRemoved, userName);
+        Publish(store, StoreChange.AccountAdded, userName);
+    }
+
     /// <summary>Removes a proxy account while the server runs.</summary>
     /// <param name="userName">The user name.</param>
     /// <returns>Whether a proxy account had that name.</returns>

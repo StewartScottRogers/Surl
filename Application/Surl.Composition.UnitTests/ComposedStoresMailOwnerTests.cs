@@ -54,14 +54,14 @@ public sealed class ComposedStoresMailOwnerTests
     }
 
     [TestMethod]
-    public async Task AddAccountAsync_ForAnExistingName_KeepsTheOwnersMessages()
+    public async Task SetAccountPasswordAsync_ForAnExistingName_KeepsTheOwnersMessages()
     {
         await using var serving = await ComposeAsync("-u", "alice:secret");
         var stores = serving.Stores;
         await stores.SeedMailAsync("alice@example.com", Encoding.ASCII.GetBytes(Message), TestContext.CancellationToken);
         var target = new ComposedControlTarget(serving.Events, serving.Faults, stores);
 
-        await target.AddAccountAsync("alice", "changed", TestContext.CancellationToken);
+        await target.SetAccountPasswordAsync("alice", "changed", TestContext.CancellationToken);
 
         Assert.AreEqual(1, stores.ListMailboxes("alice").Value!.Single().MessageCount);
     }

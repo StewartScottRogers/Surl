@@ -634,6 +634,26 @@ public sealed partial class ComposedStores
     }
 
     /// <summary>
+    /// Gives an account a new password while the server runs, as <see cref="AccountBook.SetPassword"/> does:
+    /// <c>AccountRemoved</c> then <c>AccountAdded</c> are published, the mail-store owner is untouched
+    /// (ADR-0132 amendment 1).
+    /// </summary>
+    /// <param name="userName">The user name.</param>
+    /// <param name="password">The new password, never empty.</param>
+    /// <returns>Whether an account had that name; when none did, nothing changed.</returns>
+    public bool SetAccountPassword(string userName, string password)
+    {
+        if (!accounts.UserNames.Contains(userName))
+        {
+            return false;
+        }
+
+        accounts.SetPassword(userName, password);
+
+        return true;
+    }
+
+    /// <summary>
     /// Removes an account while the server runs, as <see cref="AccountBook.Remove"/> does.
     /// </summary>
     /// <remarks>

@@ -185,10 +185,34 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     /// <inheritdoc/>
     public Task AddAccountAsync(string user, string password, CancellationToken cancellationToken)
     {
-        stores.RemoveAccount(user);
-        stores.AddAccount(new Account(user, password));
+        try
+        {
+            stores.AddAccount(new Account(user, password));
+        }
+        catch (ArgumentException)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, $"user {user} already has an account");
+        }
+
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    public Task<bool> SetAccountPasswordAsync(string user, string password, CancellationToken cancellationToken) =>
+        SettingAPassword(() => stores.SetAccountPassword(user, password), password);
+
+    /// <inheritdoc/>
+    public Task<bool> SetProxyAccountPasswordAsync(string user, string password, CancellationToken cancellationToken) =>
+        SettingAPassword(() => stores.SetProxyAccountPassword(user, password), password);
+
+    /// <inheritdoc/>
+    public Task<bool> SetTlsSrpAccountPasswordAsync(string user, string password, CancellationToken cancellationToken) =>
+        SettingAPassword(() => stores.SetTlsSrpAccountPassword(user, password), password);
+
+    private static Task<bool> SettingAPassword(Func<bool> set, string password) =>
+        password.Length == 0
+            ? throw new ControlRefusalException(ControlRefusalKind.BadRequest, "the password must not be empty")
+            : RefusingAnAbsentStore(set);
 
     /// <inheritdoc/>
     public Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken)
@@ -204,12 +228,7 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
 
     /// <inheritdoc/>
     public Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken) =>
-        RefusingAnAbsentStore(() =>
-        {
-            stores.RemoveProxyAccount(user);
-            stores.AddProxyAccount(new Account(user, password));
-            return true;
-        });
+        RefusingAnAbsentStore(() => AddingANewName(() => stores.AddProxyAccount(new Account(user, password)), $"user {user} already has a proxy account"));
 
     /// <inheritdoc/>
     public Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken) =>
@@ -226,12 +245,22 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
 
     /// <inheritdoc/>
     public Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken) =>
-        RefusingAnAbsentStore(() =>
+        RefusingAnAbsentStore(() => AddingANewName(() => stores.AddTlsSrpAccount(user, password), $"user {user} already has a TLS-SRP account"));
+
+    // A name that already has an account is a conflict and the account is kept (ADR-0132 amendment 1).
+    private static bool AddingANewName(Action add, string conflictMessage)
+    {
+        try
         {
-            stores.RemoveTlsSrpAccount(user);
-            stores.AddTlsSrpAccount(user, password);
-            return true;
-        });
+            add();
+        }
+        catch (ArgumentException)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, conflictMessage);
+        }
+
+        return true;
+    }
 
     /// <inheritdoc/>
     public Task<bool> RemoveTlsSrpAccountAsync(string user, CancellationToken cancellationToken) =>
