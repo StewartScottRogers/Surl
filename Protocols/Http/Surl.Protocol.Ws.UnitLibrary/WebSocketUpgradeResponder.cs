@@ -174,7 +174,7 @@ internal sealed partial class WebSocketUpgradeResponder
             return await RefuseAsync(refusal);
         }
 
-        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName, connection);
         if (rule is { Kind: FaultKind.Drop })
         {
             connection.Abort();

@@ -60,7 +60,7 @@ internal sealed partial class HttpRequestAnswerer
     private async Task<HttpAnswer?> AnswerChosenErrorAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges)
     {
         var path = RequestPath(request.Target);
-        var rule = await HttpCommandFaults.FindAndApplyAsync(context, request.Method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, request.Method, path, accountName, holdConnection);
         if (rule is null)
         {
             return null;

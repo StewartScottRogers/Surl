@@ -115,7 +115,7 @@ public sealed class RtspFaultTests
         var idleClock = new RecordingIdleClock();
         var connection = new InMemoryConnection([RecordedRequest("libcurl-describe")]);
 
-        var serving = ServeWithFaultsAsync([], new ScriptedFaultPlan(rule), connection: connection, time: time, idleClock: idleClock);
+        var serving = ServeWithFaultsAsync([], new ScriptedFaultPlan(rule), connection: connection, time: time, idleClock: idleClock, clientStays: true);
         await idleClock.FirstPause;
         var writtenWhileHeld = connection.WrittenBytes.Length;
         time.Advance(TimeSpan.FromMilliseconds(499));
@@ -128,6 +128,16 @@ public sealed class RtspFaultTests
         Assert.AreEqual(Latin1(RecordedResponse("libcurl-describe")), Latin1(connection.WrittenBytes));
         Assert.IsFalse(idleClock.IsPaused);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/clip.bin"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task DelayRuleAtTheCommandStage_EndsWhenTheClientHalfClosesWithoutTheClockAdvancing()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+
+        var (_, log, _, _) = await ServeWithFaultsAsync([RecordedRequest("libcurl-describe")], new ScriptedFaultPlan(rule));
+
+        Assert.Contains("Exchange 1: the client closed the connection during the hold by fault rule f1.", log.Notes);
     }
 
     [TestMethod]
@@ -155,14 +165,14 @@ public sealed class RtspFaultTests
     }
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log, RecordingSurlEventPublisher Events, ScriptedFaultPlan Plan)> ServeWithFaultsAsync(
         IEnumerable<ReadOnlyMemory<byte>> chunks, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null, Content.IContentFileSystem? fileSystem = null, Content.ContentExposureOptions? exposureOptions = null,
-        InMemoryConnection? connection = null, ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null)
+        InMemoryConnection? connection = null, ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null, bool clientStays = false)
     {
         connection ??= new InMemoryConnection(chunks);
         var log = new RecordingExchangeLog();
         var events = new RecordingSurlEventPublisher();
         var context = Context(log, time ?? new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock ?? (IIdleClock)NoIdleClock.Instance };
 
-        await Server(fileSystem, policy, exposureOptions).ServeAsync(connection, context);
+        await Server(fileSystem, policy, exposureOptions).ServeAsync(clientStays ? new UnwatchedInMemoryConnection(connection) : connection, context);
 
         return (connection, log, events, plan);
     }

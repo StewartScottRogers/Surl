@@ -32,6 +32,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     private readonly ExchangeContext context;
     private readonly ContentStore contentStore;
     private readonly IHttpAuthenticationSession authenticationSession;
+    private readonly IConnection? holdConnection;
 
     /// <summary>
     /// Creates an answerer for one connection.
@@ -39,8 +40,10 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where request paths are looked up.</param>
     /// <param name="authenticationSession">The connection's authentication session, which judges every request.</param>
-    public HttpRequestAnswerer(ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
+    /// <param name="holdConnection">The connection a command-stage delay watches for the client leaving (ADR-0141 amendment 2): the HTTP/1.x connection one request owns at a time; <see langword="null"/> for HTTP/2 and HTTP/3 streams, which share theirs.</param>
+    public HttpRequestAnswerer(ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession, IConnection? holdConnection = null)
     {
+        this.holdConnection = holdConnection;
         this.context = context;
         this.contentStore = contentStore;
         this.authenticationSession = authenticationSession;

@@ -29,13 +29,23 @@ public static class HttpCommandFaults
     /// <param name="method">The request's method, or <c>GET</c> for a WebSocket upgrade.</param>
     /// <param name="path">The request path without its query, or <see langword="null"/> when the request names none.</param>
     /// <param name="accountName">The account the request logged in as; <see langword="null"/> or empty when anonymous.</param>
+    /// <param name="connection">
+    /// The connection this one exchange owns (HTTP/1.x, RTSP, WebSocket), so a delay's hold ends when
+    /// the client closes or resets (ADR-0141 amendment 2); <see langword="null"/> for an HTTP/2 or
+    /// HTTP/3 stream, which shares its connection with others, and for a server that does not hold
+    /// the connection. A dropped exchange is still ended by the caller.
+    /// </param>
     /// <returns>The chosen-error or drop rule to act on, or <see langword="null"/>.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
-    public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, string method, string? path, string? accountName)
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(
+        ExchangeContext context, string method, string? path, string? accountName, IConnection? connection = null)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var rule = await CommandStageFaults.FindAndApplyAsync(context, CommandPoint(context, method, path, accountName), path ?? method);
+        var point = CommandPoint(context, method, path, accountName);
+        var rule = await (connection is null
+            ? CommandStageFaults.FindAndApplyAsync(context, point, path ?? method)
+            : CommandStageFaults.FindAndApplyAsync(context, connection, point, path ?? method));
         if (rule is null or { Kind: FaultKind.Error or FaultKind.Drop })
         {
             return rule;

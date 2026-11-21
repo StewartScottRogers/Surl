@@ -59,7 +59,7 @@ internal sealed partial class RtspRequestResponder
         var path = head.RequestTarget.StartsWith(AbsoluteUrlPrefix, StringComparison.OrdinalIgnoreCase)
             ? PresentationPath(head.RequestTarget)
             : null;
-        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName, connection);
         if (rule is { Kind: FaultKind.Drop })
         {
             connection.Abort();
