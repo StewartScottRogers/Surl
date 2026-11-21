@@ -61,3 +61,4 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Backlog. Release dry run still cannot be dispatched: factory/lane-1 is not pushed (the shift pushes on integration); re-run after the shift integrates 4670a104c
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Blocked. Waiting for run:44920264373 (release.yml on factory/phase-1 at 6c17adbd4, which holds the conformance test)
