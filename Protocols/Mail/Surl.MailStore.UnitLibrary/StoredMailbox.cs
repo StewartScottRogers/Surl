@@ -11,6 +11,9 @@ internal sealed class StoredMailbox(string name, uint uidValidity, uint nextUid)
 
     public uint NextUid { get; set; } = nextUid;
 
+    /// <summary>The mailbox's RFC 6154 use in its canonical spelling, or <see langword="null"/>.</summary>
+    public string? Use { get; set; }
+
     public SortedList<uint, StoredMessage> Messages { get; set; } = [];
 
     /// <summary>
@@ -26,5 +29,5 @@ internal sealed class StoredMailbox(string name, uint uidValidity, uint nextUid)
         [.. Messages.Values.Where(message => message.Flags.HasFlag(MailFlags.Deleted)).Select(message => message.Uid)];
 
     public MailboxSnapshot Snapshot() =>
-        new(Name, UidValidity, NextUid, [.. Messages.Values.Select(message => message.Summarize())]);
+        new(Name, UidValidity, NextUid, [.. Messages.Values.Select(message => message.Summarize())], Use);
 }

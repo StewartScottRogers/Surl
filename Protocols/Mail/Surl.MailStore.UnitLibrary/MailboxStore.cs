@@ -91,7 +91,7 @@ public sealed partial class MailboxStore
     private OwnerMailboxes? anonymousOwner;
     private MailDomainRouter? router;
     private MailStoreFiles? files;
-    private readonly Dictionary<OwnerMailboxes, string[]>? configuredMailboxes;
+    private readonly Dictionary<OwnerMailboxes, (string Name, string? Use)[]>? configuredMailboxes;
     private readonly string[] configuredAccountNames = [];
     private ulong nextFileNumber;
     private uint lastUidValidity;
@@ -145,7 +145,7 @@ public sealed partial class MailboxStore
     {
         ArgumentNullException.ThrowIfNull(accountNames);
         anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
-        configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Keys.ToArray());
+        configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Values.Select(mailbox => (mailbox.Name, mailbox.Use)).ToArray());
         configuredAccountNames = [.. accounts.Keys];
 
         // A new store starts with no change: its INBOXes are where it begins, not a change to it.
@@ -1134,6 +1134,7 @@ public sealed partial class MailboxStore
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The new mailbox's name.</param>
     /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="use">The RFC 6154 use the mailbox gets (<see cref="MailFolderUse"/>, with or without the backslash), or <see langword="null"/> for none; <see cref="MailStoreOutcome.FolderUseUnknown"/> or <see cref="MailStoreOutcome.FolderUseTaken"/> refuse it.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
     /// <see cref="MailStoreOutcome.InvalidName"/>, <see cref="MailStoreOutcome.AlreadyExists"/> or
@@ -1141,19 +1142,25 @@ public sealed partial class MailboxStore
     /// when no <c>UIDVALIDITY</c> is left to give.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null)
+    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null, string? use = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(mailboxName);
         lock (storeLock)
         {
             var outcome = CheckNewMailbox(view, mailboxName);
+            var canonicalUse = MailFolderUse.Canonical(use);
+            if (outcome == MailStoreOutcome.Succeeded)
+            {
+                outcome = CheckUse(view.Owner!, use, canonicalUse);
+            }
+
             if (outcome != MailStoreOutcome.Succeeded)
             {
                 return outcome;
             }
 
-            var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1);
+            var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1) { Use = canonicalUse };
             AddMailbox(view.Owner!, created);
             changeCount++;
             PublishMailbox(StoreChange.Written, view.Owner!, created, exchange);
@@ -1233,7 +1240,8 @@ public sealed partial class MailboxStore
             }
 
             var owner = view.Owner!;
-            var renamed = new StoredMailbox(newMailboxName, IssueUidValidity(), mailbox!.NextUid) { Messages = mailbox.Messages };
+            var renamed = new StoredMailbox(newMailboxName, IssueUidValidity(), mailbox!.NextUid) { Messages = mailbox.Messages, Use = mailbox.Use };
+            mailbox.Use = null;
             mailbox.Messages = [];
             if (!renamesInbox)
             {
@@ -1563,9 +1571,10 @@ public sealed partial class MailboxStore
                 quotas.Add(owner, quota);
             }
 
-            foreach (var folder in mailbox.Folders)
+            var uses = mailbox.FolderUses ?? new Dictionary<string, string>();
+            foreach (var folder in mailbox.Folders.Concat(uses.Keys))
             {
-                AddConfiguredMailbox(owner, folder);
+                AddConfiguredMailbox(owner, folder, uses.GetValueOrDefault(folder));
             }
         }
     }
@@ -1601,7 +1610,7 @@ public sealed partial class MailboxStore
     /// exists; <c>INBOX</c> always does.
     /// </summary>
     /// <exception cref="InvalidOperationException">It would pass <see cref="MaxMailboxes"/>.</exception>
-    private void AddConfiguredMailbox(OwnerMailboxes owner, string name)
+    private void AddConfiguredMailbox(OwnerMailboxes owner, string name, string? use = null)
     {
         if (owner.Find(name) is not null)
         {
@@ -1613,7 +1622,7 @@ public sealed partial class MailboxStore
             throw new InvalidOperationException($"The configured mailbox {name} of {owner.Name} would pass the store's {MaxMailboxes} mailboxes.");
         }
 
-        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1));
+        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1) { Use = use });
         changeCount++;
     }
 
@@ -1688,6 +1697,43 @@ public sealed partial class MailboxStore
         }
 
         return view.Owner.Find(mailboxName) is null ? CheckRoomForMailbox(addsMailbox) : MailStoreOutcome.AlreadyExists;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="owner"/> may give a mailbox <paramref name="use"/> (given as asked,
+    /// <paramref name="canonicalUse"/> as <see cref="MailFolderUse.Canonical"/> spells it): none
+    /// asked is always fine.
+    /// </summary>
+    private static MailStoreOutcome CheckUse(OwnerMailboxes owner, string? use, string? canonicalUse)
+    {
+        if (use is null)
+        {
+            return MailStoreOutcome.Succeeded;
+        }
+
+        if (canonicalUse is null)
+        {
+            return MailStoreOutcome.FolderUseUnknown;
+        }
+
+        return owner.Mailboxes.Values.Any(held => held.Use == canonicalUse) ? MailStoreOutcome.FolderUseTaken : MailStoreOutcome.Succeeded;
+    }
+
+    /// <summary>
+    /// The RFC 6154 use of each of the view's own mailboxes that has one, by mailbox name; empty
+    /// for an empty view. Shared folders have none.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <returns>Mailbox name to use in its canonical spelling, such as <c>\Sent</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> is <see langword="null"/>.</exception>
+    public IReadOnlyDictionary<string, string> ReadMailboxUses(MailView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        lock (storeLock)
+        {
+            var held = view.Owner?.Mailboxes.Values.Where(mailbox => mailbox.Use is not null && !HidesAsShared(view, mailbox.Name)) ?? [];
+            return held.ToDictionary(mailbox => mailbox.Name, mailbox => mailbox.Use!, StringComparer.Ordinal);
+        }
     }
 
     private MailStoreOutcome CheckRoomForMailbox(bool addsMailbox)

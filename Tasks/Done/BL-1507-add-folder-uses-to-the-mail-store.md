@@ -8,7 +8,7 @@ depends-on: [BL-1486]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1507 — Add folder uses to the mail store
 
@@ -22,12 +22,12 @@ ADR-0055 Amendment 1 (`Documentation/Planning/Decisions/ADR-0055-how-the-imap-se
 
 ## Acceptance criteria
 
-- [ ] `MailboxSettings.FolderUses` exists (folder name to use, default empty) and a configured folder is created with its use.
-- [ ] The store exposes a mailbox's use for reading and takes one at create time; a second folder of one owner given the same use is refused with a named outcome, and so is a use outside RFC 6154 section 2.
-- [ ] Reset recreates each configured folder with its configured use and drops a use gained at runtime along with its mailbox.
-- [ ] TakeSnapshot and Restore copy each mailbox's use beside its name and next UID.
-- [ ] RenameMailbox carries the use to the new name; deleting a mailbox ends its use.
-- [ ] Tests for each of the above exist and pass; the library keeps 100% line and branch coverage; `dotnet build` of both projects with `-warnaserror` is clean.
+- [x] `MailboxSettings.FolderUses` exists (folder name to use, default empty) and a configured folder is created with its use.
+- [x] The store exposes a mailbox's use for reading and takes one at create time; a second folder of one owner given the same use is refused with a named outcome, and so is a use outside RFC 6154 section 2.
+- [x] Reset recreates each configured folder with its configured use and drops a use gained at runtime along with its mailbox.
+- [x] TakeSnapshot and Restore copy each mailbox's use beside its name and next UID.
+- [x] RenameMailbox carries the use to the new name; deleting a mailbox ends its use.
+- [x] Tests for each of the above exist and pass; the library keeps 100% line and branch coverage; `dotnet build` of both projects with `-warnaserror` is clean.
 
 ## Notes
 
@@ -35,3 +35,4 @@ ADR-0055 Amendment 1 (`Documentation/Planning/Decisions/ADR-0055-how-the-imap-se
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Mail store holds RFC 6154 folder uses through create, reset, snapshot, restore, rename and delete

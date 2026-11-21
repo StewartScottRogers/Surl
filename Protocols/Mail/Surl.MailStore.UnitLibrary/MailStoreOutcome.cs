@@ -57,4 +57,12 @@ public enum MailStoreOutcome
     /// or rename a mailbox to <c>Shared</c> or a name under <c>Shared/</c> while shared folders
     /// are configured (ADR-0102, decision 1.6): IMAP answers <c>NO [NOPERM]</c>.</summary>
     SharedFolderProtected,
+
+    /// <summary>The use is none of RFC 6154 section 2's (<see cref="MailFolderUse.All"/>), or was
+    /// given to <c>INBOX</c> (ADR-0055, Amendment 1): IMAP answers <c>NO [USEATTR]</c>.</summary>
+    FolderUseUnknown,
+
+    /// <summary>Another mailbox of the owner already holds the use (one folder per use): IMAP
+    /// answers <c>NO [USEATTR]</c>.</summary>
+    FolderUseTaken,
 }
