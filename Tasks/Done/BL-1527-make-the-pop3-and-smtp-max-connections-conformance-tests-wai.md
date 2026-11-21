@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlReadsMailFromSurlOverPop3Tests.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlSendsMailToSurlOverSmtpTests.cs]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1527 — Make the POP3 and SMTP max-connections conformance tests wait for the seed's exchange to end before the holder dials, as BL-1387 did for IMAP
 
@@ -30,16 +30,20 @@ and any SMTP max-connections test that seeds over another connection first, can 
 
 ## Acceptance criteria
 
-- [ ] The POP3 test retries the holder's dial, bounded, until it is greeted `+OK`, the way BL-1387's IMAP fix does
+- [x] The POP3 test retries the holder's dial, bounded, until it is greeted `+OK`, the way BL-1387's IMAP fix does
       (or both share one helper).
-- [ ] Every other max-connections conformance test that seeds over another connection before dialling its holder
+- [x] Every other max-connections conformance test that seeds over another connection before dialling its holder
       (search `Conformance/` for `MaxConnections1WhileAnotherClientHoldsIt`) gets the same wait; the Log lists them.
-- [ ] Assertions are otherwise unchanged.
-- [ ] `dotnet build` clean and the fast tests green.
+- [x] Assertions are otherwise unchanged.
+- [x] `dotnet build` clean and the fast tests green.
 
 ## Notes
+
+- POP3 test now dials until greeted +OK (DialUntilGreetedAsync, 10 s bound), as BL-1387 did for IMAP.
+- SMTP test (Send_MaxConnections1...) seeds nothing before its holder dials, so it cannot race; unchanged. FTP test also seeds nothing. Only POP3 and IMAP seed over SMTP.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. POP3 holder dial retries until greeted +OK; build clean, fast tests green

@@ -434,11 +434,9 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
         await using var surl = await StartSurlAsync(NewTemporaryDirectory(), "pop3", "--user-file", accounts.Path, "--max-connections", "1");
         await SendMailOverSmtpAsync(surl, Credentials);
-        var pop3 = surl.BaseUrlOf("pop3");
-        using var holder = new TcpClient();
-        await holder.ConnectAsync(pop3.Host, pop3.Port, TestContext.CancellationToken);
-        using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
-        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "+OK");
+        var (holder, holderReader) = await DialUntilGreetedAsync(surl);
+        using var holderConnection = holder;
+        using var holderGreetings = holderReader;
 
         // The greeting alone shows surl accepted the holder; a CAPA answered (NOOP needs a login in
         // POP3) shows its exchange is running and counted, so curl's connection is past the limit
@@ -449,6 +447,31 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
         var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, Pop3Url(surl, "/1"));
 
         Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
+    }
+
+    // surl offers a test no way to see an exchange end, and the SMTP send's exchange can still be counted
+    // against --max-connections 1 after its client has closed (BL-1527, as BL-1387 for IMAP). So dial again,
+    // up to 10 s, until a connection is greeted +OK rather than -ERR; the greeting that ends the wait is the holder's.
+    private async Task<(TcpClient Connection, StreamReader Greetings)> DialUntilGreetedAsync(SurlOnLoopback surl)
+    {
+        var pop3 = surl.BaseUrlOf("pop3");
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            var attempt = new TcpClient();
+            await attempt.ConnectAsync(pop3.Host, pop3.Port, TestContext.CancellationToken);
+            var reader = new StreamReader(attempt.GetStream(), Encoding.ASCII);
+            var greeting = await reader.ReadLineAsync(TestContext.CancellationToken);
+            if (greeting is not null && greeting.StartsWith("+OK", StringComparison.Ordinal))
+            {
+                return (attempt, reader);
+            }
+
+            reader.Dispose();
+            attempt.Dispose();
+            Assert.IsLessThan(deadline, DateTime.UtcNow, $"surl still refused the holder after 10 s: {greeting}");
+            await Task.Delay(100, TestContext.CancellationToken);
+        }
     }
 
     // The stored message is ADR-0053 decision 6's Return-Path and Received fields, then mail.txt.
