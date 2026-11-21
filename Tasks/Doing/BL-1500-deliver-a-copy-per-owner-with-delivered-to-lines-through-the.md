@@ -34,3 +34,4 @@ ADR-0053 Amendment 1 decisions 3, 4, 5 and 7 (the amendment is in `Documentation
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
