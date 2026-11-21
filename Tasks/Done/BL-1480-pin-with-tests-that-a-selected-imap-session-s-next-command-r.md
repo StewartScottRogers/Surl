@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1480 — Pin with tests that a selected IMAP session's next command reports mail added meanwhile as an untagged EXISTS
 
@@ -47,21 +47,23 @@ next `NOOP`, `CHECK` or other updating command, and any defect they find is fixe
 
 ## Acceptance criteria
 
-- [ ] A named test in `Protocols/Mail/Surl.Protocol.Imap.UnitTests` selects `INBOX` holding one message, delivers a second through
+- [x] A named test in `Protocols/Mail/Surl.Protocol.Imap.UnitTests` selects `INBOX` holding one message, delivers a second through
       `MailboxStore.DeliverAsync` between commands, and sends `NOOP`: the answer is `* 2 EXISTS` then `<tag> OK NOOP completed`.
-- [ ] The same with an empty `INBOX` at `SELECT` (`* 1 EXISTS`), and with the message appended by a second IMAP session.
-- [ ] A named test shows `CHECK` and `STATUS INBOX (MESSAGES)` carry the same `* <n> EXISTS`, and one shows `FETCH 1 UID` does not
+- [x] The same with an empty `INBOX` at `SELECT` (`* 1 EXISTS`), and with the message appended by a second IMAP session.
+- [x] A named test shows `CHECK` and `STATUS INBOX (MESSAGES)` carry the same `* <n> EXISTS`, and one shows `FETCH 1 UID` does not
       (ADR-0055 decision 5), the next `NOOP` then sending it.
-- [ ] If any of these fail, the fix is in `Surl.Protocol.Imap.UnitLibrary` (or, if the cause is in `Surl.MailStore.UnitLibrary`, stop
+- [x] If any of these fail, the fix is in `Surl.Protocol.Imap.UnitLibrary` (or, if the cause is in `Surl.MailStore.UnitLibrary`, stop
       and file that with task-planner rather than widening this task), and the Log names the cause and file:line.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean, the fast tests are green and coverage stays at
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean, the fast tests are green and coverage stays at
       100% line and branch; no test needs `TestCategory=Integration`.
 
 ## Notes
 
+- Result: all pinned behaviours already held, so no production defect and no change to Surl.Protocol.Imap.UnitLibrary; the reported item 2 was most likely a FETCH as the next command (EXISTS withheld by ADR-0055 decision 5) or a client that never sent NOOP. STATUS answers its own data first, then the pending update, before the tagged OK. Tests: ImapMailArrivedMeanwhileTests; ActAfterWriteConnection gained a Func<Task> overload.
 - IMAP `IDLE` (RFC 2177) is not offered and is not part of this task; upstream curl 8.21.0 never sends it.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Named tests pin that a selected IMAP session is told of mail delivered meanwhile with EXISTS before the next NOOP/CHECK/STATUS OK; FETCH withholds it; no defect found

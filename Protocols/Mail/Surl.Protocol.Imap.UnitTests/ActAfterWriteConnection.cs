@@ -9,10 +9,19 @@ namespace Surl.Protocol.Imap;
 /// holding a given text - so another session can change the store between two of this
 /// session's commands, as it would between the client's reads.
 /// </summary>
-internal sealed class ActAfterWriteConnection(IEnumerable<ReadOnlyMemory<byte>> inboundChunks, string trigger, Action action) : IConnection
+internal sealed class ActAfterWriteConnection(IEnumerable<ReadOnlyMemory<byte>> inboundChunks, string trigger, Func<Task> action) : IConnection
 {
     private readonly InMemoryConnection inner = new(inboundChunks);
     private bool acted;
+
+    public ActAfterWriteConnection(IEnumerable<ReadOnlyMemory<byte>> inboundChunks, string trigger, Action action)
+        : this(inboundChunks, trigger, () =>
+        {
+            action();
+            return Task.CompletedTask;
+        })
+    {
+    }
 
     public byte[] WrittenBytes => inner.WrittenBytes;
 
@@ -31,7 +40,7 @@ internal sealed class ActAfterWriteConnection(IEnumerable<ReadOnlyMemory<byte>> 
         if (!acted && Encoding.UTF8.GetString(bytes.Span).Contains(trigger, StringComparison.Ordinal))
         {
             acted = true;
-            action();
+            await action();
         }
     }
 
