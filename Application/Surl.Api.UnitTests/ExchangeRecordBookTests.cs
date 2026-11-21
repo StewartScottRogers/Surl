@@ -96,6 +96,19 @@ public sealed class ExchangeRecordBookTests
     }
 
     [TestMethod]
+    public void Apply_BytesEvent_KeepsItsAtOnTheChunk()
+    {
+        var book = new ExchangeRecordBook(10, 1000);
+        var at = new DateTimeOffset(2026, 11, 21, 1, 2, 3, TimeSpan.Zero);
+
+        book.Apply(Started(1, Alice));
+        book.Apply(new ExchangeBytesEvent(1, ExchangeDirection.Received, "x"u8.ToArray()) { At = at });
+        var record = book.Snapshot().Single();
+
+        Assert.AreEqual(at, record.Chunks[0].At);
+    }
+
+    [TestMethod]
     public void Apply_BytesPastTheCapBothDirectionsTogether_CutsThemAndMarksTheRecordTruncated()
     {
         var book = new ExchangeRecordBook(10, 5);

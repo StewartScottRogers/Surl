@@ -8,21 +8,21 @@ depends-on: [BL-1552]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1559 — Add At to SurlExchangeChunk from ExchangeBytesEvent.At
 
 ## Goal
 
-<!-- One sentence: the observable outcome once this task is done. -->
+Each SurlExchangeChunk carries the At of the ExchangeBytesEvent it was kept from.
 
 ## Context
 
-<!-- Why this matters, and where to start: requirement IDs, ADRs, projects, files, upstream curl links with the curl version. -->
+Follows BL-1552: the chunk list now keeps when each read or write happened.
 
 ## Acceptance criteria
 
-- [ ] <!-- A statement someone else can check from the repository without asking a question. -->
+- [x] SurlExchangeChunk.At is set from ExchangeBytesEvent.At by ExchangeRecordBook, covered by a test; Api and Mcp fast tests pass.
 
 ## Notes
 
@@ -30,3 +30,4 @@ completed:
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. At copied from ExchangeBytesEvent.At

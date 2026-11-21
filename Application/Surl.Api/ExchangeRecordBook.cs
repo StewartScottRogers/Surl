@@ -120,7 +120,7 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
             isTruncated |= keptLength < bytes.Length;
             if (keptLength > 0)
             {
-                chunks.Add(new SurlExchangeChunk(ToSurlExchangeDirection(bytesEvent.Direction), bytes[..keptLength].ToArray(), bytesEvent.Layer, bytesEvent.StreamId));
+                chunks.Add(new SurlExchangeChunk(ToSurlExchangeDirection(bytesEvent.Direction), bytes[..keptLength].ToArray(), bytesEvent.Layer, bytesEvent.StreamId, bytesEvent.At));
                 keptByteCount += keptLength;
             }
         }
