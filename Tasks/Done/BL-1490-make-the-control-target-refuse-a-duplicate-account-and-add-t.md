@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1482, BL-1493, BL-1494]
-touches: [Documentation/Planning/Decisions, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
+touches: [Documentation/Planning/Decisions, Documentation/Planning/Decisions, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-20
 completed: 2026-11-20
