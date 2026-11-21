@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1518 — Decide how a drop fault's after-bytes cuts a transfer on an exchange's data connection
 
@@ -35,14 +35,17 @@ Stand-in: no store is involved; a test observes the drop as the `FaultAppliedEve
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", stating which bytes `after-bytes` counts when an exchange opens data connections, and why the other option was not taken.
-- [ ] The amendment states what is aborted when the count is reached (the data connection, the control connection, or both), the exchange-log note's text and the `FaultAppliedEvent` published.
-- [ ] The amendment names every project the implementation changes; if option 2 is chosen, the follow-up tasks for `Surl.Cli`, `Surl.Composition`, `Surl.Api`, `Surl.Mcp.UnitLibrary` and the help text are filed and BL-1519 depends on the ones it needs.
-- [ ] `Documentation/Planning/Decisions/README.md`'s ADR-0124 row mentions the amendment.
+- [x] `Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", stating which bytes `after-bytes` counts when an exchange opens data connections, and why the other option was not taken.
+- [x] The amendment states what is aborted when the count is reached (the data connection, the control connection, or both), the exchange-log note's text and the `FaultAppliedEvent` published.
+- [x] The amendment names every project the implementation changes; if option 2 is chosen, the follow-up tasks for `Surl.Cli`, `Surl.Composition`, `Surl.Api`, `Surl.Mcp.UnitLibrary` and the help text are filed and BL-1519 depends on the ones it needs.
+- [x] `Documentation/Planning/Decisions/README.md`'s ADR-0124 row mentions the amendment.
 
 ## Notes
+
+- Chose option 1 (count every byte of the exchange, abort data and control together). No new key, so no follow-up tasks for Surl.Cli, Surl.Composition, Surl.Api or Surl.Mcp.UnitLibrary; BL-1519 carries the engine change and the help wording where a host states after-bytes. Curl exit code for the data-reset case is left to BL-1519 conformance stage, as the task allowed.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0124 amendment written: option 1
