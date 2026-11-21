@@ -8,7 +8,7 @@ depends-on: [BL-1507, BL-1508]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1509 — Compose configured folder uses into the mail store and its mailbox listing
 
@@ -22,11 +22,11 @@ ADR-0055 Amendment 1, decisions 2 and 6. Depends on the store's `MailboxSettings
 
 ## Acceptance criteria
 
-- [ ] `MailboxComposition` copies a configured mailbox's folder uses into `MailboxSettings.FolderUses`; a mailbox with none maps to an empty map as today.
-- [ ] `ComposedMailboxInfo` has a `Use` that is null for a mailbox without one and the use text for one with it.
-- [ ] `ComposedStores.ListMailboxes` fills it from the store.
-- [ ] A composed start with a use configured, then a store reset, lists the use again; a use gained by `CREATE` is gone after the reset.
-- [ ] Tests exist and pass, coverage stays 100%, and `dotnet build` of both projects with `-warnaserror` is clean.
+- [x] `MailboxComposition` copies a configured mailbox's folder uses into `MailboxSettings.FolderUses`; a mailbox with none maps to an empty map as today.
+- [x] `ComposedMailboxInfo` has a `Use` that is null for a mailbox without one and the use text for one with it.
+- [x] `ComposedStores.ListMailboxes` fills it from the store.
+- [x] A composed start with a use configured, then a store reset, lists the use again; a use gained by `CREATE` is gone after the reset.
+- [x] Tests exist and pass, coverage stays 100%, and `dotnet build` of both projects with `-warnaserror` is clean.
 
 ## Notes
 
@@ -34,3 +34,4 @@ ADR-0055 Amendment 1, decisions 2 and 6. Depends on the store's `MailboxSettings
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Composition copies folder uses into MailboxSettings and ComposedMailboxInfo.Use lists them; test covers reset
