@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1522 — Decide how surl-mcp answers a message past its 4 MiB limit so the client's request is not left unanswered
 
@@ -35,15 +35,18 @@ Stand-in: `surl-mcp` is how an agent seeds a stand-in; a seed too large must fai
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", to decision 1's "The message limit", answering points 1 to 4.
-- [ ] The amendment states the exact refusal (code, message text, `id`) for an over-long line whose `id` can be read and for one whose `id` cannot.
-- [ ] The amendment cites the JSON-RPC 2.0 specification's rule on the `id` of an error response and the MCP specification revision it reads (by URL and revision date).
-- [ ] Every task the amendment needs beyond BL-1523 (a `surl-mcp` option, tool description text, `--aihelp` or README text) is filed, and BL-1523 depends on the ones it needs.
-- [ ] `Documentation/Planning/Decisions/README.md`'s ADR-0103 row mentions the amendment.
+- [x] `Documentation/Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md` has a dated amendment, marked "Decided by Claude under Stewart's delegation", to decision 1's "The message limit", answering points 1 to 4.
+- [x] The amendment states the exact refusal (code, message text, `id`) for an over-long line whose `id` can be read and for one whose `id` cannot.
+- [x] The amendment cites the JSON-RPC 2.0 specification's rule on the `id` of an error response and the MCP specification revision it reads (by URL and revision date).
+- [x] Every task the amendment needs beyond BL-1523 (a `surl-mcp` option, tool description text, `--aihelp` or README text) is filed, and BL-1523 depends on the ones it needs.
+- [x] `Documentation/Planning/Decisions/README.md`'s ADR-0103 row mentions the amendment.
 
 ## Notes
+
+Decided: amendment 1 in ADR-0103. Limit stays 4 MiB, no option; refusal carries the id read by a streaming scan (null otherwise). Filed BL-1533 (tool descriptions); BL-1523 needs no further dependency.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0103 amendment 1 decides over-limit MCP messages are refused with the request's own id; BL-1533 filed
