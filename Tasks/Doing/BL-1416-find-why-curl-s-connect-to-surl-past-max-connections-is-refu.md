@@ -90,3 +90,4 @@ tolerated.
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44891838149 (release.yml dry run on factory/phase-1 with curl -v in the max-connections tests; read curl's connect errno and surl stderr)
 - 2026-11-21: Blocked -> Backlog. Run 44891838149 completed: failure; read it with gh run view 44891838149
+- 2026-11-21: Backlog -> Doing.
