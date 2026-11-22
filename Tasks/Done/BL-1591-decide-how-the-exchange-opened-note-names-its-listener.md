@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1591 — Decide how the Exchange opened note names its listener
 
@@ -41,18 +41,21 @@ ADR-0033 gains an amendment, decided by Claude under Stewart's delegation, that 
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md` has a new
+- [x] `Documentation/Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md` has a new
       `## Amendment` section, marked "Decided by Claude under Stewart's delegation", stating the note's exact new text
       (for example `Exchange <id> opened: <scheme> on <listen URL> from <remote>.`, or the form it chooses and why) and
       one example each for a connection and a datagram flow.
-- [ ] The amendment states that the `Exchange <id> opened: ` prefix and its `info` level are unchanged, that the
+- [x] The amendment states that the `Exchange <id> opened: ` prefix and its `info` level are unchanged, that the
       listen URL is printed as `ReportedListenUrl.Format` gives it (bound port), and how a Unix-socket listen URL prints.
-- [ ] It names BL-1592 as the task that changes the code and tests.
-- [ ] Sections 1 and 3 of ADR-0033 point to the amendment where they quote the old text.
+- [x] It names BL-1592 as the task that changes the code and tests.
+- [x] Sections 1 and 3 of ADR-0033 point to the amendment where they quote the old text.
 
 ## Notes
+
+- Chose `on <listen URL>` between scheme and remote: it keeps the `Exchange <id> opened: ` prefix, and reads naturally. Amendment 1 of ADR-0033.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. ADR-0033 Amendment 1 written
