@@ -48,3 +48,4 @@ Run the checks on a build that includes this repo's current Surl.Protocol.Abstra
 ## Log
 
 - 2026-11-21: Created (split from BL-1572 after its run timed out).
+- 2026-11-21: Backlog -> Doing.
