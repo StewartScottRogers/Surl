@@ -49,3 +49,4 @@ set `--allow-anonymous` makes, so an agent can read mail delivered to an anonymo
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
