@@ -137,11 +137,28 @@ public sealed class RedisCommandFaultsTests
     public async Task ServeAsync_DelayRuleAtACommand_AnswersTheCommandAfterTheHold()
     {
         var events = new RecordingSurlEventPublisher();
+        var connection = Connection([Command("PING")], peerHalfCloses: false);
+        var server = new RedisServer(new UnitTestRedisAuthenticationPolicy(true), new RedisKeyspace(), new RedisPubSub(new MessageBus.MessageBus(TimeProvider.System)));
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = Context(lifetime.Token) with { Faults = Plan(new FaultRule("f1", FaultKind.Delay) { Command = "PING", DelayMilliseconds = 0 }), Events = events };
 
-        var (written, _) = await ServeAsync(
-            Plan(new FaultRule("f1", FaultKind.Delay) { Command = "PING", DelayMilliseconds = 0 }), events, null, Command("PING"));
+        var serving = server.ServeAsync(connection, context);
+        while (Written(connection).Length < "+PONG\r\n".Length)
+        {
+            await Task.Delay(1, TestContext.CancellationToken);
+        }
 
-        Assert.AreEqual("+PONG\r\n", written);
+        await lifetime.CancelAsync();
+        try
+        {
+            await serving;
+        }
+        catch (OperationCanceledException)
+        {
+            // The client stayed open, so cancelling is how the serve ends.
+        }
+
+        Assert.AreEqual("+PONG\r\n", Written(connection));
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "PING"), events.Events.OfType<FaultAppliedEvent>().Single());
     }
 

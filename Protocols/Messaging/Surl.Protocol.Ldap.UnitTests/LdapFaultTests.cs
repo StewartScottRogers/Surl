@@ -185,8 +185,9 @@ public sealed class LdapFaultTests
         var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "search", DelayMilliseconds = 500 };
         var clock = new ManualTimeProvider();
         var idleClock = new RecordingIdleClock();
+        using var clientLeaves = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var (serving, connection, events) = StartServing(
-            new ScriptedFaultPlan(delay), clock, idleClock, AliceBind, Message(2, Search(Present("objectClass"), scope: 0)));
+            new ScriptedFaultPlan(delay), clock, idleClock, clientLeaves.Token, clientStaysOpen: true, AliceBind, Message(2, Search(Present("objectClass"), scope: 0)));
 
         await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
         var writtenAtTheHold = LdapResponseTranscript.Of(connection.WrittenBytes).ToArray();
@@ -194,13 +195,21 @@ public sealed class LdapFaultTests
         var writtenAfter499Ms = LdapResponseTranscript.Of(connection.WrittenBytes).ToArray();
         var pausedAfter499Ms = idleClock.IsPaused;
         clock.Advance(TimeSpan.FromMilliseconds(1));
+        while (!LdapResponseTranscript.Of(connection.WrittenBytes).Contains("#2 searchResultDone success"))
+        {
+            await Task.Delay(1, TestContext.CancellationToken);
+        }
+
+        var writtenAfterTheHold = LdapResponseTranscript.Of(connection.WrittenBytes).ToArray();
+        var pausedAfterTheHold = idleClock.IsPaused;
+        await clientLeaves.CancelAsync();
         await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
         CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, writtenAtTheHold);
         CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, writtenAfter499Ms);
         Assert.IsTrue(pausedAfter499Ms);
-        Assert.IsFalse(idleClock.IsPaused);
-        Assert.AreEqual("#2 searchResultDone success", LdapResponseTranscript.Of(connection.WrittenBytes)[^1]);
+        Assert.IsFalse(pausedAfterTheHold);
+        Assert.AreEqual("#2 searchResultDone success", writtenAfterTheHold[^1]);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "search dc=example,dc=com"), events.Events.Single());
     }
 
@@ -262,10 +271,14 @@ public sealed class LdapFaultTests
 
     private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
         IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, params byte[][] messages)
+        => StartServing(plan, clock, idleClock, TestContext.CancellationToken, clientStaysOpen: false, messages);
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, CancellationToken cancellationToken, bool clientStaysOpen, params byte[][] messages)
     {
         var events = new RecordingSurlEventPublisher();
-        var connection = new InMemoryConnection(messages.Select(message => new ReadOnlyMemory<byte>(message)));
-        var context = Context(TestContext.CancellationToken, timeProvider: clock) with { Faults = plan, Events = events, IdleClock = idleClock };
+        var connection = new InMemoryConnection(messages.Select(message => new ReadOnlyMemory<byte>(message)), peerHalfClosesWhenExhausted: !clientStaysOpen);
+        var context = Context(cancellationToken, timeProvider: clock) with { Faults = plan, Events = events, IdleClock = idleClock };
 
         return (Server(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted)).ServeAsync(connection, context), connection, events);
     }

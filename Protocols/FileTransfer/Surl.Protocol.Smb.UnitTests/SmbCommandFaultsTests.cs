@@ -107,7 +107,8 @@ public sealed class SmbCommandFaultsTests
         var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "CREATE", DelayMilliseconds = 500 };
         var clock = new ManualTimeProvider();
         var idleClock = new RecordingIdleClock();
-        var (serving, connection, events) = StartServing(new ScriptedFaultPlan(delay), clock, idleClock, NtCreateHex(1, "file.txt"));
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var (serving, connection, events) = StartServing(new ScriptedFaultPlan(delay), clock, idleClock, exchange.Token, NtCreateHex(1, "file.txt"));
 
         await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
         var writtenAtTheHold = Convert.ToHexString(connection.WrittenBytes);
@@ -115,6 +116,12 @@ public sealed class SmbCommandFaultsTests
         var writtenAfter499Ms = Convert.ToHexString(connection.WrittenBytes);
         var pausedAfter499Ms = idleClock.IsPaused;
         clock.Advance(TimeSpan.FromMilliseconds(1));
+        while (!Convert.ToHexString(connection.WrittenBytes).EndsWith(NtCreateResponseHex(1, 10), StringComparison.Ordinal) && !serving.IsCompleted)
+        {
+            await Task.Yield();
+        }
+
+        await exchange.CancelAsync();
         await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
         Assert.DoesNotContain(NtCreateResponseHex(1, 10), writtenAtTheHold);
@@ -185,11 +192,16 @@ public sealed class SmbCommandFaultsTests
     }
 
     private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
-        IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, params string[] requestsHex)
+        IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, params string[] requestsHex) =>
+        StartServing(plan, clock, idleClock, TestContext.CancellationToken, requestsHex);
+
+    // The scripted client stays connected: a script that half-closes would end a delay hold at once (ADR-0141 amendment 2).
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, CancellationToken exchangeToken, params string[] requestsHex)
     {
         var events = new RecordingSurlEventPublisher();
-        var connection = new InMemoryConnection([Hex(string.Concat([NegotiateHex, SessionSetupHex, TreeConnectHex("share"), .. requestsHex]))]);
-        var context = Context(clock, TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
+        var connection = new InMemoryConnection([Hex(string.Concat([NegotiateHex, SessionSetupHex, TreeConnectHex("share"), .. requestsHex]))], peerHalfClosesWhenExhausted: false);
+        var context = Context(clock, exchangeToken) with { Faults = plan, Events = events, IdleClock = idleClock };
 
         return (Server(contentStore: StandardContentStore()).ServeAsync(connection, context), connection, events);
     }

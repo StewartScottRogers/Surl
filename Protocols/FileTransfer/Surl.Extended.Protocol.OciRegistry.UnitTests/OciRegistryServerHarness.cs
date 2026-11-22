@@ -1,6 +1,9 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
 
@@ -215,6 +218,45 @@ internal sealed class OciRegistryServerHarness
     /// <summary>The fault plan each exchange carries: none unless a test sets one.</summary>
     public IFaultPlan Faults { get; set; } = EmptyFaultPlan.Instance;
 
+    /// <summary>
+    /// When true the scripted client does not half-close once its request is read, so a delay hold is
+    /// never ended early by the client seeming to leave; the test ends serving with <see cref="StopServing"/>.
+    /// </summary>
+    public bool ClientStaysOpen { get; set; }
+
+    private readonly CancellationTokenSource serving = new();
+
+    /// <summary>Ends serving the open client once a test has seen the answer it waited for.</summary>
+    public void StopServing() => serving.Cancel();
+
+    /// <summary>
+    /// Waits, for at most ten seconds of real time, until the last connection has been written a whole
+    /// answer: its head and as many body bytes as its <c>Content-Length</c> says.
+    /// </summary>
+    public async Task WaitForCompleteResponseAsync()
+    {
+        var deadline = Stopwatch.StartNew();
+        while (!IsCompleteResponse(Encoding.Latin1.GetString(LastConnection!.WrittenBytes)))
+        {
+            Assert.IsLessThan(10_000, deadline.ElapsedMilliseconds, "The answer was never completely written.");
+            await Task.Delay(1);
+        }
+    }
+
+    private static bool IsCompleteResponse(string written)
+    {
+        var headEnd = written.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+        if (headEnd < 0)
+        {
+            return false;
+        }
+
+        var match = Regex.Match(written[..headEnd], "\r\nContent-Length: (\\d+)", RegexOptions.IgnoreCase);
+        var bodyLength = match.Success ? int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
+
+        return written.Length - headEnd - 4 >= bodyLength;
+    }
+
     /// <summary>The idle clock each exchange carries.</summary>
     public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
 
@@ -319,7 +361,7 @@ internal sealed class OciRegistryServerHarness
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
         TimeProvider,
-        CancellationToken.None)
+        serving.Token)
     {
         Limits = Limits,
         Identifiers = IdentifierSource ?? Random,
@@ -338,7 +380,7 @@ internal sealed class OciRegistryServerHarness
     public async Task<string> SendRawAsync(string request) =>
         await ServeAsync(SendsTokens && request.Contains(" /v2/", StringComparison.Ordinal) && !request.Contains("\r\nAuthorization:", StringComparison.OrdinalIgnoreCase)
             ? await WithTokenAsync(request)
-            : request);
+            : request, ClientStaysOpen);
 
     /// <summary>
     /// Fetches a token as <see cref="UnitTestAuthenticationPolicy.UserName"/> for
@@ -382,11 +424,17 @@ internal sealed class OciRegistryServerHarness
         return request.Insert(lineEnd + 2, $"Authorization: Bearer {token}\r\n");
     }
 
-    private async Task<string> ServeAsync(string request)
+    private async Task<string> ServeAsync(string request, bool clientStaysOpen = false)
     {
-        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: TlsSession);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], peerHalfClosesWhenExhausted: !clientStaysOpen, initialTlsSession: TlsSession);
         LastConnection = connection;
-        await Server.ServeAsync(connection, Context());
+        try
+        {
+            await Server.ServeAsync(connection, Context());
+        }
+        catch (OperationCanceledException) when (serving.IsCancellationRequested)
+        {
+        }
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }

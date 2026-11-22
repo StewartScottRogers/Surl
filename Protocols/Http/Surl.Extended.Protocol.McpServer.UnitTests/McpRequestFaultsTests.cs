@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Surl.McpServing;
 using Surl.Protocol.Abstractions;
@@ -101,12 +102,21 @@ public sealed class McpRequestFaultsTests
         harness.Faults = new ScriptedFaultPlan(delay);
         harness.ExchangeClock = clock;
         harness.IdleClock = idleClock;
+        harness.ClientStaysOpen = true;
 
         Task<string> sending = harness.SendAsync("POST", "/mcp", message, BearerField, AcceptField, JsonField, $"Mcp-Session-Id: {sessionId}");
         await idleClock.FirstPause;
         clock.Advance(TimeSpan.FromMilliseconds(399));
         bool completedEarly = sending.IsCompleted;
         clock.Advance(TimeSpan.FromMilliseconds(1));
+        DateTime giveUpAt = DateTime.UtcNow.AddSeconds(10);
+        while (!Encoding.UTF8.GetString(harness.LastConnection!.WrittenBytes).Contains($"\"{expected}\"", StringComparison.Ordinal))
+        {
+            Assert.IsLessThan(giveUpAt, DateTime.UtcNow, "The answer never arrived.");
+            await Task.Delay(1);
+        }
+
+        harness.EndServing();
         string response = await sending;
 
         Assert.IsFalse(completedEarly);

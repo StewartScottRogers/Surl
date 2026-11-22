@@ -46,6 +46,14 @@ internal sealed class McpHttpHarness
     /// <summary>The connection the latest <see cref="SendRawAsync"/> was served on.</summary>
     public InMemoryConnection? LastConnection { get; private set; }
 
+    /// <summary>When true the scripted client does not half-close once its request is read, so a delay hold is never ended early by the client seeming to leave.</summary>
+    public bool ClientStaysOpen { get; set; }
+
+    private readonly CancellationTokenSource serving = new();
+
+    /// <summary>Ends serving the open client once a test has seen the answer it waited for.</summary>
+    public void EndServing() => serving.Cancel();
+
     /// <summary>The exchange's idle clock.</summary>
     public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
 
@@ -92,9 +100,16 @@ internal sealed class McpHttpHarness
 
     public async Task<string> SendRawAsync(string request, TlsSession? tlsSession = null)
     {
-        InMemoryConnection connection = new([Encoding.UTF8.GetBytes(request)], initialTlsSession: tlsSession);
+        InMemoryConnection connection = new([Encoding.UTF8.GetBytes(request)], peerHalfClosesWhenExhausted: !ClientStaysOpen, initialTlsSession: tlsSession);
         LastConnection = connection;
-        await Server.ServeAsync(connection, Context());
+        try
+        {
+            await Server.ServeAsync(connection, Context());
+        }
+        catch (OperationCanceledException) when (serving.IsCancellationRequested)
+        {
+        }
+
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }
 
@@ -106,7 +121,7 @@ internal sealed class McpHttpHarness
             new IPEndPoint(IPAddress.Loopback, 50000),
             Log,
             ExchangeClock ?? TimeProvider,
-            CancellationToken.None)
+            serving.Token)
         {
             IdleClock = IdleClock,
             Limits = Limits,

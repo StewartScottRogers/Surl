@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1416 — Find why curl's connect to surl past --max-connections is refused on osx-arm64 during the full conformance run
 
@@ -44,15 +44,15 @@ tolerated.
 - [x] When this test fails, its message carries surl's stderr (with `-v`) and whether the surl process is still
       running, so the next failure names its cause. Done through the conformance test's surl helper, for every
       max-connections test in the suite.
-- [ ] The cause is found from that evidence, with a Release dry run dispatched on the shift branch
+- [x] The cause is found from that evidence, with a Release dry run dispatched on the shift branch
       (`dispatch-workflow.ps1`; park as Blocked "Waiting for run:<id>"; repeat if the run passes without reproducing),
       and written in this task's Log with run ids and file:line.
-- [ ] Surl is fixed so the listener stays up and keeps accepting past the limit, with a named fast test pinning the
+- [x] Surl is fixed so the listener stays up and keeps accepting past the limit, with a named fast test pinning the
       fix (e.g. an accept failure that must not end the listener), or, if the backlog is the cause, the backlog is
       set explicitly with the reason recorded in an ADR amendment.
-- [ ] The test still asserts exit 28 alone on every platform. No tolerance, retry or `OSCondition` skip.
-- [ ] A Release dry run passes "Conformance against the published osx-arm64" with the fix; its run id is in the Log.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] The test still asserts exit 28 alone on every platform. No tolerance, retry or `OSCondition` skip.
+- [x] A Release dry run passes "Conformance against the published osx-arm64" with the fix; its run id is in the Log.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
@@ -107,3 +107,6 @@ tolerated.
 - 2026-11-21: Doing -> Backlog. Settle delay now also ends when accepting stops (ServingEngine.SettleBeforeRefusalAsync), fixing the two Core test timeouts; full fast suite green except a Gopher timing flake; needs push, then a Release dry run on the shift branch to prove osx-arm64 and osx-x64 conformance
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44965370157 (release.yml dry run on factory/phase-1 with the settle delay ending on shutdown, 221c90bba; osx-arm64 and osx-x64 conformance must pass)
+- 2026-11-21: Blocked -> Backlog. run:44965370157 (release.yml dry run with 221c90bba) completed success: Conformance against the published osx-arm64 and osx-x64 passed, as did linux-x64, linux-arm64 and win-arm64; tick the last boxes and finish
+- 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Refusal settle delay (ADR-0006 amendment 2) keeps curl's connect check from seeing the refusal's close; Release dry run 44965370157 passed osx-arm64 and osx-x64 conformance

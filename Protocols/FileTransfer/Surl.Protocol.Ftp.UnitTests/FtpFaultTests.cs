@@ -183,8 +183,10 @@ public sealed class FtpFaultTests
         var events = new RecordingSurlEventPublisher();
         var dataConnection = new InMemoryConnection([]);
         var plan = new ScriptedFaultPlan(new FaultRule("d1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RETR", DelayMilliseconds = 500 });
-        var control = new InMemoryConnection(Ascii(AnonymousLogin + "EPSV\r\nRETR /a.txt\r\n"));
-        var context = Context(clock, TestContext.CancellationToken, dataConnections: Passive(dataConnection)) with
+        // The client stays connected: a script that half-closes would end the hold at once (ADR-0141 amendment 2).
+        var control = new InMemoryConnection(Ascii(AnonymousLogin + "EPSV\r\nRETR /a.txt\r\n"), peerHalfClosesWhenExhausted: false);
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = Context(clock, exchange.Token, dataConnections: Passive(dataConnection)) with
         {
             Faults = plan,
             Events = events,
@@ -196,6 +198,12 @@ public sealed class FtpFaultTests
         var writtenWhileHeld = Text(control.WrittenBytes);
         var pausedWhileHeld = idleClock.IsPaused;
         clock.Advance(TimeSpan.FromMilliseconds(500));
+        while (Text(dataConnection.WrittenBytes) != FileText && !serving.IsCompleted)
+        {
+            await Task.Yield();
+        }
+
+        await exchange.CancelAsync();
         await serving;
 
         Assert.DoesNotContain("150 ", writtenWhileHeld);
