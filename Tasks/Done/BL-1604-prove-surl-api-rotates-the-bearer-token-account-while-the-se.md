@@ -8,7 +8,7 @@ depends-on: [BL-1601]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1604 — Prove Surl.Api rotates the Bearer-token account while the server runs
 
@@ -36,18 +36,21 @@ remove the token account.
 
 ## Acceptance criteria
 
-- [ ] `SetPassword_EmptyUserOnABearerTokenServer_RefusesTheOldTokenAndAcceptsTheNew` passes (HTTP `Authorization:
+- [x] `SetPassword_EmptyUserOnABearerTokenServer_RefusesTheOldTokenAndAcceptsTheNew` passes (HTTP `Authorization:
       Bearer`; the old token answered `401`, the new one served).
-- [ ] `SetPassword_EmptyUser_PublishesAccountRemovedThenAccountAddedWithTheEmptyName` passes and asserts no event text
+- [x] `SetPassword_EmptyUser_PublishesAccountRemovedThenAccountAddedWithTheEmptyName` passes and asserts no event text
       holds either token.
-- [ ] `Add_EmptyUserWhileNoTokenAccount_AcceptsTheBearerToken` and `Remove_EmptyUser_RefusesTheBearerTokenAfterwards`
+- [x] `Add_EmptyUserWhileNoTokenAccount_AcceptsTheBearerToken` and `Remove_EmptyUser_RefusesTheBearerTokenAfterwards`
       pass.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` clean and `dotnet test --filter "TestCategory!=Integration"` green;
+- [x] `dotnet build Application/Surl.Api -warnaserror` clean and `dotnet test --filter "TestCategory!=Integration"` green;
       no test needs `TestCategory=Integration`.
 
 ## Notes
+
+No production change needed: `Surl.Api` already allowed the empty name. Tests added in `SurlServerTests.BearerTokenRotation.cs`; the token account is started as `SurlAccount("", "tok123")`.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Surl.Api tests pin Bearer-token rotate, add and remove in-process
