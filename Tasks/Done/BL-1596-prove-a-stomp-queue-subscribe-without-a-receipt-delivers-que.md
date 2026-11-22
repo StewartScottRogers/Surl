@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1596 — Prove a STOMP queue SUBSCRIBE without a receipt delivers queued and later messages
 
@@ -44,21 +44,24 @@ Stand-in: the queue is the shared message bus's (ADR-0100 decision 3.3); nothing
 
 ## Acceptance criteria
 
-- [ ] `StompServerConnectionTests.Subscribe_ToAQueueHoldingMessagesWithoutAReceipt_DeliversThem` passes: a producer
+- [x] `StompServerConnectionTests.Subscribe_ToAQueueHoldingMessagesWithoutAReceipt_DeliversThem` passes: a producer
       session SENDs `m1` and `m2` to `/queue/q` (waiting on its own receipt), then a consumer sends
       `SUBSCRIBE\nid:a\ndestination:/queue/q\n\n\0` and receives both MESSAGE frames in order.
-- [ ] `StompServerConnectionTests.Subscribe_ToAnEmptyQueueWithoutAReceipt_DeliversALaterSend` passes: the consumer
+- [x] `StompServerConnectionTests.Subscribe_ToAnEmptyQueueWithoutAReceipt_DeliversALaterSend` passes: the consumer
       subscribes first, then a producer SENDs `m1`, and the consumer receives it.
-- [ ] `StompServerConnectionTests.Subscribe_PipelinedWithConnectInOneWrite_DeliversTheQueuedMessage` passes: `CONNECT`
+- [x] `StompServerConnectionTests.Subscribe_PipelinedWithConnectInOneWrite_DeliversTheQueuedMessage` passes: `CONNECT`
       (STOMP 1.2, `heart-beat:0,0`) and the no-receipt `SUBSCRIBE` arrive in one write, and CONNECTED is followed by the
       MESSAGE.
-- [ ] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary -warnaserror` is clean and
       `dotnet test Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests --filter "TestCategory!=Integration"`
       passes; no test needs `TestCategory=Integration`; the library keeps 100% line and branch coverage.
 
 ## Notes
 
+All three tests passed on the first run: the no-receipt and pipelined SUBSCRIBE sequences are proven against STOMP 1.2 and no server cause was found. No production change.
+
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Three no-receipt/pipelined queue SUBSCRIBE tests added and pass; no server fault found

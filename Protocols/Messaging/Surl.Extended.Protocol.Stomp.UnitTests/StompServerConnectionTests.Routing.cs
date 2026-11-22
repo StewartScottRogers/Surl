@@ -135,6 +135,58 @@ public sealed partial class StompServerConnectionTests
     }
 
     [TestMethod]
+    public async Task Subscribe_ToAQueueHoldingMessagesWithoutAReceipt_DeliversThem()
+    {
+        var bus = NewBus();
+        var producer = await StompTestSession.StartAsync(bus);
+        await producer.SendAndWaitForReceiptAsync(Sends("/queue/q", "m1") + "SEND\ndestination:/queue/q\nreceipt:p\n\nm2\0", "p");
+        var consumer = await StompTestSession.StartAsync(bus);
+
+        consumer.Send("SUBSCRIBE\nid:a\ndestination:/queue/q\n\n\0");
+        await consumer.WaitForAsync("m2\0");
+
+        Assert.AreEqual(
+            "MESSAGE\ndestination:/queue/q\nmessage-id:1\nsubscription:a\ncontent-length:2\n\nm1\0"
+            + "MESSAGE\ndestination:/queue/q\nmessage-id:2\nsubscription:a\ncontent-length:2\n\nm2\0",
+            consumer.Answers);
+        await consumer.CloseAsync();
+        await producer.CloseAsync();
+    }
+
+    [TestMethod]
+    public async Task Subscribe_ToAnEmptyQueueWithoutAReceipt_DeliversALaterSend()
+    {
+        var bus = NewBus();
+        var consumer = await StompTestSession.StartAsync(bus);
+        consumer.Send("SUBSCRIBE\nid:a\ndestination:/queue/q\n\n\0");
+        var producer = await StompTestSession.StartAsync(bus);
+
+        await producer.SendAndWaitForReceiptAsync("SEND\ndestination:/queue/q\nreceipt:p\n\nm1\0", "p");
+        await consumer.WaitForAsync("m1\0");
+
+        Assert.AreEqual("MESSAGE\ndestination:/queue/q\nmessage-id:1\nsubscription:a\ncontent-length:2\n\nm1\0", consumer.Answers);
+        await consumer.CloseAsync();
+        await producer.CloseAsync();
+    }
+
+    [TestMethod]
+    public async Task Subscribe_PipelinedWithConnectInOneWrite_DeliversTheQueuedMessage()
+    {
+        var bus = NewBus();
+        var producer = await StompTestSession.StartAsync(bus);
+        await producer.SendAndWaitForReceiptAsync("SEND\ndestination:/queue/q\nreceipt:p\n\nm1\0", "p");
+
+        var consumer = await StompTestSession.StartAsync(
+            bus,
+            connect: "CONNECT\naccept-version:1.2\nlogin:alice\npasscode:secret\nheart-beat:0,0\n\n\0SUBSCRIBE\nid:a\ndestination:/queue/q\n\n\0");
+        await consumer.WaitForAsync("m1\0");
+
+        Assert.AreEqual("MESSAGE\ndestination:/queue/q\nmessage-id:1\nsubscription:a\ncontent-length:2\n\nm1\0", consumer.Answers);
+        await consumer.CloseAsync();
+        await producer.CloseAsync();
+    }
+
+    [TestMethod]
     public async Task Ack_UnderClient_AcknowledgesTheNamedMessageAndEveryEarlierOne()
     {
         var bus = NewBus();
