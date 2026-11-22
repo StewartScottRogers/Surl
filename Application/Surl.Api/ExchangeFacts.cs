@@ -12,6 +12,7 @@ internal sealed class ExchangeFacts(ExchangeStartedEvent started)
     private readonly HashSet<string> accounts = new(StringComparer.Ordinal);
     private readonly HashSet<SurlEventKind> kinds = [SurlEventKind.ExchangeStarted];
     private readonly HashSet<StoreKind> stores = [];
+    private readonly HashSet<string> names = new(StringComparer.Ordinal);
 
     /// <summary>The exchange's ID.</summary>
     public long ExchangeId => started.ExchangeId!.Value;
@@ -46,6 +47,7 @@ internal sealed class ExchangeFacts(ExchangeStartedEvent started)
                 break;
             case StoreChangedEvent change:
                 stores.Add(change.Store);
+                names.Add(change.Name);
                 break;
         }
     }
@@ -57,7 +59,8 @@ internal sealed class ExchangeFacts(ExchangeStartedEvent started)
         started.Sequence > query.AfterSequence
         && SurlEventFacts.IsWithin(started.At, query)
         && IsOfSchemeListenUrlAndAccount(query)
-        && HasKindAndStore(query);
+        && HasKindAndStore(query)
+        && (query.Name is not { } name || names.Any(changed => SurlEventFacts.IsNameOrSegmentPrefix(name, changed)));
 
     private bool IsOfSchemeListenUrlAndAccount(SurlEventQuery query) =>
         SurlEventFacts.IsScheme(Scheme, query)

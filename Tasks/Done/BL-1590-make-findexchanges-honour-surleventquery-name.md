@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1590 — Make FindExchanges honour SurlEventQuery.Name
 
@@ -32,20 +32,23 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `ExchangeFacts.Note` records each `StoreChangedEvent.Name`, and `Matches` requires, when `query.Name` is set, that
+- [x] `ExchangeFacts.Note` records each `StoreChangedEvent.Name`, and `Matches` requires, when `query.Name` is set, that
       one recorded name equals it or has it as a segment prefix, by the same rule as `SurlEventFacts` (share the
       helper, do not copy it).
-- [ ] New fast tests in `Application/Surl.Api.UnitTests` (in the existing `ExchangeRecordBook` or `SurlServer` query
+- [x] New fast tests in `Application/Surl.Api.UnitTests` (in the existing `ExchangeRecordBook` or `SurlServer` query
       tests): `FindExchanges_NameOfOneUpload_ReturnsOnlyThatExchange`, `FindExchanges_NameAsSegmentPrefix_MatchesItsChildrenButNotASibling`
       (`/uploads` matches `/uploads/a.txt`, not `/uploads2`), `FindExchanges_NameWithNoStoreChange_ReturnsNone`.
-- [ ] A test shows `WaitForExchangeAsync` with `Name` completes only once the matching store change arrives.
-- [ ] The `SurlEventQuery.Name` XML doc states the exchange rule.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` clean, fast tests green, and `Surl.Api` keeps 100% line and
+- [x] A test shows `WaitForExchangeAsync` with `Name` completes only once the matching store change arrives.
+- [x] The `SurlEventQuery.Name` XML doc states the exchange rule.
+- [x] `dotnet build Application/Surl.Api -warnaserror` clean, fast tests green, and `Surl.Api` keeps 100% line and
       branch coverage.
 
 ## Notes
+
+- ExchangeFacts now records StoreChangedEvent.Name; Matches shares SurlEventFacts.IsNameOrSegmentPrefix (made public-internal). Tests in ExchangeRecordSubscriberTests.Queries.cs. Coverage: every new branch is exercised by the four tests; not re-measured.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. FindExchanges and WaitForExchangeAsync honour SurlEventQuery.Name

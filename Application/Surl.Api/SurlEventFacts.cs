@@ -56,7 +56,11 @@ internal static class SurlEventFacts
         query.Name is not { } name
         || (surlEvent is StoreChangedEvent change && IsNameOrSegmentPrefix(name, change.Name));
 
-    private static bool IsNameOrSegmentPrefix(string prefix, string name) =>
+    /// <summary>Whether <paramref name="name"/> is <paramref name="prefix"/> or lies under it as a path segment.</summary>
+    /// <param name="prefix">The queried name.</param>
+    /// <param name="name">A changed name.</param>
+    /// <returns><see langword="true"/> when it does.</returns>
+    public static bool IsNameOrSegmentPrefix(string prefix, string name) =>
         name == prefix || name.StartsWith(prefix.EndsWith('/') ? prefix : prefix + '/', StringComparison.Ordinal);
 
     private static bool IsOfSchemeAndListenUrl(SurlEvent surlEvent, ExchangeFacts? exchange, SurlEventQuery query) =>
