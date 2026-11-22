@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Ftp.UnitTests, Surl.Protocol.Smb.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1573 — Hold delay-fault tests open: Ftp and Smb
 
@@ -22,13 +22,15 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Protocol.Ftp.UnitTests,Surl.Protocol.Smb.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Protocol.Ftp.UnitTests,Surl.Protocol.Smb.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
+
+Changed: FtpFaultTests.Retr_UnderADelayRule_... and SmbCommandFaultsTests.Create_UnderADelayRule_... now use a client built with peerHalfClosesWhenExhausted: false, a linked CancellationTokenSource, a wait for the visible outcome, then cancel and await serving (Smb StartServing gained an overload taking the exchange token). FtpUpstreamTestCaseServerTests.Delay_* uses the upstream-test-case DELAY keyword, not a DelayRule/command-stage fault hold, so it is unchanged. WriteStallingConnection files are not delay-rule tests. 20 filtered runs per project passed; build -warnaserror clean; fast suites green (Ftp 557, Smb 226).
 
 Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows BL-1569.
 
@@ -36,3 +38,4 @@ Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows 
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Ftp and Smb delay-fault tests now hold with a client that stays open
