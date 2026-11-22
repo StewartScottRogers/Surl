@@ -49,3 +49,4 @@ Run the checks on a build that includes this repo's current Surl.Protocol.Abstra
 
 - 2026-11-21: Created (split from BL-1572 after its run timed out).
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Lane 2 could not integrate: fast tests failed twice (Surl.Core.UnitTests: ServeAsync_ClientHalfClosesDuringAnAcceptDelay_EndsTheExchangeAtOnce_AndFreesItsSlot; then Surl.Core.UnitTests: ServeAsync_ClientHalfClosesDuringAnAcceptDelay_EndsTheExchangeAtOnce_AndFreesItsSlot) after rebasing onto the other lanes' work. The work is on branch factory/BL-1585-lane-2-20261121-175153; start with git cherry-pick --no-commit factory/BL-1585-lane-2-20261121-175153 and fix it.
