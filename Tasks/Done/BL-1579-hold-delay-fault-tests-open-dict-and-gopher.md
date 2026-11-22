@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Dict.UnitTests, Surl.Protocol.Gopher.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1579 — Hold delay-fault tests open: Dict and Gopher
 
@@ -22,17 +22,20 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Protocol.Dict.UnitTests,Surl.Protocol.Gopher.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Protocol.Dict.UnitTests,Surl.Protocol.Gopher.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
 Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows BL-1569.
 
+Done 2026-11-21: one delay test per project (ServeAsync_CommandStageDelayRule_HoldsTheAnswerFor500MsThenAnswersAsUsual) now builds its client with peerHalfClosesWhenExhausted: false and a linked CancellationTokenSource. Both serves end on their own (Dict via QUIT, Gopher after the single selector), so no explicit cancel is needed after the wait. 20 of 20 runs passed per project; fast suites 163 and 95 green.
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Dict and Gopher delay tests hold the client open

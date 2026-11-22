@@ -134,10 +134,11 @@ public sealed class DictCommandFaultsTests
         var clock = new ManualTimeProvider();
         var idleClock = new RecordingIdleClock();
         var events = new RecordingSurlEventPublisher();
-        var connection = new InMemoryConnection(Ascii("STATUS\r\nQUIT\r\n"));
+        var connection = new InMemoryConnection(Ascii("STATUS\r\nQUIT\r\n"), peerHalfClosesWhenExhausted: false);
+        using var exchangeCancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var serving = Server().ServeAsync(
             connection,
-            Context(clock, TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(delay), Events = events, IdleClock = idleClock });
+            Context(clock, exchangeCancellation.Token) with { Faults = new ScriptedFaultPlan(delay), Events = events, IdleClock = idleClock });
 
         await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
         var writtenAtTheHold = Utf8(connection.WrittenBytes);
