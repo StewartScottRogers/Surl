@@ -55,16 +55,18 @@ public sealed class MailboxComposition
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readFile">Reads a file's bytes, given its path as given.</param>
     /// <param name="extendedSchemes">The schemes the registered extended servers claim, which <c>protocols=</c> may name.</param>
+    /// <param name="schemesWithoutLogin">The schemes whose servers make no login, which <c>protocols=</c> may not name.</param>
     /// <returns>
     /// The composition; or, when a file cannot be read (37) or holds a malformed record (2),
     /// <see langword="null"/> with the exit code and the message after <c>surl: </c>, never holding a password.
     /// </returns>
     public static (MailboxComposition? Composition, SurlExitCode ExitCode, string? FailureMessage) Compose(
-        SurlCommandLine commandLine, Func<string, byte[]> readFile, IReadOnlyCollection<string> extendedSchemes)
+        SurlCommandLine commandLine, Func<string, byte[]> readFile, IReadOnlyCollection<string> extendedSchemes,
+        IReadOnlyCollection<string> schemesWithoutLogin)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         ArgumentNullException.ThrowIfNull(readFile);
-        var reader = new MailboxFileReader(commandLine, extendedSchemes);
+        var reader = new MailboxFileReader(commandLine, extendedSchemes, schemesWithoutLogin);
         List<ConfiguredMailbox> mailboxes = [.. commandLine.Mailboxes];
         foreach (var file in commandLine.MailboxFiles)
         {

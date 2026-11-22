@@ -58,6 +58,29 @@ public sealed class SchemeLoginCheckTests
     }
 
     [TestMethod]
+    public async Task Start_MailboxFileNamingGopher_IsRefusedWithFileAndLineBeforeListening()
+    {
+        var commandLine = MailboxCompositionTests.WithMail(
+            StartTestSeams.Parse("smtp://127.0.0.1:0"), ["example.com"], [], ["f.csv"]);
+        var seams = new StartTestSeams().Seams with
+        {
+            ReadStartFile = _ => System.Text.Encoding.UTF8.GetBytes("address,password,protocols\nann@example.com,annpass,gopher\n"),
+        };
+
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+
+        Assert.IsNull(start.Serving);
+        Assert.AreEqual(SurlExitCode.FailedInit, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(new[] { "(2) Mailbox file f.csv, line 2: scheme gopher has no login" }, start.Failure.Lines.ToArray());
+    }
+
+    [TestMethod]
+    public void SchemesWithoutLogin_NullRegistrations_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => SchemeLoginCheck.SchemesWithoutLogin(null!));
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_AMailboxNamingImapAndFtp_Starts()
     {
         var commandLine = MailboxCompositionTests.WithMail(

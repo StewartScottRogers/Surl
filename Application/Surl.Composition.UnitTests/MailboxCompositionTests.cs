@@ -78,10 +78,22 @@ public sealed class MailboxCompositionTests
     }
 
     [TestMethod]
+    public void Compose_MailboxFileNamingASchemeWithoutLogin_IsRefusedWithFileAndLine()
+    {
+        var (composition, exitCode, failure) = Compose(
+            WithMail(StartTestSeams.Parse(Url), ["example.com"], [], ["m.csv"]),
+            ("m.csv", "address,password,protocols\nann@example.com,annpass,gopher\n"));
+
+        Assert.IsNull(composition);
+        Assert.AreEqual(SurlExitCode.FailedInit, exitCode);
+        Assert.AreEqual("(2) Mailbox file m.csv, line 2: scheme gopher has no login", failure);
+    }
+
+    [TestMethod]
     public void Compose_NullArgument_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => MailboxComposition.Compose(null!, _ => [], []));
-        Assert.ThrowsExactly<ArgumentNullException>(() => MailboxComposition.Compose(new SurlCommandLine(), null!, []));
+        Assert.ThrowsExactly<ArgumentNullException>(() => MailboxComposition.Compose(null!, _ => [], [], []));
+        Assert.ThrowsExactly<ArgumentNullException>(() => MailboxComposition.Compose(new SurlCommandLine(), null!, [], []));
     }
 
     [TestMethod]
@@ -561,7 +573,8 @@ public sealed class MailboxCompositionTests
         MailboxComposition.Compose(
             commandLine,
             path => files.FirstOrDefault(file => file.Path == path).Text is { } text ? Encoding.UTF8.GetBytes(text) : throw new FileNotFoundException(path),
-            []);
+            [],
+            ["gopher"]);
 
     private async Task<ServiceState> LoadServiceStateAsync(
         SurlCommandLine commandLine, AuthenticationPolicy policy, IReadOnlyList<string> accountNames, MailDomainConfiguration? mailDomains)

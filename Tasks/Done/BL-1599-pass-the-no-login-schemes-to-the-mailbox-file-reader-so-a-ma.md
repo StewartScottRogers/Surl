@@ -8,7 +8,7 @@ depends-on: [BL-1598]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1599 — Pass the no-login schemes to the mailbox file reader so a --mailbox-file refusal names its file and line
 
@@ -40,17 +40,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `MailboxComposition.Compose` takes the no-login schemes and hands them to `MailboxFileReader`; the start passes
+- [x] `MailboxComposition.Compose` takes the no-login schemes and hands them to `MailboxFileReader`; the start passes
       the set derived from the registrations through one `SchemeLoginCheck` member that `FindRefusal` also uses.
-- [ ] New test in `Application/Surl.Composition.UnitTests/MailboxCompositionTests.cs`:
+- [x] New test in `Application/Surl.Composition.UnitTests/MailboxCompositionTests.cs`:
       `Compose_MailboxFileNamingASchemeWithoutLogin_IsRefusedWithFileAndLine` asserts exit code
       `SurlExitCode.FailedInit` and the message `(2) Mailbox file m.csv, line 2: scheme gopher has no login`.
-- [ ] New start test (beside the existing `--mailbox` case in `Application/Surl.Composition.UnitTests/SchemeLoginCheckTests.cs`):
+- [x] New start test (beside the existing `--mailbox` case in `Application/Surl.Composition.UnitTests/SchemeLoginCheckTests.cs`):
       `Start_MailboxFileNamingGopher_IsRefusedWithFileAndLineBeforeListening`, using the report's file through the
       `ReadStartFile` seam, asserts `Failure.Lines` is exactly `(2) Mailbox file f.csv, line 2: scheme gopher has no login`
       and no listener bound.
-- [ ] The existing `--mailbox` refusal test (`(2) scheme gopher has no login`) still passes unchanged.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean,
+- [x] The existing `--mailbox` refusal test (`(2) scheme gopher has no login`) still passes unchanged.
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Composition.UnitLibrary` stays at 100% line
       and branch coverage; no test needs `TestCategory=Integration`.
 
@@ -63,3 +63,4 @@ no-login set comes from the static registration lists and needs no server compos
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. --mailbox-file refusal of a no-login scheme names its file and line; schemes derived once via SchemeLoginCheck.SchemesWithoutLogin
