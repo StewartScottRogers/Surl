@@ -21,9 +21,9 @@ answers ADR-0132 Amendment 2 (BL-1601) names.
 ## Context
 
 - Surly bug report `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-22T1308-Surl-bug-report.md` item 2;
-  BL-1601 decides the spelling. The criteria below assume BL-1601's option (a): `POST /v1/accounts` with `"user": ""`,
-  and `PUT` / `DELETE` of `/v1/accounts/` with an empty last segment, for the account book only. If BL-1601 chose
-  otherwise it rewrites these criteria before this task is claimed; follow the ADR when the two differ.
+  BL-1601 decided option (b) in ADR-0132 Amendment 2: `POST /v1/accounts` accepts `"user": ""` (account book only), and
+  rotate and remove are `PUT` and `DELETE /v1/bearer-token` (body `{"password"}`; `204`, or `404 not_found` when there is
+  no token account). `PUT|DELETE /v1/accounts/` with an empty segment stays `404`. Follow the ADR when the two differ.
 - Where the refusals are today:
   - `Application/Surl.Control.UnitLibrary/ControlStoreRequests.cs:220` - `AddAccountToAsync` refuses
     `string.IsNullOrEmpty(body.User)` with `400 give user and password, neither empty`. It is shared with the proxy and
@@ -41,12 +41,12 @@ answers ADR-0132 Amendment 2 (BL-1601) names.
 
 - [ ] In `Application/Surl.Control.UnitTests/ControlStoreRequestsTests.cs`:
       `AddAccount_EmptyUserWithPassword_AddsTheBearerTokenAccount` (`204`, the target saw user `""`),
-      `SetAccountPassword_EmptyUser_RotatesTheBearerToken` (`204`; `404` when the target has no such account),
-      `RemoveAccount_EmptyUser_RemovesTheBearerTokenAccount` (`204`), all pass.
+      `PutBearerToken_RotatesTheBearerToken` (`PUT /v1/bearer-token`: `204`; `404` when the target has no such account),
+      `DeleteBearerToken_RemovesTheBearerTokenAccount` (`DELETE /v1/bearer-token`: `204`; `404` when none), all pass.
 - [ ] `AddAccount_EmptyPassword_IsBadRequest` and `AddProxyAccount_EmptyUser_IsBadRequest` (and the TLS-SRP twin) pass:
-      an empty password is still `400`, and the proxy and TLS-SRP kinds answer an empty user as the ADR states.
-- [ ] A route test in `Application/Surl.Control.UnitTests/ControlEndpointTests.cs` shows the empty-name routes
-      reach the handlers and every other route with an empty segment (for example `/v1/files/`) is still `404`.
+      an empty password is still `400`, and the proxy and TLS-SRP kinds still answer an empty user `400 give user and password, neither empty` (ADR-0132 amendment 2, rule 3).
+- [ ] A route test in `Application/Surl.Control.UnitTests/ControlEndpointTests.cs` shows the `/v1/bearer-token` routes
+      reach the handlers and every route with an empty segment (`/v1/files/`, `/v1/accounts/`) is still `404`.
 - [ ] No answer body or log line holds the token (asserted in the add and rotate tests).
 - [ ] `Application/Surl.Control.UnitLibrary/CLAUDE.md`'s account routes bullet names the Bearer-token form.
 - [ ] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"`

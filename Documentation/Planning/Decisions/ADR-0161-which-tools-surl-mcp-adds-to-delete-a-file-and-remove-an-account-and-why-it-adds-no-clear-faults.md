@@ -27,7 +27,7 @@ ADR-0103 decision 4 applies unchanged: no local path is read and no password is 
 | Tool | Other properties | Result | Error results (`isError: true`) |
 | --- | --- | --- | --- |
 | `delete_file` | `path` (string, `minLength` 1, a request path such as `/reports/a.txt`) | `{"path"}` | `no file at <path>` when nothing, a folder or a hidden path is there (`SurlSeedRefusedException`, result `Absent`); a path no store accepts is refused with the same text `put_file` uses |
-| `remove_account` | `user` (string, `minLength` 1) | `{"user"}` - never anything about the password | `server <id> has no account <user>` when `Accounts.Remove` returns `false` |
+| `remove_account` | `user` (string, no `minLength`: an empty `user` removes the Bearer-token account, ADR-0132 amendment 2) | `{"user"}` - never anything about the password | `server <id> has no account <user>` when `Accounts.Remove` returns `false` |
 
 - `delete_file` calls `SurlServer.Files.DeleteAsync` and so is the test's own delete: no client permission is needed,
   the fault plan is not consulted, and a `StoreChangedEvent` with `StoreChange.Deleted` is published.

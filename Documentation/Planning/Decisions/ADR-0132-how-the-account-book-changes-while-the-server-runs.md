@@ -7,7 +7,7 @@
   restore; accounts as a store), ADR-0032 section 8 (constant-time checks and the refusal delay), ADR-0102
   decision 4.3 (per-scheme views), [ADR-0128](ADR-0128-how-surl-authentication-publishes-judged-logins-and-applies-refuse-login.md).
 - **Acted on by:** BL-802; BL-805 exposes it through `ComposedStores`, BL-810 through `Surl.Api`.
-- **Amended by:** [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
+- **Amended by:** [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account)(#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
 
 ## Context
 
@@ -130,3 +130,59 @@ existing tools already say so.
 - A password-rotation test, which the cookbook's batch covers, uses `SetPassword` on every host.
 - The alignment work is filed as tasks (see BL-1482's Log), each depending on BL-1482: `Surl.Composition` with
   `Surl.Control` (the target and the endpoint), `Surl.Authentication` and `Surl.Api`, and `Surl.Mcp.UnitLibrary`.
+
+## Amendment 2 (2026-11-22, BL-1601): the Bearer-token account is added, rotated and removed on every host
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-22, in BL-1601.
+- **Why now:** the Surly cookbook bug report of 2026-11-22 (item 2, a question) found that with `--user :tok123` a test
+  cannot expire or replace the token mid-session: `POST /v1/accounts` with `"user": ""` is `400`, `DELETE /v1/accounts/`
+  is `404`, and `add_account` with `"user": ""` fails schema validation. The report was made with the Curl port as
+  client, so it is a symptom report and no evidence. `AccountBook` and `Surl.Api` already take the empty name
+  (ADR-0032 section 1: "an empty name is a Bearer token"); only the host layers refuse it.
+- **Upstream curl** has no say: this is a server-side test surface (`--oauth2-bearer` is the client's side only).
+
+### Options weighed
+
+- **(a)** accept `user: ""` in `POST /v1/accounts` and the three tools, and accept the empty last segment of
+  `PUT|DELETE /v1/accounts/`. Smallest change, but a path built from an unset variable (`/v1/accounts/{user}` with
+  `user` empty) would then silently rotate or delete the token account: the very accident the `400` and `404` catch
+  today. Rejected.
+- **(b)** the same for the body and the tools, with dedicated `PUT|DELETE /v1/bearer-token` routes in place of the
+  empty segment. **Chosen.** Every operation is spelled on purpose: an empty `user` in a JSON body or tool argument is
+  written deliberately, a dedicated route is typed deliberately, and `/v1/accounts/` stays `404`. It only grows the
+  surface (configuration as data) and every default keeps today's behaviour.
+- **(c)** keep the refusal; a test rotates a token only through `Surl.Api`. Rejected: non-.NET suites and agents
+  would have no way to do what the stand-in exists to let them do.
+
+### The rule
+
+1. **`user: ""` names the Bearer-token account** and is accepted by the account book's add, rotate and remove on
+   every host. It is the same account `--user :tok` makes, so `Surl.Api` and `Reset` behave as decisions 3 and 4
+   say: a token given at start is removed by remove and returns on reset; a token added later is removed by reset.
+2. **Adding the token account when none exists makes Bearer logins succeed**, which widens access. It needs no new
+   warning: it is a test's explicit act on an already-warned surface (decision 7; ADR-0124 decision 7).
+3. **Proxy accounts and TLS-SRP accounts have no token form.** An empty `user` is refused for both kinds on every
+   host, as today: `ArgumentException` on `Surl.Api`, a schema failure (`minLength` 1, unchanged) on `surl-mcp`,
+   `400 give user and password, neither empty` on the control endpoint. `ProxyAccounts` and `TlsSrpAccounts` have
+   no `/v1/bearer-token` counterpart. An empty password stays refused for every kind.
+4. **Events.** `AccountAdded` and `AccountRemoved` carry an empty `name`, as for any add and remove (decision 6), a
+   rotation publishes `AccountRemoved` then `AccountAdded` (amendment 1.3), and nothing names or holds the token.
+
+### The answers (account book, empty-name account)
+
+| Operation | `Surl.Api` | `surl-mcp` | Control endpoint |
+| --- | --- | --- | --- |
+| add | `Accounts.Add("", token)` returns; a second add throws `ArgumentException` | `add_account` `{"server_id", "user": "", "password"}` answers `{"user": ""}`; a second add is `isError: true`, `the Bearer-token account already exists` | `POST /v1/accounts` `{"user":"","password":"<token>"}` is `204`, or `409 conflict` `the Bearer-token account already exists` |
+| rotate | `Accounts.SetPassword("", token)` returns; no such account throws `ArgumentException` | `set_account_password` with `"user": ""` answers `{"user": ""}`; none is `isError: true`, `the Bearer-token account does not exist` | `PUT /v1/bearer-token` `{"password":"<token>"}` is `204`, or `404 not_found` |
+| remove | `Accounts.Remove("")` returns `true`, or `false` when none | `remove_account` with `"user": ""` answers `{"user": ""}`; none is `isError: true`, `server <id> has no Bearer-token account` | `DELETE /v1/bearer-token` is `204`, or `404 not_found` |
+| published | `AccountAdded`, `AccountRemoved` then `AccountAdded`, `AccountRemoved`, each with an empty `name` | the same | the same |
+
+The `password` keeps `minLength` 1 on every tool; an empty one is `400 bad_request` on the control endpoint. No
+answer, error text or log line holds the token. `PUT /v1/accounts/` and `DELETE /v1/accounts/` (an empty segment)
+stay `404`, like `/v1/files/` (ADR-0136 decision 8).
+
+### Documents this amendment changes (edited by BL-1601)
+
+ADR-0136 decisions 7 and 8, ADR-0161's `remove_account` row, and ADR-0124 decision 7's route table and decision 8's
+tool table, each with a pointer here. The code follows in BL-1602 (control endpoint) and BL-1603 (`surl-mcp`);
+`Surl.Api` needs no change (BL-1604 proves it).

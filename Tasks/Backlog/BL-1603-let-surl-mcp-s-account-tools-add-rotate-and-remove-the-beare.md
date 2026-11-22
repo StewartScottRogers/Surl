@@ -22,7 +22,7 @@ remove the Bearer-token account; the proxy and TLS-SRP tools keep their `minLeng
 
 - Surly bug report `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-22T1308-Surl-bug-report.md` item 2: `add_account`
   `{"user":"","password":"tok456"}` fails with `McpProtocolException` (schema validation, ADR-0103's `minLength`).
-  The criteria assume BL-1601's option (a), `"user": ""` on the three tools; if BL-1601 chose otherwise it rewrites
+  BL-1601 decided option (b) (ADR-0132 Amendment 2): `"user": ""` on the three tools, and the ADR's table gives the texts (`the Bearer-token account already exists`, `the Bearer-token account does not exist`, `server <id> has no Bearer-token account`). If it chose otherwise it rewrites
   them before this task is claimed.
 - Where: `"minLength": 1` on `user` in `Application/Surl.Mcp.UnitLibrary/AddAccountTool.cs:27`,
   `SetAccountPasswordTool.cs:27` and `RemoveAccountTool.cs:28`. `AddAccountTool.Add` (line 43) maps every
