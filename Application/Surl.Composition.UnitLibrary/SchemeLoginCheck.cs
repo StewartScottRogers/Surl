@@ -9,6 +9,20 @@ namespace Surl.Composition;
 public static class SchemeLoginCheck
 {
     /// <summary>
+    /// The one definition of "no login": every scheme of a registration that marks itself as making no login.
+    /// </summary>
+    /// <param name="registrations">The registrations to ask.</param>
+    /// <returns>The schemes, compared ordinally.</returns>
+    public static HashSet<string> SchemesWithoutLogin(IEnumerable<ProtocolServerRegistration> registrations)
+    {
+        ArgumentNullException.ThrowIfNull(registrations);
+        return registrations
+            .Where(registration => !registration.MakesLogin)
+            .SelectMany(registration => registration.Schemes)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// Finds the first scheme in the <c>protocols=</c> lists of the mailboxes and of <c>--user-ldap</c> that a
     /// registration in <paramref name="registrations"/> lists and marks as making no login.
     /// A scheme no registration lists is left to the parse-time <c>unknown scheme</c> refusal.
@@ -25,10 +39,7 @@ public static class SchemeLoginCheck
         ArgumentNullException.ThrowIfNull(mailboxProtocols);
         ArgumentNullException.ThrowIfNull(commandLine);
         ArgumentNullException.ThrowIfNull(registrations);
-        var withoutLogin = registrations
-            .Where(registration => !registration.MakesLogin)
-            .SelectMany(registration => registration.Schemes)
-            .ToHashSet(StringComparer.Ordinal);
+        var withoutLogin = SchemesWithoutLogin(registrations);
         var named = mailboxProtocols.Append(commandLine.UserLdap?.Protocols).SelectMany(list => list ?? []);
         var found = named.FirstOrDefault(scheme => withoutLogin.Contains(scheme.ToLowerInvariant()));
         return found is null ? null : $"(2) scheme {found.ToLowerInvariant()} has no login";

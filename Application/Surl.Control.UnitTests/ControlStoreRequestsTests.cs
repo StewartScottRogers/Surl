@@ -223,6 +223,75 @@ public sealed class ControlStoreRequestsTests
     }
 
     [TestMethod]
+    public async Task AddAccount_EmptyUserWithPassword_AddsTheBearerTokenAccount()
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("POST", "/v1/accounts", "application/json", "{\"user\":\"\",\"password\":\"tok123\"}"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "AddAccount  tok123" }, target.Calls);
+        Assert.DoesNotContain("tok123", response);
+    }
+
+    [TestMethod]
+    [DataRow("/v1/proxy-accounts")]
+    [DataRow("/v1/tls-srp-accounts")]
+    public async Task AddProxyOrTlsSrpAccount_EmptyUser_IsBadRequest(string path)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("POST", path, "application/json", "{\"user\":\"\",\"password\":\"tok123\"}"));
+
+        Assert.AreEqual("{\"error\":\"bad_request\",\"message\":\"give user and password, neither empty\"}", Body(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
+    [TestMethod]
+    public async Task PutBearerToken_RotatesTheBearerToken()
+    {
+        var target = new FakeControlTarget();
+
+        var rotated = await Serve(target, Request("PUT", "/v1/bearer-token", "application/json", "{\"password\":\"tok456\"}"));
+        var none = await Serve(new FakeControlTarget { Found = false }, Request("PUT", "/v1/bearer-token", "application/json", "{\"password\":\"tok456\"}"));
+        var empty = await Serve(target, Request("PUT", "/v1/bearer-token", "application/json", "{\"password\":\"\"}"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(rotated));
+        Assert.DoesNotContain("tok456", rotated);
+        CollectionAssert.AreEqual(new[] { "SetAccountPassword  tok456" }, target.Calls);
+        Assert.AreEqual("{\"error\":\"not_found\",\"message\":\"no Bearer-token account is set\"}", Body(none));
+        Assert.DoesNotContain("tok456", none);
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(empty));
+    }
+
+    [TestMethod]
+    public async Task DeleteBearerToken_RemovesTheBearerTokenAccount()
+    {
+        var target = new FakeControlTarget();
+
+        var removed = await Serve(target, Request("DELETE", "/v1/bearer-token"));
+        var none = await Serve(new FakeControlTarget { Found = false }, Request("DELETE", "/v1/bearer-token"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(removed));
+        CollectionAssert.AreEqual(new[] { "RemoveAccount " }, target.Calls);
+        Assert.AreEqual("HTTP/1.1 404 Not Found", StatusLine(none));
+    }
+
+    [TestMethod]
+    [DataRow("DELETE", "/v1/accounts/")]
+    [DataRow("PUT", "/v1/accounts/")]
+    [DataRow("DELETE", "/v1/files/")]
+    public async Task EmptySegmentRoutes_AreStill404(string method, string path)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request(method, path, "application/json", "{\"password\":\"x\"}"));
+
+        Assert.AreEqual("HTTP/1.1 404 Not Found", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
+    [TestMethod]
     [DataRow("{\"user\":\"bob\",\"password\":\"\"}", "give user and password, neither empty")]
     [DataRow("{\"password\":\"s3cret-pass\"}", "give user and password, neither empty")]
     [DataRow("{\"user\":\"bob\",\"password\":\"s3cret-pass\",\"extra\":\"s3cret-pass\"}", "the body is not the JSON object this request takes (at $.extra)")]

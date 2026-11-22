@@ -17,6 +17,27 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
 
     public RecordingExchangeLog Log { get; } = new();
 
+    /// <summary>
+    /// Waits, bounded as <see cref="Http3TestQuicClient.UntilAsync"/> is, until a note satisfying <paramref name="isWanted"/>
+    /// is in <see cref="Log"/>, and fails with the notes seen when none comes. A note written by a stream or task
+    /// other than the one a test waited for may land after the response, so a test reads it only through this.
+    /// </summary>
+    public async Task UntilNoteAsync(Func<string, bool> isWanted, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await UntilAsync(() => Log.Notes.ToArray().Any(isWanted), cancellationToken);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            Assert.Fail("The wanted note never appeared. Notes seen: " + string.Join(" | ", Log.Notes.ToArray()));
+        }
+    }
+
+    /// <summary>Waits until <see cref="Log"/> holds exactly <paramref name="note"/>; see <see cref="UntilNoteAsync(Func{string, bool}, CancellationToken)"/>.</summary>
+    public Task UntilNoteAsync(string note, CancellationToken cancellationToken) =>
+        UntilNoteAsync(seen => seen == note, cancellationToken);
+
     /// <summary>Cancels the exchange, as shutdown or <c>--max-time</c> does.</summary>
     public CancellationTokenSource Exchange { get; } = new();
 

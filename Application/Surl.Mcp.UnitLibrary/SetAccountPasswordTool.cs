@@ -24,7 +24,7 @@ public static class SetAccountPasswordTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "user": { "type": "string", "minLength": 1, "description": "The user name of the existing account" },
+            "user": { "type": "string", "description": "The user name of the existing account; an empty string names the Bearer-token account" },
             "password": { "type": "string", "minLength": 1, "description": "The new password" }
           },
           "required": ["server_id", "user", "password"],
@@ -50,7 +50,7 @@ public static class SetAccountPasswordTool
         catch (ArgumentException)
         {
             // The only refusal left is a user name with no account; its text is written here so no exception text is echoed.
-            return McpToolResult.FromFailure($"user {user} has no account");
+            return McpToolResult.FromFailure(user.Length == 0 ? "the Bearer-token account does not exist" : $"user {user} has no account");
         }
 
         return ToolResults.FromObject(writer => writer.WriteString("user", user));

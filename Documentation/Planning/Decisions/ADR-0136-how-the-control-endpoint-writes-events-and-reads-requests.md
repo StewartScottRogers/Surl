@@ -49,10 +49,10 @@ judge (ADR-0124 decision 7 made the same call).
    JSON body member the request does not take is `400`; a JSON error names the path where the body went wrong
    (`$.queue`), never the value, so a password is never echoed. In `POST /v1/messages`, exactly one of a
    non-empty `topic` and `queue`, exactly one of `payload_text` (sent as UTF-8) and `payload_base64`, and
-   `retain` only with a topic. In `POST /v1/accounts`, `user` and `password` are both required and non-empty.
+   `retain` only with a topic. In `POST /v1/accounts`, `user` and `password` are both required, `password` non-empty and `user` non-empty too, except that an empty `user` in the account book's `POST /v1/accounts` names the Bearer-token account ([ADR-0132](ADR-0132-how-the-account-book-changes-while-the-server-runs.md) amendment 2); the proxy and TLS-SRP adds still refuse it.
    A fault item's trailing CR and LF are dropped; an empty item is `400`.
 8. **Paths.** `{path}` and `{user}` are percent-decoded segment by segment; a file path is passed to the
-   target with a leading `/`. `/v1/files/` with nothing after it is `404`.
+   target with a leading `/`. `/v1/files/` with nothing after it is `404`, and so is `/v1/accounts/`; the Bearer-token account is `PUT` and `DELETE` at `/v1/bearer-token` (ADR-0132 amendment 2).
 9. **Answer fields.** Every answer has `Date` and `Server: surl`; a JSON answer adds `Content-Type:
    application/json`, `Cache-Control: no-store` and `Content-Length`; a `204` has no `Content-Length` (RFC 9110
    section 8.6).

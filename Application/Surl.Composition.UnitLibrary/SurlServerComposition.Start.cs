@@ -205,7 +205,7 @@ public static partial class SurlServerComposition
         if (SchemeLoginCheck.FindRefusal(
                 authentication.Mailboxes.MailboxProtocols,
                 commandLine,
-                [.. ProtocolServerRegistrations.Original, .. ExtendedProtocolServers.Registrations]) is { } noLogin)
+                AllRegistrations()) is { } noLogin)
         {
             return Refuse(SurlExitCode.FailedInit, noLogin);
         }
@@ -238,6 +238,9 @@ public static partial class SurlServerComposition
             commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, cancellationToken);
     }
 
+    private static ProtocolServerRegistration[] AllRegistrations() =>
+        [.. ProtocolServerRegistrations.Original, .. ExtendedProtocolServers.Registrations];
+
     // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
     // and --hostcert files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
     // ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
@@ -253,7 +256,8 @@ public static partial class SurlServerComposition
             readStartFile,
             commandLine.MailboxFiles.Count == 0
                 ? []
-                : ComposeExtendedSchemes(seams.AreExtensionsTurnedOn, seams.ComposeExtendedProtocolServers, seams.TimeProvider));
+                : ComposeExtendedSchemes(seams.AreExtensionsTurnedOn, seams.ComposeExtendedProtocolServers, seams.TimeProvider),
+            SchemeLoginCheck.SchemesWithoutLogin(AllRegistrations()));
         if (mailboxes is null)
         {
             return (null, new SurlStartFailure(mailboxExitCode, [mailboxFailureMessage!]));
