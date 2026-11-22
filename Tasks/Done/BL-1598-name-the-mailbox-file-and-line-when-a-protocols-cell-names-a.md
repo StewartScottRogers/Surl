@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1598 — Name the mailbox file and line when a protocols cell names a scheme with no login, in MailboxFileReader
 
@@ -45,19 +45,19 @@ refuses `unknown scheme <scheme>`.
 
 ## Acceptance criteria
 
-- [ ] `MailboxFileReader` gains a constructor overload (or optional parameter) taking
+- [x] `MailboxFileReader` gains a constructor overload (or optional parameter) taking
       `IReadOnlyCollection<string> schemesWithoutLogin`, compared without regard to case; the existing two-argument
       constructor behaves exactly as today (an empty set).
-- [ ] A record whose `protocols` cell names a scheme in that set is refused with
+- [x] A record whose `protocols` cell names a scheme in that set is refused with
       `(2) Mailbox file <file>, line <n>: scheme <scheme lower-cased> has no login`, `<n>` the line the record starts
       on, and the file's mailboxes are empty; the scheme check order is: unknown scheme first, then no login.
-- [ ] New tests in `Application/Surl.Cli.UnitTests/MailboxFileReaderTests.cs`:
+- [x] New tests in `Application/Surl.Cli.UnitTests/MailboxFileReaderTests.cs`:
       `Read_ProtocolsNamingASchemeWithoutLogin_IsRefusedWithFileAndLine` (the report's `gopher` record, line 2),
       `Read_ProtocolsNamingASchemeWithoutLoginInAnyCase_IsRefusedLowerCased` (`GOPHER`),
       `Read_ProtocolsNamingOnlySchemesWithLogin_IsRead`, and
       `Read_SchemesWithoutLoginNotGiven_AcceptsAServedSchemeAsToday`, plus a null-argument test for the new parameter.
-- [ ] No refusal holds the password (the existing password-absence assertion style in the test file is used).
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"`
+- [x] No refusal holds the password (the existing password-absence assertion style in the test file is used).
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"`
       is green, and `Surl.Cli.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -69,3 +69,4 @@ start; the mailbox file is read at start, so this is still true.
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. MailboxFileReader refuses a no-login scheme with file and line
