@@ -8,7 +8,7 @@ depends-on: [BL-1601]
 touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1602 — Let the control endpoint add, rotate and remove the Bearer-token account as BL-1601 decides
 
@@ -39,22 +39,25 @@ answers ADR-0132 Amendment 2 (BL-1601) names.
 
 ## Acceptance criteria
 
-- [ ] In `Application/Surl.Control.UnitTests/ControlStoreRequestsTests.cs`:
+- [x] In `Application/Surl.Control.UnitTests/ControlStoreRequestsTests.cs`:
       `AddAccount_EmptyUserWithPassword_AddsTheBearerTokenAccount` (`204`, the target saw user `""`),
       `PutBearerToken_RotatesTheBearerToken` (`PUT /v1/bearer-token`: `204`; `404` when the target has no such account),
       `DeleteBearerToken_RemovesTheBearerTokenAccount` (`DELETE /v1/bearer-token`: `204`; `404` when none), all pass.
-- [ ] `AddAccount_EmptyPassword_IsBadRequest` and `AddProxyAccount_EmptyUser_IsBadRequest` (and the TLS-SRP twin) pass:
+- [x] `AddAccount_EmptyPassword_IsBadRequest` and `AddProxyAccount_EmptyUser_IsBadRequest` (and the TLS-SRP twin) pass:
       an empty password is still `400`, and the proxy and TLS-SRP kinds still answer an empty user `400 give user and password, neither empty` (ADR-0132 amendment 2, rule 3).
-- [ ] A route test in `Application/Surl.Control.UnitTests/ControlEndpointTests.cs` shows the `/v1/bearer-token` routes
+- [x] A route test in `Application/Surl.Control.UnitTests/ControlEndpointTests.cs` shows the `/v1/bearer-token` routes
       reach the handlers and every route with an empty segment (`/v1/files/`, `/v1/accounts/`) is still `404`.
-- [ ] No answer body or log line holds the token (asserted in the add and rotate tests).
-- [ ] `Application/Surl.Control.UnitLibrary/CLAUDE.md`'s account routes bullet names the Bearer-token form.
-- [ ] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"`
+- [x] No answer body or log line holds the token (asserted in the add and rotate tests).
+- [x] `Application/Surl.Control.UnitLibrary/CLAUDE.md`'s account routes bullet names the Bearer-token form.
+- [x] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"`
       green, `Surl.Control.UnitLibrary` at 100% line and branch coverage.
 
 ## Notes
+
+- Empty-user acceptance is a flag on the shared add helper, set only by the account-book add; the 404 message is "no Bearer-token account is set". PUT with an empty password is 400 like the other rotations.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Bearer-token add, rotate and remove routes on the control endpoint

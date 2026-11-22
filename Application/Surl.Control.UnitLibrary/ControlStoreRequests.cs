@@ -153,7 +153,7 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
     /// <summary><c>POST /v1/accounts</c>: adds the JSON body's account.</summary>
     /// <param name="request">The request.</param>
     /// <returns><c>204</c>.</returns>
-    public Task<HttpAnswer> AddAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddAccountAsync);
+    public Task<HttpAnswer> AddAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddAccountAsync, allowEmptyUser: true);
 
     /// <summary><c>DELETE /v1/accounts/{user}</c>.</summary>
     /// <param name="request">The request.</param>
@@ -214,15 +214,42 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
             : throw NotFound($"no {kind} is named {request.Parameters[0]}");
     }
 
-    private async Task<HttpAnswer> AddAccountToAsync(ControlRequest request, Func<string, string, CancellationToken, Task> add)
+    /// <summary><c>PUT /v1/bearer-token</c>: gives the Bearer-token (empty-name) account the JSON body's password (ADR-0132 amendment 2).</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>404</c> when there is no Bearer-token account; <c>400</c> for an empty password.</returns>
+    public async Task<HttpAnswer> SetBearerTokenAsync(ControlRequest request)
+    {
+        var body = await ReadJsonAsync(request, ControlJsonContext.Default.ControlPasswordRequestJson);
+        if (string.IsNullOrEmpty(body.Password))
+        {
+            throw new ControlErrorException(ControlError.BadRequest("give a password, not empty"));
+        }
+
+        return await target.SetAccountPasswordAsync(string.Empty, body.Password, request.CancellationToken)
+            ? answers.NoContent(request.Http)
+            : throw NotFound(NoBearerTokenMessage);
+    }
+
+    /// <summary><c>DELETE /v1/bearer-token</c>: removes the Bearer-token (empty-name) account (ADR-0132 amendment 2).</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>, or <c>404</c> when there is no Bearer-token account.</returns>
+    public async Task<HttpAnswer> RemoveBearerTokenAsync(ControlRequest request) =>
+        await target.RemoveAccountAsync(string.Empty, request.CancellationToken)
+            ? answers.NoContent(request.Http)
+            : throw NotFound(NoBearerTokenMessage);
+
+    private const string NoBearerTokenMessage = "no Bearer-token account is set";
+
+    private async Task<HttpAnswer> AddAccountToAsync(ControlRequest request, Func<string, string, CancellationToken, Task> add, bool allowEmptyUser = false)
     {
         var body = await ReadJsonAsync(request, ControlJsonContext.Default.ControlAccountRequestJson);
-        if (string.IsNullOrEmpty(body.User) || string.IsNullOrEmpty(body.Password))
+        var user = body.User;
+        if (user is null || (!allowEmptyUser && user.Length == 0) || string.IsNullOrEmpty(body.Password))
         {
             throw new ControlErrorException(ControlError.BadRequest("give user and password, neither empty"));
         }
 
-        await add(body.User, body.Password, request.CancellationToken);
+        await add(user, body.Password, request.CancellationToken);
 
         return answers.NoContent(request.Http);
     }

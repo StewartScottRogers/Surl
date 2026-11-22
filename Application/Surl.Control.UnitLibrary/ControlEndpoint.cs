@@ -123,6 +123,8 @@ public sealed class ControlEndpoint
             new("POST", ["accounts"], [], storeRequests.AddAccountAsync),
             new("PUT", ["accounts", "{}"], [], storeRequests.SetAccountPasswordAsync),
             new("DELETE", ["accounts", "{}"], [], storeRequests.RemoveAccountAsync),
+            new("PUT", ["bearer-token"], [], storeRequests.SetBearerTokenAsync),
+            new("DELETE", ["bearer-token"], [], storeRequests.RemoveBearerTokenAsync),
             new("POST", ["proxy-accounts"], [], storeRequests.AddProxyAccountAsync),
             new("PUT", ["proxy-accounts", "{}"], [], storeRequests.SetProxyAccountPasswordAsync),
             new("DELETE", ["proxy-accounts", "{}"], [], storeRequests.RemoveProxyAccountAsync),
