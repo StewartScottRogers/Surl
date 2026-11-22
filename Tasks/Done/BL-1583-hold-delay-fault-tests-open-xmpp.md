@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.Xmpp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1583 — Hold delay-fault tests open: Xmpp
 
@@ -22,11 +22,11 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.Xmpp.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.Xmpp.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
@@ -36,3 +36,5 @@ Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows 
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Looked: Xmpp's only delay test (XmppStanzaRouterTests, StanzaWithNoToUnderADelayRule) uses UnitTestXmppClientConnection, which does not override WatchForPeerCloseAsync, so it gets the default NotWatched and a hold is never ended by a half-close. No change needed; no code touched.
+- 2026-11-21: Doing -> Done. Xmpp delay test already stays open (NotWatched default); no change needed
