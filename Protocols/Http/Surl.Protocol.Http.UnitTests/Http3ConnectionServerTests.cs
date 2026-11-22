@@ -162,11 +162,11 @@ public sealed partial class Http3ConnectionServerTests
 
         await client.Exchange.CancelAsync();
         await client.FinishAsync(Token);
+        await client.UntilNoteAsync("The exchange was cancelled; sent GOAWAY 4 and closed the HTTP/3 connection with H3_NO_ERROR.", Token);
 
         var control = Http3TestClient.ReadFrames(client.StreamSent(Http3TestClient.ServerControlStreamId).Data.AsSpan(1));
         Assert.AreEqual((Http3FrameType.GoAway, (byte)0x04), (control[^1].Type, control[^1].Payload.Single()));
         Assert.AreEqual(H3NoError, client.CloseCode);
-        Assert.IsTrue(client.Log.Notes.Contains("The exchange was cancelled; sent GOAWAY 4 and closed the HTTP/3 connection with H3_NO_ERROR."));
     }
 
     private static (List<string> Fields, string Body) Http11Answer(byte[] response)

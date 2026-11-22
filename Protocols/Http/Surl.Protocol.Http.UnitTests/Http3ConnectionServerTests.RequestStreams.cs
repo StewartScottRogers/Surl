@@ -79,9 +79,9 @@ public sealed partial class Http3ConnectionServerTests
                 return client.ResetCode(0) is not null && client.StopSendingCode(0) is not null;
             },
             Token);
+        await client.UntilNoteAsync("Stream 0 was reset with RequestIncomplete: its HEADERS was not whole within the head timeout.", Token);
 
         Assert.AreEqual(H3RequestIncomplete, client.ResetCode(0));
-        Assert.IsTrue(client.Log.Notes.Contains("Stream 0 was reset with RequestIncomplete: its HEADERS was not whole within the head timeout."));
         Assert.IsNull(client.CloseCode);
     }
 
@@ -326,9 +326,9 @@ public sealed partial class Http3ConnectionServerTests
 
         client.Send(0, client.Request("GET", "/file.txt"), fin: true);
         await client.UntilAsync(() => client.ResetCode(0) is not null, Token);
+        await client.UntilNoteAsync(note => note.EndsWith("stream 0 was reset with H3_INTERNAL_ERROR.", StringComparison.Ordinal), Token);
 
         Assert.AreEqual(H3InternalError, client.ResetCode(0));
-        Assert.IsTrue(client.Log.Notes.Any(note => note.EndsWith("stream 0 was reset with H3_INTERNAL_ERROR.", StringComparison.Ordinal)));
         Assert.IsNull(client.CloseCode);
     }
 }

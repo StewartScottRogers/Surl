@@ -60,9 +60,9 @@ public sealed partial class Http3ConnectionServerTests
             .. Http3TestClient.Frame(0x21, [0x01, 0x02])]);
         client.Send(0, client.Request("GET", "/file.txt"), fin: true);
         await client.UntilAsync(() => client.HasEnded(0), Token);
+        await client.UntilNoteAsync("The client sent GOAWAY.", Token);
 
         Assert.AreEqual(FileBody, client.Response(0).BodyText);
-        CollectionAssert.Contains(client.Log.Notes.ToArray(), "The client sent GOAWAY.");
         Assert.IsNull(client.CloseCode);
     }
 
@@ -192,9 +192,9 @@ public sealed partial class Http3ConnectionServerTests
 
         await client.CompleteHandshakeAsync(Token);
         await client.FinishAsync(Token);
+        await client.UntilNoteAsync(note => note.Contains("initial_max_streams_uni", StringComparison.Ordinal), Token);
 
         Assert.AreEqual(H3GeneralProtocolError, client.CloseCode);
-        Assert.IsTrue(client.Log.Notes.Any(note => note.Contains("initial_max_streams_uni", StringComparison.Ordinal)));
     }
 
     [TestMethod]

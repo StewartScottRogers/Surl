@@ -36,12 +36,12 @@ public sealed partial class Http3ConnectionServerTests
         await client.UntilAsync(() => client.ResetCode(0) is not null && client.StopSendingCode(0) is not null, Token);
         client.Send(4, client.Request("GET", "/other.txt"), fin: true);
         await client.UntilAsync(() => client.HasEnded(4), Token);
+        await client.UntilNoteAsync("Stream 0 was reset with VersionFallback: the only logins it could be challenged for are NTLM or Negotiate, which HTTP/3 does not carry.", Token);
 
         Assert.AreEqual(H3VersionFallback, client.ResetCode(0));
         Assert.AreEqual(H3VersionFallback, client.StopSendingCode(0));
         Assert.IsEmpty(client.StreamSent(0).Data, "No HEADERS went out before the reset.");
         Assert.AreEqual("404", client.Response(4).Status);
-        CollectionAssert.Contains(client.Log.Notes.ToArray(), "Stream 0 was reset with VersionFallback: the only logins it could be challenged for are NTLM or Negotiate, which HTTP/3 does not carry.");
         Assert.IsNull(client.CloseCode);
     }
 
@@ -95,13 +95,13 @@ public sealed partial class Http3ConnectionServerTests
         await client.UntilAsync(() => client.ResetCode(0) is not null && client.StopSendingCode(0) is not null, Token);
         client.Send(4, client.Request("GET", "/file.txt"), fin: true);
         await client.UntilAsync(() => client.HasEnded(4), Token);
+        await client.UntilNoteAsync("Stream 0 was reset with VersionFallback: its authorization names NTLM or Negotiate, which HTTP/3 does not carry.", Token);
 
         Assert.AreEqual(H3VersionFallback, client.ResetCode(0));
         Assert.AreEqual(H3VersionFallback, client.StopSendingCode(0));
         Assert.IsEmpty(client.StreamSent(0).Data, "No HEADERS went out before the reset.");
         Assert.AreEqual("200", client.Response(4).Status);
         Assert.HasCount(1, policy.JudgedRequests, "The authentication session never sees the NTLM or Negotiate stream, so no handshake starts.");
-        CollectionAssert.Contains(client.Log.Notes.ToArray(), "Stream 0 was reset with VersionFallback: its authorization names NTLM or Negotiate, which HTTP/3 does not carry.");
         Assert.IsNull(client.CloseCode);
     }
 }
