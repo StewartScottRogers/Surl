@@ -107,3 +107,4 @@ tolerated.
 - 2026-11-21: Doing -> Backlog. Settle delay now also ends when accepting stops (ServingEngine.SettleBeforeRefusalAsync), fixing the two Core test timeouts; full fast suite green except a Gopher timing flake; needs push, then a Release dry run on the shift branch to prove osx-arm64 and osx-x64 conformance
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44965370157 (release.yml dry run on factory/phase-1 with the settle delay ending on shutdown, 221c90bba; osx-arm64 and osx-x64 conformance must pass)
+- 2026-11-21: Blocked -> Backlog. run:44965370157 (release.yml dry run with 221c90bba) completed success: Conformance against the published osx-arm64 and osx-x64 passed, as did linux-x64, linux-arm64 and win-arm64; tick the last boxes and finish
