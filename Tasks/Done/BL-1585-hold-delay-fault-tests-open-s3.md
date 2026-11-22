@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.S3.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1585 — Hold delay-fault tests open: S3
 
@@ -35,15 +35,17 @@ The run had not yet built or tested this. Review it before keeping it: prefer `u
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.S3.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the harness's ClientStaysOpen), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule.
-- [ ] dotnet build of Surl.Extended.Protocol.S3.UnitTests is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for Surl.Extended.Protocol.S3.UnitTests.
-- [ ] No file outside Surl.Extended.Protocol.S3.UnitTests changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.S3.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the harness's ClientStaysOpen), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule.
+- [x] dotnet build of Surl.Extended.Protocol.S3.UnitTests is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for Surl.Extended.Protocol.S3.UnitTests.
+- [x] No file outside Surl.Extended.Protocol.S3.UnitTests changed.
 
 ## Notes
 
 Run the checks on a build that includes this repo's current Surl.Protocol.Abstractions InMemoryConnection.
+
+2026-11-21 (lane 1): applied lane 2's work from branch factory/BL-1585-lane-2-20261121-175153 (code files only). Reviewed: imports used, wait is bounded (30 s), serve task awaited after StopServing. Only one delay test exists in the project. Build -warnaserror clean, 20/20 DelayRule runs green, 465 fast tests green.
 
 ## Log
 
@@ -51,3 +53,4 @@ Run the checks on a build that includes this repo's current Surl.Protocol.Abstra
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Backlog. Lane 2 could not integrate: fast tests failed twice (Surl.Core.UnitTests: ServeAsync_ClientHalfClosesDuringAnAcceptDelay_EndsTheExchangeAtOnce_AndFreesItsSlot; then Surl.Core.UnitTests: ServeAsync_ClientHalfClosesDuringAnAcceptDelay_EndsTheExchangeAtOnce_AndFreesItsSlot) after rebasing onto the other lanes' work. The work is on branch factory/BL-1585-lane-2-20261121-175153; start with git cherry-pick --no-commit factory/BL-1585-lane-2-20261121-175153 and fix it.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. S3 delay-fault test holds its delay with a client that stays open; 20/20 runs green

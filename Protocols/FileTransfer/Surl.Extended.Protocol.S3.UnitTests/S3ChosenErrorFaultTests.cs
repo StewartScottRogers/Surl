@@ -118,6 +118,7 @@ public sealed class S3ChosenErrorFaultTests
     public async Task ServeAsync_CommandStageDelayRule_HoldsTheRequestThenServesItAsWithoutTheRule()
     {
         var harness = HarnessWithObject(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 });
+        harness.ClientStaysOpen = true;
 
         var serving = harness.SendAsync("GET", "/bucket/a.txt");
         await harness.IdleClock.FirstPause;
@@ -125,6 +126,8 @@ public sealed class S3ChosenErrorFaultTests
         harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(499));
         var completedEarly = serving.IsCompleted;
         harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        await harness.WaitForCompleteResponseAsync();
+        harness.StopServing();
         var response = await serving;
 
         Assert.IsFalse(completedWhileHeld);

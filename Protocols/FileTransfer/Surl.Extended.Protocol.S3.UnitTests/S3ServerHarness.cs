@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -73,6 +74,61 @@ internal sealed partial class S3ServerHarness
         stream.Write(Encoding.UTF8.GetBytes(content));
     }
 
+    /// <summary>
+    /// True keeps the scripted client open after its request, so a delay hold is never ended by the client seeming to leave;
+    /// the test then calls <see cref="WaitForCompleteResponseAsync"/> and <see cref="StopServing"/> before awaiting the exchange.
+    /// </summary>
+    public bool ClientStaysOpen { get; set; }
+
+    private CancellationTokenSource? servingCancellation;
+
+    /// <summary>
+    /// Waits, off the fake clock, until the server has written a whole response to the open client.
+    /// </summary>
+    public async Task WaitForCompleteResponseAsync()
+    {
+        using var giveUp = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (!ResponseIsComplete())
+        {
+            await Task.Delay(1, giveUp.Token);
+        }
+    }
+
+    /// <summary>
+    /// Ends an exchange whose client stayed open, as the listener does when it stops.
+    /// </summary>
+    public void StopServing() => servingCancellation?.Cancel();
+
+    private bool ResponseIsComplete()
+    {
+        var written = LastWrittenText();
+        var headEnd = written.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+        if (headEnd < 0)
+        {
+            return false;
+        }
+
+        var lengthField = Regex.Match(written[..headEnd], @"\r\nContent-Length: (\d+)", RegexOptions.IgnoreCase);
+
+        return !lengthField.Success || Encoding.UTF8.GetByteCount(written[(headEnd + 4)..]) >= int.Parse(lengthField.Groups[1].Value, CultureInfo.InvariantCulture);
+    }
+
+    private InMemoryConnection? lastConnection;
+
+    private string LastWrittenText() => Encoding.UTF8.GetString(lastConnection!.WrittenBytes);
+
+    private async Task ServeUntilDoneAsync(InMemoryConnection connection, Func<ExchangeContext> context)
+    {
+        servingCancellation = ClientStaysOpen ? new CancellationTokenSource() : null;
+        try
+        {
+            await Server.ServeAsync(connection, context());
+        }
+        catch (OperationCanceledException) when (servingCancellation is { IsCancellationRequested: true })
+        {
+        }
+    }
+
     public ExchangeContext Context(ExchangeLimits? limits = null) => new(
         1,
         new ListenUrl(S3ProtocolServer.Scheme, ListenHost, 9000).WithBoundPort(9000),
@@ -80,7 +136,7 @@ internal sealed partial class S3ServerHarness
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
         TimeProvider,
-        CancellationToken.None)
+        servingCancellation?.Token ?? CancellationToken.None)
     {
         Limits = limits ?? ExchangeLimits.Default,
         Faults = Faults,
@@ -144,8 +200,9 @@ internal sealed partial class S3ServerHarness
 
     public async Task<string> SendRawAsync(string request, ExchangeLimits? limits = null)
     {
-        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
-        await Server.ServeAsync(connection, Context(limits));
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], peerHalfClosesWhenExhausted: !ClientStaysOpen);
+        lastConnection = connection;
+        await ServeUntilDoneAsync(connection, () => Context(limits));
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }
