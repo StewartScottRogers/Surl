@@ -57,3 +57,4 @@ answers ADR-0132 Amendment 2 (BL-1601) names.
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
