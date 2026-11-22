@@ -8,7 +8,7 @@ depends-on: [BL-1587]
 touches: [Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1588 — Prove a NATS token login through the composed servers
 
@@ -33,18 +33,21 @@ a fake policy.
 
 ## Acceptance criteria
 
-- [ ] A new fast test class in `Application/Surl.Composition.UnitTests` (e.g. `NatsTokenLoginCompositionTests`) with
+- [x] A new fast test class in `Application/Surl.Composition.UnitTests` (e.g. `NatsTokenLoginCompositionTests`) with
       `ServeAsync_NatsTokenOfTheEmptyNameAccount_IsAccepted`: after `CONNECT {"verbose":true,"auth_token":"tok"}\r\n`
       the client reads `+OK\r\n`.
-- [ ] `ServeAsync_NatsWrongToken_IsAuthorizationViolation`: `auth_token` `nope` reads `-ERR 'Authorization Violation'\r\n`
+- [x] `ServeAsync_NatsWrongToken_IsAuthorizationViolation`: `auth_token` `nope` reads `-ERR 'Authorization Violation'\r\n`
       (use a fake `TimeProvider` or the seam's clock so the refusal delay does not slow the test).
-- [ ] The accepted case observes one `LoginJudgedEvent` with `IsAccepted` true, Account `bearer token`, scheme `nats`.
-- [ ] No test needs `TestCategory=Integration`; `dotnet build Application/Surl.Composition.UnitTests -warnaserror` clean
+- [x] The accepted case observes one `LoginJudgedEvent` with `IsAccepted` true, Account `bearer token`, scheme `nats`.
+- [x] No test needs `TestCategory=Integration`; `dotnet build Application/Surl.Composition.UnitTests -warnaserror` clean
       and the fast tests green.
 
 ## Notes
+
+Direct test, no ADR needed. The refusal delay did not slow the test (2 tests in ~1 s on the system clock), so no fake clock was added.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Composed NATS token login proven: tok accepted, wrong token refused, LoginJudgedEvent observed
