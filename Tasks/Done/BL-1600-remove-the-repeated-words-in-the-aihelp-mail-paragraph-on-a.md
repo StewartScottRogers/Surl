@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1600 — Remove the repeated words in the --aihelp mail paragraph on a mailbox file's quota and folders columns
 
@@ -28,10 +28,10 @@ takes".
 
 ## Acceptance criteria
 
-- [ ] `Application/Surl.Cli.UnitLibrary/AiHelpProse.cs` no longer contains the text "takes `--mailbox-file` takes", and
+- [x] `Application/Surl.Cli.UnitLibrary/AiHelpProse.cs` no longer contains the text "takes `--mailbox-file` takes", and
       the sentence reads "A `--mailbox-file` takes `quota` and `folders` columns, an empty field meaning the key was not
       given."
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"`
       is green (the `AiHelpTextTests` and `CommandLineRunnerAiHelpTests` suites included).
 
 ## Notes
@@ -40,3 +40,4 @@ takes".
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Doubled words removed from the --aihelp mail paragraph; build clean, Cli tests green
