@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1569 — Give every delay-hold unit test a scripted client that stays open, so no test's hold ends early because its client looks gone
 
@@ -37,15 +37,15 @@ input. The AMQP 1.0 flake is fixed here, and every other affected test project g
 
 ## Acceptance criteria
 
-- [ ] The AMQP 1.0 delay tests use a client that stays open through the hold; the changed tests pass 20 runs in a row
+- [x] The AMQP 1.0 delay tests use a client that stays open through the hold; the changed tests pass 20 runs in a row
       locally (`--filter "FullyQualifiedName~DelayRule"` in a loop).
-- [ ] The Log records the decision: change the shared test doubles' default (e.g. `InMemoryConnection` stays open
+- [x] The Log records the decision: change the shared test doubles' default (e.g. `InMemoryConnection` stays open
       unless a test asks for a half-close), or fix each project. Prefer the shared default if one double serves most
       projects; note which projects script their own channel.
-- [ ] task-planner files follow-up tasks (at most two projects each) for every other project above whose delay tests
+- [x] task-planner files follow-up tasks (at most two projects each) for every other project above whose delay tests
       can see an ended input during a hold, or one task for the shared double if that covers them; each is listed in
       the Log. Projects already fixed (DnsQuery, Ssh) are skipped.
-- [ ] `dotnet build` clean and the full fast suite green.
+- [x] `dotnet build` clean and the full fast suite green.
 
 ## Notes
 
@@ -55,3 +55,6 @@ input. The AMQP 1.0 flake is fixed here, and every other affected test project g
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Decision (Claude, under Stewart's delegation): the shared `InMemoryConnection` default (half-close) stays, because many tests across the solution rely on reads returning 0 at the end of a script; each affected project passes `peerHalfClosesWhenExhausted: false` in its delay tests instead. Amqp1 uses the shared double. Fixed here: the AMQP 1.0 delay test now keeps its client open, waits for the stored delivery, then cancels the exchange and awaits `serving`; 20 of 20 runs passed with `--filter "FullyQualifiedName~DelayRule"`.
+- 2026-11-21: Follow-ups filed by task-planner: BL-1570 (Abstractions, Redis), BL-1571 (AzureStorage, GoogleCloudStorage), BL-1572 (OciRegistry, S3), BL-1573 (Ftp, Smb), BL-1574 (Tftp, HttpMessage), BL-1575 (Coap, Grpc), BL-1576 (McpServer, SignalR), BL-1577 (SocketIo, WebTransport), BL-1578 (Rtsp, Ws), BL-1579 (Dict, Gopher), BL-1580 (Imap, Pop3), BL-1581 (Smtp, Ldap), BL-1582 (Nats, Stomp), BL-1583 (Xmpp). Kafka skipped (its delay test asserts the rule is not applied). DnsQuery and Ssh were already fixed.
+- 2026-11-21: Doing -> Done. AMQP 1.0 delay-hold tests keep their client open; 20/20 runs; 14 follow-up tasks BL-1570..1583 filed for other projects

@@ -102,18 +102,29 @@ public sealed partial class Amqp1ContainerConnectionTests
         {
             Open(), Begin(), BusFrame(SenderAttach(0, "orders")),
             BusFrame(new Amqp1Transfer(0) { DeliveryId = 0, DeliveryTag = [7], MessageFormat = 0 }, Message),
-        }.Select(frame => (ReadOnlyMemory<byte>)frame));
-        var context = Context(clock, new RecordingExchangeLog(), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
+        }.Select(frame => (ReadOnlyMemory<byte>)frame), peerHalfClosesWhenExhausted: false);
+        // The client stays connected: a script that half-closes would end the hold at once (ADR-0141 amendment 2).
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = Context(clock, new RecordingExchangeLog(), exchange.Token) with { Faults = plan, Events = events, IdleClock = idleClock };
 
         var serving = new Amqp1ContainerConnection(connection, context, Options(), bus, "alice").ServeAsync();
         await idleClock.FirstPause.WaitAsync(TestContext.CancellationToken);
         Assert.IsTrue(idleClock.IsPaused);
         clock.Advance(TimeSpan.FromMilliseconds(10));
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        var stored = bus.Connect().GetFromQueue("orders").Delivery;
+        while (stored is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+            stored = bus.Connect().GetFromQueue("orders").Delivery;
+        }
+
+        await exchange.CancelAsync();
         await serving;
 
         var written = await ReadWrittenWithPayloadsAsync(connection.WrittenBytes);
         Assert.IsNotNull(written.Select(frame => frame.Performative).OfType<Amqp1Attach>().Single().Target);
-        Assert.IsNotNull(bus.Connect().GetFromQueue("orders").Delivery);
+        Assert.IsNotNull(stored);
         Assert.AreEqual(1, idleClock.RestartCount);
         Assert.IsFalse(connection.Aborted);
         var applied = events.Events.OfType<FaultAppliedEvent>().Single();
