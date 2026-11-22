@@ -38,6 +38,9 @@ every platform.
 
 ## Notes
 
+- Added Http3TestClient.UntilNoteAsync (bounded, lists notes seen on failure); used in 7 tests: Errors (GOAWAY, initial_max_streams_uni), Logins (2 VersionFallback), RequestStreams (head timeout, H3_INTERNAL_ERROR), ConnectionServerTests (shutdown GOAWAY).
+- Verified: build clean, 20 runs green, fast Http suite 814 green.
+
 ## Log
 
 - 2026-11-22: Created.
