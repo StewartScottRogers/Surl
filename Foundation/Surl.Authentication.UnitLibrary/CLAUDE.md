@@ -484,6 +484,11 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   step that accepted, through `RefuseByFaultAsync`, which `BearerTokenSaslExchange` and `ScramSaslExchange`
   override). The tests are `LoginJudgementPolicyTests`, with `SpendingFaultPlan` spending `times`.
 
+- A `PasswordLogin` with `IsToken` (BL-1586; NATS `auth_token`, Socket.IO `token`) is checked by
+  `CheckPasswordLoginAsync` with `AccountBook.CheckBearerToken` against the empty-name account's password, after
+  the same `--allow-anonymous` and plain-text rules, and noted as `bearer token` (mechanism `password`); an empty
+  user name without `IsToken` still never matches.
+
 ## Accounts changed at run time (BL-802, ADR-0132)
 
 - `AccountBook` reads an internal `AccountStore`: an unchanging `AccountSet` (every lookup a login makes,

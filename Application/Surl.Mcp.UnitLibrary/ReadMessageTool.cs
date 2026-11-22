@@ -25,7 +25,7 @@ public static class ReadMessageTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "owner": { "type": "string", "minLength": 1, "description": "The account's name" },
+            "owner": { "type": "string", "description": "The account's name; the empty string names the --allow-anonymous mailbox owner" },
             "mailbox": { "type": "string", "minLength": 1, "description": "The mailbox, e.g. INBOX" },
             "uid": { "type": "integer", "minimum": 0, "description": "The message's UID" }
           },

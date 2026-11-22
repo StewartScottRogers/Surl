@@ -96,7 +96,7 @@ internal sealed class NatsConnectOptions
     /// </summary>
     public PasswordLogin ToPasswordLogin(string scheme, TlsSession? tlsSession, LoginExchange? exchange = null) =>
         User is not null ? new PasswordLogin(scheme, User, Encode(Pass), tlsSession, exchange)
-        : AuthToken is not null ? new PasswordLogin(scheme, string.Empty, Encode(AuthToken), tlsSession, exchange)
+        : AuthToken is not null ? new PasswordLogin(scheme, string.Empty, Encode(AuthToken), tlsSession, exchange) { IsToken = true }
         : new PasswordLogin(scheme, null, null, tlsSession, exchange);
 
     private static ReadOnlyMemory<byte>? Encode(string? text) =>

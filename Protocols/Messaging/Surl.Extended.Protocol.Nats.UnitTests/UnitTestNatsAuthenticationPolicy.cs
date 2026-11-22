@@ -28,7 +28,8 @@ internal sealed class UnitTestNatsAuthenticationPolicy : IAuthenticationPolicy
     private static PasswordLoginVerdict Judge(PasswordLogin login) => (login.UserName, PasswordOf(login)) switch
     {
         (null, _) => PasswordLoginVerdict.RefusedAnonymous,
-        ("alice", "secret") or ("", "s3cret") => PasswordLoginVerdict.Accepted,
+        ("", "s3cret" or "tok") when login.IsToken => PasswordLoginVerdict.Accepted,
+        ("alice", "secret") => PasswordLoginVerdict.Accepted,
         _ => PasswordLoginVerdict.RefusedCredentials,
     };
 }

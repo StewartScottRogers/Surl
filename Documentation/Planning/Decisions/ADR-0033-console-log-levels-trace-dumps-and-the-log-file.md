@@ -35,7 +35,7 @@ Where the code is on 2026-09-29:
 - The engine's notes, as `Foundation/Surl.Core.UnitLibrary/ServingEngine.cs` and
   `Foundation/Surl.Core.UnitLibrary/ServingEngine.Datagrams.cs` write them today (they have drifted from the
   texts ADR-0007 section 8 lists, so section 3 below restates them from the code):
-  - `Exchange <id> opened: <scheme> from <remote>.` when a connection or a datagram flow starts
+  - `Exchange <id> opened: <scheme> from <remote>.` (amended: see "Amendment 1" below; the note now also names the listen URL) when a connection or a datagram flow starts
     an exchange (one form for both);
   - `Exchange <id> ended; closing the connection.` or `Exchange <id> ended; closing the flow.`;
   - `Exchange <id> ended because the protocol server threw <exception type name>: <message>`;
@@ -265,7 +265,7 @@ tells of trouble; nothing for the bytes, for a normal close or for a completed T
 Each is the verbose log's own line for that note, unchanged:
 
 ```
-#<id> * Exchange <id> opened: <scheme> from <remote>.
+#<id> * Exchange <id> opened: <scheme> from <remote>.   (superseded by Amendment 1: now `... <scheme> on <listen URL> from <remote>.`)
 ```
 
 for example `#1 * Exchange 1 opened: http from 127.0.0.1:50000.` and, for a datagram flow,
@@ -422,3 +422,38 @@ The dump is curl's layout, turned to the server's side and labelled with the exc
   needs this ADR's table updated by a new ADR.
 - A new option that selects a level, or a change to any text here, is a new ADR that supersedes
   the affected section.
+
+## Amendment 1 (2026-11-22): the opened note names its listener
+
+Decided by Claude under Stewart's delegation.
+
+**Why.** With `surl -v --directory site http://127.0.0.1:8080/ http://127.0.0.1:8081/` both
+listeners wrote the same `Exchange <id> opened: http from <remote>.`, so `-v`, `--trace-ascii` and
+`--log-file` could not tell two listeners of one scheme apart, though the control endpoint's
+`exchange_started` events already do (`ExchangeStartedEvent.ListenUrl`). Upstream curl has no server
+log, so there is nothing to mirror; this is Surl's own log.
+
+**The new text** (sections 1 and 3 quote the old one; this replaces it):
+
+```
+#<id> * Exchange <id> opened: <scheme> on <listen URL> from <remote>.
+```
+
+- A connection: `#1 * Exchange 1 opened: http on http://127.0.0.1:8080/ from 127.0.0.1:50000.`
+- A datagram flow: `#7 * Exchange 7 opened: tftp on tftp://127.0.0.1:6969/ from 127.0.0.1:50001.`
+
+The engine still writes one form for both.
+
+**What does not change.** The prefix `Exchange <id> opened: ` and therefore the note's `info` level
+(section 3's table) are unchanged, so `LevelledExchangeLogFactory` still writes it at `info` and the
+conformance run's `\* Exchange \d+ opened` match still holds. Only the words after `<scheme>` change.
+
+**How the listen URL prints.** As `ReportedListenUrl.Format` gives it - `<scheme>://<host>:<port>/`
+with the bound port (the same text as `Listening on` and the events), an IPv6 literal bracketed. A
+listen URL is operator configuration, not a peer secret (ADR-0182 does not apply). A Unix-socket
+listener binds no port, so its URL prints the port asked for, as `Format` already does; any
+character in it that is not printable is escaped as ADR-0006 section 3 escapes untrusted bytes, so a
+socket path can never break the line.
+
+**Who changes the code.** BL-1592 changes `ServingEngine`, the tests and the `--aihelp` examples to
+write this text.

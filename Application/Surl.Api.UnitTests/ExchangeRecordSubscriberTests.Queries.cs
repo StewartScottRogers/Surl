@@ -54,6 +54,59 @@ public sealed partial class ExchangeRecordSubscriberTests
     }
 
     [TestMethod]
+    public async Task FindExchanges_NameOfOneUpload_ReturnsOnlyThatExchange()
+    {
+        var (stream, _) = Clocked();
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
+        PublishUpload(stream, 1, "/inbox/a.txt");
+        PublishUpload(stream, 2, "/inbox/b.txt");
+
+        var found = subscriber.FindExchanges(new SurlEventQuery { Name = "/inbox/a.txt" });
+
+        Assert.AreEqual(1, found.Single().ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task FindExchanges_NameAsSegmentPrefix_MatchesItsChildrenButNotASibling()
+    {
+        var (stream, _) = Clocked();
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
+        PublishUpload(stream, 1, "/uploads/a.txt");
+        PublishUpload(stream, 2, "/uploads2");
+
+        var found = subscriber.FindExchanges(new SurlEventQuery { Name = "/uploads" });
+
+        Assert.AreEqual(1, found.Single().ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task FindExchanges_NameWithNoStoreChange_ReturnsNone()
+    {
+        var (stream, _) = Clocked();
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
+        stream.Publish(new ExchangeStartedEvent(1, HttpListenUrl, "http", Alice));
+
+        var found = subscriber.FindExchanges(new SurlEventQuery { Name = "/inbox/a.txt" });
+
+        Assert.IsEmpty(found);
+    }
+
+    [TestMethod]
+    public async Task WaitForExchangeAsync_Name_CompletesOnlyOnceTheMatchingStoreChangeArrives()
+    {
+        var (stream, clock) = Clocked();
+        await using var subscriber = new ExchangeRecordSubscriber(stream, clock, Bounds(10, 100));
+        PublishUpload(stream, 1, "/inbox/b.txt");
+
+        var waiting = subscriber.WaitForExchangeAsync(new SurlEventQuery { Name = "/inbox/a.txt" }, Timeout.InfiniteTimeSpan, TestContext.CancellationToken);
+        Assert.IsFalse(waiting.IsCompleted);
+        PublishUpload(stream, 2, "/inbox/a.txt");
+        var found = await waiting.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.AreEqual(2, found.ExchangeId);
+    }
+
+    [TestMethod]
     public async Task FindExchanges_ByTimeWindow_ReturnsExactlyTheExchangesStartedInIt()
     {
         var (stream, clock) = Clocked();
@@ -191,6 +244,12 @@ public sealed partial class ExchangeRecordSubscriberTests
     {
         var clock = new ManualTimeProvider();
         return (new SurlEventStream(clock), clock);
+    }
+
+    private static void PublishUpload(SurlEventStream stream, long exchangeId, string name)
+    {
+        stream.Publish(new ExchangeStartedEvent(exchangeId, HttpListenUrl, "http", Alice));
+        stream.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.Written, name, 10, exchangeId));
     }
 
     // Sequences 1 to 5: start, bytes, bob's login, his mail delivered, end.

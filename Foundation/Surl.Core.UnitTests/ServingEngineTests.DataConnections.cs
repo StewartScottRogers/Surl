@@ -109,7 +109,7 @@ public sealed partial class ServingEngineTests
         CollectionAssert.AreEqual(
             new[]
             {
-                "Note::Exchange 1 opened: ftp from 10.0.0.1:50000.",
+                "Note::Exchange 1 opened: ftp on ftp://127.0.0.1:2121/ from 10.0.0.1:50000.",
                 "Note::Data connection opened: active to 127.0.0.1:50001.",
                 "BytesSent:" + Convert.ToHexString("file"u8) + ":",
                 "BytesReceived:" + Convert.ToHexString("data"u8) + ":",

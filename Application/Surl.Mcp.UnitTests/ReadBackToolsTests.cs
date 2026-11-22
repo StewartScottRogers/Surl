@@ -38,6 +38,37 @@ public sealed class ReadBackToolsTests
     }
 
     [TestMethod]
+    public async Task AnonymousMail_ReadsBackWithTheEmptyOwner()
+    {
+        await using var host = new McpTestHost();
+        var started = await CallAsync(
+            host.StartServer,
+            """{"listen_urls": ["pop3://127.0.0.1:0"], "arguments": ["--allow-anonymous"]}""");
+        Assert.IsFalse(started.IsError, started.TextContent.FirstOrDefault());
+        var message = JsonSerializer.Serialize(Mail);
+        Assert.IsFalse((await CallAsync(host.SeedMail, $$"""{"server_id": "s1", "to": "alice@x", "message": {{message}}}""")).IsError);
+
+        var mailboxes = await CallAsync(host.ListMailboxes, """{"server_id": "s1", "owner": ""}""");
+        var messages = await CallAsync(host.ListMessages, """{"server_id": "s1", "owner": "", "mailbox": "INBOX"}""");
+        var read = await CallAsync(host.ReadMessage, """{"server_id": "s1", "owner": "", "mailbox": "INBOX", "uid": 1}""");
+
+        Assert.AreEqual(1, Ok(mailboxes).GetProperty("mailboxes").GetArrayLength());
+        Assert.AreEqual(1, Ok(messages).GetProperty("messages").GetArrayLength());
+        Assert.AreEqual(Mail, Ok(read).GetProperty("text").GetString());
+    }
+
+    [TestMethod]
+    public async Task ListMailboxes_EmptyOwnerWithoutAllowAnonymous_IsTheNotFoundError()
+    {
+        await using var host = await StartSeededHostAsync();
+
+        var result = await CallAsync(host.ListMailboxes, """{"server_id": "s1", "owner": ""}""");
+
+        Assert.IsTrue(result.IsError);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(Assert.ContainsSingle(result.TextContent)));
+    }
+
+    [TestMethod]
     public async Task ListMailboxes_ShowsUseOnlyForAMailboxThatHasOne()
     {
         await using var host = new McpTestHost();

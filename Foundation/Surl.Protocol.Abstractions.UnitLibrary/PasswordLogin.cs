@@ -18,4 +18,12 @@ public sealed record PasswordLogin(
     string? UserName,
     ReadOnlyMemory<byte>? Password,
     TlsSession? TlsSession,
-    LoginExchange? Exchange = null);
+    LoginExchange? Exchange = null)
+{
+    /// <summary>
+    /// Whether <see cref="Password"/> is a token for the empty-name account (<c>--user :tok</c>), as NATS
+    /// <c>auth_token</c> and Socket.IO <c>token</c> send it (ADR-0100, decision 4.1). Without it, an empty
+    /// <see cref="UserName"/> never matches an account.
+    /// </summary>
+    public bool IsToken { get; init; }
+}

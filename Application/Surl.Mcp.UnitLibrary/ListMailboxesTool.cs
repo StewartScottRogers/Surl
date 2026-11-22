@@ -25,7 +25,7 @@ public static class ListMailboxesTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "owner": { "type": "string", "minLength": 1, "description": "The account's name" }
+            "owner": { "type": "string", "description": "The account's name; the empty string names the --allow-anonymous mailbox owner" }
           },
           "required": ["server_id", "owner"],
           "additionalProperties": false

@@ -169,6 +169,9 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         saslMechanisms = [.. SaslMechanism.InOfferOrder.Where(mechanism => settings.AcceptedMethods.Contains(mechanism.Method))];
     }
 
+    // The account a token login is noted under (ADR-0128, decision 2).
+    private const string BearerTokenNote = "bearer token";
+
     /// <inheritdoc/>
     public async ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(
         PasswordLogin login, CancellationToken cancellationToken)
@@ -188,7 +191,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
         {
             var acceptedAccountName = verdict == PasswordLoginVerdict.Accepted ? login.UserName : null;
-            verdict = await ConcludeCheckedLoginAsync(login.Scheme, PasswordMechanism, login.UserName, acceptedAccountName, login.Exchange, cancellationToken)
+            var userAsNoted = login.IsToken ? BearerTokenNote : login.UserName;
+            verdict = await ConcludeCheckedLoginAsync(login.Scheme, PasswordMechanism, userAsNoted, acceptedAccountName, login.Exchange, cancellationToken)
                 .ConfigureAwait(false)
                 ? PasswordLoginVerdict.Accepted
                 : PasswordLoginVerdict.RefusedCredentials;
@@ -729,7 +733,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             return PasswordLoginVerdict.RefusedAnonymous;
         }
 
-        return settings.Accounts.CheckPassword(login.UserName, login.Password.GetValueOrDefault().Span)
+        var isMatch = login.IsToken
+            ? settings.Accounts.CheckBearerToken(login.Password.GetValueOrDefault().Span)
+            : settings.Accounts.CheckPassword(login.UserName, login.Password.GetValueOrDefault().Span);
+
+        return isMatch
             ? PasswordLoginVerdict.Accepted
             : PasswordLoginVerdict.RefusedCredentials;
     }

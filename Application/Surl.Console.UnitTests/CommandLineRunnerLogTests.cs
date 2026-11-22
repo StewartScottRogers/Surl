@@ -17,7 +17,7 @@ public sealed class CommandLineRunnerLogTests
 
     private static readonly string ListeningLine = $"Listening on http://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine;
 
-    private static readonly string OpenedLine = "#1 * Exchange 1 opened: http from 127.0.0.1:50000." + NewLine;
+    private static readonly string OpenedLine = $"#1 * Exchange 1 opened: http on http://127.0.0.1:{FakeListenerFactory.BoundPort}/ from 127.0.0.1:50000." + NewLine;
 
     private static readonly byte[] Request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: a\r\n\r\n");
 

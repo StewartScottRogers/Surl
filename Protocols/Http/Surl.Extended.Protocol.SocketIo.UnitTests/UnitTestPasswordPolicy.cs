@@ -31,7 +31,7 @@ internal sealed class UnitTestPasswordPolicy(bool allowsAnonymous) : IAuthentica
         var verdict = (login.UserName, password) switch
         {
             (null, _) => allowsAnonymous ? PasswordLoginVerdict.AcceptedUnchecked : PasswordLoginVerdict.RefusedAnonymous,
-            ("", Token) => PasswordLoginVerdict.Accepted,
+            ("", Token) when login.IsToken => PasswordLoginVerdict.Accepted,
             (UserName, Password) => PasswordLoginVerdict.Accepted,
             _ => PasswordLoginVerdict.RefusedCredentials,
         };
