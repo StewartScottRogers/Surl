@@ -36,3 +36,4 @@ Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows 
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Deferred. Split into BL-1584, BL-1585 (timed out at the run's time limit)
