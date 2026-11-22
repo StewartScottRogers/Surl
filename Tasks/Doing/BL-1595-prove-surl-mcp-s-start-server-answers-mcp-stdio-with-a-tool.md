@@ -42,13 +42,13 @@ Stand-in: none of store, events or faults apply; an agent that wants an MCP serv
 
 ## Acceptance criteria
 
-- [ ] `StartServerToolTests.Handler_McpStdioListenUrl_IsAnErrorNamingExitCode2` (in `Application/Surl.Mcp.UnitTests`,
+- [x] `StartServerToolTests.Handler_McpStdioListenUrl_IsAnErrorNamingExitCode2` (in `Application/Surl.Mcp.UnitTests`,
       `new McpTestHost(areExtensionsTurnedOn: true)`, called as `Handler_AnUnknownScheme_IsAnErrorNamingSurlsExitCode`
       is) passes: `IsError` is true, `exit_code` is 2, `exit_code_name` is `FailedInit`, the text starts with
       `surl: mcp+stdio:`, and `ListServers` lists no server afterwards.
-- [ ] The comment at `StartServerSafetyCheck.cs:41` says what the parse really accepts: every extended scheme with a
+- [x] The comment at `StartServerSafetyCheck.cs:41` says what the parse really accepts: every extended scheme with a
       default port, so `mcp+stdio:` is left to `Surl.Api`, which refuses it.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and
       `dotnet test Application/Surl.Mcp.UnitTests --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration`.
 
