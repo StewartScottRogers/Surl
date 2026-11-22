@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1597 — State in the --aihelp stomp topic that a STOMP subscription gets live messages only, never a retained one
 
@@ -37,10 +37,10 @@ for a later STOMP subscriber sends it to a `/queue/`." No behaviour changes.
 
 ## Acceptance criteria
 
-- [ ] `AiHelpProse.cs`'s `stomp` paragraphs carry the sentence above (or wording with the same three facts).
-- [ ] `AiHelpTextTests.Answer_Stomp_SaysATopicSubscriptionGetsLiveMessagesAndNoRetainedOne` (in
+- [x] `AiHelpProse.cs`'s `stomp` paragraphs carry the sentence above (or wording with the same three facts).
+- [x] `AiHelpTextTests.Answer_Stomp_SaysATopicSubscriptionGetsLiveMessagesAndNoRetainedOne` (in
       `Application/Surl.Cli.UnitTests`) passes: `--aihelp stomp` contains `never delivered to a STOMP subscriber`.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and
       `dotnet test Application/Surl.Cli.UnitTests --filter "TestCategory!=Integration"` passes.
 
 ## Notes
@@ -49,3 +49,4 @@ for a later STOMP subscriber sends it to a `/queue/`." No behaviour changes.
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. stomp aihelp topic states topic subscriptions are live only; retained is MQTT's alone
