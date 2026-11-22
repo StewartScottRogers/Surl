@@ -34,7 +34,7 @@ internal static class SocketIoConnectCredentials
         var root = document.RootElement;
         if (StringMember(root, "token") is { } token)
         {
-            return new PasswordLogin(scheme, string.Empty, Encoding.UTF8.GetBytes(token), tlsSession, exchange);
+            return new PasswordLogin(scheme, string.Empty, Encoding.UTF8.GetBytes(token), tlsSession, exchange) { IsToken = true };
         }
 
         if (StringMember(root, "username") is { } name && StringMember(root, "password") is { } password)

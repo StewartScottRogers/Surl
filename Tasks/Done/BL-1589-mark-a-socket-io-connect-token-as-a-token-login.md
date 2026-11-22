@@ -8,7 +8,7 @@ depends-on: [BL-1586]
 touches: [Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1589 — Mark a Socket.IO CONNECT token as a token login
 
@@ -32,15 +32,18 @@ decision 4.1 say.
 
 ## Acceptance criteria
 
-- [ ] `SocketIoConnectCredentials.Read` sets `IsToken = true` for the `token` login and `false` for `username`/`password`
+- [x] `SocketIoConnectCredentials.Read` sets `IsToken = true` for the `token` login and `false` for `username`/`password`
       and for none; `SocketIoConnectCredentialsTests` pins `IsToken` in each DataRow.
-- [ ] Any Socket.IO test fake policy that accepts the empty name accepts it only when `IsToken` is set.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary -warnaserror` clean, fast tests green, the
+- [x] Any Socket.IO test fake policy that accepts the empty name accepts it only when `IsToken` is set.
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary -warnaserror` clean, fast tests green, the
       library stays at 100% line and branch coverage; no test needs `TestCategory=Integration`.
 
 ## Notes
+
+- Fake policy `UnitTestPasswordPolicy` now accepts the empty name only when `IsToken` is set; session test pins `IsToken = true`.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Token login marked IsToken; tests pin it

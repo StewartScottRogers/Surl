@@ -52,7 +52,7 @@ public sealed partial class SocketIoSessionTests
         var answer = client.Messages()[1];
         Assert.MatchesRegex(ConnectAnswerPattern(), answer);
         Assert.DoesNotContain(answer[10..30], client.OpenPacket());
-        var expected = new PasswordLogin("socketio", string.Empty, null, null, SessionExchange(harness));
+        var expected = new PasswordLogin("socketio", string.Empty, null, null, SessionExchange(harness)) { IsToken = true };
         Assert.AreEqual(expected, harness.Policy.Logins.Single() with { Password = null });
         await client.EndAsync();
     }

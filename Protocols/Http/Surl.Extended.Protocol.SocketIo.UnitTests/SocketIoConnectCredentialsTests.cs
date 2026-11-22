@@ -12,15 +12,15 @@ public sealed class SocketIoConnectCredentialsTests
     private static readonly LoginExchange Exchange = new(7, new ListenUrl("socketio", "127.0.0.1", 3000));
 
     [TestMethod]
-    [DataRow("{\"token\":\"abc\"}", "", "abc")]
-    [DataRow("{\"token\":\"abc\",\"username\":\"alice\",\"password\":\"x\"}", "", "abc")]
-    [DataRow("{\"token\":7,\"username\":\"alice\",\"password\":\"x\"}", "alice", "x")]
-    [DataRow("{\"username\":\"alice\",\"password\":\"x\",\"room\":\"r\"}", "alice", "x")]
-    public void Read_Credentials_AreTheLoginItNames(string payload, string userName, string password)
+    [DataRow("{\"token\":\"abc\"}", "", "abc", true)]
+    [DataRow("{\"token\":\"abc\",\"username\":\"alice\",\"password\":\"x\"}", "", "abc", true)]
+    [DataRow("{\"token\":7,\"username\":\"alice\",\"password\":\"x\"}", "alice", "x", false)]
+    [DataRow("{\"username\":\"alice\",\"password\":\"x\",\"room\":\"r\"}", "alice", "x", false)]
+    public void Read_Credentials_AreTheLoginItNames(string payload, string userName, string password, bool isToken)
     {
         var login = SocketIoConnectCredentials.Read(Encoding.UTF8.GetBytes(payload), "socketio", null, Exchange);
 
-        Assert.AreEqual(new PasswordLogin("socketio", userName, null, null, Exchange), login with { Password = null });
+        Assert.AreEqual(new PasswordLogin("socketio", userName, null, null, Exchange) { IsToken = isToken }, login with { Password = null });
         Assert.AreEqual(password, Encoding.UTF8.GetString(login.Password!.Value.Span));
     }
 
