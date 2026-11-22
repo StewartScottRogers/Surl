@@ -57,3 +57,4 @@ Stand-in: none of store, events or faults apply; an agent that wants an MCP serv
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
