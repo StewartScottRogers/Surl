@@ -8,7 +8,7 @@ depends-on: [BL-1594]
 touches: [Application/Surl.Mcp.UnitLibrary/StartServerSafetyCheck.cs, Application/Surl.Mcp.UnitTests/StartServerToolTests.cs]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1595 — Prove surl-mcp's start_server answers mcp+stdio: with a tool error naming exit code 2
 
@@ -58,3 +58,4 @@ Stand-in: none of store, events or faults apply; an agent that wants an MCP serv
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Test pins mcp+stdio: tool error (exit 2 FailedInit); comment corrected
