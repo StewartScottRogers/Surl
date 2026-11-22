@@ -55,3 +55,4 @@ ADR-0033 gains an amendment, decided by Claude under Stewart's delegation, that 
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
