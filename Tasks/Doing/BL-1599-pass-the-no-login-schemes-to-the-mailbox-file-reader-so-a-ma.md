@@ -62,3 +62,4 @@ no-login set comes from the static registration lists and needs no server compos
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
