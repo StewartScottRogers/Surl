@@ -25,7 +25,7 @@ public static class RemoveAccountTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "user": { "type": "string", "minLength": 1, "description": "The user name" }
+            "user": { "type": "string", "description": "The user name; an empty string names the Bearer-token account" }
           },
           "required": ["server_id", "user"],
           "additionalProperties": false
@@ -46,7 +46,7 @@ public static class RemoveAccountTool
         var accounts = running.Server.Accounts;
         if (!accounts.Remove(user))
         {
-            return McpToolResult.FromFailure($"server {running.ServerId} has no account {user}");
+            return McpToolResult.FromFailure(user.Length == 0 ? $"server {running.ServerId} has no Bearer-token account" : $"server {running.ServerId} has no account {user}");
         }
 
         if (accounts.HasAccounts)

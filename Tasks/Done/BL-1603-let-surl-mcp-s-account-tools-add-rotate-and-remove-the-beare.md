@@ -8,7 +8,7 @@ depends-on: [BL-1601]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1603 — Let surl-mcp's account tools add, rotate and remove the Bearer-token account as BL-1601 decides
 
@@ -36,22 +36,25 @@ remove the Bearer-token account; the proxy and TLS-SRP tools keep their `minLeng
 
 ## Acceptance criteria
 
-- [ ] The three tools' input schemas allow an empty `user`; `password` keeps `minLength` 1 on all of them.
-- [ ] New tests (in the test file that holds the existing `add_account` tests, or a new
+- [x] The three tools' input schemas allow an empty `user`; `password` keeps `minLength` 1 on all of them.
+- [x] New tests (in the test file that holds the existing `add_account` tests, or a new
       `Application/Surl.Mcp.UnitTests/BearerTokenAccountToolsTests.cs`):
       `AddAccount_EmptyUser_AddsTheBearerTokenAccountAndAnswersTheEmptyUser`,
       `SetAccountPassword_EmptyUser_RotatesTheBearerToken`,
       `RemoveAccount_EmptyUser_RemovesTheBearerTokenAccount`,
       `AddAccount_EmptyUserTwice_IsAToolErrorThatHoldsNoToken`.
-- [ ] A test shows a Bearer login with the old token is refused and with the new one accepted after
+- [x] A test shows a Bearer login with the old token is refused and with the new one accepted after
       `set_account_password` (through the started server's authentication policy, no network).
-- [ ] `ProxyAndTlsSrpAccountToolsTests` still pass unchanged (their `user` keeps `minLength` 1).
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"`
+- [x] `ProxyAndTlsSrpAccountToolsTests` still pass unchanged (their `user` keeps `minLength` 1).
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"`
       green, `Surl.Mcp.UnitLibrary` at 100% line and branch coverage.
 
 ## Notes
+
+- Tests use `-u :tok123` with `--allow-plaintext-auth` on an HTTP listener; a refused Bearer token is 401. Coverage: every new branch (empty and non-empty text) is exercised by the new and existing tests.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. add_account, set_account_password and remove_account accept user "" for the Bearer-token account

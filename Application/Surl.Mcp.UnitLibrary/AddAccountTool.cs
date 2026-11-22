@@ -24,7 +24,7 @@ public static class AddAccountTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "user": { "type": "string", "minLength": 1, "description": "The user name, without ':'" },
+            "user": { "type": "string", "description": "The user name, without ':'; an empty string names the Bearer-token account" },
             "password": { "type": "string", "minLength": 1, "description": "The password" }
           },
           "required": ["server_id", "user", "password"],
@@ -55,7 +55,7 @@ public static class AddAccountTool
         catch (ArgumentException)
         {
             // The only refusal left is a user name taken; its text is written here so no exception text is echoed.
-            return McpToolResult.FromFailure($"user {user} already has an account");
+            return McpToolResult.FromFailure(user.Length == 0 ? "the Bearer-token account already exists" : $"user {user} already has an account");
         }
 
         return ToolResults.FromObject(writer => writer.WriteString("user", user));
