@@ -79,3 +79,4 @@ Answer to the Surly report's question goes in this ADR amendment; the cookbook r
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
