@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1593 — Let surl-mcp mail tools name the anonymous mailbox owner
 
@@ -34,14 +34,14 @@ set `--allow-anonymous` makes, so an agent can read mail delivered to an anonymo
 
 ## Acceptance criteria
 
-- [ ] The three schemas drop `minLength` for `owner` (keep it required) and each description says the empty string names
+- [x] The three schemas drop `minLength` for `owner` (keep it required) and each description says the empty string names
       the `--allow-anonymous` mailbox owner.
-- [ ] A new fast test in `Application/Surl.Mcp.UnitTests/ReadBackToolsTests.cs` starts a server with `--allow-anonymous`,
+- [x] A new fast test in `Application/Surl.Mcp.UnitTests/ReadBackToolsTests.cs` starts a server with `--allow-anonymous`,
       seeds one message, and reads it with `list_mailboxes`, `list_messages` and `read_message` using `"owner": ""`.
-- [ ] A test shows `"owner": ""` on a server without `--allow-anonymous` and no empty-name owner answers the tool's
+- [x] A test shows `"owner": ""` on a server without `--allow-anonymous` and no empty-name owner answers the tool's
       existing not-found result, not invalid params.
-- [ ] Any test that pins the tools' input schemas is updated to the new schema.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` clean, fast tests green, `Surl.Mcp.UnitLibrary` keeps
+- [x] Any test that pins the tools' input schemas is updated to the new schema.
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` clean, fast tests green, `Surl.Mcp.UnitLibrary` keeps
       100% line and branch coverage.
 
 ## Notes
@@ -50,3 +50,4 @@ set `--allow-anonymous` makes, so an agent can read mail delivered to an anonymo
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. owner empty string accepted by the three mail tools; tests added
