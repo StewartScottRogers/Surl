@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1586 — Judge a token password login against the empty-name account
 
@@ -42,21 +42,21 @@ when its password is the token of the empty-name account (`--user :tok`), so the
 
 ## Acceptance criteria
 
-- [ ] `Foundation/Surl.Protocol.Abstractions.UnitLibrary/PasswordLogin.cs` gains `public bool IsToken { get; init; }`
+- [x] `Foundation/Surl.Protocol.Abstractions.UnitLibrary/PasswordLogin.cs` gains `public bool IsToken { get; init; }`
       (default `false`, XML-documented: the password is a token for the empty-name account, ADR-0100 decision 4.1); no
       other Abstractions change.
-- [ ] In `AuthenticationPolicy.JudgePasswordLogin`, an `IsToken` login is checked with `settings.Accounts.CheckBearerToken`
+- [x] In `AuthenticationPolicy.JudgePasswordLogin`, an `IsToken` login is checked with `settings.Accounts.CheckBearerToken`
       after the same `--allow-anonymous` and plain-text rules as any password login (`RefusedPlaintext` on an
       unencrypted connection without `--allow-plaintext-auth`); a login without `IsToken` and an empty user name is still
       refused, as today.
-- [ ] New fast tests in `Foundation/Surl.Authentication.UnitTests` (e.g. `PasswordLoginTokenTests`):
+- [x] New fast tests in `Foundation/Surl.Authentication.UnitTests` (e.g. `PasswordLoginTokenTests`):
       `CheckPasswordLoginAsync_TokenOfTheEmptyNameAccount_IsAccepted`, `..._WrongToken_IsRefusedCredentials`,
       `..._TokenOverPlainTextWithoutAllowPlaintextAuth_IsRefusedPlaintext`, `..._EmptyUserNameWithoutIsToken_IsRefusedCredentials`,
       `..._TokenWhenOnlyNamedAccountsExist_IsRefusedCredentials`.
-- [ ] A test pins the published `LoginJudgedEvent` for an accepted and a refused token login (Account `bearer token`,
+- [x] A test pins the published `LoginJudgedEvent` for an accepted and a refused token login (Account `bearer token`,
       Mechanism `password`), and one shows a `RefuseLogin` fault rule for account `""` refusing an otherwise accepted token.
-- [ ] `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` states the token login in one bullet.
-- [ ] `dotnet build -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"` green, and
+- [x] `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` states the token login in one bullet.
+- [x] `dotnet build -warnaserror` clean, `dotnet test --filter "TestCategory!=Integration"` green, and
       `Surl.Authentication.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -68,3 +68,4 @@ fault point's account stays the matched account name, the empty string, as `Conc
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. A PasswordLogin with IsToken is judged against the empty-name account's token; tests added
