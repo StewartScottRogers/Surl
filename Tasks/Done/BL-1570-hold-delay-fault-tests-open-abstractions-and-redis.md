@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Abstractions.UnitTests, Surl.Extended.Protocol.Redis.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1570 — Hold delay-fault tests open: Abstractions and Redis
 
@@ -22,11 +22,11 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Protocol.Abstractions.UnitTests, Surl.Extended.Protocol.Redis.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Protocol.Abstractions.UnitTests, Surl.Extended.Protocol.Redis.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
@@ -36,3 +36,6 @@ Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows 
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+
+- 2026-11-21: Abstractions: no change needed. Every held delay test already uses peerHalfClosesWhenExhausted: false or a WatchDouble; the half-close/reset tests (f7, f8, g1, g2) deliberately keep their ending client. Redis: the one delay test (ServeAsync_DelayRuleAtACommand_AnswersTheCommandAfterTheHold) now keeps its client open, waits for +PONG, then cancels a linked token and awaits serving. 20 runs green; build -warnaserror clean; fast tests 621 and 475 green.
+- 2026-11-21: Doing -> Done. Redis delay test holds with an open client; Abstractions delay tests already did
