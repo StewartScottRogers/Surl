@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Tftp.UnitTests, Surl.HttpMessage.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1574 — Hold delay-fault tests open: Tftp and HttpMessage
 
@@ -22,17 +22,21 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Protocol.Tftp.UnitTests,Surl.HttpMessage.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Protocol.Tftp.UnitTests,Surl.HttpMessage.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
 Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows BL-1569.
 
+Looked, no change needed (2026-11-21): Surl.Protocol.Tftp.UnitTests' delay tests (TftpCommandStageFaultTests, WriteDelayingDatagramFlowTests) use ScriptedDatagramFlow, a UDP flow with no IConnection, so no peer half-close can end a hold. Surl.HttpMessage.UnitTests' HttpCommandFaultsTests: the two tests using a default InMemoryConnection deliberately prove a half-close ends the hold; the others already pass peerHalfClosesWhenExhausted: false or use no connection. No file changed.
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Reviewed; no test needed changing, so the 20-run criterion holds vacuously. Both projects build and pass (Tftp 161, HttpMessage 249).
+- 2026-11-21: Doing -> Done. No change needed
