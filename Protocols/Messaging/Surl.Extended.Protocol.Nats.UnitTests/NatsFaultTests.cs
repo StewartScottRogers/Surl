@@ -112,13 +112,23 @@ public sealed class NatsFaultTests
         var clock = new ManualTimeProvider();
         var idleClock = new RecordingIdleClock();
         var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "PUB", DelayMilliseconds = 500 });
-        var connection = Connection(AliceConnect + "SUB foo 1\r\nPUB foo 1\r\na\r\nPING\r\n");
+        var connection = new InMemoryConnection(
+            [Encoding.UTF8.GetBytes(AliceConnect + "SUB foo 1\r\nPUB foo 1\r\na\r\nPING\r\n")],
+            new IPEndPoint(IPAddress.Loopback, 4222),
+            peerHalfClosesWhenExhausted: false);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
 
-        var serving = ServeConnectionAsync(connection, plan, events, clock, idleClock);
+        var serving = ServeConnectionAsync(connection, plan, events, clock, idleClock, stop.Token);
         await idleClock.FirstPause;
         var completedWhileHeld = serving.IsCompleted;
         clock.Advance(TimeSpan.FromMilliseconds(500));
-        await serving;
+        while (!Encoding.UTF8.GetString(connection.WrittenBytes).EndsWith("PONG\r\n", StringComparison.Ordinal))
+        {
+            await Task.Delay(5, TestContext.CancellationToken);
+        }
+
+        await stop.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
 
         Assert.IsFalse(completedWhileHeld);
         Assert.IsFalse(idleClock.IsPaused);
@@ -174,7 +184,8 @@ public sealed class NatsFaultTests
         new([Encoding.UTF8.GetBytes(bytes)], new IPEndPoint(IPAddress.Loopback, 4222));
 
     private Task ServeConnectionAsync(
-        InMemoryConnection connection, IFaultPlan plan, ISurlEventPublisher events, TimeProvider clock, IIdleClock idleClock)
+        InMemoryConnection connection, IFaultPlan plan, ISurlEventPublisher events, TimeProvider clock, IIdleClock idleClock,
+        CancellationToken? cancellation = null)
     {
         var context = new ExchangeContext(
             1,
@@ -183,7 +194,7 @@ public sealed class NatsFaultTests
             new IPEndPoint(IPAddress.Loopback, 50000),
             new RecordingExchangeLog(),
             clock,
-            TestContext.CancellationToken)
+            cancellation ?? TestContext.CancellationToken)
         { Faults = plan, Events = events, IdleClock = idleClock };
 
         return new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, context);
