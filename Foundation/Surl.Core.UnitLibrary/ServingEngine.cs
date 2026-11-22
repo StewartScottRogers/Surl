@@ -1000,7 +1000,7 @@ public sealed partial class ServingEngine
                 log, events, exchangeId, redactingServer is null ? null : () => redactingServer.CreateRedactor(redactionContext)),
         };
 
-        log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
+        log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} on {ReportedListenUrl.Format(listenUrl)} from {remoteEndPoint}.");
         events.Publish(new ExchangeStartedEvent(exchangeId, ReportedListenUrl.Format(listenUrl), listenUrl.Scheme, remoteEndPoint));
 
         return (exchangeId, log, context, new EventPublishingExchangeLog(redaction ?? log, events, exchangeId, log), redaction);

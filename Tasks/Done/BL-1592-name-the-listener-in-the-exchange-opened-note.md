@@ -8,7 +8,7 @@ depends-on: [BL-1591]
 touches: [Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1592 — Name the listener in the Exchange opened note
 
@@ -33,19 +33,22 @@ listen URL that accepted the exchange, so two listeners of one scheme are told a
 
 ## Acceptance criteria
 
-- [ ] `ServingEngine.cs` writes the note exactly as the ADR-0033 amendment from BL-1591 states, for connections and
+- [x] `ServingEngine.cs` writes the note exactly as the ADR-0033 amendment from BL-1591 states, for connections and
       datagram flows.
-- [ ] A new fast test in `Surl.Core.UnitTests` serves two listen URLs of one scheme on different ports and asserts each
+- [x] A new fast test in `Surl.Core.UnitTests` serves two listen URLs of one scheme on different ports and asserts each
       exchange's note names its own listen URL.
-- [ ] A fast test pins the datagram-flow form (for example a `tftp` flow).
-- [ ] `CommandLineRunnerLogTests.OpenedLine` and every other pinned old note are updated; `grep -rn "opened: http from"` over
+- [x] A fast test pins the datagram-flow form (for example a `tftp` flow).
+- [x] `CommandLineRunnerLogTests.OpenedLine` and every other pinned old note are updated; `grep -rn "opened: http from"` over
       `Foundation/Surl.Core.UnitTests` and `Application/Surl.Console.UnitTests` finds only the new form.
-- [ ] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` clean, fast tests green, `Surl.Core.UnitLibrary` keeps
+- [x] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` clean, fast tests green, `Surl.Core.UnitLibrary` keeps
       100% line and branch coverage.
 
 ## Notes
+
+- Wrote the ADR-0033 amendment 1 form via ReportedListenUrl.Format (no extra escaping: ListenUrl hosts are validated names; no Unix-socket listener exists in Format). Added ServingEngineTests.OpenedNote.cs (two http listeners; tftp flow). Core 321 tests, Console 549 pass.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Exchange opened note names its listen URL; tests pin connection and datagram forms
