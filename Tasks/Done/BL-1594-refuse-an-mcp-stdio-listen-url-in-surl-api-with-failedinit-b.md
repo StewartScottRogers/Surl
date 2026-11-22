@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1594 — Refuse an mcp+stdio listen URL in Surl.Api with FailedInit before anything binds
 
@@ -55,16 +55,16 @@ Stand-in: no store, event or fault changes. A test that wants an MCP server it c
 
 ## Acceptance criteria
 
-- [ ] `SurlServerTests.StartAsync_McpStdioListenUrl_ThrowsFailedInitBeforeAnythingBinds` (in
+- [x] `SurlServerTests.StartAsync_McpStdioListenUrl_ThrowsFailedInitBeforeAnythingBinds` (in
       `Application/Surl.Api.UnitTests`, `AreExtensionsTurnedOn = true`, `ApiTestSeams`) passes: the exception is
       `SurlServerStartException`, `ExitCode` is `SurlExitCode.FailedInit`, `Lines` is the one line above, and the
       `FakeListenerFactory` started no listener. It fails on today's code (`UriFormatException`).
-- [ ] `SurlServerTests.StartAsync_McpStdioBesideHttp_ThrowsFailedInitBeforeAnythingBinds` passes the same way for
+- [x] `SurlServerTests.StartAsync_McpStdioBesideHttp_ThrowsFailedInitBeforeAnythingBinds` passes the same way for
       `ListenUrls = { "http://127.0.0.1:0", "mcp+stdio:" }`.
-- [ ] `SurlServerTests.StartAsync_McpStdioWithExtensionsOff_ThrowsUnsupportedProtocol` passes (exit 1, the parser's line).
-- [ ] `Application/Surl.Api/CLAUDE.md` ("What it is") and `Application/Surl.Api/README.md` state that `mcp+stdio:`
+- [x] `SurlServerTests.StartAsync_McpStdioWithExtensionsOff_ThrowsUnsupportedProtocol` passes (exit 1, the parser's line).
+- [x] `Application/Surl.Api/CLAUDE.md` ("What it is") and `Application/Surl.Api/README.md` state that `mcp+stdio:`
       is refused with `FailedInit` and why.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean and
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean and
       `dotnet test Application/Surl.Api.UnitTests --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration`; `Surl.Api` keeps 100% line and branch coverage.
 
@@ -78,3 +78,4 @@ this one.
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Surl.Api refuses mcp+stdio: with FailedInit before anything binds

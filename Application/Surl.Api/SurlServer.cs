@@ -20,6 +20,9 @@ namespace Surl.Api;
 /// </example>
 public sealed class SurlServer : IAsyncDisposable
 {
+    private const string McpStdioRefusal =
+        "mcp+stdio: serves the standard input and output of a surl process and cannot be started in-process; listen on mcp://127.0.0.1:0/ instead";
+
     private readonly ComposedServing composedServing;
     private readonly CancellationTokenSource stop;
     private readonly Task<SurlServingOutcome> serving;
@@ -313,6 +316,11 @@ public sealed class SurlServer : IAsyncDisposable
         var custom = CustomProtocolServers.Of(options);
         var commandLine = SurlServerArguments.Parse(
             options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider), host.ReadStartFile, custom);
+        if (McpStdioComposition.IsAsked(commandLine))
+        {
+            throw new SurlServerStartException(new SurlStartFailure(SurlExitCode.FailedInit, [McpStdioRefusal]));
+        }
+
         var seams = new SurlServerCompositionSeams(
             tlsSettings => host.CreateListenerFactory(tlsSettings, timeProvider), host.CanOpenDataDirectory, host.TakeDataDirectoryLock, timeProvider, areExtensionsTurnedOn)
         {

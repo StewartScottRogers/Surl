@@ -15,6 +15,9 @@ measures it by name.
   `SurlServerComposition.ComposeAsync` and `ComposedServing.ServeAsync`, the same start `surl`
   runs. So every default is `surl`'s and every refusal is `surl`'s: it throws
   `SurlServerStartException` with the `SurlExitCode` and the lines `surl` writes after `surl: `.
+- `mcp+stdio:` (BL-1594) is refused with `SurlServerStartException`, `FailedInit`, before anything binds
+  (`SurlServer.McpStdioRefusal`): it serves a `surl` process's own standard input and output, which no
+  in-process host can reach (ADR-0162 decision 1); a test listens on `mcp://127.0.0.1:0/`.
 - It returns once every listener has bound; `BoundUrls` lists each listen URL in order with
   its bound port, as the status line writes it. `StopAsync` and `DisposeAsync` stop serving and
   release the data directory's lock.
