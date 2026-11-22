@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.SocketIo.UnitTests, Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1577 — Hold delay-fault tests open: SocketIo and WebTransport
 
@@ -22,17 +22,21 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.SocketIo.UnitTests,Surl.Extended.Protocol.WebTransport.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.SocketIo.UnitTests,Surl.Extended.Protocol.WebTransport.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
 Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows BL-1569.
 
+Looked, no change needed: SocketIo (SocketIoFaults.cs) and WebTransport (WebTransportConnectFaults.cs) call the CommandStageFaults overload with no connection, and their tests use their own harnesses (no InMemoryConnection), so no delay hold watches the peer and no test is exposed. Criteria hold vacuously; no file changed.
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Needs no change: neither delay hold watches for peer close.
+- 2026-11-21: Doing -> Done. Needs no change: SocketIo and WebTransport delay holds never watch the peer
