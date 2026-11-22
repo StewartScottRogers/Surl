@@ -33,6 +33,7 @@
 - **Amended by (continued):** [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (decisions 1, 3 and 4: `coaps` pre-shared-key logins are published and refusable, and the proxy and TLS-SRP accounts become stores a test controls).
 - **Amended by (continued):** [ADR-0171](ADR-0171-how-a-new-surlevent-kind-reaches-surl-api-surl-mcp-and-the-control-endpoint.md) (decision 2: event kinds are an extension point; a new `SurlEvent` record carries its own exchange, scheme, account and members).
 - **Amended (2026-11-21, BL-1518):** decision 4's `after-bytes` counts every byte the exchange sends on all its connections, data connections included; see the amendment before "Alternatives considered".
+- **Amended (2026-11-22, BL-1605):** decision 3's seed into a queue nobody declared is refused `UnknownQueue`, not created; see the second amendment before "Alternatives considered".
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
@@ -592,6 +593,49 @@ number it can only know after counting the control bytes, and the key would touc
 help for something one count over the exchange already says. Counting the whole exchange adds no key,
 changes nothing for a one-connection protocol and leaves "configuration only grows" untouched. A test
 that wants a cut at a chosen command uses a `stage=command` rule (ADR-0141).
+
+## Amendment 2026-11-22: a seed into a queue nobody declared is refused (BL-1605)
+
+Decided by Claude under Stewart's delegation, 2026-11-22, in BL-1605, from the Surly bug report of
+2026-11-22 (item 3, a question): with `--queue jobs` and a STOMP listener, a `SEND` to `/queue/other`
+creates `other`, while `Messages.EnqueueAsync("other", ...)` is refused. Decision 3 said a seed "writes
+through the same path a protocol uses ... publish or enqueue for the bus" without saying which protocol's
+path; the protocols disagree (ADR-0118 and ADR-0107 create on first use, ADR-0100's AMQP 0-9-1 does not).
+This says.
+
+**The rule.** A seed follows the **bus primitive**, not a protocol: seeding a message into a queue that is
+not declared is refused `UnknownQueue` (ADR-0100 decision 3) and nothing is created, kept or published.
+A queue is declared by `--queue` (`SurlServerOptions.Queues`, `surl-mcp`'s `arguments`, the `-K` file), by an
+AMQP 0-9-1 `queue.declare`, or by the first STOMP `SEND`/`SUBSCRIBE` or AMQP 1.0 attach naming it. This is today's
+behaviour; **no code changes**.
+
+**The answer on each host.**
+- `Surl.Api` `Messages.EnqueueAsync`: `SurlSeedRefusedException`, `Store` `Bus`, `Refusal` `"UnknownQueue"`, message
+  `Bus: A message for queue <queue> was refused: UnknownQueue.`
+- `surl-mcp` `publish_message` with `queue`: `isError` carrying that same exception message (the host's
+  `InvalidOperationException` rule).
+- Control `POST /v1/messages` with `queue`: `404 Not Found`, message `the message bus refused the message:
+  UnknownQueue` (`ComposedControlTarget.RefusalKindOf`).
+No event is published for the refused seed.
+
+**Options weighed.**
+1. *Refuse (chosen).* A test's typo (`"jbos"` for `jobs`) fails at the seed with a name, rather than
+   passing silently and leaving the consumer of `jobs` waiting; ADR-0132 amendment 1 and ADR-0102's BL-1483
+   amendment refuse a wrong name for the same reason. It needs no new flags, event or reset rule, and
+   configuration still only grows.
+2. *Create with ADR-0102 decision 3.2's declared-queue flags (durable, never exclusive, never auto-deleted).*
+   It would match STOMP and AMQP 1.0, but it would need a new event for a created queue (or a `Seeded`
+   event that hides it), and a rule for reset: decision 3's reset returns to the configured queues, so the
+   queue would vanish on reset and a seed then could not be told from a client's own create. It would also turn
+   the typo above into a silently created second queue.
+
+**Why STOMP and AMQP 1.0 still create.** A client's `SEND` or attach is the protocol's own act, and its
+specification or the broker behaviour it mimics (ADR-0118, ADR-0107's "created on first attach") says a
+missing destination is made. A seed is not a protocol act: it is the test's own statement about a queue the
+test already believes exists, so a missing one is the test's mistake. A test that wants the queue made before
+any client arrives lists it in `Queues`, which is the declaration.
+
+**Pointer.** ADR-0100's `UnknownQueue` row points here where it describes seeds.
 
 ## Alternatives considered
 

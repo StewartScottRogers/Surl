@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md, Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1605 — Decide whether seeding a message into a queue nobody declared creates the queue or is refused
 
@@ -54,22 +54,28 @@ whether a test's seed into a queue that does not exist (`Surl.Api` `Messages.Enq
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md` has an amendment dated 2026-11-22
+- [x] `Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md` has an amendment dated 2026-11-22
       (BL-1605), marked "Decided by Claude under Stewart's delegation", stating the rule for a seed into an undeclared
       queue on all three hosts, the options weighed and why the chosen one, and why a STOMP SEND and an AMQP 1.0 attach
       still create the queue; its header's "Amended by" list names it.
-- [ ] The amendment gives the exact answer on each host (`SurlSeedRefusedException` `UnknownQueue`, the `surl-mcp` tool
+- [x] The amendment gives the exact answer on each host (`SurlSeedRefusedException` `UnknownQueue`, the `surl-mcp` tool
       error text, the control endpoint status and message) or, if seeding creates, the flags, the event published and
       what reset does with the queue.
-- [ ] ADR-0100's `UnknownQueue` row or decision 3 text gains a pointer to the amendment where it describes seeds.
-- [ ] If the rule changes behaviour, the implementation is filed as new Backlog tasks (one per project and its
+- [x] ADR-0100's `UnknownQueue` row or decision 3 text gains a pointer to the amendment where it describes seeds.
+- [x] If the rule changes behaviour, the implementation is filed as new Backlog tasks (one per project and its
       `.UnitTests` twin, each depending on BL-1605) and listed in this task's Log; if it keeps today's behaviour, the Log
       says no code change is needed.
-- [ ] No `.cs` file changes.
+- [x] No `.cs` file changes.
 
 ## Notes
 
+- Decided: a seed into an undeclared queue is refused `UnknownQueue` (today's behaviour); see ADR-0124's 2026-11-22
+  amendment. No code change is needed, so no implementation tasks are filed.
+
 ## Log
+
+- 2026-11-22: No code change is needed; the decision keeps today's behaviour.
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. ADR-0124 amendment decides a seed into an undeclared queue is refused UnknownQueue on all three hosts; no code change
