@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1584 — Hold delay-fault tests open: OciRegistry
 
@@ -35,17 +35,20 @@ The run had not yet built or tested this. Review it before keeping it: prefer `u
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.OciRegistry.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the harness's ClientStaysOpen), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule.
-- [ ] dotnet build of Surl.Extended.Protocol.OciRegistry.UnitTests is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for Surl.Extended.Protocol.OciRegistry.UnitTests.
-- [ ] No file outside Surl.Extended.Protocol.OciRegistry.UnitTests changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.OciRegistry.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the harness's ClientStaysOpen), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule.
+- [x] dotnet build of Surl.Extended.Protocol.OciRegistry.UnitTests is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for Surl.Extended.Protocol.OciRegistry.UnitTests.
+- [x] No file outside Surl.Extended.Protocol.OciRegistry.UnitTests changed.
 
 ## Notes
 
 Run the checks on a build that includes this repo's current Surl.Protocol.Abstractions InMemoryConnection.
 
+Stash was unreadable (git stash list denied), so the change was made by hand. Harness gained ClientStaysOpen (final serve only, not the token fetch), a serving CancellationTokenSource, StopServing and a bounded WaitForCompleteResponseAsync (10 s real time); the test waits for the whole answer, then stops serving and awaits the serve task. Waiting before stopping matters: without it, a stay-open client never ends the serve and the test hangs.
+
 ## Log
 
 - 2026-11-21: Created (split from BL-1572 after its run timed out).
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. OciRegistry delay-fault test holds its delay with a client that stays open; 20/20 runs and 390 fast tests green

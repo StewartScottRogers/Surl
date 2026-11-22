@@ -108,6 +108,7 @@ public sealed class OciRequestFaultTests
         var harness = new OciRegistryServerHarness();
         var idleClock = new RecordingIdleClock();
         harness.IdleClock = idleClock;
+        harness.ClientStaysOpen = true;
         harness.Faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Scheme = "oci", Path = "/v2/", DelayMilliseconds = 500 });
 
         var serving = harness.SendAsync("GET", "/v2/");
@@ -116,6 +117,8 @@ public sealed class OciRequestFaultTests
         harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(499));
         var completedEarly = serving.IsCompleted;
         harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        await harness.WaitForCompleteResponseAsync();
+        harness.StopServing();
         var response = await serving;
 
         Assert.IsFalse(completedWhileHeld);
