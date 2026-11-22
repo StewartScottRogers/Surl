@@ -38,6 +38,7 @@ public sealed class MailboxFileReader
     private static readonly string[] KnownColumns = [AddressColumn, PasswordColumn, ConfiguredMailboxReader.ProtocolsKey, ConfiguredMailboxReader.QuotaKey, ConfiguredMailboxReader.FoldersKey];
 
     private readonly IReadOnlyCollection<string> extendedSchemes;
+    private readonly HashSet<string> schemesWithoutLogin;
     private readonly HashSet<string> mailDomains;
     private readonly HashSet<string> userNames;
     private readonly HashSet<string> addresses;
@@ -51,10 +52,22 @@ public sealed class MailboxFileReader
     /// <param name="extendedSchemes">The schemes the registered extended servers claim, besides upstream curl's.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public MailboxFileReader(SurlCommandLine commandLine, IReadOnlyCollection<string> extendedSchemes)
+        : this(commandLine, extendedSchemes, [])
+    {
+    }
+
+    /// <summary>Creates the reader of one start's mailbox files, refusing a record that names a scheme whose server makes no login.</summary>
+    /// <param name="commandLine">The parsed command line, as for the two-argument constructor.</param>
+    /// <param name="extendedSchemes">The schemes the registered extended servers claim, besides upstream curl's.</param>
+    /// <param name="schemesWithoutLogin">The schemes whose servers make no login, compared without regard to case; only composition knows them.</param>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailboxFileReader(SurlCommandLine commandLine, IReadOnlyCollection<string> extendedSchemes, IReadOnlyCollection<string> schemesWithoutLogin)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         ArgumentNullException.ThrowIfNull(extendedSchemes);
+        ArgumentNullException.ThrowIfNull(schemesWithoutLogin);
         this.extendedSchemes = extendedSchemes;
+        this.schemesWithoutLogin = new HashSet<string>(schemesWithoutLogin, StringComparer.OrdinalIgnoreCase);
         mailDomains = new(StringComparer.Ordinal);
         foreach (var name in commandLine.MailDomains)
         {
@@ -167,6 +180,7 @@ public sealed class MailboxFileReader
 
         var quota = byColumn.GetValueOrDefault(ConfiguredMailboxReader.QuotaKey, string.Empty);
         var failure = ConfiguredMailboxReader.Build(address, password, protocols, quota.Length == 0 ? null : quota, folders, IsServedScheme, out var mailbox)
+            ?? FindSchemeWithoutLogin(mailbox)
             ?? ConfiguredMailboxReader.FindConflict(address, mailbox, mailDomains, userNames)
             ?? (addresses.Add(mailbox.Address) ? null : ConfiguredMailboxReader.MailboxGivenTwice(address));
         if (failure is null)
@@ -175,6 +189,12 @@ public sealed class MailboxFileReader
         }
 
         return failure;
+    }
+
+    private string? FindSchemeWithoutLogin(ConfiguredMailbox mailbox)
+    {
+        var scheme = mailbox.Protocols?.FirstOrDefault(schemesWithoutLogin.Contains);
+        return scheme is null ? null : $"scheme {scheme} has no login";
     }
 
     private static bool HoldsTooManyMembers(string[]? list) => list?.Length > ConfigurationItemReader.MaxListMembers;

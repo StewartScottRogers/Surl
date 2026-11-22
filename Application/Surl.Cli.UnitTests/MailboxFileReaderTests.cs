@@ -231,6 +231,57 @@ public sealed class MailboxFileReaderTests
         Assert.DoesNotContain("hunter2", Refused("address,password,protocols\nann@example.com,hunter2,nosuch\n"));
 
     [TestMethod]
+    public void Read_ProtocolsNamingASchemeWithoutLogin_IsRefusedWithFileAndLine()
+    {
+        var reader = new MailboxFileReader(WithDomain, [], ["gopher"]);
+
+        var failure = reader.Read(File, "address,password,protocols\nann@example.com,hunter2,gopher\n"u8.ToArray(), out var mailboxes);
+
+        Assert.AreEqual($"(2) Mailbox file {File}, line 2: scheme gopher has no login", failure);
+        Assert.IsEmpty(mailboxes);
+        Assert.DoesNotContain("hunter2", failure!);
+    }
+
+    [TestMethod]
+    public void Read_ProtocolsNamingASchemeWithoutLoginInAnyCase_IsRefusedLowerCased()
+    {
+        var reader = new MailboxFileReader(WithDomain, [], ["Gopher"]);
+
+        var failure = reader.Read(File, "address,password,protocols\nann@example.com,a,\"imap,GOPHER\"\n"u8.ToArray(), out _);
+
+        Assert.AreEqual($"(2) Mailbox file {File}, line 2: scheme gopher has no login", failure);
+    }
+
+    [TestMethod]
+    public void Read_ProtocolsNamingOnlySchemesWithLogin_IsRead()
+    {
+        var reader = new MailboxFileReader(WithDomain, [], ["gopher"]);
+
+        var failure = reader.Read(File, "address,password,protocols\nann@example.com,a,imap\n"u8.ToArray(), out var mailboxes);
+
+        Assert.IsNull(failure);
+        Assert.HasCount(1, mailboxes);
+    }
+
+    [TestMethod]
+    public void Read_SchemesWithoutLoginNotGiven_AcceptsAServedSchemeAsToday() =>
+        Assert.HasCount(1, Accepted("address,password,protocols\nann@example.com,a,gopher\n"));
+
+    [TestMethod]
+    public void Read_UnknownSchemeAndSchemeWithoutLogin_RefusesTheUnknownSchemeFirst()
+    {
+        var reader = new MailboxFileReader(WithDomain, [], ["gopher"]);
+
+        var failure = reader.Read(File, "address,password,protocols\nann@example.com,a,\"gopher,nosuch\"\n"u8.ToArray(), out _);
+
+        Assert.AreEqual($"(2) Mailbox file {File}, line 2: unknown scheme nosuch", failure);
+    }
+
+    [TestMethod]
+    public void Constructor_NullSchemesWithoutLogin_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => new MailboxFileReader(WithDomain, [], null!));
+
+    [TestMethod]
     public void Constructor_NullArgument_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => new MailboxFileReader(null!, []));
