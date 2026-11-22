@@ -194,6 +194,17 @@ public sealed partial class AiHelpTextTests
         + "the `surl://aihelp` resources.";
 
     [TestMethod]
+    public void Answer_Stomp_SaysATopicSubscriptionGetsLiveMessagesAndNoRetainedOne()
+    {
+        var stomp = AiHelpText.Answer("stomp").Output;
+
+        foreach (var text in new[] { "receives only what is sent while it is subscribed", "never delivered to a STOMP subscriber", "sends it to a `/queue/`" })
+        {
+            Assert.Contains(text, stomp, text);
+        }
+    }
+
+    [TestMethod]
     public void Answer_RedisTopic_SaysAClearTextAuthIsAnsweredWrongpassWhateverThePassword()
     {
         var redis = AiHelpText.Answer("redis").Output;

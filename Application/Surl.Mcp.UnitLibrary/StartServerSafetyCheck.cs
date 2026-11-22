@@ -38,7 +38,8 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
                 + "use get_exchanges and get_events to see what a client sent";
         }
 
-        // Every extended scheme is accepted here, so the words parse whenever Surl.Api's narrower parse would.
+        // Every extended scheme with a default port is accepted here; mcp+stdio: has none, so it is left
+        // unparsed to Surl.Api, which refuses it with FailedInit.
         var commandLine = CommandLineParser.Parse(words, ExtendedSchemeDefaultPorts.Schemes).CommandLine;
         return commandLine is null ? null : FindListenHostRefusal(commandLine) ?? FindPathRefusal(commandLine);
     }

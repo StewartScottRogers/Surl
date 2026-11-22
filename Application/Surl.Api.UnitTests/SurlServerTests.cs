@@ -82,6 +82,52 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task StartAsync_McpStdioListenUrl_ThrowsFailedInitBeforeAnythingBinds()
+    {
+        var listeners = new FakeListenerFactory();
+        var seams = new ApiTestSeams(listeners);
+        var options = ApiTestSeams.Options("mcp+stdio:");
+        options.AreExtensionsTurnedOn = true;
+
+        var exception = await Assert.ThrowsExactlyAsync<SurlServerStartException>(() => SurlServer.StartAsync(
+            options, seams.Host, TestContext.CancellationToken));
+
+        Assert.AreEqual(SurlExitCode.FailedInit, exception.ExitCode);
+        CollectionAssert.AreEqual(
+            new[] { "mcp+stdio: serves the standard input and output of a surl process and cannot be started in-process; listen on mcp://127.0.0.1:0/ instead" },
+            exception.Lines.ToArray());
+        Assert.AreEqual(0, listeners.OpenListenerCount);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_McpStdioBesideHttp_ThrowsFailedInitBeforeAnythingBinds()
+    {
+        var listeners = new FakeListenerFactory();
+        var seams = new ApiTestSeams(listeners);
+        var options = ApiTestSeams.Options("http://127.0.0.1:0", "mcp+stdio:");
+        options.AreExtensionsTurnedOn = true;
+
+        var exception = await Assert.ThrowsExactlyAsync<SurlServerStartException>(() => SurlServer.StartAsync(
+            options, seams.Host, TestContext.CancellationToken));
+
+        Assert.AreEqual(SurlExitCode.FailedInit, exception.ExitCode);
+        Assert.AreEqual(0, listeners.OpenListenerCount);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_McpStdioWithExtensionsOff_ThrowsUnsupportedProtocol()
+    {
+        var seams = new ApiTestSeams();
+        var options = ApiTestSeams.Options("mcp+stdio:");
+        options.AreExtensionsTurnedOn = false;
+
+        var exception = await Assert.ThrowsExactlyAsync<SurlServerStartException>(() => SurlServer.StartAsync(
+            options, seams.Host, TestContext.CancellationToken));
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exception.ExitCode);
+    }
+
+    [TestMethod]
     public async Task StartAsync_AListenerThatCannotBind_ThrowsTheBindFailureAndHoldsNoLock()
     {
         var seams = new ApiTestSeams(new FakeListenerFactory { BindFails = true });

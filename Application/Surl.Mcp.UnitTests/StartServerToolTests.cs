@@ -107,6 +107,22 @@ public sealed class StartServerToolTests
     }
 
     [TestMethod]
+    public async Task Handler_McpStdioListenUrl_IsAnErrorNamingExitCode2()
+    {
+        await using var host = new McpTestHost(areExtensionsTurnedOn: true);
+
+        var result = await McpTestHost.CallAsync(
+            host.StartServer, """{"listen_urls": ["mcp+stdio:"]}""", TestContext.CancellationToken);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(2, result.StructuredContent!.Value.GetProperty("exit_code").GetInt32());
+        Assert.AreEqual("FailedInit", result.StructuredContent!.Value.GetProperty("exit_code_name").GetString());
+        StringAssert.StartsWith(Assert.ContainsSingle(result.TextContent), "surl: mcp+stdio:");
+        var listed = await McpTestHost.CallAsync(host.ListServers, "{}", TestContext.CancellationToken);
+        Assert.AreEqual(0, listed.StructuredContent!.Value.GetProperty("servers").GetArrayLength());
+    }
+
+    [TestMethod]
     public async Task Handler_AnOptionAHostOwns_IsAnErrorWithSurlApisMessageAndNoExitCode()
     {
         await using var host = new McpTestHost();
