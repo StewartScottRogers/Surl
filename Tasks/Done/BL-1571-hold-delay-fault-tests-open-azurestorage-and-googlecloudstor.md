@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.AzureStorage.UnitTests, Surl.Extended.Protocol.GoogleCloudStorage.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1571 — Hold delay-fault tests open: AzureStorage and GoogleCloudStorage
 
@@ -22,17 +22,20 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.AzureStorage.UnitTests,Surl.Extended.Protocol.GoogleCloudStorage.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.AzureStorage.UnitTests,Surl.Extended.Protocol.GoogleCloudStorage.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
 Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows BL-1569.
 
+Finding (no test change needed): both servers apply their delay through `HttpCommandFaults.FindAndApplyAsync(context, method, path, account)` (AzureRequestFaults.cs:71; GcsRequestFaults.cs:97; GcsJsonFaults.cs:25), the overload that passes no connection, so the hold never calls `IConnection.WatchForPeerCloseAsync` and a half-closing scripted client cannot end it early. The delay tests (`AzureRequestFaultsTests.FindAnswerAsync_DelayRuleAtTheCommandStage_...`, `GcsRequestFaultsTests.ServeAsync_DelayRuleAtTheCommandStage_...`) are not subject to the flake. I tried the BL-1569 pattern anyway (harness `peerHalfClosesWhenExhausted: false`): the Azure delay test then hung, because the HTTP server waits on the open client after the answer and nothing cancels it. That change was reverted; the tests are unchanged. If the HTTP servers later pass their connection to the hold, revisit with a cancel-before-await-serving test (needs a production change, so a separate task).
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Checked: both servers' delay holds use the no-connection HttpCommandFaults overload, so no peer-close watch can end them early; no test change needed, fast tests green (571 and 801)
