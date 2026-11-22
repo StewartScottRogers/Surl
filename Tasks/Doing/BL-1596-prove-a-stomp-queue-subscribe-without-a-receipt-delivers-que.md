@@ -61,3 +61,4 @@ Stand-in: the queue is the shared message bus's (ADR-0100 decision 3.3); nothing
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
