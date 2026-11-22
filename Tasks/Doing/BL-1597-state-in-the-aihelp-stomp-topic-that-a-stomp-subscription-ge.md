@@ -48,3 +48,4 @@ for a later STOMP subscriber sends it to a `/queue/`." No behaviour changes.
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
