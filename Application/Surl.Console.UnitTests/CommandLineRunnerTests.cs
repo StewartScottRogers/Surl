@@ -686,7 +686,7 @@ public sealed class CommandLineRunnerTests
     {
         var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing("http://127.0.0.1:0/"));
 
-        Assert.AreEqual(ConnectionLimits.Default, limits);
+        Assert.AreEqual(ConnectionLimits.Default with { RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, limits);
     }
 
     [TestMethod]
@@ -694,7 +694,7 @@ public sealed class CommandLineRunnerTests
     {
         var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing("--max-connections", "7", "http://127.0.0.1:0/"));
 
-        Assert.AreEqual(ConnectionLimits.Default with { MaxConnections = 7 }, limits);
+        Assert.AreEqual(ConnectionLimits.Default with { MaxConnections = 7, RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, limits);
     }
 
     [TestMethod]
@@ -703,7 +703,7 @@ public sealed class CommandLineRunnerTests
         var limits = SurlServerComposition.ComposeConnectionLimits(
             ParseServing("--max-connections-per-address", "3", "http://127.0.0.1:0/"));
 
-        Assert.AreEqual(ConnectionLimits.Default with { MaxConnectionsPerAddress = 3 }, limits);
+        Assert.AreEqual(ConnectionLimits.Default with { MaxConnectionsPerAddress = 3, RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, limits);
     }
 
     [TestMethod]
@@ -711,7 +711,7 @@ public sealed class CommandLineRunnerTests
     {
         var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing("--idle-timeout", "2.5", "http://127.0.0.1:0/"));
 
-        Assert.AreEqual(ConnectionLimits.Default with { IdleTimeout = TimeSpan.FromSeconds(2.5) }, limits);
+        Assert.AreEqual(ConnectionLimits.Default with { IdleTimeout = TimeSpan.FromSeconds(2.5), RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, limits);
     }
 
     [TestMethod]
@@ -721,7 +721,7 @@ public sealed class CommandLineRunnerTests
     {
         var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing(option, "90", "http://127.0.0.1:0/"));
 
-        Assert.AreEqual(ConnectionLimits.Default with { MaxExchangeDuration = TimeSpan.FromSeconds(90) }, limits);
+        Assert.AreEqual(ConnectionLimits.Default with { MaxExchangeDuration = TimeSpan.FromSeconds(90), RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, limits);
     }
 
     [TestMethod]
@@ -731,7 +731,7 @@ public sealed class CommandLineRunnerTests
             "--max-connections", "0", "--max-connections-per-address", "0", "--idle-timeout", "0", "--max-time", "0",
             "http://127.0.0.1:0/"));
 
-        Assert.AreEqual(ConnectionLimits.None, limits);
+        Assert.AreEqual(ConnectionLimits.None with { RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, limits);
     }
 
     [TestMethod]

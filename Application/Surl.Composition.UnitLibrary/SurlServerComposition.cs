@@ -221,7 +221,10 @@ public static partial class SurlServerComposition
         commandLine.MaxConnections,
         commandLine.MaxConnectionsPerAddress,
         NoLimitAsZero(commandLine.IdleTimeout),
-        NoLimitAsZero(commandLine.MaxTime));
+        NoLimitAsZero(commandLine.MaxTime))
+    {
+        RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay,
+    };
 
     private static TimeSpan NoLimitAsZero(TimeSpan seconds) =>
         seconds == Timeout.InfiniteTimeSpan ? TimeSpan.Zero : seconds;

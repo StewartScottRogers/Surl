@@ -599,7 +599,7 @@ public sealed partial class ServingEngine
             listener,
             state =>
             {
-                var route = new AcceptedConnectionRoute(listener.ListenUrl, server, state.Admission, state.ShutdownToken);
+                var route = new AcceptedConnectionRoute(listener.ListenUrl, server, state.Admission, state.ShutdownToken, state.StopAccepting.Token);
 
                 return AcceptUntilStoppedAsync(token => AcceptConnectionAsync(listener, route, token), state);
             });
@@ -672,6 +672,8 @@ public sealed partial class ServingEngine
 
         if (route.Server is IConnectionRefusalWriter writer && !route.ListenUrl.IsImplicitTls)
         {
+            await SettleBeforeRefusalAsync(route.StopAcceptingToken);
+
             var failure = await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(
                 token => writer.WriteRefusalAsync(connection, refusal, route.ListenUrl.Scheme, token), route.ShutdownToken));
 
@@ -684,6 +686,17 @@ public sealed partial class ServingEngine
         }
 
         await CaptureFailureAsync(() => connection.DisposeAsync().AsTask());
+    }
+
+    // Gives the client time to finish checking its own connect before the refusal and its close reach it.
+    // The wait ends when the engine stops accepting, so shutdown never waits on it.
+    private async Task SettleBeforeRefusalAsync(CancellationToken stopAcceptingToken)
+    {
+        if (connectionLimits.RefusalSettleDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(connectionLimits.RefusalSettleDelay, timeProvider, stopAcceptingToken).ContinueWith(
+                static _ => { }, TaskScheduler.Default);
+        }
     }
 
     // A refusal has no exchange, so its note goes to the log outside any exchange (ADR-0028).
@@ -1017,5 +1030,6 @@ public sealed partial class ServingEngine
         ListenUrl ListenUrl,
         IConnectionProtocolServer Server,
         ConnectionAdmission Admission,
-        CancellationToken ShutdownToken);
+        CancellationToken ShutdownToken,
+        CancellationToken StopAcceptingToken);
 }

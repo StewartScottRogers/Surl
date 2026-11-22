@@ -186,6 +186,42 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RefusalSettleDelay_HoldsTheRefusalUntilTheDelayHasPassed()
+    {
+        using var harness = new Harness(
+            OneConnection with { RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, "http");
+        harness.Listener.Connect(HeldConnection(PeerAddress(1)));
+        await harness.Server.Inner.NextExchangeAsync();
+        harness.Listener.Connect(HeldConnection(PeerAddress(2)));
+        await Task.Delay(50);
+
+        harness.Time.Advance(ConnectionLimits.DefaultRefusalSettleDelay - Tick);
+        await Task.Delay(50);
+
+        Assert.IsFalse(harness.Server.TryTakeRefusal(out _));
+
+        harness.Time.Advance(Tick);
+        var refusal = await harness.Server.NextRefusalAsync();
+
+        Assert.AreEqual(ConnectionRefusal.TooManyConnections, refusal.Refusal);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RefusalSettleDelay_EndsWithShutdownAndStillClosesTheConnection()
+    {
+        using var harness = new Harness(
+            OneConnection with { RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, "http");
+        harness.Listener.Connect(HeldConnection(PeerAddress(1)));
+        await harness.Server.Inner.NextExchangeAsync();
+        var refused = HeldConnection(PeerAddress(2));
+        harness.Listener.Connect(refused);
+
+        await harness.StopAsync();
+        await WaitUntilDisposedAsync(refused);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_RefusalStillBeingWrittenAfterOneSecond_IsCutOffAndTheConnectionClosed()
     {
         using var harness = new Harness(

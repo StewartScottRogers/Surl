@@ -304,3 +304,13 @@ peer causes. A server-side `delay` fault is not the peer's idle time, so the idl
 `ApplyAcceptDelayOrFindDropAsync`) and `command` (`CommandStageFaults.cs`, ADR-0141). The wait still counts
 against `--max-time`. A delay fault exists to make the server slow; `--idle-timeout` closing the connection
 would defeat it. `surl --aihelp` states this in its limits and fault paragraphs.
+
+## Amendment 2 (BL-1416, 2026-11-21)
+
+Decided by Claude under Stewart's delegation: a connection refused for being past `--max-connections` or
+`--max-connections-per-address` waits `ConnectionLimits.RefusalSettleDelay` (50 ms on the command line, on the
+engine's `TimeProvider`) before its refusal is written. Evidence: Release runs 44827681338 (FTP) and 44920264373
+(IMAP) on osx-arm64 showed surl accepting and refusing curl's very connection while curl reported
+`Failed to connect ... Undefined error: 0` (exit 7, not 28 or 8): the refusal and close reached curl before its
+non-blocking connect check. The listener and backlog were fine. Shutdown ends the wait; a delay of zero (the
+default for a limit built any other way) writes at once. No test tolerates exit 7.
