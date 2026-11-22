@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.S3.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1585 — Hold delay-fault tests open: S3
 
@@ -35,17 +35,20 @@ The run had not yet built or tested this. Review it before keeping it: prefer `u
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.S3.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the harness's ClientStaysOpen), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule.
-- [ ] dotnet build of Surl.Extended.Protocol.S3.UnitTests is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for Surl.Extended.Protocol.S3.UnitTests.
-- [ ] No file outside Surl.Extended.Protocol.S3.UnitTests changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.S3.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the harness's ClientStaysOpen), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule.
+- [x] dotnet build of Surl.Extended.Protocol.S3.UnitTests is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for Surl.Extended.Protocol.S3.UnitTests.
+- [x] No file outside Surl.Extended.Protocol.S3.UnitTests changed.
 
 ## Notes
 
 Run the checks on a build that includes this repo's current Surl.Protocol.Abstractions InMemoryConnection.
 
+Reviewed the BL-1572 stash work: the polling wait is bounded (30 s) and the serve task is awaited after StopServing; qualified names replaced by usings. DelayRule tests passed 20 runs in a row; 465 fast tests green.
+
 ## Log
 
 - 2026-11-21: Created (split from BL-1572 after its run timed out).
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. S3 delay-fault test now holds with a client that stays open; 20 passes, 465 fast tests green
