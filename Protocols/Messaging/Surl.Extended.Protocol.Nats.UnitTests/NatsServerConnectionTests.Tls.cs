@@ -29,6 +29,16 @@ public sealed partial class NatsServerConnectionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_NatssAuthTokenConnectOverTls_IsAccepted()
+    {
+        var connection = new UnitTestTlsClientConnection(false, UnitTestTlsClientConnection.ClientHello, ["CONNECT {\"auth_token\":\"tok\"}\r\n", "PING\r\n"], new ManualTimeProvider());
+
+        await Server(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, TlsContext(new ManualTimeProvider()));
+
+        Assert.AreEqual(connection.WrittenBeforeTls + "PONG\r\n", connection.Written);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_NatssTlsFirst_UpgradesBeforeSendingInfoInsideTls()
     {
         var log = new RecordingExchangeLog();

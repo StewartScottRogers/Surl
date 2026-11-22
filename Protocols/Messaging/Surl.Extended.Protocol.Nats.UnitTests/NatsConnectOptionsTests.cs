@@ -81,17 +81,18 @@ public sealed class NatsConnectOptionsTests
     }
 
     [TestMethod]
-    [DataRow("""{"user":"alice","pass":"secret","auth_token":"t"}""", "alice", "secret")]
-    [DataRow("""{"user":"alice"}""", "alice", "(none)")]
-    [DataRow("""{"auth_token":"s3cret"}""", "", "s3cret")]
-    [DataRow("{}", null, "(none)")]
-    public void ToPasswordLogin_Credentials_IsTheLoginTheAdrNames(string json, string? userName, string password)
+    [DataRow("""{"user":"alice","pass":"secret","auth_token":"t"}""", "alice", "secret", false)]
+    [DataRow("""{"user":"alice"}""", "alice", "(none)", false)]
+    [DataRow("""{"auth_token":"s3cret"}""", "", "s3cret", true)]
+    [DataRow("{}", null, "(none)", false)]
+    public void ToPasswordLogin_Credentials_IsTheLoginTheAdrNames(string json, string? userName, string password, bool isToken)
     {
         var login = NatsConnectOptions.Parse(json)!.ToPasswordLogin("nats", null);
 
         Assert.AreEqual("nats", login.Scheme);
         Assert.AreEqual(userName, login.UserName);
         Assert.AreEqual(password, UnitTestNatsAuthenticationPolicy.PasswordOf(login));
+        Assert.AreEqual(isToken, login.IsToken);
         Assert.IsNull(login.TlsSession);
     }
 

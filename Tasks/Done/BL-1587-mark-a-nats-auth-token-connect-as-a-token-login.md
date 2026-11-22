@@ -8,7 +8,7 @@ depends-on: [BL-1586]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1587 — Mark a NATS auth_token CONNECT as a token login
 
@@ -40,21 +40,24 @@ and `natss`.
 
 ## Acceptance criteria
 
-- [ ] `NatsConnectOptions.ToPasswordLogin` sets `IsToken = true` for the `auth_token` login and leaves it `false` for
+- [x] `NatsConnectOptions.ToPasswordLogin` sets `IsToken = true` for the `auth_token` login and leaves it `false` for
       `user`/`pass` and for no credentials; `NatsConnectOptionsTests` pins all three (extend the DataRows at line 84-86).
-- [ ] `UnitTestNatsAuthenticationPolicy` accepts the empty name only when `IsToken` is set; `ServeAsync_AuthToken_LogsInAsTheEmptyNameAccount`
+- [x] `UnitTestNatsAuthenticationPolicy` accepts the empty name only when `IsToken` is set; `ServeAsync_AuthToken_LogsInAsTheEmptyNameAccount`
       asserts `IsToken` too.
-- [ ] A new fast test in `NatsServerConnectionTests` replays the spec-written bytes
+- [x] A new fast test in `NatsServerConnectionTests` replays the spec-written bytes
       `CONNECT {"verbose":false,"pedantic":false,"tls_required":false,"auth_token":"tok","name":"","lang":"go","version":"1.2.2","protocol":1}\r\nPING\r\n`
       and expects `PONG\r\n` with no `-ERR`; another sends `{"user":"","pass":"tok"}` and expects
       `-ERR 'Authorization Violation'\r\n`.
-- [ ] The same token CONNECT over the TLS fake (`NatsServerConnectionTests.Tls.cs`) is accepted.
-- [ ] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary -warnaserror` clean, fast tests green,
+- [x] The same token CONNECT over the TLS fake (`NatsServerConnectionTests.Tls.cs`) is accepted.
+- [x] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary -warnaserror` clean, fast tests green,
       the library stays at 100% line and branch coverage; no test needs `TestCategory=Integration`.
 
 ## Notes
+
+- 2026-11-22: ToPasswordLogin marks the auth_token login IsToken; no ADR change (ADR-0113 decision 2). Tests: DataRows, spec-byte replays (plain and TLS), fake policy judges the empty name only for a token.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. Token CONNECT marked IsToken; 216 fast tests green

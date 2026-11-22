@@ -49,6 +49,24 @@ public sealed partial class NatsServerConnectionTests
 
         Assert.AreEqual("+OK\r\n", answers);
         Assert.AreEqual(string.Empty, policy.Logins[0].UserName);
+        Assert.IsTrue(policy.Logins[0].IsToken);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AuthTokenConnectFromAGoClient_IsAnsweredPong()
+    {
+        var (answers, _) = await ServeAsync(new UnitTestNatsAuthenticationPolicy(),
+            "CONNECT {\"verbose\":false,\"pedantic\":false,\"tls_required\":false,\"auth_token\":\"tok\",\"name\":\"\",\"lang\":\"go\",\"version\":\"1.2.2\",\"protocol\":1}\r\nPING\r\n");
+
+        Assert.AreEqual("PONG\r\n", answers);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_EmptyUserWithPass_IsAuthorizationViolation()
+    {
+        var (answers, _) = await ServeAsync(new UnitTestNatsAuthenticationPolicy(), "CONNECT {\"user\":\"\",\"pass\":\"tok\"}\r\nPING\r\n");
+
+        Assert.AreEqual("-ERR 'Authorization Violation'\r\n", answers);
     }
 
     [TestMethod]
