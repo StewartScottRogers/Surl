@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Extended.Protocol.McpServer.UnitTests, Surl.Extended.Protocol.SignalR.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1576 — Hold delay-fault tests open: McpServer and SignalR
 
@@ -22,17 +22,20 @@ ADR-0141 amendment 2: a delay hold ends when the client half-closes or resets. A
 
 ## Acceptance criteria
 
-- [ ] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.McpServer.UnitTests,Surl.Extended.Protocol.SignalR.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
-- [ ] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
-- [ ] dotnet build of each project is clean with -warnaserror.
-- [ ] dotnet test --filter "TestCategory!=Integration" is green for each project.
-- [ ] No file outside the named .UnitTests projects changed.
+- [x] Every non-deliberate-half-close delay test in Surl.Extended.Protocol.McpServer.UnitTests,Surl.Extended.Protocol.SignalR.UnitTests uses a client that stays open through the hold (peerHalfClosesWhenExhausted: false or the project helper's equivalent), cancelling and awaiting the serve task at the end, as BL-1569 does.
+- [x] The changed tests pass 20 runs in a row locally with the filter FullyQualifiedName~DelayRule (add a name filter such as ~Delay where a test has no DelayRule in its name).
+- [x] dotnet build of each project is clean with -warnaserror.
+- [x] dotnet test --filter "TestCategory!=Integration" is green for each project.
+- [x] No file outside the named .UnitTests projects changed.
 
 ## Notes
 
 Filed by task-planner on 2026-11-21 for the delay-hold flake sweep that follows BL-1569.
 
+SignalR: its one delay test (SignalRInvocationFaultsTests) drives UnitTestDuplexConnection, which has no peer-half-close watch and stays open until the test calls HalfClose, so it needs no change. McpServer: McpRequestFaultsTests delay test used McpHttpHarness with the default half-closing InMemoryConnection. Added McpHttpHarness.ClientStaysOpen (peerHalfClosesWhenExhausted: false) and EndServing (a cancellation token); the test waits for the answer bytes after the clock advance, then cancels and awaits serving. Verified 20 runs in a row.
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. McpServer delay test holds with an open client; SignalR needed no change
