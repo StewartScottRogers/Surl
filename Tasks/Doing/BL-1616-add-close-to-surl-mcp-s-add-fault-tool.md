@@ -31,3 +31,4 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
