@@ -57,3 +57,4 @@ Stand-in: no store, event, fault or option changes. A test that asserts what the
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
