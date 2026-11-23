@@ -36,6 +36,7 @@ internal static class FaultItemText
         Append(item, "stage", rule.Stage?.ToString().ToLowerInvariant());
         Append(item, "ms", Number(rule.DelayMilliseconds));
         Append(item, "after-bytes", Number(rule.AfterBytes));
+        Append(item, "close", rule.Close == FaultClose.Graceful ? "graceful" : null);
         Append(item, "reply", rule.Reply);
         Append(item, "body", rule.Body);
         Append(item, "times", Number(rule.Times));

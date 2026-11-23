@@ -52,6 +52,7 @@ public static class FaultPlanComposition
             Stage = fault.Stage,
             DelayMilliseconds = fault.DelayMilliseconds,
             AfterBytes = fault.AfterBytes,
+            Close = fault.Close ?? FaultClose.Reset,
             Reply = fault.Reply,
             Body = fault.Body,
             Times = fault.Times,

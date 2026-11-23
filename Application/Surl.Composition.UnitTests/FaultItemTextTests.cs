@@ -30,12 +30,13 @@ public sealed class FaultItemTextTests
             Stage = FaultStage.Command,
             DelayMilliseconds = 5,
             AfterBytes = 10,
+            Close = FaultClose.Graceful,
             Reply = "550 no",
             Times = 3,
         };
 
         Assert.AreEqual(
-            "drop;listener=http://127.0.0.1:80;scheme=http;account=alice;path=/up;command=STOR;stage=command;ms=5;after-bytes=10;reply=550 no;times=3",
+            "drop;listener=http://127.0.0.1:80;scheme=http;account=alice;path=/up;command=STOR;stage=command;ms=5;after-bytes=10;close=graceful;reply=550 no;times=3",
             FaultItemText.Format(rule));
     }
 

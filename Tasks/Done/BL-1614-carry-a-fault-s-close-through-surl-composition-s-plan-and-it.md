@@ -8,7 +8,7 @@ depends-on: [BL-1608, BL-1611, BL-1612]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-062
 created: 2026-11-22
-completed:
+completed: 2026-11-23
 ---
 # BL-1614 — Carry a fault's close through Surl.Composition's plan and item text
 
@@ -22,9 +22,9 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 
 ## Acceptance criteria
 
-- [ ] A configured `close=graceful` reaches `FaultRule.Close`.
-- [ ] `FaultItemText` writes `close=graceful` back and omits the key for `Reset`.
-- [ ] Tests for both directions; gates hold.
+- [x] A configured `close=graceful` reaches `FaultRule.Close`.
+- [x] `FaultItemText` writes `close=graceful` back and omits the key for `Reset`.
+- [x] Tests for both directions; gates hold.
 
 ## Notes
 
@@ -36,3 +36,4 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 - 2026-11-22: Backlog -> Doing.
 - 2026-11-22: Doing -> Backlog. Needs ConfiguredFault.Close from BL-1612 (Surl.Cli, in Doing); added to depends-on
 - 2026-11-23: Backlog -> Doing.
+- 2026-11-23: Doing -> Done. close=graceful carried through ToRule and FaultItemText; tests pass
