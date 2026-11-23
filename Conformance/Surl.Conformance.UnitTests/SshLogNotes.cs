@@ -44,10 +44,36 @@ internal static partial class SshLogNotes
     }
 
     /// <summary>
-    /// Gets every <c>SSH negotiated ...</c> note in the log, from <c>kex</c> to the end of its line.
+    /// Gets the <c>SSH negotiated ...</c> notes of a log snapshot that is already complete, each from
+    /// <c>kex</c> to the end of its line, joined by newlines; empty when it holds none. A live log goes
+    /// through <see cref="WaitForNegotiatedAlgorithmsAsync"/> instead.
     /// </summary>
-    public static IReadOnlyList<string> NegotiatedAlgorithms(string log) =>
-        [.. NegotiatedNote().Matches(log).Select(note => note.Groups["algorithms"].Value.TrimEnd('\r'))];
+    public static string NegotiatedAlgorithmsIn(string settledLog) =>
+        string.Join('\n', NegotiatedNote().Matches(settledLog).Select(note => note.Groups["algorithms"].Value.TrimEnd('\r')));
+
+    /// <summary>
+    /// Waits, for at most ten seconds, until <paramref name="surl"/>'s log holds an
+    /// <c>SSH negotiated ...</c> note and returns the notes joined by newlines. curl can exit just after
+    /// NEWKEYS while surl is still writing the note, so one read can find it missing (BL-1375, BL-1607).
+    /// Fails with surl's log when the bound passes.
+    /// </summary>
+    public static async Task<string> WaitForNegotiatedAlgorithmsAsync(SurlOnLoopback surl, CancellationToken cancellationToken)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(10);
+        var notes = NegotiatedAlgorithmsIn(surl.Log);
+        while (notes.Length == 0 && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            notes = NegotiatedAlgorithmsIn(surl.Log);
+        }
+
+        if (notes.Length == 0)
+        {
+            Assert.Fail($"surl logged no 'SSH negotiated' note within 10 seconds. surl's log:\n{surl.Log}");
+        }
+
+        return notes;
+    }
 
     [GeneratedRegex(@"Serving SSH host key (?<type>\S+), --hostpubsha256 (?<sha256>\S+) --hostpubmd5 (?<md5>[0-9a-f]{32})")]
     private static partial Regex ServingNote();

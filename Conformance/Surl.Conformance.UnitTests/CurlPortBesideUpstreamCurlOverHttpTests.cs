@@ -715,7 +715,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
             });
 
         StringAssert.Contains(
-            string.Join('\n', SshLogNotes.NegotiatedAlgorithms(measurement.UpstreamSurl.Notes)), $"host key {plainHostKeyAlgorithm},");
+            SshLogNotes.NegotiatedAlgorithmsIn(measurement.UpstreamSurl.Notes), $"host key {plainHostKeyAlgorithm},");
     }
 
     private async Task MeasureKerberosNegotiateAsync(

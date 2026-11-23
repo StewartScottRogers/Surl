@@ -95,23 +95,9 @@ public sealed class UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests
         StringAssert.Contains(await NegotiatedAlgorithmsAsync(surl), $"MAC {mac}/{mac},");
     }
 
-    // curl can exit (or crash) just after NEWKEYS while surl is still writing its "SSH negotiated"
-    // note, so poll the log until the note appears, for at most ten seconds (BL-1375).
     private async Task<string> NegotiatedAlgorithmsAsync(SurlOnLoopback surl)
     {
-        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(10);
-        var notes = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
-        while (notes.Length == 0 && TimeProvider.System.GetUtcNow() < deadline)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.CancellationToken);
-            notes = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
-        }
-
-        if (notes.Length == 0)
-        {
-            Assert.Fail($"surl logged no 'SSH negotiated' note within 10 seconds. surl's log:\n{surl.Log}");
-        }
-
+        var notes = await SshLogNotes.WaitForNegotiatedAlgorithmsAsync(surl, TestContext.CancellationToken);
         TestContext.WriteLine($"surl negotiated with {UpstreamCurlLocator.CurrentPlatform}'s OpenSSL build: {notes}");
         return notes;
     }
