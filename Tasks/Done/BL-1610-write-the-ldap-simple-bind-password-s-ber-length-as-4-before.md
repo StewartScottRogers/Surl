@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1610 — Write the LDAP simple bind password's BER length as 4 before **** in the exchange log
 
@@ -33,13 +33,13 @@ the `[0]` simple credentials is logged as `04` (the length of `****`), as ADR-01
 
 ## Acceptance criteria
 
-- [ ] A simple bind with a password of any length (including empty, and one long enough to need a long-form BER
+- [x] A simple bind with a password of any length (including empty, and one long enough to need a long-form BER
       length) logs `80 04 ****` for the credentials, with no other octet that depends on the password's length, or with
       the outer lengths kept as the ADR-0182 amendment this task writes says.
-- [ ] Named fast tests in `LdapExchangeLogRedactionTests.cs` pin short-form, long-form and empty passwords. The
+- [x] Named fast tests in `LdapExchangeLogRedactionTests.cs` pin short-form, long-form and empty passwords. The
       existing tests that expected the received length are updated.
-- [ ] SASL binds and non-bind messages log as before (existing tests unchanged).
-- [ ] `dotnet build` clean, fast tests green, `Surl.Protocol.Ldap` stays 100/100.
+- [x] SASL binds and non-bind messages log as before (existing tests unchanged).
+- [x] `dotnet build` clean, fast tests green, `Surl.Protocol.Ldap` stays 100/100.
 
 ## Notes
 
@@ -49,3 +49,4 @@ the `[0]` simple credentials is logged as `04` (the length of `****`), as ADR-01
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. LDAP simple and PLAIN bind credential length logged as 04 before ****; ADR-0182 amendment 5
