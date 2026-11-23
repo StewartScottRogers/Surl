@@ -86,7 +86,7 @@ public sealed class ProgramTests
     [DataRow(ResetServerTool.Name, ResetServerTool.Description, new[] { "server_id" })]
     [DataRow(SnapshotServerTool.Name, SnapshotServerTool.Description, new[] { "server_id" })]
     [DataRow(RestoreServerTool.Name, RestoreServerTool.Description, new[] { "server_id", "snapshot_id" })]
-    [DataRow(AddFaultTool.Name, AddFaultTool.Description, new[] { "server_id", "fault" })]
+    [DataRow(AddFaultTool.Name, AddFaultTool.Description, new[] { "server_id", "fault", "close" })]
     [DataRow(ListFaultsTool.Name, ListFaultsTool.Description, new[] { "server_id" })]
     [DataRow(RemoveFaultTool.Name, RemoveFaultTool.Description, new[] { "server_id", "fault_id" })]
     public async Task RunAsync_ToolsList_IncludesEachStoreAndFaultToolWithAnObjectInputSchemaAndADescription(string name, string description, string[] properties)

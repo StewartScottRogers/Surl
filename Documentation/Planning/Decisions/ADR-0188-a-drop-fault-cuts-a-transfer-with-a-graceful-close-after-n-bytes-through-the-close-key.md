@@ -119,4 +119,78 @@ Each depends on BL-1608 and is sized to at most two projects:
 - A test gets both a vanished connection (`drop;after-bytes=N`, curl exit 56 expected) and a cut-off download
   (`close=graceful`, exit 18 expected for a declared size), from one rule shape.
 - No existing configuration changes meaning; a build without the key behaves as before.
-- Two exit codes in this ADR (18 and 56) are expectations from libcurl's documentation, not measurements, until BL-1618.
+- The two exit codes (18 and 56) are measured, not assumed: see amendment 1.
+
+## Amendment 1 — measured against pinned upstream curl 8.21.0 (2026-11-23, BL-1618)
+
+Decided by Claude under Stewart's delegation. Measured with the build pinned in `UpstreamCurlBuilds.json` (Windows,
+Schannel), file of 40 000 bytes, `drop;after-bytes=12000`, by `UpstreamCurlMeetsASurlCutDownloadTests` (`Integration`).
+No Curl port output is used.
+
+| Case | `close=graceful` | `close=reset` |
+| --- | --- | --- |
+| HTTP/1.1 `Content-Length` | exit 18 (`end of response with 28209 bytes missing`), 11 791 bytes kept | exit 56 (`Recv failure: Connection was reset`), 11 791 bytes kept |
+| HTTP/1.1 `Content-Length` over TLS | exit 18, 11 791 bytes kept | exit 56, 11 791 bytes kept |
+| FTP `RETR` | exit 18 (`transfer closed with 28232 bytes remaining to read`), 11 768 bytes kept | exit 56, 11 768 bytes kept |
+| FTPS `RETR` | exit 18, 11 725 bytes kept | exit 56, some or none of the bytes in flight kept |
+| HTTP/1.1 chunked, plain and TLS (loopback server, graceful only) | exit 18 (`transfer closed with outstanding read data remaining`), 12 000 bytes kept | not pinned |
+
+Findings:
+
+1. The expectations of decision 2 hold: a graceful cut of a declared-size transfer is exit 18, a reset is exit 56.
+   Bytes kept are N minus the head bytes (HTTP response head, FTP control replies) that count towards N.
+2. **FTP graceful gives exit 18, not 56, with the control connection closed too, so the 426 fallback of decision 2 is
+   not applied** and BL-1613's graceful cut stays as built. No follow-up task is filed.
+3. Chunked has no declared size, yet curl still exits 18 when the stream ends before the last chunk, so a graceful cut of
+   a chunked body is also "partial file". surl's file server answers files with `Content-Length` only, so the chunked
+   case is measured against a loopback server that sends a prefix of the chunk and closes (with `close_notify` over
+   TLS). The reset twin is not pinned there: a loopback reset let curl see exit 18 on plain HTTP and 56 on TLS, which
+   varies by platform and is not what surl's own cut does.
+4. Over TLS a reset keeps whatever the TLS layer had delivered; the FTPS reset can keep none, so that test asserts only a
+   strict prefix of the file.
+
+## Amendment 2 — HTTPS exit codes differ by platform (2026-11-23, BL-1619)
+
+Decided by Claude under Stewart's delegation. CI run 45155542608 (PR #142) ran the pinned upstream curl 8.21.0 of each
+platform against surl's HTTPS cut. The Windows build uses Schannel; the Linux and macOS builds use OpenSSL, which reports
+the cut as a failed send (`CURLE_SEND_ERROR`, 55) in some cases. A test author should expect:
+
+| Cut over HTTPS | Windows | macOS | Linux |
+|---|---|---|---|
+| `close=graceful` | 18 | 18 | 55 (`Send failure: Broken pipe`) |
+| `close=reset` | 56 | 55 | 55 (`Recv failure: Connection reset by peer` reported as 55) |
+
+macOS graceful is inferred from its passing the 18 assertion in that run. The http, ftp and ftps cases are 18 and 56 on
+every platform. surl already sends `close_notify` before FIN on a graceful cut: `DroppingAfterBytesConnection` disposes
+the connection and `StreamConnection.DisposeAsync` completes writes (close_notify, flush, FIN) first
+(`StreamConnection.cs:316-341`, `SendCloseNotifyAsync` at 344), so no `Surl.Core` fix is needed. Each platform is pinned
+in its own test in `UpstreamCurlMeetsASurlCutDownloadTests`.
+
+## Amendment 3 — the OpenSSL HTTPS cut is one of two codes, by curl's own timing (2026-11-23, BL-1620)
+
+Decided by Claude under Stewart's delegation. PR #143 (shift 20261123-064807) saw Linux and macOS exit 56 for the
+HTTPS reset that amendment 2 had pinned at 55, so BL-1620 repeated each HTTPS cut 20 times per platform in one `ci`
+run (run 45211169210, `attempts=20`, pinned curl 8.21.0 of each runner; macOS attempt 18 was cancelled, so 19 runs).
+The counts below are from each leg's failed assertion against amendment 2's single pins (the passing legs matched the pin):
+
+| Cut over HTTPS | Linux (OpenSSL), 20 runs | macOS (OpenSSL), 19 runs |
+|---|---|---|
+| `close=graceful` | 18 in 7 runs, 55 in 13 | 18 in 15 runs, 55 in 4 (`Send failure: Broken pipe`) |
+| `close=reset` | 55 in 20 runs (56 seen once in PR #143) | 56 in 14 runs, 55 in 5 |
+
+Windows (Schannel) stays exact: 18 graceful, 56 reset. Bytes kept were a non-empty strict prefix (11 853 to 11 855)
+in every run, so only curl's reporting varies, never what it received.
+
+**Why.** curl on OpenSSL returns 55 when the failure surfaces inside a TLS write and 56 or 18 when it surfaces inside a
+TLS read. After surl's last byte (and, for the graceful cut, its `close_notify` and FIN) curl may still be writing: its own
+`close_notify` reply or a post-handshake record. Whether that write runs before or after curl's next read sees the cut is
+a race inside the curl process and the loopback stack; the same surl bytes give both codes.
+
+**Can surl avoid it?** Not on the bytes: the sequence is already the cleanest one (`close_notify`, then FIN, amendment 2),
+and a reset is by definition abrupt, so no `Surl.Core` change was made. A lingering read after the graceful `close_notify`
+(wait for the client's own `close_notify` before closing) might remove the graceful 55, but it delays `drop` on every
+protocol and changes what a test observes, and a reset cannot linger at all. That is untried and not adopted.
+
+**Decision.** The OpenSSL tests assert the measured set and no wider: graceful is 18 or 55, reset is 55 or 56, on
+Linux and macOS; Windows keeps its exact pins. This supersedes the single OpenSSL values of amendment 2. A test author
+asserting against surl's HTTPS cut on Linux or macOS should accept those sets.

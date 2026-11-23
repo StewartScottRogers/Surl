@@ -71,7 +71,8 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
       an ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
-      item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`.
+      item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`. An optional `close` (`reset` or `graceful`, any case; BL-1616, ADR-0188 decision 4)
+      is appended as the item key `close`; any other value is `isError` `option --fault: key close must be reset or graceful`, and the rest of the refusals are the reader's.
     - `ListFaultsTool` (`list_faults`, BL-964): `server_id` -> `{faults: [{fault_id, item, remaining}]}` in plan
       order, read from `SurlServer.Faults.List`; `remaining` is `null` for a rule without `times`.
     - `RemoveFaultTool` (`remove_fault`): `fault_id` -> `{fault_id}`; one the plan does not hold is
