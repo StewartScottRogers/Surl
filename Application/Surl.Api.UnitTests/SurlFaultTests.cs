@@ -26,6 +26,34 @@ public sealed class SurlFaultTests
     }
 
     [TestMethod]
+    public void Close_Unset_IsResetAndLeavesTheItemWithoutAKey()
+    {
+        var fault = SurlFault.DropConnection() with { AfterBytes = 10 };
+
+        Assert.AreEqual(FaultClose.Reset, fault.Close);
+        Assert.AreEqual("drop;after-bytes=10", fault.ToItem());
+    }
+
+    [TestMethod]
+    public void ToItem_AGracefulClose_IsWrittenAfterAfterBytes()
+    {
+        var fault = SurlFault.DropConnection() with { Close = FaultClose.Graceful, AfterBytes = 10, Times = 2 };
+
+        Assert.AreEqual("drop;after-bytes=10;close=graceful;times=2", fault.ToItem());
+    }
+
+    [TestMethod]
+    public void WithoutCountFrom_ARuleWithAGracefulClose_KeepsItInTheItem()
+    {
+        var rule = new FaultRule("f1", FaultKind.Drop) { AfterBytes = 5, Close = FaultClose.Graceful };
+
+        var fault = SurlFault.WithoutCountFrom(rule);
+
+        Assert.AreEqual(FaultClose.Graceful, fault.Close);
+        Assert.AreEqual("drop;after-bytes=5;close=graceful", fault.ToItem());
+    }
+
+    [TestMethod]
     public void ToItem_EncodesOnlyTheItemGrammarsDelimiters()
     {
         var fault = SurlFault.ProtocolError("503 Busy; later") with { Scheme = "http", Path = "/a b=c;%" };

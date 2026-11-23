@@ -8,7 +8,7 @@ depends-on: [BL-1608, BL-1611]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: FR-062
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1615 — Add Close to Surl.Api's SurlFault
 
@@ -22,13 +22,16 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 
 ## Acceptance criteria
 
-- [ ] `SurlFault.Close` (`FaultClose`, default `Reset`) init property, read from a rule and written by ToString after `after-bytes`.
-- [ ] README states it.
-- [ ] Tests for the property, the item text and a rule round trip.
+- [x] `SurlFault.Close` (`FaultClose`, default `Reset`) init property, read from a rule and written by ToString after `after-bytes`.
+- [x] README states it.
+- [x] Tests for the property, the item text and a rule round trip.
 
 ## Notes
+
+Close is omitted from the item when Reset (the default adds no word). The --fault reader gains `close` in BL-1612, so tests check the item text and WithoutCountFrom directly, not a parse of it.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. SurlFault.Close (default Reset) is read from a rule, written after after-bytes, documented and tested
