@@ -6,7 +6,8 @@ namespace Surl.Core;
 /// The byte count one exchange's <see cref="FaultKind.Drop"/> rule with
 /// <see cref="FaultRule.AfterBytes"/> is shared by (ADR-0124 amendment, BL-1518): the control
 /// connection and every data connection the exchange opens add the bytes they send to one count,
-/// and when it reaches the rule's number every connection joined to it is aborted, once.
+/// and when it reaches the rule's number every connection joined to it is aborted, once - or, for a
+/// graceful cut (ADR-0188), disposed, so the peer sees an ordinary end of stream.
 /// </summary>
 /// <remarks>
 /// A server may write its control and data connections from different tasks, so the count and the
@@ -14,7 +15,11 @@ namespace Surl.Core;
 /// </remarks>
 /// <param name="afterBytes">How many bytes the exchange may send before the drop; 1 or more.</param>
 /// <param name="onDropped">Called once, when the drop happens.</param>
-internal sealed class ExchangeDropBudget(long afterBytes, Action onDropped)
+/// <param name="graceful">
+/// <see langword="true"/> to close each joined connection through its lingering dispose, data
+/// connections before the control connection (ADR-0188, decision 2); <see langword="false"/> to abort them.
+/// </param>
+internal sealed class ExchangeDropBudget(long afterBytes, Action onDropped, bool graceful = false)
 {
     private readonly Lock gate = new();
     private readonly List<IConnection> joined = [];
@@ -78,20 +83,34 @@ internal sealed class ExchangeDropBudget(long afterBytes, Action onDropped)
     }
 
     /// <summary>
-    /// Aborts every joined connection and reports the drop.
+    /// Aborts every joined connection, or closes each gracefully (the last joined first, so a data
+    /// connection goes before the control connection), and reports the drop.
     /// </summary>
-    public void Drop()
+    /// <returns>A task that completes once every joined connection is closed and the drop reported.</returns>
+    public async ValueTask DropAsync()
     {
-        IConnection[] toAbort;
+        IConnection[] toClose;
 
         lock (gate)
         {
-            toAbort = [.. joined];
+            toClose = [.. joined];
         }
 
-        foreach (var connection in toAbort)
+        if (graceful)
         {
-            connection.Abort();
+            Array.Reverse(toClose);
+        }
+
+        foreach (var connection in toClose)
+        {
+            if (graceful)
+            {
+                await connection.DisposeAsync();
+            }
+            else
+            {
+                connection.Abort();
+            }
         }
 
         onDropped();

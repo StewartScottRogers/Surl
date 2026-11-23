@@ -42,7 +42,10 @@ A `Drop` rule with `after-bytes` counts every byte the exchange sends on all its
 amendment, BL-1518/BL-1519): `ExchangeDropBudget` is one lock-guarded count shared by the control
 connection and every data connection (`ExchangeDataConnections.DropBudget`), each wrapped in a
 `DroppingAfterBytesConnection`. The write that reaches the count is cut at it, then every joined
-connection is aborted and the note and one `FaultAppliedEvent` are written once.
+connection is aborted and the note and one `FaultAppliedEvent` are written once. With `FaultRule.Close = Graceful`
+(ADR-0188, BL-1613) each joined connection is instead disposed (lingering close, ADR-0021), last joined first so data goes
+before control, no `Abort`, and the note reads `Exchange <id> cut after <N> bytes sent by fault rule <rule id>, closing
+gracefully.`; a datagram flow ignores `Close` and behaves as a drop.
 
 An `Accept`-stage `Delay` hold ends when the client leaves (ADR-0141, amendment 2; BL-1521): the engine
 races the delay against `IConnection.WatchForPeerCloseAsync` (64 KiB read-ahead, bytes kept for a client that

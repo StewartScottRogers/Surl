@@ -222,6 +222,93 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_GracefulDropRuleAfterBytes_CutsAtTheCountThenDisposesWithoutAbort()
+    {
+        var factory = new FakeListenerFactory();
+        var logs = new FakeExchangeLogFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { AfterBytes = 6, Close = FaultClose.Graceful });
+        var server = new FakeConnectionProtocolServer(
+            async (connection, context) =>
+            {
+                await connection.WriteAsync("abcd"u8.ToArray(), context.CancellationToken);
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    async () => await connection.WriteAsync("efgh"u8.ToArray(), context.CancellationToken));
+            },
+            "http");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), logs, stream, plan, server);
+        var connection = new InMemoryConnection([]);
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Http], stop.Token);
+
+        factory.ListenerFor(Http).Connect(connection);
+        await InMemoryConnectionWaits.WaitUntilDisposedAsync(connection);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        Assert.AreEqual("abcdef", Encoding.ASCII.GetString(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+        CollectionAssert.Contains(
+            logs.LogOf(1).Notes.ToList(), "Exchange 1 cut after 6 bytes sent by fault rule f1, closing gracefully.");
+        Assert.AreEqual(1, logs.LogOf(1).Notes.Count(note => note.Contains("cut after", StringComparison.Ordinal)));
+        Assert.AreEqual(FaultKind.Drop, ((FaultAppliedEvent)Drain(subscription).Single()).Kind);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_GracefulDropRuleInsideADataPayload_ClosesDataAndControlGracefully()
+    {
+        var (control, data, logs, events) = await RunDropAfterBytesOverControlAndDataAsync(
+            12, async (connection, context) =>
+            {
+                await connection.WriteAsync("220 hi\r\n"u8.ToArray(), context.CancellationToken);
+                await using var dataConnection = await context.DataConnections.ConnectActiveAsync(
+                    connection.RemoteEndPoint, CurlDataPort, TimeSpan.FromSeconds(30), context.CancellationToken);
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    async () => await dataConnection.WriteAsync("0123456789"u8.ToArray(), context.CancellationToken));
+            },
+            FaultClose.Graceful);
+
+        Assert.AreEqual("0123", Encoding.ASCII.GetString(data.WrittenBytes));
+        Assert.IsTrue(control.Disposed);
+        Assert.IsTrue(data.Disposed);
+        Assert.IsFalse(control.Aborted);
+        Assert.IsFalse(data.Aborted);
+        Assert.AreEqual(
+            1, logs.LogOf(1).Notes.Count(note => note == "Exchange 1 cut after 12 bytes sent by fault rule f1, closing gracefully."));
+        Assert.AreEqual(1, events.Count);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_GracefulDropRuleOnADatagramFlow_BehavesAsADrop()
+    {
+        var factory = new FakeListenerFactory();
+        var logs = new FakeExchangeLogFactory();
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 5, Close = FaultClose.Graceful });
+        var server = new FakeDatagramProtocolServer(
+            async (flow, context) =>
+            {
+                await flow.SendAsync("data"u8.ToArray(), context.CancellationToken);
+                await flow.SendAsync("more"u8.ToArray(), context.CancellationToken);
+            },
+            "tftp");
+        var engine = CreateFaultingEngine(
+            factory, new ManualTimeProvider(), logs, DiscardingSurlEventPublisher.Instance, plan, server);
+        var flow = new FakeDatagramFlow("rrq"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Tftp69], stop.Token);
+
+        factory.DatagramListenerFor(Tftp69).Open(flow);
+        await flow.WhenDisposed.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        CollectionAssert.AreEqual(new[] { "data" }, flow.Sent.Select(sent => Encoding.ASCII.GetString(sent)).ToArray());
+        CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 dropped after 5 bytes sent by fault rule f1.");
+    }
+    [TestMethod]
     public async Task ServeAsync_DropRuleAfterMoreBytesThanTheServerSends_EndsTheExchangeAsUsual()
     {
         var factory = new FakeListenerFactory();
@@ -314,14 +401,15 @@ public sealed partial class ServingEngineTests
     }
 
     private static async Task<(InMemoryConnection Control, InMemoryConnection Data, FakeExchangeLogFactory Logs, List<SurlEvent> Events)>
-        RunDropAfterBytesOverControlAndDataAsync(long afterBytes, Func<IConnection, ExchangeContext, Task> serve)
+        RunDropAfterBytesOverControlAndDataAsync(
+            long afterBytes, Func<IConnection, ExchangeContext, Task> serve, FaultClose close = FaultClose.Reset)
     {
         var factory = new FakeListenerFactory();
         var logs = new FakeExchangeLogFactory();
         var stream = new SurlEventStream(new ManualTimeProvider());
         await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
         var plan = new FaultPlan();
-        plan.Add(new FaultRule("x", FaultKind.Drop) { AfterBytes = afterBytes });
+        plan.Add(new FaultRule("x", FaultKind.Drop) { AfterBytes = afterBytes, Close = close });
         var data = new InMemoryConnection([], remoteEndPoint: CurlDataPort, peerHalfClosesWhenExhausted: false);
         var opener = new InMemoryDataConnections().ScriptActiveConnection(data);
         var engine = new ServingEngine(
