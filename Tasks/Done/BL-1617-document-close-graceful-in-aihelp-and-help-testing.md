@@ -8,7 +8,7 @@ depends-on: [BL-1608, BL-1612]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1617 — Document close=graceful in --aihelp and --help testing
 
@@ -22,13 +22,16 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 
 ## Acceptance criteria
 
-- [ ] The key table lists `close` with `reset` (default) and `graceful`, applying to `drop` with `after-bytes`.
-- [ ] An example `drop;after-bytes=4000000;close=graceful` exists and `RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` passes.
-- [ ] Documentation/Wiki/Surl-As-A-Stand-In.md says the same.
+- [x] The key table lists `close` with `reset` (default) and `graceful`, applying to `drop` with `after-bytes`.
+- [x] An example `drop;after-bytes=4000000;close=graceful` exists and `RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` passes.
+- [x] Documentation/Wiki/Surl-As-A-Stand-In.md says the same.
 
 ## Notes
+
+Example uses `--fault` so it also pins the one-rule start warning. Help prose, --help explanation, example and wiki updated; tests re-pinned.
 
 ## Log
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. close=graceful documented in --aihelp, --help testing and the stand-in wiki, with an example
