@@ -39,7 +39,7 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
         StringAssert.Contains(surl.Log, $"SSH login request: password for {AccountsFile.User}");
-        WriteNegotiatedAlgorithms(surl);
+        await WriteNegotiatedAlgorithmsAsync(surl);
     }
 
     [TestMethod]
@@ -69,7 +69,7 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
         StringAssert.Contains(surl.Log, $"SSH login request: publickey for {AccountsFile.User}, key ssh-rsa");
-        WriteNegotiatedAlgorithms(surl);
+        await WriteNegotiatedAlgorithmsAsync(surl);
     }
 
     [TestMethod]
@@ -195,7 +195,7 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
-        StringAssert.Contains(WriteNegotiatedAlgorithms(surl), "compression zlib");
+        StringAssert.Contains(await WriteNegotiatedAlgorithmsAsync(surl), "compression zlib");
     }
 
     [TestMethod]
@@ -207,7 +207,7 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
-        StringAssert.Contains(WriteNegotiatedAlgorithms(surl), "host key rsa-sha2-");
+        StringAssert.Contains(await WriteNegotiatedAlgorithmsAsync(surl), "host key rsa-sha2-");
     }
 
     [TestMethod]
@@ -222,7 +222,7 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
-        StringAssert.Contains(WriteNegotiatedAlgorithms(surl), $"host key {keyType},");
+        StringAssert.Contains(await WriteNegotiatedAlgorithmsAsync(surl), $"host key {keyType},");
     }
 
     // The Windows build's WinCNG backend lists only RSA host-key algorithms (ADR-0051, Context),
@@ -267,9 +267,9 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
 
     private static string Sha256(SurlOnLoopback surl, string keyType = "ssh-rsa") => SshLogNotes.HostKeySha256(surl.Log, keyType);
 
-    private string WriteNegotiatedAlgorithms(SurlOnLoopback surl)
+    private async Task<string> WriteNegotiatedAlgorithmsAsync(SurlOnLoopback surl)
     {
-        var notes = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
+        var notes = await SshLogNotes.WaitForNegotiatedAlgorithmsAsync(surl, TestContext.CancellationToken);
         TestContext.WriteLine($"surl negotiated with {UpstreamCurlLocator.CurrentPlatform}'s build: {notes}");
         return notes;
     }

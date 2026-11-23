@@ -45,7 +45,7 @@ public sealed class UpstreamCurlTrustsSurlsHostCertificateTests
 
         var result = await PinnedUpstreamCurlOverSsh.RunAsync(TestContext, curlHome, surl, CurlArguments(surl, knownHosts));
 
-        AssertRefusedAfterAgreeing(surl, result, "rsa-sha2-512");
+        await AssertRefusedAfterAgreeingAsync(surl, result, "rsa-sha2-512");
     }
 
     [TestMethod]
@@ -58,7 +58,7 @@ public sealed class UpstreamCurlTrustsSurlsHostCertificateTests
         var result = await PinnedUpstreamCurl.RunSupplementaryBuildWithEnvironmentAsync(
             TestContext, OpenSslWindowsBuildSha256, curlHome.Environment, ["-sS", .. CurlArguments(surl, knownHosts)]);
 
-        AssertRefusedAfterAgreeing(surl, result, "ssh-ed25519");
+        await AssertRefusedAfterAgreeingAsync(surl, result, "ssh-ed25519");
     }
 
     [TestMethod]
@@ -70,7 +70,7 @@ public sealed class UpstreamCurlTrustsSurlsHostCertificateTests
 
         var result = await PinnedUpstreamCurlOverSsh.RunAsync(TestContext, curlHome, surl, CurlArguments(surl, knownHosts));
 
-        AssertRefusedAfterAgreeing(surl, result, "ssh-ed25519");
+        await AssertRefusedAfterAgreeingAsync(surl, result, "ssh-ed25519");
     }
 
     [TestMethod]
@@ -92,12 +92,12 @@ public sealed class UpstreamCurlTrustsSurlsHostCertificateTests
         CollectionAssert.AreEqual(ServedFiles["a.txt"], result.StandardOutput);
     }
 
-    private void AssertRefusedAfterAgreeing(SurlOnLoopback surl, UpstreamCurlRunResult result, string plainHostKeyAlgorithm)
+    private async Task AssertRefusedAfterAgreeingAsync(SurlOnLoopback surl, UpstreamCurlRunResult result, string plainHostKeyAlgorithm)
     {
         Assert.AreEqual(60, result.ExitCode, result.StandardError);
         Assert.AreEqual(0, result.StandardOutput.Length);
         Assert.AreEqual(RemoteKeyNotOk, result.StandardError.Split('\n')[0].TrimEnd('\r'), result.StandardError);
-        var negotiated = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
+        var negotiated = await SshLogNotes.WaitForNegotiatedAlgorithmsAsync(surl, TestContext.CancellationToken);
         TestContext.WriteLine($"surl negotiated: {negotiated}");
         StringAssert.Contains(negotiated, $"host key {plainHostKeyAlgorithm},");
     }

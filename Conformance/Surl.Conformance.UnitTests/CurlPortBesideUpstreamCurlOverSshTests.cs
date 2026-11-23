@@ -673,7 +673,7 @@ public sealed class CurlPortBesideUpstreamCurlOverSshTests
 
     private static string? NegotiatedContains(CurlPortMeasuredRun run, string text)
     {
-        var negotiated = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(run.Surl.Notes));
+        var negotiated = SshLogNotes.NegotiatedAlgorithmsIn(run.Surl.Notes);
         return negotiated.Contains(text, StringComparison.Ordinal) ? null : $"surl negotiated \"{negotiated}\", without \"{text}\"";
     }
 

@@ -5,10 +5,10 @@ priority: High
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Conformance/Surl.Conformance.UnitTests/SshLogNotes.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlLogsInToSurlOverSshTests.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.cs, Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverSshTests.cs, Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverHttpTests.cs]
+touches: [Conformance/Surl.Conformance.UnitTests/SshLogNotes.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlLogsInToSurlOverSshTests.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.cs, Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverSshTests.cs, Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverHttpTests.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlTrustsSurlsHostCertificateTests.cs]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1607 — Make every SSH conformance test wait for surl's negotiated-algorithms note through one helper, as BL-1375 did for the weak-cipher test
 
@@ -33,16 +33,18 @@ passes every run.
 
 ## Acceptance criteria
 
-- [ ] `SshLogNotes` gains one awaitable helper that waits, bounded (e.g. 10 s, `Task.Delay` polling, no
+- [x] `SshLogNotes` gains one awaitable helper that waits, bounded (e.g. 10 s, `Task.Delay` polling, no
       `Thread.Sleep`), for a `SSH negotiated` note in a `SurlOnLoopback`'s log, and fails with the log in the message
       after the bound.
-- [ ] Every caller above, and BL-1375's private `NegotiatedAlgorithmsAsync`, uses it; no test reads the negotiated
+- [x] Every caller above, and BL-1375's private `NegotiatedAlgorithmsAsync`, uses it; no test reads the negotiated
       note once. A search for `SshLogNotes.NegotiatedAlgorithms(` finds only the helper.
-- [ ] Assertions are otherwise unchanged.
-- [ ] `dotnet build` clean and the fast tests green.
+- [x] Assertions are otherwise unchanged.
+- [x] `dotnet build` clean and the fast tests green.
 
 ## Notes
 
+- Added UpstreamCurlTrustsSurlsHostCertificateTests.cs to touches: it also read the live log once; no other Doing task touches it.
+- Decision: the Curl-port tests read a `Notes` snapshot already settled by `SettledNotesAsync` (a quiet-period wait) after surl stopped being written to, so waiting on it again is meaningless; they use the synchronous `SshLogNotes.NegotiatedAlgorithmsIn(snapshot)`. Live-log callers use `WaitForNegotiatedAlgorithmsAsync`. The raw list-returning `NegotiatedAlgorithms` is gone.
 - Conformance tests run on Macs only in the Release workflow; this change must be right by reading, and the next
   Release run proves it.
 
@@ -50,3 +52,4 @@ passes every run.
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. SshLogNotes.WaitForNegotiatedAlgorithmsAsync now serves every live-log caller; build clean, 1053 fast conformance tests green
