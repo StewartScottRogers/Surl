@@ -148,3 +148,20 @@ Findings:
    varies by platform and is not what surl's own cut does.
 4. Over TLS a reset keeps whatever the TLS layer had delivered; the FTPS reset can keep none, so that test asserts only a
    strict prefix of the file.
+
+## Amendment 2 — HTTPS exit codes differ by platform (2026-11-23, BL-1619)
+
+Decided by Claude under Stewart's delegation. CI run 45155542608 (PR #142) ran the pinned upstream curl 8.21.0 of each
+platform against surl's HTTPS cut. The Windows build uses Schannel; the Linux and macOS builds use OpenSSL, which reports
+the cut as a failed send (`CURLE_SEND_ERROR`, 55) in some cases. A test author should expect:
+
+| Cut over HTTPS | Windows | macOS | Linux |
+|---|---|---|---|
+| `close=graceful` | 18 | 18 | 55 (`Send failure: Broken pipe`) |
+| `close=reset` | 56 | 55 | 55 (`Recv failure: Connection reset by peer` reported as 55) |
+
+macOS graceful is inferred from its passing the 18 assertion in that run. The http, ftp and ftps cases are 18 and 56 on
+every platform. surl already sends `close_notify` before FIN on a graceful cut: `DroppingAfterBytesConnection` disposes
+the connection and `StreamConnection.DisposeAsync` completes writes (close_notify, flush, FIN) first
+(`StreamConnection.cs:316-341`, `SendCloseNotifyAsync` at 344), so no `Surl.Core` fix is needed. Each platform is pinned
+in its own test in `UpstreamCurlMeetsASurlCutDownloadTests`.

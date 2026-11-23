@@ -24,6 +24,7 @@ public sealed class UpstreamCurlMeetsASurlCutDownloadTests
     // CURLE_PARTIAL_FILE and CURLE_RECV_ERROR, measured 2026-11-23 with curl 8.21.0 (ADR-0188 amendment 1).
     private const int PartialFile = 18;
     private const int ReceiveFailure = 56;
+    private const int SendFailure = 55; // CURLE_SEND_ERROR
     private const int FileLength = 40_000;
     private const long CutAfterBytes = 12_000;
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(30);
@@ -33,13 +34,38 @@ public sealed class UpstreamCurlMeetsASurlCutDownloadTests
     [TestMethod]
     [DataRow("graceful", "http")]
     [DataRow("reset", "http")]
-    [DataRow("graceful", "https")]
-    [DataRow("reset", "https")]
     [DataRow("graceful", "ftp")]
     [DataRow("reset", "ftp")]
     [DataRow("graceful", "ftps")]
     [DataRow("reset", "ftps")]
-    public async Task Download_CutAfterBytes_ExitsAsMeasured(string close, string scheme)
+    public async Task Download_CutAfterBytes_ExitsAsMeasured(string close, string scheme) =>
+        await AssertCutExitsAsync(close, scheme, close == "graceful" ? PartialFile : ReceiveFailure);
+
+    // Over HTTPS the exit code depends on the TLS library of each pinned build (BL-1619, ADR-0188 amendment 2),
+    // measured by CI run 45155542608: Schannel (Windows) reports the cut as it is; OpenSSL on macOS reports a
+    // reset as a send failure; OpenSSL on Linux reports both cuts as a send failure.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("graceful", PartialFile)]
+    [DataRow("reset", ReceiveFailure)]
+    public async Task DownloadOverHttps_CutAfterBytes_OnWindows_ExitsAsMeasured(string close, int exitCode) =>
+        await AssertCutExitsAsync(close, "https", exitCode);
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.OSX)]
+    [DataRow("graceful", PartialFile)]
+    [DataRow("reset", SendFailure)]
+    public async Task DownloadOverHttps_CutAfterBytes_OnMacOs_ExitsAsMeasured(string close, int exitCode) =>
+        await AssertCutExitsAsync(close, "https", exitCode);
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux)]
+    [DataRow("graceful", SendFailure)]
+    [DataRow("reset", SendFailure)]
+    public async Task DownloadOverHttps_CutAfterBytes_OnLinux_ExitsAsMeasured(string close, int exitCode) =>
+        await AssertCutExitsAsync(close, "https", exitCode);
+
+    private async Task AssertCutExitsAsync(string close, string scheme, int expectedExitCode)
     {
         var content = Content();
         var options = new SurlServerOptions { RecordExchanges = true, AllowAnonymous = true, SelfSigned = scheme is "https" or "ftps" };
@@ -58,7 +84,7 @@ public sealed class UpstreamCurlMeetsASurlCutDownloadTests
         await server.WaitForEventAsync(new SurlEventQuery { Kind = SurlEventKind.FaultApplied }, WaitLimit, TestContext.CancellationToken);
 
         AssertKeptAPrefix(content, result.StandardOutput, mustKeepSome: close == "graceful");
-        Assert.AreEqual(close == "graceful" ? PartialFile : ReceiveFailure, result.ExitCode, $"{scheme} {close}: kept {result.StandardOutput.Length}; {result.StandardError}");
+        Assert.AreEqual(expectedExitCode, result.ExitCode, $"{scheme} {close}: kept {result.StandardOutput.Length}; {result.StandardError}");
     }
 
     [TestMethod]

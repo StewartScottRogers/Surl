@@ -56,3 +56,4 @@ then merge.
 
 - 2026-11-23: Created.
 - 2026-11-23: Backlog -> Doing.
+- 2026-11-23: Cause: OpenSSL builds report TLS cuts as send errors (55). surl sends close_notify on a graceful cut (StreamConnection.cs:316-344), so no Core fix. Pinned per platform in tests, ADR-0188 amendment 2. CI re-run on PR #142 verifies Linux/macOS; I cannot push, so no dispatch.
