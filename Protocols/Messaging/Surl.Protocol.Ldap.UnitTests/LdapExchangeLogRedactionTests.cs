@@ -41,8 +41,14 @@ public sealed class LdapExchangeLogRedactionTests
         }
     });
 
-    private static byte[] Replace(byte[] message, string secret) =>
-        Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(message).Replace(secret, "****", StringComparison.Ordinal));
+    // The message as it is logged: the secret and the length octets before it become 04 then ****.
+    private static byte[] Replace(byte[] message, string secret)
+    {
+        var lengthOctets = secret.Length < 128 ? 1 : secret.Length < 256 ? 2 : 3;
+        var text = Encoding.Latin1.GetString(message);
+        var at = text.IndexOf(secret, StringComparison.Ordinal);
+        return Encoding.Latin1.GetBytes(string.Concat(text.AsSpan(0, at - lengthOctets), "\u0004****", text.AsSpan(at + secret.Length)));
+    }
 
     private static readonly byte[] Simple = Message(1, SimpleBind(3, "uid=alice,dc=example", "s3cret"));
     private static readonly byte[] SimpleMasked = Replace(Simple, "s3cret");
@@ -52,6 +58,23 @@ public sealed class LdapExchangeLogRedactionTests
 
     [TestMethod]
     public void SimpleBind_Password_IsLoggedMasked() => AssertLogged(SimpleMasked, Simple);
+
+    [TestMethod]
+    public void SimpleBind_PasswordLength_IsLoggedAsFourBeforeTheMask()
+    {
+        var logged = Logged(Simple);
+        var mask = Array.IndexOf(logged, (byte)'*');
+        CollectionAssert.AreEqual(new byte[] { 0x80, 0x04, (byte)'*', (byte)'*', (byte)'*', (byte)'*' }, logged[(mask - 2)..(mask + 4)]);
+    }
+
+    [TestMethod]
+    public void SimpleBind_LongFormPasswordLength_IsLoggedAsFourBeforeTheMask()
+    {
+        var message = Message(1, SimpleBind(3, "uid=alice", new string('p', 200)));
+        var logged = Logged(message);
+        var mask = Array.IndexOf(logged, (byte)'*');
+        CollectionAssert.AreEqual(new byte[] { 0x80, 0x04 }, logged[(mask - 2)..mask]);
+    }
 
     [TestMethod]
     public void SimpleBind_SplitAtEveryByte_IsMaskedTheSame()

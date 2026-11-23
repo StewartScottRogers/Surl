@@ -43,6 +43,8 @@ the `[0]` simple credentials is logged as `04` (the length of `****`), as ADR-01
 
 ## Notes
 
+- Decided: the secret's own length is rewritten to 04; the outer BindRequest and LDAPMessage lengths are kept as received; an empty password is still logged as received. Recorded as ADR-0182 Amendment 5.
+
 ## Log
 
 - 2026-11-22: Created.

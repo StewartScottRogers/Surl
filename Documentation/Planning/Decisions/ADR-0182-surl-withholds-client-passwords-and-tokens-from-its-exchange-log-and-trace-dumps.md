@@ -164,3 +164,11 @@ IMAP `+`, the next client line is a secret).
 - **Fail closed, with one limit.** A `HEADERS` payload that does not decode or runs past its chunk is withheld. A chunk is read as
   frames from its first byte because the redactor is not told its stream; a body chunk starting mid-frame that happens to read as
   an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret.
+
+## Amendment 5 (BL-1610, decided by Claude under Stewart's delegation)
+
+- **LDAP simple bind.** The BER length of the `[0]` simple password, and of a whole SASL `PLAIN` credentials field, is logged as
+  `04` (the length of `****`), as decision 1 requires, so the field reads `80 04 ****`. The enclosing `BindRequest` and
+  `LDAPMessage` lengths are logged as received (as HTTP/2, Amendment 3), because rewriting them would break the log's
+  framing of the message; they still encode the password's length indirectly, which is the accepted limit. An empty
+  password has nothing to withhold and is still logged as received (`80 00`).
