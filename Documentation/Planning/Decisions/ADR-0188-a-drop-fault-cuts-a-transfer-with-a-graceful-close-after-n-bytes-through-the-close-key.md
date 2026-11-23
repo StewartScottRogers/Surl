@@ -119,4 +119,32 @@ Each depends on BL-1608 and is sized to at most two projects:
 - A test gets both a vanished connection (`drop;after-bytes=N`, curl exit 56 expected) and a cut-off download
   (`close=graceful`, exit 18 expected for a declared size), from one rule shape.
 - No existing configuration changes meaning; a build without the key behaves as before.
-- Two exit codes in this ADR (18 and 56) are expectations from libcurl's documentation, not measurements, until BL-1618.
+- The two exit codes (18 and 56) are measured, not assumed: see amendment 1.
+
+## Amendment 1 — measured against pinned upstream curl 8.21.0 (2026-11-23, BL-1618)
+
+Decided by Claude under Stewart's delegation. Measured with the build pinned in `UpstreamCurlBuilds.json` (Windows,
+Schannel), file of 40 000 bytes, `drop;after-bytes=12000`, by `UpstreamCurlMeetsASurlCutDownloadTests` (`Integration`).
+No Curl port output is used.
+
+| Case | `close=graceful` | `close=reset` |
+| --- | --- | --- |
+| HTTP/1.1 `Content-Length` | exit 18 (`end of response with 28209 bytes missing`), 11 791 bytes kept | exit 56 (`Recv failure: Connection was reset`), 11 791 bytes kept |
+| HTTP/1.1 `Content-Length` over TLS | exit 18, 11 791 bytes kept | exit 56, 11 791 bytes kept |
+| FTP `RETR` | exit 18 (`transfer closed with 28232 bytes remaining to read`), 11 768 bytes kept | exit 56, 11 768 bytes kept |
+| FTPS `RETR` | exit 18, 11 725 bytes kept | exit 56, some or none of the bytes in flight kept |
+| HTTP/1.1 chunked, plain and TLS (loopback server, graceful only) | exit 18 (`transfer closed with outstanding read data remaining`), 12 000 bytes kept | not pinned |
+
+Findings:
+
+1. The expectations of decision 2 hold: a graceful cut of a declared-size transfer is exit 18, a reset is exit 56.
+   Bytes kept are N minus the head bytes (HTTP response head, FTP control replies) that count towards N.
+2. **FTP graceful gives exit 18, not 56, with the control connection closed too, so the 426 fallback of decision 2 is
+   not applied** and BL-1613's graceful cut stays as built. No follow-up task is filed.
+3. Chunked has no declared size, yet curl still exits 18 when the stream ends before the last chunk, so a graceful cut of
+   a chunked body is also "partial file". surl's file server answers files with `Content-Length` only, so the chunked
+   case is measured against a loopback server that sends a prefix of the chunk and closes (with `close_notify` over
+   TLS). The reset twin is not pinned there: a loopback reset let curl see exit 18 on plain HTTP and 56 on TLS, which
+   varies by platform and is not what surl's own cut does.
+4. Over TLS a reset keeps whatever the TLS layer had delivered; the FTPS reset can keep none, so that test asserts only a
+   strict prefix of the file.
