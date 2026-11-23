@@ -52,6 +52,12 @@ public sealed record FaultRule(string Id, FaultKind Kind)
     public long? AfterBytes { get; init; }
 
     /// <summary>
+    /// How a <see cref="FaultKind.Drop"/> rule ends the connection (<c>close</c>); defaults to
+    /// <see cref="FaultClose.Reset"/> (ADR-0188, decision 1). No server reads it yet.
+    /// </summary>
+    public FaultClose Close { get; init; } = FaultClose.Reset;
+
+    /// <summary>
     /// The chosen error an <see cref="FaultKind.Error"/> rule answers with, in its scheme's error shape
     /// (<c>reply</c>).
     /// </summary>
