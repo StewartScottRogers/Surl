@@ -56,3 +56,4 @@ set.
 ## Log
 
 - 2026-11-23: Created.
+- 2026-11-23: Backlog -> Doing.
