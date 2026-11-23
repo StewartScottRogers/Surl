@@ -33,3 +33,4 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
 - 2026-11-22: Doing -> Backlog. Needs SurlFault.Close from BL-1615 (Surl.Api, in Doing); added to depends-on
+- 2026-11-23: Backlog -> Doing.
