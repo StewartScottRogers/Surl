@@ -4,7 +4,7 @@ title: Add close to Surl.Mcp's add_fault tool
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1608, BL-1611]
+depends-on: [BL-1608, BL-1611, BL-1615]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: FR-062
 created: 2026-11-22
@@ -32,3 +32,4 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Backlog. Needs SurlFault.Close from BL-1615 (Surl.Api, in Doing); added to depends-on
