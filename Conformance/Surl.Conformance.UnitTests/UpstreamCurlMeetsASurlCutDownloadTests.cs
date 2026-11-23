@@ -41,9 +41,10 @@ public sealed class UpstreamCurlMeetsASurlCutDownloadTests
     public async Task Download_CutAfterBytes_ExitsAsMeasured(string close, string scheme) =>
         await AssertCutExitsAsync(close, scheme, close == "graceful" ? PartialFile : ReceiveFailure);
 
-    // Over HTTPS the exit code depends on the TLS library of each pinned build (BL-1619, ADR-0188 amendment 2),
-    // measured by CI run 45155542608: Schannel (Windows) reports the cut as it is; OpenSSL on macOS reports a
-    // reset as a send failure; OpenSSL on Linux reports both cuts as a send failure.
+    // Over HTTPS the exit code depends on the TLS library of each pinned build (BL-1619, BL-1620, ADR-0188 amendments
+    // 2 and 3). Schannel (Windows) reports each cut one way every run. The OpenSSL builds (Linux, macOS) report a cut
+    // as a failed send (55) or a failed receive (56, or 18 for the graceful cut) according to whether curl is inside a
+    // TLS write or a TLS read when the cut lands, so each asserts the set measured by CI run 45211169210 and no wider.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     [DataRow("graceful", PartialFile)]
@@ -53,19 +54,18 @@ public sealed class UpstreamCurlMeetsASurlCutDownloadTests
 
     [TestMethod]
     [OSCondition(OperatingSystems.OSX)]
-    [DataRow("graceful", PartialFile)]
-    [DataRow("reset", SendFailure)]
-    public async Task DownloadOverHttps_CutAfterBytes_OnMacOs_ExitsAsMeasured(string close, int exitCode) =>
-        await AssertCutExitsAsync(close, "https", exitCode);
+    [DataRow("graceful")]
+    [DataRow("reset")]
+    public async Task DownloadOverHttps_CutAfterBytes_OnMacOs_ExitsAsMeasured(string close) =>
+        await AssertCutExitsAsync(close, "https", close == "graceful" ? [PartialFile, SendFailure] : [SendFailure, ReceiveFailure]);
 
     [TestMethod]
     [OSCondition(OperatingSystems.Linux)]
-    [DataRow("graceful", SendFailure)]
-    [DataRow("reset", SendFailure)]
-    public async Task DownloadOverHttps_CutAfterBytes_OnLinux_ExitsAsMeasured(string close, int exitCode) =>
-        await AssertCutExitsAsync(close, "https", exitCode);
-
-    private async Task AssertCutExitsAsync(string close, string scheme, int expectedExitCode)
+    [DataRow("graceful")]
+    [DataRow("reset")]
+    public async Task DownloadOverHttps_CutAfterBytes_OnLinux_ExitsAsMeasured(string close) =>
+        await AssertCutExitsAsync(close, "https", close == "graceful" ? [PartialFile, SendFailure] : [SendFailure, ReceiveFailure]);
+    private async Task AssertCutExitsAsync(string close, string scheme, params int[] allowedExitCodes)
     {
         var content = Content();
         var options = new SurlServerOptions { RecordExchanges = true, AllowAnonymous = true, SelfSigned = scheme is "https" or "ftps" };
@@ -84,7 +84,7 @@ public sealed class UpstreamCurlMeetsASurlCutDownloadTests
         await server.WaitForEventAsync(new SurlEventQuery { Kind = SurlEventKind.FaultApplied }, WaitLimit, TestContext.CancellationToken);
 
         AssertKeptAPrefix(content, result.StandardOutput, mustKeepSome: close == "graceful");
-        Assert.AreEqual(expectedExitCode, result.ExitCode, $"{scheme} {close}: kept {result.StandardOutput.Length}; {result.StandardError}");
+        Assert.IsTrue(Array.IndexOf(allowedExitCodes, result.ExitCode) >= 0, $"{scheme} {close}: exit {result.ExitCode} is not one of [{string.Join(", ", allowedExitCodes)}]; kept {result.StandardOutput.Length}; {result.StandardError}");
     }
 
     [TestMethod]

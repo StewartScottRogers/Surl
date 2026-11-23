@@ -165,3 +165,32 @@ every platform. surl already sends `close_notify` before FIN on a graceful cut: 
 the connection and `StreamConnection.DisposeAsync` completes writes (close_notify, flush, FIN) first
 (`StreamConnection.cs:316-341`, `SendCloseNotifyAsync` at 344), so no `Surl.Core` fix is needed. Each platform is pinned
 in its own test in `UpstreamCurlMeetsASurlCutDownloadTests`.
+
+## Amendment 3 — the OpenSSL HTTPS cut is one of two codes, by curl's own timing (2026-11-23, BL-1620)
+
+Decided by Claude under Stewart's delegation. PR #143 (shift 20261123-064807) saw Linux and macOS exit 56 for the
+HTTPS reset that amendment 2 had pinned at 55, so BL-1620 repeated each HTTPS cut 20 times per platform in one `ci`
+run (run 45211169210, `attempts=20`, pinned curl 8.21.0 of each runner; macOS attempt 18 was cancelled, so 19 runs).
+The counts below are from each leg's failed assertion against amendment 2's single pins (the passing legs matched the pin):
+
+| Cut over HTTPS | Linux (OpenSSL), 20 runs | macOS (OpenSSL), 19 runs |
+|---|---|---|
+| `close=graceful` | 18 in 7 runs, 55 in 13 | 18 in 15 runs, 55 in 4 (`Send failure: Broken pipe`) |
+| `close=reset` | 55 in 20 runs (56 seen once in PR #143) | 56 in 14 runs, 55 in 5 |
+
+Windows (Schannel) stays exact: 18 graceful, 56 reset. Bytes kept were a non-empty strict prefix (11 853 to 11 855)
+in every run, so only curl's reporting varies, never what it received.
+
+**Why.** curl on OpenSSL returns 55 when the failure surfaces inside a TLS write and 56 or 18 when it surfaces inside a
+TLS read. After surl's last byte (and, for the graceful cut, its `close_notify` and FIN) curl may still be writing: its own
+`close_notify` reply or a post-handshake record. Whether that write runs before or after curl's next read sees the cut is
+a race inside the curl process and the loopback stack; the same surl bytes give both codes.
+
+**Can surl avoid it?** Not on the bytes: the sequence is already the cleanest one (`close_notify`, then FIN, amendment 2),
+and a reset is by definition abrupt, so no `Surl.Core` change was made. A lingering read after the graceful `close_notify`
+(wait for the client's own `close_notify` before closing) might remove the graceful 55, but it delays `drop` on every
+protocol and changes what a test observes, and a reset cannot linger at all. That is untried and not adopted.
+
+**Decision.** The OpenSSL tests assert the measured set and no wider: graceful is 18 or 55, reset is 55 or 56, on
+Linux and macOS; Windows keeps its exact pins. This supersedes the single OpenSSL values of amendment 2. A test author
+asserting against surl's HTTPS cut on Linux or macOS should accept those sets.
