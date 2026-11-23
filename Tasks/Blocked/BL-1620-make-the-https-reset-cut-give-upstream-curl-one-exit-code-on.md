@@ -57,3 +57,5 @@ set.
 
 - 2026-11-23: Created.
 - 2026-11-23: Backlog -> Doing.
+- 2026-11-23: Measurement plan: lanes cannot push, so no temporary repeat test can reach CI. Dispatched `ci` with attempts=20 on factory/phase-1 (run 45211169210) instead: the existing reset test asserts 55 on Linux and macOS, and its failure message reports the actual exit code and stderr, so the failed legs tally the 56s. Next run reads the tally, decides fix vs ADR-0188 amendment 3.
+- 2026-11-23: Doing -> Blocked. Waiting for run:45211169210 (ci attempts=20, tally of HTTPS reset exit codes)
