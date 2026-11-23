@@ -46,3 +46,4 @@ the `[0]` simple credentials is logged as `04` (the length of `****`), as ADR-01
 ## Log
 
 - 2026-11-22: Created.
+- 2026-11-22: Backlog -> Doing.
