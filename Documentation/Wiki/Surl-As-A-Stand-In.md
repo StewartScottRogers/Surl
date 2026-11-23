@@ -140,7 +140,9 @@ control-endpoint routes, below.
 ## Faults
 
 A `SurlFault` is one `--fault` item: `Delay`, `DropConnection`, `RefuseLogin`, `ProtocolError`, `OutOfSpace`,
-narrowed by `Listener`, `Scheme`, `Account`, `Path`, `Command`, `Stage`, `AfterBytes` and `Times`. Give them
+narrowed by `Listener`, `Scheme`, `Account`, `Path`, `Command`, `Stage`, `AfterBytes` and `Times`. A `drop` with `after-bytes` takes `close=reset` (the default, an abort) or
+`close=graceful` (a clean close after the N-th byte, so a client sees a short body, not a reset), as in
+`--fault "drop;after-bytes=4000000;close=graceful"`; `close` needs `after-bytes` above 0. Give them
 at start in `Faults`, or at run time with `server.Faults.Add`, `Remove`, `Clear` and `List`. `surl --aihelp`
 documents the `--fault` grammar; `Surl.Mcp` has `add_fault`, `list_faults` and `remove_fault`, and the
 control endpoint has `POST /v1/faults`. Recipe: `StandInFaultRecipeTests`

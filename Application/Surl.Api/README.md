@@ -168,7 +168,9 @@ every query throws `InvalidOperationException` as `Exchanges` does.
 A test makes one listener, account or path misbehave on purpose with a `SurlFault` rule
 (ADR-0124 decision 4): `Delay`, `DropConnection`, `RefuseLogin`, `ProtocolError` (a reply in the
 scheme's error shape) or `OutOfSpace`, narrowed with `Listener`, `Scheme`, `Account`, `Path`,
-`Command`, `Stage`, `AfterBytes` and `Times`. Give rules at start in `Faults`, or change them while
+`Command`, `Stage`, `AfterBytes`, `Close` and `Times`. `Close` (`FaultClose`, default `Reset`) says how a
+drop ends the connection: `Reset` aborts it, `Graceful` closes it so the peer sees an ordinary end of
+stream (ADR-0188 decision 4); it is written after `after-bytes` only when it is not `Reset`. Give rules at start in `Faults`, or change them while
 the server runs:
 
 ```csharp

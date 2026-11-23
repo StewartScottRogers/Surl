@@ -51,6 +51,12 @@ public sealed record SurlFault
     /// <summary>How many bytes a <see cref="DropConnection"/> at accept lets the server send before it drops (<c>after-bytes</c>).</summary>
     public long? AfterBytes { get; init; }
 
+    /// <summary>
+    /// How a <see cref="DropConnection"/> ends the connection (<c>close</c>, ADR-0188 decision 4): <see cref="FaultClose.Reset"/>,
+    /// the default, aborts it; <see cref="FaultClose.Graceful"/> closes it so the peer sees an ordinary end of stream.
+    /// </summary>
+    public FaultClose Close { get; init; } = FaultClose.Reset;
+
     /// <summary>The chosen error a <see cref="ProtocolError"/> answers (<c>reply</c>), in its scheme's error shape.</summary>
     public string? Reply { get; init; }
 
@@ -106,6 +112,7 @@ public sealed record SurlFault
         Stage = rule.Stage,
         DelayDuration = rule.DelayMilliseconds is { } milliseconds ? TimeSpan.FromMilliseconds(milliseconds) : null,
         AfterBytes = rule.AfterBytes,
+        Close = rule.Close,
         Reply = rule.Reply,
         Body = rule.Body,
     };
@@ -126,6 +133,7 @@ public sealed record SurlFault
         AddKey(item, "stage", Stage?.ToString().ToLowerInvariant());
         AddKey(item, "ms", DelayDuration is { } duration ? FormatMilliseconds(duration) : null);
         AddKey(item, "after-bytes", AfterBytes?.ToString(CultureInfo.InvariantCulture));
+        AddKey(item, "close", Close == FaultClose.Reset ? null : Close.ToString().ToLowerInvariant());
         AddKey(item, "reply", Reply);
         AddKey(item, "body", Body);
         AddKey(item, "times", Times?.ToString(CultureInfo.InvariantCulture));

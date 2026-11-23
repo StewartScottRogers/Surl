@@ -9,7 +9,7 @@ namespace Surl.Core;
 /// pass through until the exchange has sent that many bytes in all, counting this connection and
 /// every other one joined to the same <see cref="ExchangeDropBudget"/> (the control connection and
 /// each data connection). The write that reaches the count is cut at it, then every joined
-/// connection is aborted. Every read or write after the drop throws <see cref="IOException"/>, as
+/// connection is aborted - or, for a graceful cut, disposed. Every read or write after the drop throws <see cref="IOException"/>, as
 /// on a connection the peer reset.
 /// </summary>
 internal sealed class DroppingAfterBytesConnection : IConnection
@@ -87,7 +87,7 @@ internal sealed class DroppingAfterBytesConnection : IConnection
 
         if (taken.Reached)
         {
-            budget.Drop();
+            await budget.DropAsync();
         }
 
         if (taken.Allowed < bytes.Length)

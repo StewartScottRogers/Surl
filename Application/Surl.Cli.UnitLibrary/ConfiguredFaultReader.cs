@@ -34,6 +34,13 @@ internal static class ConfiguredFaultReader
     /// <summary>An <c>error</c> rule naming neither a scheme nor a listener, so its reply has no shape.</summary>
     public const string ErrorNeedsSchemeOrListener = "kind error needs key scheme or key listener";
 
+    /// <summary><c>close</c> given a word other than <c>reset</c> or <c>graceful</c>.</summary>
+    public const string CloseIsResetOrGraceful = "key close must be reset or graceful";
+
+    /// <summary><c>close=graceful</c> without <c>after-bytes</c> above 0: a graceful close before any byte has no meaning.</summary>
+    public const string GracefulCloseNeedsAfterBytes = "key close needs key after-bytes";
+
+    private const string CloseKey = "close";
     private const string ListenerKey = "listener";
     private const string SchemeKey = "scheme";
     private const string AccountKey = "account";
@@ -54,18 +61,18 @@ internal static class ConfiguredFaultReader
     private static readonly FrozenDictionary<string, KindRule> KindsByWord = new Dictionary<string, KindRule>(StringComparer.Ordinal)
     {
         ["delay"] = new(FaultKind.Delay, [CommandKey, StageKey, MillisecondsKey], MillisecondsKey),
-        ["drop"] = new(FaultKind.Drop, [CommandKey, StageKey, AfterBytesKey], null),
+        ["drop"] = new(FaultKind.Drop, [CommandKey, StageKey, AfterBytesKey, CloseKey], null),
         ["error"] = new(FaultKind.Error, [CommandKey, ReplyKey, BodyKey], ReplyKey),
         ["out-of-space"] = new(FaultKind.OutOfSpace, [], null),
         ["refuse-login"] = new(FaultKind.RefuseLogin, [], null),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    /// <summary>The <c>--fault</c> item: a kind, then any of the eleven keys, each with one value.</summary>
+    /// <summary>The <c>--fault</c> item: a kind, then any of the twelve keys, each with one value.</summary>
     public static readonly ConfigurationItemShape Shape = new(
         "<kind>[;<key>=<value>]",
         null,
         ConfigurationItemValueKind.None,
-        new[] { ListenerKey, SchemeKey, AccountKey, PathKey, CommandKey, StageKey, MillisecondsKey, AfterBytesKey, ReplyKey, BodyKey, TimesKey }
+        new[] { ListenerKey, SchemeKey, AccountKey, PathKey, CommandKey, StageKey, MillisecondsKey, AfterBytesKey, CloseKey, ReplyKey, BodyKey, TimesKey }
             .ToDictionary(key => key, _ => ConfigurationItemAttributeKind.Value, StringComparer.Ordinal),
         []);
 
@@ -151,7 +158,30 @@ internal static class ConfiguredFaultReader
     private static string? ReadFault(IReadOnlyDictionary<string, string> values, ref ConfiguredFault fault)
     {
         var failure = ReadNumbers(values, ref fault) ?? ReadStage(values, ref fault) ?? ReadScope(values, ref fault);
-        return failure ?? RefuseStageScope(values, fault) ?? ReadReply(values, ref fault);
+        return failure ?? RefuseStageScope(values, fault) ?? ReadClose(values, ref fault) ?? ReadReply(values, ref fault);
+    }
+
+    /// <summary>Reads a drop's <c>close</c>: reset or graceful, and graceful only after a byte count above 0 (ADR-0188).</summary>
+    private static string? ReadClose(IReadOnlyDictionary<string, string> values, ref ConfiguredFault fault)
+    {
+        if (!values.TryGetValue(CloseKey, out var text))
+        {
+            return null;
+        }
+
+        FaultClose? close = text.ToLowerInvariant() switch
+        {
+            "reset" => FaultClose.Reset,
+            "graceful" => FaultClose.Graceful,
+            _ => null,
+        };
+        fault = fault with { Close = close };
+        if (close is null)
+        {
+            return CloseIsResetOrGraceful;
+        }
+
+        return close == FaultClose.Graceful && fault.AfterBytes is not > 0 ? GracefulCloseNeedsAfterBytes : null;
     }
 
     private static string? ReadNumbers(IReadOnlyDictionary<string, string> values, ref ConfiguredFault fault)

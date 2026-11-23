@@ -14,7 +14,8 @@
   (`Surl.Mcp`).
 - **Amends:** ADR-0099 decision 7 (the exchange record gains its listen URL; decision 1 below) and
   ADR-0103 decision 3 (new and widened tools; decision 8 below).
-- **Amended by:** [ADR-0158](ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md)
+- **Amended by:** [ADR-0188](ADR-0188-a-drop-fault-cuts-a-transfer-with-a-graceful-close-after-n-bytes-through-the-close-key.md)
+  (decision 4 gains the `close` key on `drop`), [ADR-0158](ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md)
   (decision 2 gains a store registration seam; decision 3's order, decision 7's requests and decision 8's tools grow
   by the Redis keyspace, the LDAP directory and the DNS zones), and
   [ADR-0159](ADR-0159-which-broker-held-state-a-reset-snapshot-and-restore-of-the-message-bus-cover.md)

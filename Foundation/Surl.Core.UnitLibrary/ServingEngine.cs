@@ -811,8 +811,9 @@ public sealed partial class ServingEngine
         }
         else if (drop.AfterBytes is long afterBytes and > 0)
         {
+            var graceful = drop.Close == FaultClose.Graceful;
             var budget = new ExchangeDropBudget(
-                afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+                afterBytes, () => NoteAndPublishAfterBytes(drop, context, afterBytes, graceful), graceful);
             dataConnections.DropBudget = budget;
             var dropping = new DroppingAfterBytesConnection(connection, budget);
             await SecureThenServeAsync(dropping, route, deadlines, context);
@@ -913,6 +914,21 @@ public sealed partial class ServingEngine
         catch (IOException)
         {
             return PeerWatchOutcome.PeerReset;
+        }
+    }
+
+    // A graceful cut is told apart from a reset drop by its note (ADR-0188, decision 3).
+    private void NoteAndPublishAfterBytes(FaultRule rule, ExchangeContext context, long afterBytes, bool graceful)
+    {
+        if (graceful)
+        {
+            context.Log.Note(
+                $"Exchange {context.ExchangeId} cut after {afterBytes} bytes sent by fault rule {rule.Id}, closing gracefully.");
+            PublishFaultApplied(rule, context);
+        }
+        else
+        {
+            NoteAndPublishDrop(rule, context, $"after {afterBytes} bytes sent");
         }
     }
 

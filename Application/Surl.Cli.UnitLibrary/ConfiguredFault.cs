@@ -38,6 +38,12 @@ public sealed record ConfiguredFault(FaultKind Kind)
     /// <summary>How many bytes a <see cref="FaultKind.Drop"/> lets through before it drops (<c>after-bytes</c>).</summary>
     public long? AfterBytes { get; init; }
 
+    /// <summary>
+    /// How a <see cref="FaultKind.Drop"/> after <see cref="AfterBytes"/> cuts the connection (<c>close</c>, ADR-0188):
+    /// <see cref="FaultClose.Reset"/> or <see cref="FaultClose.Graceful"/>; null when not given, which is reset.
+    /// </summary>
+    public FaultClose? Close { get; init; }
+
     /// <summary>The reply an <see cref="FaultKind.Error"/> sends (<c>reply</c>), checked against its scheme's error shape.</summary>
     public string? Reply { get; init; }
 

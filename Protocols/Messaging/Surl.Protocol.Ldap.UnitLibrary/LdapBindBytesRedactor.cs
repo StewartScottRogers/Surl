@@ -9,8 +9,10 @@ namespace Surl.Protocol.Ldap;
 /// An <see cref="IReceivedBytesRedactor"/> for one LDAP connection: it parses the BER framing of each
 /// <c>LDAPMessage</c> (RFC 4511 section 4.1.1) across chunk boundaries and writes the password of a
 /// simple <c>BindRequest</c> (<c>[0]</c>, section 4.2) and the credentials of a SASL <c>PLAIN</c> bind
-/// as <c>****</c> (ADR-0182). Every tag and length octet is logged as received; only the secret's value
-/// bytes change. Every other message is passed through as it arrives, and so is every byte after one
+/// as <c>****</c> (ADR-0182). Every tag and length octet is logged as received except the secret's own length, which is
+/// written as 4 (the length of <c>****</c>), so a log never shows how long the secret is; only the
+/// secret's value bytes and that length change. The enclosing <c>BindRequest</c> and <c>LDAPMessage</c>
+/// lengths are kept as received. Every other message is passed through as it arrives, and so is every byte after one
 /// that does not start a <c>SEQUENCE</c> (a SASL security layer's buffers, or the TLS records after
 /// <c>StartTLS</c>).
 /// </summary>
@@ -33,6 +35,8 @@ internal sealed class LdapBindBytesRedactor : IReceivedBytesRedactor
     private const int MaxLengthOctets = 4;
 
     private static ReadOnlySpan<byte> Mask => "****"u8;
+
+    private static ReadOnlySpan<byte> MaskLength => [4];
 
     private static ReadOnlySpan<byte> PlainMechanism => "PLAIN"u8;
 
@@ -154,19 +158,24 @@ internal sealed class LdapBindBytesRedactor : IReceivedBytesRedactor
 
     private static void WriteRedacted(ReadOnlySpan<byte> message, ArrayBufferWriter<byte> output)
     {
-        if (FindSecret(message) is not var (start, end))
+        if (FindSecret(message) is not var (start, end, isWholeField))
         {
             output.Write(message);
             return;
         }
 
         output.Write(message[..start]);
+        if (isWholeField)
+        {
+            output.Write(MaskLength);
+        }
+
         output.Write(Mask);
         output.Write(message[end..]);
     }
 
     // The byte range of the secret in a whole or cut-off message, or null when it has none.
-    private static (int Start, int End)? FindSecret(ReadOnlySpan<byte> message)
+    private static (int Start, int End, bool IsWholeField)? FindSecret(ReadOnlySpan<byte> message)
     {
         var sequence = ReadTlv(message, 0);
         var messageId = ReadTlv(message, sequence.ValueStart);
@@ -183,7 +192,7 @@ internal sealed class LdapBindBytesRedactor : IReceivedBytesRedactor
         {
             if (!field.IsWhole)
             {
-                return (field.ValueStart, message.Length);
+                return (field.ValueStart, message.Length, false);
             }
         }
 
@@ -195,12 +204,12 @@ internal sealed class LdapBindBytesRedactor : IReceivedBytesRedactor
         };
     }
 
-    private static (int Start, int End)? FindSaslSecret(ReadOnlySpan<byte> message, Tlv sasl)
+    private static (int Start, int End, bool IsWholeField)? FindSaslSecret(ReadOnlySpan<byte> message, Tlv sasl)
     {
         var mechanism = ReadTlv(message, sasl.ValueStart);
         if (!mechanism.IsWhole)
         {
-            return (mechanism.ValueStart, message.Length);
+            return (mechanism.ValueStart, message.Length, false);
         }
 
         var credentials = ReadTlv(message, mechanism.End);
@@ -210,12 +219,13 @@ internal sealed class LdapBindBytesRedactor : IReceivedBytesRedactor
             return null;
         }
 
-        return credentials.IsWhole ? SecretOf(credentials) : (credentials.ValueStart, message.Length);
+        return credentials.IsWhole ? SecretOf(credentials) : (credentials.ValueStart, message.Length, false);
     }
 
     // The value of a whole field, unless it is empty (there is nothing to withhold).
-    private static (int Start, int End)? SecretOf(Tlv field) =>
-        field.End > field.ValueStart ? (field.ValueStart, field.End) : null;
+    // The range starts after the tag, so the length octets are replaced too (ADR-0182 decision 1).
+    private static (int Start, int End, bool IsWholeField)? SecretOf(Tlv field) =>
+        field.End > field.ValueStart ? (field.Start + 1, field.End, true) : null;
 
     // Reads the tag and length at start. IsWhole: the value is held in full. IsMalformed: a length
     // BER's definite form cannot give (indefinite, or more than four octets). A field not yet
@@ -253,12 +263,12 @@ internal sealed class LdapBindBytesRedactor : IReceivedBytesRedactor
 
         var declaredEnd = valueStart + length;
         return declaredEnd <= bytes.Length
-            ? new Tlv(tag, valueStart, (int)declaredEnd, declaredEnd, IsWhole: true, IsMalformed: false)
-            : new Tlv(tag, valueStart, bytes.Length, declaredEnd, IsWhole: false, IsMalformed: false);
+            ? new Tlv(tag, start, valueStart, (int)declaredEnd, declaredEnd, IsWhole: true, IsMalformed: false)
+            : new Tlv(tag, start, valueStart, bytes.Length, declaredEnd, IsWhole: false, IsMalformed: false);
     }
 
     private static Tlv Unreadable(byte tag, int end, bool isMalformed) =>
-        new(tag, end, end, end, IsWhole: false, IsMalformed: isMalformed);
+        new(tag, end, end, end, end, IsWhole: false, IsMalformed: isMalformed);
 
-    private readonly record struct Tlv(byte Tag, int ValueStart, int End, long DeclaredEnd, bool IsWhole, bool IsMalformed);
+    private readonly record struct Tlv(byte Tag, int Start, int ValueStart, int End, long DeclaredEnd, bool IsWhole, bool IsMalformed);
 }

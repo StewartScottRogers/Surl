@@ -76,6 +76,27 @@ public sealed class CommandLineParserFaultTests
             Served("--fault", "drop;after-bytes=2147483647;stage=ACCEPT;scheme=S3", Url).Faults.Single());
 
     [TestMethod]
+    [DataRow("drop;after-bytes=5;close=graceful", FaultClose.Graceful, 5L)]
+    [DataRow("drop;after-bytes=5;CLOSE=GRACEFUL", FaultClose.Graceful, 5L)]
+    [DataRow("drop;after-bytes=5;close=reset", FaultClose.Reset, 5L)]
+    [DataRow("drop;close=Reset", FaultClose.Reset, null)]
+    [DataRow("drop;after-bytes=0;close=reset", FaultClose.Reset, 0L)]
+    public void Parse_DropClose_IsRead(string item, FaultClose close, long? afterBytes) =>
+        Assert.AreEqual(
+            new ConfiguredFault(FaultKind.Drop) { Close = close, AfterBytes = afterBytes },
+            Served("--fault", item, Url).Faults.Single());
+
+    [TestMethod]
+    [DataRow("drop;close=graceful", "option --fault: key close needs key after-bytes", DisplayName = "Graceful without after-bytes")]
+    [DataRow("drop;after-bytes=0;close=graceful", "option --fault: key close needs key after-bytes", DisplayName = "Graceful after zero bytes")]
+    [DataRow("drop;after-bytes=5;close=slow", "option --fault: key close must be reset or graceful", DisplayName = "Unknown close word")]
+    [DataRow("delay;ms=1;close=reset", "option --fault: key close does not apply to delay", DisplayName = "Close on delay")]
+    [DataRow("error;scheme=http;reply=503;close=reset", "option --fault: key close does not apply to error", DisplayName = "Close on error")]
+    [DataRow("refuse-login;close=graceful", "option --fault: key close does not apply to refuse-login", DisplayName = "Close on refuse-login")]
+    public void Parse_BadDropClose_IsRefused(string item, string reason) =>
+        AssertOptionRefused(["--fault", item, Url], reason);
+
+    [TestMethod]
     public void Parse_DropAtCommand_TakesACommandScope() =>
         Assert.AreEqual(
             new ConfiguredFault(FaultKind.Drop) { Stage = FaultStage.Command, Command = "RETR", Path = "/f" },

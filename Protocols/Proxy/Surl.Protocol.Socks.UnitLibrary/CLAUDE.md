@@ -33,7 +33,7 @@ What exists:
   `SocksRelay` - the two-way byte relay with half-closes.
 
 Passwords are judged only by the policy, which refuses a clear password without
-`--allow-plaintext-auth` and delays a wrong one; the log never holds a password.
+`--allow-plaintext-auth` and delays a wrong one; the log never holds a password, and the RFC 1929 `PLEN` byte is written as 4 before `****` (an empty password too), so it never shows the password's length either (ADR-0182 decision 1).
 
 `Protocols/Proxy/Surl.Protocol.Socks.UnitTests/Fixtures` holds exchanges recorded from pinned
 upstream curl 8.21.0 with the recorder playing the proxy; its README says how each was recorded.

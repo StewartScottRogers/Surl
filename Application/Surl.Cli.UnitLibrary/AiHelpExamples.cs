@@ -111,6 +111,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections"],
             ["curl -u alice:secret http://127.0.0.1:<port>/"]),
         Serving(
+            "testing",
+            "For a test: cut every download off after 4000000 bytes with a graceful close",
+            ["--fault", "drop;after-bytes=4000000;close=graceful", HttpListenUrl],
+            [ListeningOnHttp],
+            ["surl: warning: --fault: 1 fault rule(s) make this server misbehave on purpose"],
+            ["curl -C - -O http://127.0.0.1:<port>/big.bin"]),
+        Serving(
             "tls",
             "For a test: serve HTTPS with a throwaway certificate",
             ["--self-signed", "https://127.0.0.1:0/"],
