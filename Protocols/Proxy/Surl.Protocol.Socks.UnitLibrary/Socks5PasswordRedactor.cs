@@ -6,7 +6,8 @@ namespace Surl.Protocol.Socks;
 /// <summary>
 /// The <see cref="IReceivedBytesRedactor"/> of one SOCKS exchange: it logs everything curl sent as it
 /// arrived except the <c>PASSWD</c> of the RFC 1929 username/password subnegotiation
-/// (<c>VER ULEN UNAME PLEN PASSWD</c>), which is written as <c>****</c> (ADR-0182). It follows the SOCKS5
+/// (<c>VER ULEN UNAME PLEN PASSWD</c>), which is written as <c>****</c> with its <c>PLEN</c> byte written as 4,
+/// even for an empty password, so the log never reveals the password's length (ADR-0182 decision 1). It follows the SOCKS5
 /// greeting, waits to see the server select method <c>0x02</c>, then masks that one field, byte by byte,
 /// so a split across reads at any byte changes nothing. SOCKS4 requests, other methods and every byte
 /// after the subnegotiation (the tunnel included) are logged unchanged.
@@ -47,8 +48,14 @@ internal sealed class Socks5PasswordRedactor : IReceivedBytesRedactor
                 continue;
             }
 
+            if (state == State.PasswordLength)
+            {
+                BeginPassword(value, output);
+                continue;
+            }
+
             output.Write([value]);
-            Advance(value, output);
+            Advance(value);
         }
     }
 
@@ -76,7 +83,7 @@ internal sealed class Socks5PasswordRedactor : IReceivedBytesRedactor
         }
     }
 
-    private void Advance(byte value, ArrayBufferWriter<byte> output)
+    private void Advance(byte value)
     {
         switch (state)
         {
@@ -98,9 +105,6 @@ internal sealed class Socks5PasswordRedactor : IReceivedBytesRedactor
             case State.UserName:
                 ContinueRun(State.UserName, State.PasswordLength);
                 break;
-            case State.PasswordLength:
-                BeginPassword(value, output);
-                break;
             default:
                 break;
         }
@@ -120,15 +124,10 @@ internal sealed class Socks5PasswordRedactor : IReceivedBytesRedactor
 
     private void BeginPassword(byte length, ArrayBufferWriter<byte> output)
     {
-        remaining = length;
-        if (length == 0)
-        {
-            state = State.Unchanged;
-
-            return;
-        }
-
+        // The PLEN byte is written as the mask's length, so the log never shows the password's (ADR-0182 decision 1).
+        output.Write([(byte)Mask.Length]);
         output.Write(Mask);
-        state = State.Password;
+        remaining = length;
+        state = length == 0 ? State.Unchanged : State.Password;
     }
 }

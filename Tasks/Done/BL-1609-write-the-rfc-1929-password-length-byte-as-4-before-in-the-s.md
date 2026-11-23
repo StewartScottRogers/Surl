@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Socks.UnitLibrary, Surl.Protocol.Socks.UnitTests]
 requirement: none
 created: 2026-11-22
-completed:
+completed: 2026-11-22
 ---
 # BL-1609 — Write the RFC 1929 password length byte as 4 before **** in the SOCKS5 exchange log
 
@@ -43,12 +43,12 @@ Stand-in: no store, event, fault or option changes. A test that asserts what the
 
 ## Acceptance criteria
 
-- [ ] In `Protocols/Proxy/Surl.Protocol.Socks.UnitTests/SocksExchangeLogRedactionTests.cs`, `Masked()` expects `[1, 5, .. "alice"u8, 4, .. "****"u8]`, and `Socks5Subnegotiation_IsLoggedWithPasswdMasked`, `Socks5Subnegotiation_SplitAtEveryByte_IsLoggedTheSame` and `Socks5Subnegotiation_OneByteAtATime_IsLoggedTheSame` pass with it.
-- [ ] A new test, `Socks5Subnegotiation_PasswordsOfDifferentLengths_AreLoggedTheSame`, shows that a 1-byte password and a 255-byte password log the same bytes after the user name (`04 2A 2A 2A 2A`).
-- [ ] `EmptyUserNameAndEmptyPassword_AreLoggedAsReceived` is replaced by `EmptyPassword_IsLoggedAsFourAndTheMask`, which expects `[1, 0, 4, .. "****"u8]` and passes.
-- [ ] `Socks5PasswordRedactor`'s XML summary and the library's `CLAUDE.md` both state that the `PLEN` byte is written as 4 (ADR-0182 decision 1).
-- [ ] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitTests -warnaserror` is clean.
-- [ ] `dotnet test Protocols/Proxy/Surl.Protocol.Socks.UnitTests --filter "TestCategory!=Integration"` passes, with `Socks5PasswordRedactor` at 100% line and branch coverage.
+- [x] In `Protocols/Proxy/Surl.Protocol.Socks.UnitTests/SocksExchangeLogRedactionTests.cs`, `Masked()` expects `[1, 5, .. "alice"u8, 4, .. "****"u8]`, and `Socks5Subnegotiation_IsLoggedWithPasswdMasked`, `Socks5Subnegotiation_SplitAtEveryByte_IsLoggedTheSame` and `Socks5Subnegotiation_OneByteAtATime_IsLoggedTheSame` pass with it.
+- [x] A new test, `Socks5Subnegotiation_PasswordsOfDifferentLengths_AreLoggedTheSame`, shows that a 1-byte password and a 255-byte password log the same bytes after the user name (`04 2A 2A 2A 2A`).
+- [x] `EmptyUserNameAndEmptyPassword_AreLoggedAsReceived` is replaced by `EmptyPassword_IsLoggedAsFourAndTheMask`, which expects `[1, 0, 4, .. "****"u8]` and passes.
+- [x] `Socks5PasswordRedactor`'s XML summary and the library's `CLAUDE.md` both state that the `PLEN` byte is written as 4 (ADR-0182 decision 1).
+- [x] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitTests -warnaserror` is clean.
+- [x] `dotnet test Protocols/Proxy/Surl.Protocol.Socks.UnitTests --filter "TestCategory!=Integration"` passes, with `Socks5PasswordRedactor` at 100% line and branch coverage.
 
 ## Notes
 
@@ -58,3 +58,4 @@ Stand-in: no store, event, fault or option changes. A test that asserts what the
 
 - 2026-11-22: Created.
 - 2026-11-22: Backlog -> Doing.
+- 2026-11-22: Doing -> Done. SOCKS5 exchange log writes PLEN as 4 before ****

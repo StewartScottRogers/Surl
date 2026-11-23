@@ -31,7 +31,20 @@ public sealed class SocksExchangeLogRedactionTests
         return output.WrittenSpan.ToArray();
     }
 
-    private static byte[] Masked() => [1, 5, .. "alice"u8, 6, .. "****"u8];
+    private static byte[] Masked() => [1, 5, .. "alice"u8, 4, .. "****"u8];
+
+    [TestMethod]
+    public void Socks5Subnegotiation_PasswordsOfDifferentLengths_AreLoggedTheSame()
+    {
+        byte[] Loginwith(int length) => [1, 5, .. "alice"u8, (byte)length, .. new byte[length].Select(_ => (byte)'x')];
+
+        var shortLogged = Logged([([], [Greeting]), (PasswordMethod, [Loginwith(1)])]);
+        var longLogged = Logged([([], [Greeting]), (PasswordMethod, [Loginwith(255)])]);
+
+        byte[] expectedTail = [4, 0x2A, 0x2A, 0x2A, 0x2A];
+        CollectionAssert.AreEqual(expectedTail, shortLogged[^5..]);
+        CollectionAssert.AreEqual(shortLogged, longLogged);
+    }
 
     [TestMethod]
     public void Socks5Subnegotiation_IsLoggedWithPasswdMasked()
@@ -130,11 +143,11 @@ public sealed class SocksExchangeLogRedactionTests
     }
 
     [TestMethod]
-    public void EmptyUserNameAndEmptyPassword_AreLoggedAsReceived()
+    public void EmptyPassword_IsLoggedAsFourAndTheMask()
     {
         byte[] login = [1, 0, 0];
 
-        CollectionAssert.AreEqual((byte[])[.. Greeting, .. login], Logged([([], [Greeting]), (PasswordMethod, [login])]));
+        CollectionAssert.AreEqual((byte[])[.. Greeting, 1, 0, 4, .. "****"u8], Logged([([], [Greeting]), (PasswordMethod, [login])]));
     }
 
     [TestMethod]
