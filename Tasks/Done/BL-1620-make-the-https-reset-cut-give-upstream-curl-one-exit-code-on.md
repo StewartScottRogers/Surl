@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlMeetsASurlCutDownloadTests.cs, Documentation/Planning/Decisions, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-23
-completed:
+completed: 2026-11-23
 ---
 # BL-1620 — Make the HTTPS reset cut give upstream curl one exit code on OpenSSL builds, or record why it cannot
 
@@ -62,3 +62,4 @@ set.
 - 2026-11-23: Blocked -> Backlog. run:45211169210 (ci, 20 attempts of the HTTPS reset repeat test) completed failure; read the per-platform tallies from its Build and test (ubuntu-latest) and (macos-latest) logs
 - 2026-11-23: Backlog -> Doing.
 - 2026-11-23: Measured (run 45211169210, 20 attempts): Linux graceful 18x7/55x13, reset 55x20; macOS graceful 18x15/55x4, reset 56x14/55x5 (19 runs). Surl already sends close_notify then FIN, so the variance is curl's own write-vs-read race; no Surl.Core change. ADR-0188 amendment 3 records the sets; OpenSSL tests assert them (graceful 18|55, reset 55|56), Windows exact. Lanes cannot push, so the second repeat run and the passing `ci` run on ubuntu/macos are left to the shift's CI merge gate; the temporary repeat test was never added (the existing test was the repeat via attempts=20), so nothing to remove.
+- 2026-11-23: Doing -> Done. OpenSSL HTTPS cut measured, ADR-0188 amendment 3, tests assert the sets
