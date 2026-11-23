@@ -22,7 +22,9 @@ public static class AddFaultTool
         "Make a running Surl server misbehave on purpose from its next connection, login or command on: add one fault "
         + "rule, written as surl's --fault item, e.g. drop;scheme=smtp;times=1, refuse-login;account=alice, "
         + "delay;ms=500;stage=command;path=/slow or error;scheme=http;reply=503 Busy. Returns the rule's ID for "
-        + "remove_fault. Read the surl://aihelp/testing resource for every kind and key.";
+        + "remove_fault. Read the surl://aihelp/testing resource for every kind and key. The optional close argument "
+        + "(reset or graceful) adds the item key close: drop;after-bytes=1000 with close graceful ends the connection "
+        + "cleanly after 1000 bytes instead of resetting it.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -30,7 +32,8 @@ public static class AddFaultTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "fault": { "type": "string", "minLength": 1, "description": "One surl --fault item, e.g. drop;scheme=http;times=1" }
+            "fault": { "type": "string", "minLength": 1, "description": "One surl --fault item, e.g. drop;scheme=http;times=1" },
+            "close": { "type": "string", "enum": ["reset", "graceful"], "description": "Optional, for a drop with after-bytes: reset (the default) aborts the connection, graceful ends it cleanly after the last byte; the item key close" }
           },
           "required": ["server_id", "fault"],
           "additionalProperties": false
@@ -62,6 +65,7 @@ public static class AddFaultTool
             Stage = configured.Stage,
             AfterBytes = configured.AfterBytes,
             Body = configured.Body,
+            Close = configured.Close ?? FaultClose.Reset,
             Times = configured.Times,
         };
 
@@ -76,7 +80,19 @@ public static class AddFaultTool
 
     private static McpToolResult Add(RunningSurlServer running, JsonElement arguments)
     {
-        var parsed = CommandLineParser.Parse([ParsedBesideListenUrl, "--fault", arguments.GetProperty("fault").GetString()!]);
+        var item = arguments.GetProperty("fault").GetString()!;
+        if (arguments.TryGetProperty("close", out var close))
+        {
+            var word = close.ValueKind == JsonValueKind.String ? close.GetString()!.ToLowerInvariant() : string.Empty;
+            if (word is not ("reset" or "graceful"))
+            {
+                return McpToolResult.FromFailure("option --fault: key close must be reset or graceful");
+            }
+
+            item += ";close=" + word;
+        }
+
+        var parsed = CommandLineParser.Parse([ParsedBesideListenUrl, "--fault", item]);
         if (parsed.Outcome != CommandLineOutcome.Serve)
         {
             return McpToolResult.FromFailure(parsed.Failure!.Message);

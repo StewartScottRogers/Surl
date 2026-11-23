@@ -22,11 +22,14 @@ From BL-1608; decided in ADR-0188 (Documentation/Planning/Decisions). ADR-0188 d
 
 ## Acceptance criteria
 
-- [ ] `close` is an optional string argument, `reset` or `graceful`, with the refusals of ADR-0188 decision 4.
-- [ ] Tool schema text names it.
-- [ ] Tests for accepted and refused values.
+- [x] `close` is an optional string argument, `reset` or `graceful`, with the refusals of ADR-0188 decision 4.
+- [x] Tool schema text names it.
+- [x] Tests for accepted and refused values.
 
 ## Notes
+
+- `close` is checked in the tool (any case; non-string refused) with surl's own text, then appended as `;close=<word>` so the reader gives the other refusals (needs after-bytes, wrong kind). Checking first stops a value with `;` smuggling keys.
+- `SurlFault.Close` is carried by `ToSurlFault`. The plan itself only keeps it once BL-1614 (Surl.Composition) lands, so tests here do not assert on list_faults showing close=graceful; add that check after BL-1614.
 
 ## Log
 

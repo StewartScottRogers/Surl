@@ -2,6 +2,7 @@ using System.Text;
 using Surl.Api;
 using Surl.Cli;
 using Surl.McpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Mcp;
 
@@ -41,6 +42,46 @@ public sealed class FaultToolsTests
         await using var host = await StartHttpHostAsync();
 
         var result = await CallAsync(host.AddFault, $$"""{"server_id": "s1", "fault": "{{item}}"}""");
+
+        StoreToolsTests.AssertFailure(result, expected);
+    }
+
+    [TestMethod]
+    [DataRow("graceful")]
+    [DataRow("GRACEFUL")]
+    [DataRow("reset")]
+    public async Task AddFault_WithAnAcceptedClose_AddsTheRule(string close)
+    {
+        await using var host = await StartHttpHostAsync();
+
+        var added = await CallAsync(host.AddFault, $$"""{"server_id": "s1", "fault": "drop;after-bytes=10", "close": "{{close}}"}""");
+
+        StoreToolsTests.AssertResult(added, """{"fault_id":"f1"}""");
+    }
+
+    [TestMethod]
+    [DataRow("drop;after-bytes=10;close=graceful", FaultClose.Graceful)]
+    [DataRow("drop;after-bytes=10;close=reset", FaultClose.Reset)]
+    [DataRow("drop;after-bytes=10", FaultClose.Reset)]
+    public void ToSurlFault_ACloseKey_IsCarried(string item, FaultClose expected)
+    {
+        var configured = CommandLineParser.Parse(["http://127.0.0.1:0", "--fault", item]).CommandLine!.Faults[0];
+
+        var fault = AddFaultTool.ToSurlFault(configured);
+
+        Assert.AreEqual(expected, fault.Close);
+    }
+
+    [TestMethod]
+    [DataRow("""{"server_id": "s1", "fault": "drop;after-bytes=10", "close": "polite"}""", "option --fault: key close must be reset or graceful")]
+    [DataRow("""{"server_id": "s1", "fault": "drop;after-bytes=10", "close": 3}""", "option --fault: key close must be reset or graceful")]
+    [DataRow("""{"server_id": "s1", "fault": "drop", "close": "graceful"}""", "option --fault: key close needs key after-bytes")]
+    [DataRow("""{"server_id": "s1", "fault": "refuse-login", "close": "graceful"}""", "option --fault: key close does not apply to refuse-login")]
+    public async Task AddFault_ABadClose_IsAnErrorWithSurlsText(string arguments, string expected)
+    {
+        await using var host = await StartHttpHostAsync();
+
+        var result = await CallAsync(host.AddFault, arguments);
 
         StoreToolsTests.AssertFailure(result, expected);
     }
