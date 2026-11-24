@@ -8,7 +8,7 @@ depends-on: []
 touches: []
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1657 — Tag Surl's first release so its pass-rate row is filled and the NuGet packages are published
 
@@ -27,7 +27,7 @@ run of the commit to be tagged". A tag and a release are Stewart's to ask for (r
 
 ## Acceptance criteria
 
-- [ ] Stewart has said whether and when to tag, recorded in the Log by his own word.
+- [x] Stewart has said whether and when to tag, recorded in the Log by his own word.
 
 ## Notes
 
@@ -37,3 +37,4 @@ NFR-006 statements.
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Done. Stewart: 'Go' (2026-11-24). Premise was stale: v0.1.3 to v0.1.7 were already tagged and released. Tagged v0.1.8 on master fc63faabf (CI green); the Release workflow builds it. NuGet packages stay packed as an artifact, not pushed to a feed, by BL-643's design.
