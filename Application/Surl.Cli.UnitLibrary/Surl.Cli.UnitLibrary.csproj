@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Surl.Cookies.UnitLibrary\Surl.Cookies.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />

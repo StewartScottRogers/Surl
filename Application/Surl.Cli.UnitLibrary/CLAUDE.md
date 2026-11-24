@@ -193,3 +193,8 @@ that describes it in the same change (ADR-0034 decision 6).
 `-x`/`--proxy` is read where it is given (`CommandLineParser.ReadProxyListenUrl`) into
 `SurlCommandLine.ProxyListenUrls`, not into `ListenUrls`, and is refused beside a Unix socket
 (`UnixSocketCombination.RefuseProxy`); the `proxy` help category claims no scheme (ADR-0088 amendment 7).
+
+`--set-cookie <name=value[;Attribute...]>` (category `http`, ADR-0189 decision 1, BL-1661): `ConfiguredCookieReader`
+reads each by `Surl.Cookies.CookieDefinitionReader` into `SurlCommandLine.Cookies`, refusing in its words (`option
+--set-cookie: ...`, exit 2); the 65th is refused (`MaxCookies`, counted across `-K` files like `--fault`). The
+`Surl.Composition` hand-over to `HttpProtocolServer` is BL-1670's: until it lands the option is read and checked only.

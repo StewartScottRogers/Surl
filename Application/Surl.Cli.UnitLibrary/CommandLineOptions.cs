@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Authentication;
+using Surl.Cookies;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -315,6 +316,8 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredFault>("fault", null, ConfiguredFaultReader.Reading, (c, v) => c with { Faults = [.. c.Faults, v] },
             new("<kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)", ["security", "testing"], IsInShortList: false, Default: "no faults",
                 FaultExplanation)),
+        WithArgument<CookieDefinition>("set-cookie", null, ConfiguredCookieReader.Reading, (c, v) => c with { Cookies = [.. c.Cookies, v] },
+            new("<cookie>", "Set a cookie on HTTP replies (repeatable)", ["http"], IsInShortList: false, Default: "no cookies set")),
         WithArgument<string>("control", null, OptionArgumentReader.ControlListenUrlText, (c, _) => c,
             new("<listen URL>", "Serve the test control endpoint", ["security", "testing"], IsInShortList: false, Default: "off",
                 ControlExplanation)),

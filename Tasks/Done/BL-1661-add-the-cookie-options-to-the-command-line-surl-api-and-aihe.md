@@ -8,7 +8,7 @@ depends-on: [BL-1660]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-015
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1661 — Add the cookie options to the command line, Surl.Api and --aihelp
 
@@ -26,17 +26,22 @@ it as a follow-up task rather than widening this one.
 
 ## Acceptance criteria
 
-- [ ] The ADR's option(s) parse with the argument kinds and error texts the ADR states,
+- [x] The ADR's option(s) parse with the argument kinds and error texts the ADR states,
       each pinned by a named test in `Surl.Cli.UnitTests`.
-- [ ] `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues` and
+- [x] `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues` and
       `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName`
       pass with the new option(s).
-- [ ] `surl --help http` lists the option(s).
-- [ ] Build clean and fast tests green.
+- [x] `surl --help http` lists the option(s).
+- [x] Build clean and fast tests green.
 
 ## Notes
+
+- `--set-cookie` is in category `http` only, with no `Explanation`: it loosens nothing, and the `testing` pins (`TestingOptionsLoosenNothing_AreExactlyRandomSeed`) and explanation-per-option tests are for loosening options.
+- `Surl.Composition` wiring was outside `touches` (BL-1664 holds it): filed BL-1670, and BL-1662 now depends on it. The `Surl.Api` and Surl.Mcp spellings are not filed yet; BL-1670 names them as separate follow-ups.
+- The `http` prose says honestly that the server does not set the cookies until BL-1670; BL-1670 must update that sentence.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. surl --set-cookie is read, bounded to 64, shown in --help http and --aihelp http

@@ -211,6 +211,13 @@ public static class AiHelpExamples
             ["surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS"],
             []),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
+        Serving(
+            "http",
+            "For a test: set a session cookie on every reply",
+            ["--set-cookie", "session=t1;Path=/;HttpOnly", HttpListenUrl],
+            [ListeningOnHttp],
+            [],
+            ["curl -c jar.txt http://127.0.0.1:<port>/"]),
         Refused(
             "http",
             "HTTP/3 needs an https listen URL",
