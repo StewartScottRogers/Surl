@@ -1,5 +1,5 @@
 ---
-id: BL-1671
+id: BL-1672
 title: Amend ADR-0108 and S3 conformance doc: the signed trailer form STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER is served (BL-1665)
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-24
 completed:
 ---
-# BL-1671 — Amend ADR-0108 and S3 conformance doc: the signed trailer form STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER is served (BL-1665)
+# BL-1672 — Amend ADR-0108 and S3 conformance doc: the signed trailer form STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER is served (BL-1665)
 
 ## Goal
 

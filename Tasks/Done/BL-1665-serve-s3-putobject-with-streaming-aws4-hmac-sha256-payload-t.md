@@ -74,7 +74,7 @@ the AWS SDK's default `PutObjectAsync` gets `200` instead of `501 NotImplemented
 ## Notes
 
 - If confirming the head shows a different cause than the signed trailer form, record what the head is in Notes,
-- Decided by Claude under Stewart's delegation: the signed trailer form `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER` is served (per the AWS sigv4-streaming-trailers page: every chunk signature, then `x-amz-trailer-signature` over `AWS4-HMAC-SHA256-TRAILER`, time, scope, the final chunk signature and the SHA-256 of the trailer lines each ended by LF; then the trailing checksum). The head carries `x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER`; ECDSA forms stay 501. Docs follow-up filed as BL-1671.
+- Decided by Claude under Stewart's delegation: the signed trailer form `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER` is served (per the AWS sigv4-streaming-trailers page: every chunk signature, then `x-amz-trailer-signature` over `AWS4-HMAC-SHA256-TRAILER`, time, scope, the final chunk signature and the SHA-256 of the trailer lines each ended by LF; then the trailing checksum). The head carries `x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER`; ECDSA forms stay 501. Docs follow-up filed as BL-1672.
   fix that cause instead, and keep the same regression test shape.
 
 ## Log
