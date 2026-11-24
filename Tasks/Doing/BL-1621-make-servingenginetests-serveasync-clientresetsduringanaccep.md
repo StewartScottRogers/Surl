@@ -44,3 +44,4 @@ The accept-delay peer-leaving tests in `Surl.Core.UnitTests` pass every run on e
 ## Log
 
 - 2026-11-23: Created.
+- 2026-11-24: Backlog -> Doing.
