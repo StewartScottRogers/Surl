@@ -35,3 +35,4 @@ ADR-0089 decision 2 (each case paired with the build its mirrored test runs). Th
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
