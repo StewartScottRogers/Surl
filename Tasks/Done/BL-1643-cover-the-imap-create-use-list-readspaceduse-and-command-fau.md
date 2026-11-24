@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1643 — Cover the IMAP CREATE USE-list, ReadSpacedUse and command-fault branches
 
@@ -39,17 +39,18 @@ member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Imap.UnitTests` test sends `CREATE` with a name followed directly by `(` and asserts the
+- [x] A named `Surl.Protocol.Imap.UnitTests` test sends `CREATE` with a name followed directly by `(` and asserts the
       tagged `BAD` reply bytes.
-- [ ] Named tests send each `USE` list shape that line 159 lacks and assert the tagged reply bytes.
-- [ ] A named test reaches line 55's missing outcome and asserts the reply bytes or connection outcome. If no test can
+- [x] Named tests send each `USE` list shape that line 159 lacks and assert the tagged reply bytes.
+- [x] A named test reaches line 55's missing outcome and asserts the reply bytes or connection outcome. If no test can
       reach it (it is compiler-generated and unreachable), the Log says so with the evidence, and the task moves to
       Blocked naming that, rather than adding an exclusion.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Imap.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Imap.UnitLibrary` reports `100 | 100`
       with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
+- Line 55's missing outcome was the await of the chosen-error reply suspending (a write the client never reads); ImapFaultTests.ServeAsync_ErrorReplyWriteStalls_ShutdownEndsTheSessionWithTheReplyUnwritten reaches it. POP3 (BL-1645) and SMTP (BL-1646) switches likely have the same missing outcome.
 - Tests only (test-writer). The expected replies come from RFC 9051 / RFC 6154 as Surl answers them today. A reply that
   looks wrong becomes its own task.
 
@@ -57,3 +58,4 @@ member.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. IMAP library at 100% line and branch, 0 failing members; CREATE USE-list, spaced-use and stalled error-reply tests added
