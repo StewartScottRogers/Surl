@@ -253,6 +253,84 @@ public sealed class UnixSocketConnectionListenerTests
         await ExchangeBytesAsync(listener, new UnixDomainSocketEndPoint(path));
     }
 
+    [TestMethod]
+    public void CreatedFilePathOf_AbstractName_IsNull()
+    {
+        Assert.IsNull(UnixSocketConnectionListener.CreatedFilePathOf(new UnixSocketAddress("name", true)));
+        Assert.AreEqual("/tmp/a.sock", UnixSocketConnectionListener.CreatedFilePathOf(new UnixSocketAddress("/tmp/a.sock", false)));
+    }
+
+    [TestMethod]
+    public void WriteTimeOf_NoFile_IsDefault()
+    {
+        Assert.AreEqual(default, UnixSocketConnectionListener.WriteTimeOf(null));
+    }
+
+    [TestMethod]
+    public void BindListeningSocket_OwnerOnlyStepThrows_ClosesTheSocketDeletesTheFileAndThrowsBindException()
+    {
+        var path = NewSocketPath();
+
+        var exception = Assert.ThrowsExactly<ListenerBindException>(() => UnixSocketConnectionListener.BindListeningSocket(
+            UnixListenUrl(path, false), new UnixDomainSocketEndPoint(path), _ => throw new UnauthorizedAccessException()));
+
+        Assert.AreEqual(ListenerBindFailure.PermissionDenied, exception.Failure);
+        Assert.IsFalse(File.Exists(path));
+    }
+
+    [TestMethod]
+    public void ClassifyBindFailure_EachKindOfException_GivesItsFailure()
+    {
+        Assert.AreEqual(
+            BindFailureClassifier.Classify(SocketError.AddressAlreadyInUse),
+            UnixSocketConnectionListener.ClassifyBindFailure(new SocketException((int)SocketError.AddressAlreadyInUse)));
+        Assert.AreEqual(ListenerBindFailure.PermissionDenied, UnixSocketConnectionListener.ClassifyBindFailure(new UnauthorizedAccessException()));
+        Assert.AreEqual(ListenerBindFailure.Other, UnixSocketConnectionListener.ClassifyBindFailure(new IOException()));
+    }
+
+    [TestMethod]
+    public void DeleteFileMadeByFailedStart_BoundFile_DeletesItButNotAnAbstractNameOrAnUnboundPath()
+    {
+        var path = NewSocketPath();
+        File.WriteAllText(path, "x");
+
+        UnixSocketConnectionListener.DeleteFileMadeByFailedStart(new UnixSocketAddress(path, false), false);
+        Assert.IsTrue(File.Exists(path));
+        UnixSocketConnectionListener.DeleteFileMadeByFailedStart(new UnixSocketAddress(path, true), true);
+        Assert.IsTrue(File.Exists(path));
+        UnixSocketConnectionListener.DeleteFileMadeByFailedStart(new UnixSocketAddress(path, false), true);
+
+        Assert.IsFalse(File.Exists(path));
+    }
+
+    [TestMethod]
+    public void TryDelete_PathThatCannotBeDeleted_DoesNotThrow()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "surl-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            UnixSocketConnectionListener.TryDelete(directory);
+
+            Assert.IsTrue(Directory.Exists(directory));
+        }
+        finally
+        {
+            Directory.Delete(directory);
+        }
+    }
+
+    [TestMethod]
+    public void ReleaseSocket_Socket_DisposesIt()
+    {
+        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+
+        UnixSocketConnectionListener.ReleaseSocket(socket);
+
+        Assert.ThrowsExactly<ObjectDisposedException>(() => socket.Listen());
+    }
+
     // The exit code Surl.Core's ServingEngine gives every ListenerBindFailure but HostNotFound
     // (ADR-0004, section 6), which ADR-0094 names for each Unix socket failure.
     private static SurlExitCode BindFailedFor(ListenerBindFailure failure) =>

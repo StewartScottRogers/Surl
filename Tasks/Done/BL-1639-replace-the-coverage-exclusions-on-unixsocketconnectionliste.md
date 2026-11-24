@@ -8,7 +8,7 @@ depends-on: [BL-1638]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1639 — Replace the coverage exclusions on UnixSocketConnectionListener that fast tests reach
 
@@ -32,22 +32,24 @@ member that no fast test can reach, each with a comment directly above it saying
 
 ## Acceptance criteria
 
-- [ ] Every `[ExcludeFromCodeCoverage]` on a member of `UnixSocketConnectionListener` that a fast test executes on
+- [x] Every `[ExcludeFromCodeCoverage]` on a member of `UnixSocketConnectionListener` that a fast test executes on
       Windows is removed.
-- [ ] Each exclusion that remains (e.g. the `File.SetUnixFileMode` call off Windows, or a branch only an OS failure
+- [x] Each exclusion that remains (e.g. the `File.SetUnixFileMode` call off Windows, or a branch only an OS failure
       reaches) has a comment directly above it naming why no fast test on Windows can reach it, not which test covers it.
-- [ ] Any line or branch that the removal exposes is covered by a named, platform-neutral test in
+- [x] Any line or branch that the removal exposes is covered by a named, platform-neutral test in
       `Surl.Networking.UnitTests`, or is itself one of the justified exclusions above.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Networking.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Networking.UnitLibrary` reports `100 | 100`
       with 0 failing members.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
 - Mostly tests (test-writer), plus the attribute removals. No behaviour change.
 - Depends on BL-1638 because both edit `UnixSocketConnectionListener.cs`.
+- Left excluded, each with a Windows-unreachable reason: `MakeOwnerOnly` (SetUnixFileMode off Windows only), `RemoteEndPointOf` (vanished-peer SocketException), new `AcceptOrDropClient` (macOS-only ArgumentException arm). Made `internal` and unit-tested: `CreatedFilePathOf`, `WriteTimeOf`, `ClassifyBindFailure`, `DeleteFileMadeByFailedStart`, `TryDelete`, `ReleaseSocket`, `BindListeningSocket` (takes the owner-only step as a parameter so a failing step is testable). No behaviour change.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Exclusions removed; Networking measures 100/100, fast tests green.
