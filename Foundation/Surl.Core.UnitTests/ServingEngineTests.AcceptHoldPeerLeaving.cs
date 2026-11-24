@@ -20,18 +20,25 @@ public sealed partial class ServingEngineTests
     }
 
     // The slot is released just after the connection is disposed, so a connection made in that gap is
-    // refused (and disposed); connect again until one is held under the delay.
-    private static async Task ConnectUntilAdmittedAsync(FakeListenerFactory factory)
+    // refused (and disposed); connect again until one is held under the delay. A connection counts as
+    // admitted only once its hold's timer exists (BL-1621), so advancing the clock cannot miss the hold
+    // and a slow runner cannot make a not-yet-refused connection look admitted.
+    private static async Task ConnectUntilAdmittedAsync(FakeListenerFactory factory, ManualTimeProvider time)
     {
         var deadline = DateTime.UtcNow + Patience.Timeout;
 
         while (DateTime.UtcNow < deadline)
         {
+            var before = time.TimerCount;
             var next = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
             factory.ListenerFor(Http).Connect(next);
-            await Task.Delay(TimeSpan.FromMilliseconds(20));
 
-            if (!next.Disposed)
+            while (!next.Disposed && time.TimerCount == before && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(5));
+            }
+
+            if (!next.Disposed && time.TimerCount > before)
             {
                 return;
             }
@@ -54,7 +61,7 @@ public sealed partial class ServingEngineTests
 
         factory.ListenerFor(Http).Connect(leaver);
         await InMemoryConnectionWaits.WaitUntilDisposedAsync(leaver);
-        await ConnectUntilAdmittedAsync(factory);
+        await ConnectUntilAdmittedAsync(factory, time);
         time.Advance(TimeSpan.FromMilliseconds(60000));
         await server.NextExchangeAsync();
         await stop.CancelAsync();
@@ -80,7 +87,7 @@ public sealed partial class ServingEngineTests
 
         factory.ListenerFor(Http).Connect(leaver);
         await InMemoryConnectionWaits.WaitUntilDisposedAsync(leaver);
-        await ConnectUntilAdmittedAsync(factory);
+        await ConnectUntilAdmittedAsync(factory, time);
         time.Advance(TimeSpan.FromMilliseconds(60000));
         await server.NextExchangeAsync();
         await stop.CancelAsync();
