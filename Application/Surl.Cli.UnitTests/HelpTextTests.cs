@@ -368,6 +368,7 @@ public sealed class HelpTextTests
             Row(38, "    --user-ldap <ldap-url>[;...]", "Check logins against LDAP"),
             Row(38, "-v, --verbose", "Log every exchange event"),
             Row(38, "-V, --version", "Show version number and quit"),
+            Row(38, "-w, --write-out <format>", "Print <format> after each exchange"),
             Row(38, "    --ws-echo", "Echo client messages, not the path"));
     }
 
@@ -555,7 +556,8 @@ public sealed class HelpTextTests
             "     --trace <file>        Write a debug trace to <file>",
             "     --trace-ascii <file>  Like --trace, but without hex",
             "     --trace-time          Add time stamps to log lines",
-            " -v, --verbose             Log every exchange event");
+            " -v, --verbose             Log every exchange event",
+            " -w, --write-out <format>  Print <format> after each exchange");
 
     [TestMethod]
     [DataRow("--silent", DisplayName = "Long name")]

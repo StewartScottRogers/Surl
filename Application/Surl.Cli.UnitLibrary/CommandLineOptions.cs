@@ -167,6 +167,8 @@ internal static class CommandLineOptions
             new("<file>", "Like --trace, but without hex", ["logging"], IsInShortList: false, Default: "none")),
         Flag("trace-time", null, negatable: true, (c, on) => c with { TraceTime = on },
             new(null, "Add time stamps to log lines", ["logging"], IsInShortList: false, Default: "off")),
+        WithArgument<string>("write-out", 'w', OptionArgumentReader.Text, (c, v) => c with { WriteOut = v },
+            new("<format>", "Print <format> after each exchange", ["logging"], IsInShortList: false, Default: "none")),
         WithArgument<string>("log-file", null, OptionArgumentReader.Path, (c, v) => c with { LogFile = v },
             new("<file>", "Append the log to <file>", ["logging"], IsInShortList: false, Default: "stderr")),
         WithArgument<string>("directory", null, OptionArgumentReader.Path, (c, v) => c with { DataDirectory = v },

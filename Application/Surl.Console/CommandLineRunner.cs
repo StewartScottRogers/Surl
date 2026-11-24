@@ -279,6 +279,9 @@ internal sealed class CommandLineRunner(
 
         using (logStreams)
         {
+            await using var writeOut = commandLine.WriteOut is { } format
+                ? new WriteOutPrinter(serving.Events, format, output, error)
+                : null;
             var outcome = await serving.ServeAsync(
                 new SurlServingOutputs(
                     logStreams.Log,

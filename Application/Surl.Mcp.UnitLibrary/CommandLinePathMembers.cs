@@ -51,6 +51,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.ShowError),
         nameof(SurlCommandLine.TraceLayout),
         nameof(SurlCommandLine.TraceTime),
+        nameof(SurlCommandLine.WriteOut),
         nameof(SurlCommandLine.AllowUploads),
         nameof(SurlCommandLine.ListDirectories),
         nameof(SurlCommandLine.FollowSymlinks),

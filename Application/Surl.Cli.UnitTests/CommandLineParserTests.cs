@@ -232,6 +232,14 @@ public sealed class CommandLineParserTests
         Assert.IsNull(Served("--trace", "f", later, Url).TraceFile);
 
     [TestMethod]
+    public void Parse_WriteOut_KeepsTheFormatAsGivenUnderBothNamesAndDefaultsToNone()
+    {
+        Assert.IsNull(Served(Url).WriteOut);
+        Assert.AreEqual("%{scheme}\n", Served("-w", "%{scheme}\n", Url).WriteOut);
+        Assert.AreEqual(string.Empty, Served("--write-out", string.Empty, Url).WriteOut);
+    }
+
+    [TestMethod]
     public void Parse_TraceTime_TurnsOnAndNegatedLaterTurnsOff()
     {
         Assert.IsTrue(Served("--trace-time", Url).TraceTime);

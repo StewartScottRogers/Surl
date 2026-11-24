@@ -74,6 +74,12 @@ public sealed record SurlCommandLine
     public bool TraceTime { get; init; }
 
     /// <summary>
+    /// <c>-w</c> / <c>--write-out</c>: the format printed to stdout once per exchange, as
+    /// <see cref="WriteOutFormat.Expand"/> reads it (BL-1663); <see langword="null"/> prints nothing.
+    /// </summary>
+    public string? WriteOut { get; init; }
+
+    /// <summary>
     /// <c>--log-file</c>: the file the log stream is appended to, as given (<c>-</c> is
     /// stdout); none by default, when the log stream is stderr.
     /// </summary>
