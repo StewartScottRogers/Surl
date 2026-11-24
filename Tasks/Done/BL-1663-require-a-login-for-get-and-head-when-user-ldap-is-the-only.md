@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1663 — Require a login for GET and HEAD when --user-ldap is the only account source
 
@@ -46,23 +46,30 @@ one local account exists. This is a security fix: today configuring a directory 
 
 ## Acceptance criteria
 
-- [ ] A named test in `Foundation/Surl.Authentication.UnitTests/HttpAuthenticationSessionTests.cs` (the
+- [x] A named test in `Foundation/Surl.Authentication.UnitTests/HttpAuthenticationSessionTests.cs` (the
       regression test) shows a session over settings with an `LdapAccountSource` and no account answers a
       `GET` and a `HEAD` without `Authorization` with `HttpAuthenticationOutcome` Challenge, the same verdict as
       with one `--user` account.
-- [ ] A named test shows a directory whose `protocols=` does not serve `http` still lets an unauthenticated
+- [x] A named test shows a directory whose `protocols=` does not serve `http` still lets an unauthenticated
       `GET` proceed anonymously, and one shows `--allow-anonymous` with a directory still proceeds.
-- [ ] Existing tests that pinned the open behaviour (if any) are changed to the new verdict, and the change is
+- [x] Existing tests that pinned the open behaviour (if any) are changed to the new verdict, and the change is
       named in Notes.
-- [ ] Notes record the decision, marked "Decided by Claude under Stewart's delegation", that a configured
+- [x] Notes record the decision, marked "Decided by Claude under Stewart's delegation", that a configured
       directory counts as an account under ADR-0032, and the run files a `docs` task to add it to ADR-0149 as an
       amendment (and to correct `Surl.Api`'s last-account-removed warning, `SurlServerAccounts.Remove`, if it is
       now untrue when a directory is configured).
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean, `dotnet test --filter
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean, `dotnet test --filter
       "TestCategory!=Integration"` is green, and `Surl.Authentication.UnitLibrary` keeps 100% line and branch
       coverage on every member this task changes; no test needs `TestCategory=Integration`.
 
 ## Notes
+- Decided by Claude under Stewart's delegation: a configured `--user-ldap` directory counts as an account under
+  ADR-0032 section 4 for the HTTP login scheme, but only when it serves `http` (`protocols=`). Fix:
+  `HttpAuthenticationSession.HasAccountToLogInTo` (book accounts, or a directory with `Serves("http")`).
+- No existing test pinned the open behaviour; none changed. New tests in `HttpAuthenticationSessionTests`:
+  `JudgeAsync_DirectoryOnlyWithoutCredentials_ChallengesReads` (GET, HEAD),
+  `JudgeAsync_DirectoryNotServingHttp_StillServesReadsAnonymously`, `JudgeAsync_DirectoryWithAllowAnonymous_StillProceeds`.
+- Filed: BL-1668 (docs: ADR-0149 amendment, `SurlServerAccounts.Remove` warning), BL-1669 (CoAPS/extended CoAP check).
 
 - Seen while filing, not this task: `DeferredCoapsProtocolServer` and `ExtendedProtocolServers` (CoAP) also decide
   by `HasAccounts` alone; check whether a directory-only CoAPS server is open the same way and file it if so.
@@ -71,3 +78,4 @@ one local account exists. This is a security fix: today configuring a directory 
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Directory-only HTTP servers now challenge unauthenticated GET/HEAD

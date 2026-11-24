@@ -60,4 +60,51 @@ public sealed class HttpAuthenticationSessionTests
 
         Assert.AreEqual(new LoginJudgedEvent(null, "http", "alice", "AWS4-HMAC-SHA256", false, true), events.Events.OfType<LoginJudgedEvent>().Single());
     }
+    private AuthenticationPolicy DirectoryOnlyPolicy(string[]? protocols, bool allowAnonymous = false)
+    {
+        Assert.IsTrue(LdapDirectoryUrl.TryParse("ldap://dir.test/ou=people,dc=example,dc=com", out var url, out _));
+        var source = new LdapAccountSource(new LdapAccountSourceSettings(url!) { Protocols = protocols }, new ScriptedLdapDirectory(), clock);
+        var settings = new AuthenticationSettings(PolicyFixture.NoAccounts, allowAnonymous, false, AuthenticationMethods.DefaultAccepted)
+        {
+            LdapAccountSource = source,
+        };
+
+        return new AuthenticationPolicy(settings, [new BasicAuthenticationMethod(PolicyFixture.NoAccounts)], clock);
+    }
+
+    private static HttpAuthenticationRequest Head() =>
+        new("HEAD", "/x", false, [new KeyValuePair<string, string>("Host", "localhost")]);
+
+    [TestMethod]
+    [DataRow("GET")]
+    [DataRow("HEAD")]
+    public async Task JudgeAsync_DirectoryOnlyWithoutCredentials_ChallengesReads(string method)
+    {
+        var policy = DirectoryOnlyPolicy(null);
+        var request = method == "GET" ? PolicyFixture.Get() : Head();
+
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(request, CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_DirectoryNotServingHttp_StillServesReadsAnonymously()
+    {
+        var policy = DirectoryOnlyPolicy(["ftp"]);
+
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_DirectoryWithAllowAnonymous_StillProceeds()
+    {
+        var policy = DirectoryOnlyPolicy(null, allowAnonymous: true);
+
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+    }
 }
