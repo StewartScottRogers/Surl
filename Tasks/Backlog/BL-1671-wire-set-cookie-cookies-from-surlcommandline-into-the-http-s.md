@@ -1,5 +1,5 @@
 ---
-id: BL-1670
+id: BL-1671
 title: Wire --set-cookie cookies from SurlCommandLine into the HTTP server in Surl.Composition
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-015
 created: 2026-11-24
 completed:
 ---
-# BL-1670 — Wire --set-cookie cookies from SurlCommandLine into the HTTP server in Surl.Composition
+# BL-1671 — Wire --set-cookie cookies from SurlCommandLine into the HTTP server in Surl.Composition
 
 ## Goal
 

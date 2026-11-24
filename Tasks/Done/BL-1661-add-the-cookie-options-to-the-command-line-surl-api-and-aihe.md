@@ -37,8 +37,8 @@ it as a follow-up task rather than widening this one.
 ## Notes
 
 - `--set-cookie` is in category `http` only, with no `Explanation`: it loosens nothing, and the `testing` pins (`TestingOptionsLoosenNothing_AreExactlyRandomSeed`) and explanation-per-option tests are for loosening options.
-- `Surl.Composition` wiring was outside `touches` (BL-1664 holds it): filed BL-1670, and BL-1662 now depends on it. The `Surl.Api` and Surl.Mcp spellings are not filed yet; BL-1670 names them as separate follow-ups.
-- The `http` prose says honestly that the server does not set the cookies until BL-1670; BL-1670 must update that sentence.
+- `Surl.Composition` wiring was outside `touches` (BL-1664 holds it): filed BL-1671, and BL-1662 now depends on it. The `Surl.Api` and Surl.Mcp spellings are not filed yet; BL-1671 names them as separate follow-ups.
+- The `http` prose says honestly that the server does not set the cookies until BL-1671; BL-1671 must update that sentence.
 
 ## Log
 

@@ -4,7 +4,7 @@ title: Prove upstream curl -b, -c and -j against surl's cookies in an Integratio
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1661, BL-1670]
+depends-on: [BL-1661, BL-1671]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: FR-015
 created: 2026-11-24
