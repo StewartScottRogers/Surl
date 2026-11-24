@@ -19,7 +19,7 @@ internal static class ControlHarness
     /// <summary>An endpoint over <paramref name="target"/>.</summary>
     /// <param name="target">The target.</param>
     /// <returns>The endpoint.</returns>
-    public static ControlEndpoint Endpoint(FakeControlTarget target) => new(target, new ControlToken(Token));
+    public static ControlEndpoint Endpoint(IControlTarget target) => new(target, new ControlToken(Token));
 
     /// <summary>Sends <paramref name="request"/> on one connection and returns everything written back.</summary>
     /// <param name="endpoint">The endpoint.</param>

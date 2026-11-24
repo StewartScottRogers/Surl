@@ -129,6 +129,19 @@ public sealed class ControlStoreRequestsTests
     }
 
     [TestMethod]
+    public async Task SeedMailAsync_TargetWrittenBeforeDeliveredTo_HandsOverThePostedBytesUnchanged()
+    {
+        var inner = new FakeControlTarget();
+        IControlTarget target = new TargetWrittenBeforeDeliveredToControlTarget(inner);
+
+        var response = await Serve(target, Request("POST", "/v1/mail?to=a%40x", "message/rfc822", "Subject: hi\r\n\r\nbody"));
+
+        Assert.IsFalse(target.WritesDeliveredTo);
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "SeedMail a@x Subject: hi\r\n\r\nbody" }, inner.Calls);
+    }
+
+    [TestMethod]
     [DataRow("/v1/mail")]
     [DataRow("/v1/mail?to=")]
     public async Task SeedMailAsync_NoRecipient_Is400(string requestTarget)
@@ -595,6 +608,6 @@ public sealed class ControlStoreRequestsTests
         Assert.IsEmpty(target.Calls);
     }
 
-    private Task<string> Serve(FakeControlTarget target, string request) =>
+    private Task<string> Serve(IControlTarget target, string request) =>
         ServeAsync(Endpoint(target), request, new ManualTimeProvider(), TestContext.CancellationToken);
 }

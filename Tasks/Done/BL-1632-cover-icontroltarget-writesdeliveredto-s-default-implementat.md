@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1632 — Cover IControlTarget.WritesDeliveredTo's default implementation
 
@@ -28,18 +28,20 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Control.UnitTests` test uses an `IControlTarget` that does not implement `WritesDeliveredTo` and
+- [x] A named `Surl.Control.UnitTests` test uses an `IControlTarget` that does not implement `WritesDeliveredTo` and
       asserts the default is false. Preferably it does this through `POST /v1/mail` seeding a message with no
       `Delivered-To:` line, so the test pins the behaviour the doc comment promises ("a target written before the option
       is unchanged").
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Control.UnitLibrary` reports `100 | 100` with 0
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Control.UnitLibrary` reports `100 | 100` with 0
       failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
 - Tests only (test-writer). No production change and no exclusion.
+- Added TargetWrittenBeforeDeliveredToControlTarget (delegating wrapper that omits WritesDeliveredTo); ControlHarness.Endpoint and the store tests' Serve now take IControlTarget.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. IControlTarget.WritesDeliveredTo default covered; Surl.Control.UnitLibrary 100/100, 0 failing
