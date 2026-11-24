@@ -29,3 +29,4 @@ The control endpoint (`ComposedControlTarget.RemoveAccountAsync`) warns truthful
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
