@@ -237,16 +237,31 @@ jobs:
           ref: ${{ steps.port.outputs.commit }}
           path: curl-port
 
+      # BL-1622: the BL-1339 / BL-1340 treatment, now on osx-arm64. Publishing straight into the pinned
+      # folder hashed 51892DFE... instead of the pinned B5B48DC7..., so 357 cases threw
+      # UnpinnedCurlPortClientException; this job publishes into a temporary folder (the pin's -o
+      # removed), copies it to the pinned path and hands the tests the file's hash, as linux-x64 does.
       - name: Publish the Curl port to its pinned path
         shell: pwsh
         env:
           PUBLISH_COMMAND: ${{ steps.port.outputs.command }}
+          COMMIT: ${{ steps.port.outputs.commit }}
         run: |
+          $command = $env:PUBLISH_COMMAND -replace '\s-o\s+("[^"]*"|\S+)', ''
+          $folder = Join-Path $env:RUNNER_TEMP 'curl-port-publish-one'
           Push-Location curl-port
           try {
-            Invoke-Expression $env:PUBLISH_COMMAND
+            Invoke-Expression "$command -o `"$folder`""
             if ($LASTEXITCODE -ne 0) { Write-Output "::error::The Curl port publish failed."; exit 1 }
           } finally { Pop-Location }
+          $pinned = Join-Path $env:HOME ".local/share/surl/curl-port/$env:COMMIT"
+          New-Item -ItemType Directory -Force -Path $pinned | Out-Null
+          Copy-Item -Path (Join-Path $folder '*') -Destination $pinned -Recurse -Force
+          chmod +x (Join-Path $pinned 'curl')
+          $hash = (Get-FileHash -Algorithm SHA256 (Join-Path $pinned 'curl')).Hash
+          Write-Output "Published curl SHA-256: $hash"
+          # BL-1340 (ADR-0175 Amendment 3): the pin is ciHashStable:false, so the tests accept this file's hash.
+          "SURL_CURL_PORT_CI_SHA256=$hash" >> $env:GITHUB_ENV
 
       - name: Build Surl
         run: dotnet build Conformance/Surl.Conformance.UnitTests -c Release

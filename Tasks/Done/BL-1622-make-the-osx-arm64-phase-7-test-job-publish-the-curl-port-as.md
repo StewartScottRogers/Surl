@@ -8,7 +8,7 @@ depends-on: []
 touches: [.github/workflows/curl-port-phase-7.yml]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1622 — Make the osx-arm64 Phase 7 test job publish the Curl port as the linux-x64 job does and accept its CI hash
 
@@ -26,14 +26,17 @@ The workflow gates nothing (ADR-0089 Amendment 8, ADR-0003 decision 6). The port
 
 ## Acceptance criteria
 
-- [ ] In `test-curl-port-osx-arm64`, the "Publish the Curl port to its pinned path" step removes the pin's `-o` argument, publishes into `$RUNNER_TEMP/curl-port-publish-one`, copies that folder's contents into `$HOME/.local/share/surl/curl-port/<commit>/` and runs `chmod +x` on its `curl`, as the linux-x64 job's step of the same name does.
-- [ ] The same step writes `SURL_CURL_PORT_CI_SHA256=<SHA-256 of the copied curl>` to `$GITHUB_ENV` and prints the hash.
-- [ ] The comment above the job names BL-1622 and says why (the BL-1339/BL-1340 treatment, now on osx-arm64).
-- [ ] No other job in the workflow changes, and `ci.yml` is untouched.
+- [x] In `test-curl-port-osx-arm64`, the "Publish the Curl port to its pinned path" step removes the pin's `-o` argument, publishes into `$RUNNER_TEMP/curl-port-publish-one`, copies that folder's contents into `$HOME/.local/share/surl/curl-port/<commit>/` and runs `chmod +x` on its `curl`, as the linux-x64 job's step of the same name does.
+- [x] The same step writes `SURL_CURL_PORT_CI_SHA256=<SHA-256 of the copied curl>` to `$GITHUB_ENV` and prints the hash.
+- [x] The comment above the job names BL-1622 and says why (the BL-1339/BL-1340 treatment, now on osx-arm64).
+- [x] No other job in the workflow changes, and `ci.yml` is untouched.
 
 ## Notes
+
+No choices needed: copied the linux-x64 step verbatim (same pwsh, same $HOME path on macOS). Not verified by a CI run; the next Phase 7 run records it. Scheduled run 45198867449 cancelled the osx-arm64 job with no macOS runner; note it if it recurs.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. osx-arm64 job now publishes to a temp folder, copies to the pinned path and exports SURL_CURL_PORT_CI_SHA256
