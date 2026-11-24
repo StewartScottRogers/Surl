@@ -42,3 +42,4 @@ task builds only the library. Wiring into the HTTP server is BL-1660.
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
