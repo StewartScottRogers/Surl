@@ -70,3 +70,4 @@ one local account exists. This is a security fix: today configuring a directory 
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
