@@ -74,7 +74,7 @@ curl (ADR-0089 decision 9), and each case is judged by its protocol's specificat
 
 ## The handoff
 
-[`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 24 findings as tasks in the port's own task
+[`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 29 entries (31 findings) as tasks in the port's own task
 shape. Stewart files them on the port's board himself, by running the port's `/task-plan` on it in a
 session of the port's repository (ADR-0089 decision 7). No Surl session writes into the port's
 repository.

@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: docs
 depends-on: [BL-1625, BL-1626]
-touches: [Documentation/Conformance/CurlPort/Port-Board-Handoff.md]
+touches: [Documentation/Conformance/CurlPort/Port-Board-Handoff.md, Documentation/Conformance/CurlPort/README.md]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1628 — Add the linux-x64 and osx-arm64 Phase 7 findings to Port-Board-Handoff.md
 
@@ -24,13 +24,17 @@ Each entry follows the existing entries' shape (`## <n>. <imperative title>`, th
 
 ## Acceptance criteria
 
-- [ ] Every row under a `### Findings (linux-x64)` or `### Findings (osx-arm64)` heading in `Documentation/Conformance/CurlPort/*.md` is covered by a numbered entry in `Port-Board-Handoff.md`, each entry naming the finding IDs it covers.
-- [ ] The file's opening count of findings and its "What the new commit fixed" section state the new total and no longer say the linux-x64 findings are "not yet as entries here" or that osx-arm64 "compared nothing".
-- [ ] Each new entry names its platform(s), the Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, and the `curl-port-phase-7` run it was seen in.
+- [x] Every row under a `### Findings (linux-x64)` or `### Findings (osx-arm64)` heading in `Documentation/Conformance/CurlPort/*.md` is covered by a numbered entry in `Port-Board-Handoff.md`, each entry naming the finding IDs it covers.
+- [x] The file's opening count of findings and its "What the new commit fixed" section state the new total and no longer say the linux-x64 findings are "not yet as entries here" or that osx-arm64 "compared nothing".
+- [x] Each new entry names its platform(s), the Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, and the `curl-port-phase-7` run it was seen in.
 
 ## Notes
+
+- Added entries 25 to 29 (7 findings: Http2 2, Ldap L-1 to L-4, Ssh SSH-3, UTC-5). Mail M-1, Ftp FTP-1 and Ssh SSH-2 were removed by BL-1626 as noise, so no entry. Ftp, Mail and the other families list no osx-arm64 findings.
+- Added `README.md` (CurlPort) to `touches`: its handoff count said 24 findings; no task in Doing names it.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Entries 25 to 29 added to Port-Board-Handoff.md
