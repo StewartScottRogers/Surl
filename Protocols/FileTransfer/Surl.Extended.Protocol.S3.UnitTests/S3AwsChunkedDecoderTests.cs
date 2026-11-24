@@ -94,6 +94,51 @@ public sealed class S3AwsChunkedDecoderTests
         Assert.AreSame(S3Error.IncompleteBody, decoder.Finish());
     }
 
+    private static async Task<S3AwsChunkedDecoder> DecodeSignedTrailerAsync(string trailer, UnitTestChunkSignatureChain chain)
+    {
+        var decoder = new S3AwsChunkedDecoder(new MemoryStream(), chain, 0, hasSignedTrailer: true);
+        await decoder.WriteAsync(Encoding.Latin1.GetBytes($"0;chunk-signature={Signature}\r\n{trailer}\r\n"), CancellationToken.None);
+
+        return decoder;
+    }
+
+    [TestMethod]
+    public async Task WriteAsync_SignedTrailer_IsCheckedOverItsLinesWithTheSignatureLineLeftOut()
+    {
+        var chain = new UnitTestChunkSignatureChain((SHA256.HashData([]), Signature)) { ExpectedTrailer = (SHA256.HashData("a:1\nb:2\n"u8), Signature) };
+
+        var decoder = await DecodeSignedTrailerAsync($"a:1\r\nb:2\r\nx-amz-trailer-signature:{Signature}\r\n", chain);
+
+        Assert.IsNull(decoder.Finish());
+        Assert.AreEqual("2", decoder.Trailer["b"]);
+    }
+
+    [TestMethod]
+    public async Task WriteAsync_SignedTrailerTheChainRefuses_IsSignatureDoesNotMatch()
+    {
+        var chain = new UnitTestChunkSignatureChain((SHA256.HashData([]), Signature));
+
+        var decoder = await DecodeSignedTrailerAsync($"a:1\r\nx-amz-trailer-signature:{Signature}\r\n", chain);
+
+        Assert.AreSame(S3Error.SignatureDoesNotMatch, decoder.Finish());
+    }
+
+    [TestMethod]
+    public async Task WriteAsync_SignedTrailerWithNoSignatureLine_IsIncompleteBody()
+    {
+        var decoder = await DecodeSignedTrailerAsync("a:1\r\n", new UnitTestChunkSignatureChain((SHA256.HashData([]), Signature)));
+
+        Assert.AreSame(S3Error.IncompleteBody, decoder.Finish());
+    }
+
+    [TestMethod]
+    public async Task WriteAsync_SignedTrailerWithALineAfterTheSignature_IsIncompleteBody()
+    {
+        var decoder = await DecodeSignedTrailerAsync($"x-amz-trailer-signature:{Signature}\r\na:1\r\n", new UnitTestChunkSignatureChain((SHA256.HashData([]), Signature)));
+
+        Assert.AreSame(S3Error.IncompleteBody, decoder.Finish());
+    }
+
     [TestMethod]
     public async Task WriteAsync_ALinePastTheLongestRead_IsIncompleteBody()
     {

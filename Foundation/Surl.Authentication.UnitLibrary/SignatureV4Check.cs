@@ -105,6 +105,12 @@ internal static class SignatureV4Check
     /// </summary>
     public const string StreamingSignedPayload = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD";
 
+    /// <summary>
+    /// The <c>x-amz-content-sha256</c> of an <c>aws-chunked</c> body whose every chunk is signed
+    /// and whose checksum trailer is signed too, as the AWS SDKs send by default.
+    /// </summary>
+    public const string StreamingSignedPayloadWithTrailer = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER";
+
     private const string StreamingPayloadPrefix = "STREAMING-";
 
     // An aws-chunked body sent to the S3 server: its hash is not the body's, so no body is bound;
@@ -118,7 +124,7 @@ internal static class SignatureV4Check
     private static HttpCredentialCheck WithChunkSignatures(
         HttpCredentialCheck check, AccountBook accounts, AwsSigV4Authorization authorization, string requestTime, string sentPayloadHash)
     {
-        if (sentPayloadHash != StreamingSignedPayload)
+        if (sentPayloadHash is not (StreamingSignedPayload or StreamingSignedPayloadWithTrailer))
         {
             return check;
         }

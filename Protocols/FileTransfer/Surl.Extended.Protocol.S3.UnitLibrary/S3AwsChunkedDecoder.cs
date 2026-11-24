@@ -18,7 +18,8 @@ namespace Surl.Extended.Protocol.S3;
 /// <param name="decodedSink">Where the chunks' data goes.</param>
 /// <param name="chunkSignatures">The chain each chunk's signature is checked against; <see langword="null"/> for unsigned chunks, which carry none.</param>
 /// <param name="decodedLength">The <c>x-amz-decoded-content-length</c>: the data's length, which it may not pass.</param>
-internal sealed class S3AwsChunkedDecoder(Stream decodedSink, IHttpChunkSignatureChain? chunkSignatures, long decodedLength) : Stream
+/// <param name="hasSignedTrailer">Whether the trailer ends in an <c>x-amz-trailer-signature</c> line, checked through <paramref name="chunkSignatures"/>.</param>
+internal sealed class S3AwsChunkedDecoder(Stream decodedSink, IHttpChunkSignatureChain? chunkSignatures, long decodedLength, bool hasSignedTrailer = false) : Stream
 {
     /// <summary>
     /// The longest chunk header or trailer line read, its CRLF included.
@@ -26,12 +27,15 @@ internal sealed class S3AwsChunkedDecoder(Stream decodedSink, IHttpChunkSignatur
     public const int MaxLineLength = 4096;
 
     private const string SignatureExtension = "chunk-signature=";
+    private const string SignatureFieldName = "x-amz-trailer-signature";
 
     private readonly List<byte> line = [];
     private readonly IncrementalHash chunkSha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
     private DecoderState state = DecoderState.ChunkHeader;
     private long chunkRemaining;
     private string? chunkSignature;
+    private readonly StringBuilder trailerLines = new();
+    private string? trailerSignature;
     private long decoded;
     private S3Error? fault;
 
@@ -253,17 +257,47 @@ internal sealed class S3AwsChunkedDecoder(Stream decodedSink, IHttpChunkSignatur
     {
         if (text.Length == 0)
         {
-            state = DecoderState.Done;
+            FinishTrailer();
             return;
         }
 
         var colon = text.IndexOf(':');
-        if (chunkSignatures is not null || colon <= 0)
+        if ((chunkSignatures is not null && !hasSignedTrailer) || colon <= 0 || trailerSignature is not null)
         {
             Fail(S3Error.IncompleteBody, default);
             return;
         }
 
-        Trailer[text[..colon].Trim()] = text[(colon + 1)..].Trim();
+        var name = text[..colon].Trim();
+        var value = text[(colon + 1)..].Trim();
+        if (hasSignedTrailer && name.Equals(SignatureFieldName, StringComparison.OrdinalIgnoreCase))
+        {
+            trailerSignature = value;
+            return;
+        }
+
+        trailerLines.Append(text).Append('\n');
+        Trailer[name] = value;
+    }
+
+    // A signed trailer must carry its signature, checked over the lines before it.
+    private void FinishTrailer()
+    {
+        if (!hasSignedTrailer)
+        {
+            state = DecoderState.Done;
+        }
+        else if (trailerSignature is null)
+        {
+            Fail(S3Error.IncompleteBody, default);
+        }
+        else if (!chunkSignatures!.VerifyTrailer(SHA256.HashData(Encoding.Latin1.GetBytes(trailerLines.ToString())), trailerSignature))
+        {
+            Fail(S3Error.SignatureDoesNotMatch, default);
+        }
+        else
+        {
+            state = DecoderState.Done;
+        }
     }
 }

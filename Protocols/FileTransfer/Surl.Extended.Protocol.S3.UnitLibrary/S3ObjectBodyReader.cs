@@ -24,6 +24,7 @@ internal static class S3ObjectBodyReader
         S3RequestFields.Value(fields, "x-amz-content-sha256") switch
         {
             "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" => S3PayloadForm.SignedChunks,
+            "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER" => S3PayloadForm.SignedChunksWithTrailer,
             "STREAMING-UNSIGNED-PAYLOAD-TRAILER" => S3PayloadForm.UnsignedChunksWithTrailer,
             { } value when value.StartsWith("STREAMING-", StringComparison.Ordinal) => S3PayloadForm.Unserved,
             _ => S3PayloadForm.Plain,
@@ -90,7 +91,7 @@ internal static class S3ObjectBodyReader
         using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using var checksum = checksumRequest is null ? null : new S3Checksum(checksumRequest.Algorithm);
         var sink = new S3UploadStream(session, md5, sha256, checksum);
-        using var decoder = form == S3PayloadForm.Plain ? null : new S3AwsChunkedDecoder(sink, chunkSignatures, DecodedLengthOf(request.Fields)!.Value);
+        using var decoder = form == S3PayloadForm.Plain ? null : new S3AwsChunkedDecoder(sink, chunkSignatures, DecodedLengthOf(request.Fields)!.Value, form == S3PayloadForm.SignedChunksWithTrailer);
         var outcome = await CopyAsync(request.Body, decoder ?? (Stream)sink, cancellationToken);
         var refusal = S3PutObject.BodyRefusal(outcome, sink.IsTooLarge) ?? decoder?.Finish();
         var received = refusal is null ? Received(checksumRequest, checksum, decoder) : null;
@@ -148,6 +149,6 @@ internal static class S3ObjectBodyReader
             return S3Error.MissingContentLength;
         }
 
-        return form == S3PayloadForm.SignedChunks && chunkSignatures is null ? S3Error.SignatureDoesNotMatch : null;
+        return form is S3PayloadForm.SignedChunks or S3PayloadForm.SignedChunksWithTrailer && chunkSignatures is null ? S3Error.SignatureDoesNotMatch : null;
     }
 }

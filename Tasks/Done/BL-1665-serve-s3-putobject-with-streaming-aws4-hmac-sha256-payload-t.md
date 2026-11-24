@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1665 — Serve S3 PutObject with STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER bodies as the AWS SDK sends by default
 
@@ -57,26 +57,28 @@ the AWS SDK's default `PutObjectAsync` gets `200` instead of `501 NotImplemented
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Foundation/Surl.Authentication.UnitTests` show a `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER`
+- [x] Named tests in `Foundation/Surl.Authentication.UnitTests` show a `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER`
       request gets a chain that verifies each chunk and then the trailer signature, and refuses a tampered
       trailer line or trailer signature.
-- [ ] A named regression test in `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests` replays a
+- [x] A named regression test in `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests` replays a
       `PutObject` with that form and an `x-amz-checksum-crc32` trailer and gets `200` with the object stored and
       the checksum echoed.
-- [ ] Named S3 tests show a bad trailer signature `403 SignatureDoesNotMatch` and a wrong trailing checksum
+- [x] Named S3 tests show a bad trailer signature `403 SignatureDoesNotMatch` and a wrong trailing checksum
       `400 BadDigest`, neither stored, and `STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD` still `501 NotImplemented`.
-- [ ] Notes record the decision, marked "Decided by Claude under Stewart's delegation", that the signed trailer
+- [x] Notes record the decision, marked "Decided by Claude under Stewart's delegation", that the signed trailer
       form is served, and the run files a `docs` task to amend ADR-0108 and `Documentation/Conformance/Extended/S3.md`.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and the
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and the
       Authentication and S3 libraries keep 100% line and branch coverage on every member this task changes; no
       test needs `TestCategory=Integration`.
 
 ## Notes
 
 - If confirming the head shows a different cause than the signed trailer form, record what the head is in Notes,
+- Decided by Claude under Stewart's delegation: the signed trailer form `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER` is served (per the AWS sigv4-streaming-trailers page: every chunk signature, then `x-amz-trailer-signature` over `AWS4-HMAC-SHA256-TRAILER`, time, scope, the final chunk signature and the SHA-256 of the trailer lines each ended by LF; then the trailing checksum). The head carries `x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER`; ECDSA forms stay 501. Docs follow-up filed as BL-1671.
   fix that cause instead, and keep the same regression test shape.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Signed trailer form served; build clean, fast tests green

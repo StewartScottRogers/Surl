@@ -172,7 +172,6 @@ public sealed class S3ObjectBodyReaderTests
 
     [TestMethod]
     [DataRow("STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD")]
-    [DataRow("STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER")]
     [DataRow("STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD-TRAILER")]
     public async Task ServeAsync_AnotherStreamingForm_Is501NotImplemented(string contentSha256)
     {
@@ -193,6 +192,80 @@ public sealed class S3ObjectBodyReaderTests
 
         StringAssert.Contains(response, $"\r\nETag: {Md5ETag(Encoding.UTF8.GetBytes("hello world"))}\r\nx-amz-checksum-crc32: {HelloWorldCrc32}\r\nContent-Length: 0\r\n");
         Assert.AreEqual("hello world", harness.ReadFile("examplebucket/a.txt"));
+    }
+
+    private const string TrailerSignature = "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff";
+
+    // A signed-trailer PUT of "hello world" in two signed chunks, the final one and the trailer signed too.
+    private static string SignedTrailerPut(string checksumLine, string signatureLine)
+    {
+        var body = $"6;chunk-signature={FirstChunkSignature}\r\nhello \r\n5;chunk-signature={SecondChunkSignature}\r\nworld\r\n"
+            + $"0;chunk-signature={FinalChunkSignature}\r\n{checksumLine}\r\n{signatureLine}\r\n\r\n";
+
+        return "PUT /examplebucket/a.txt HTTP/1.1\r\nHost: s3.test\r\nAuthorization: AWS4-HMAC-SHA256 signed\r\n"
+            + "x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER\r\nContent-Encoding: aws-chunked\r\nx-amz-trailer: x-amz-checksum-crc32\r\n"
+            + $"x-amz-decoded-content-length: 11\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n{body}";
+    }
+
+    private static UnitTestChunkSignatureChain SignedTrailerChain(string checksumLine) =>
+        new(
+            (SHA256.HashData("hello "u8), FirstChunkSignature),
+            (SHA256.HashData("world"u8), SecondChunkSignature),
+            (SHA256.HashData([]), FinalChunkSignature))
+        {
+            ExpectedTrailer = (SHA256.HashData(Encoding.Latin1.GetBytes(checksumLine + "\n")), TrailerSignature),
+        };
+
+    [TestMethod]
+    public async Task ServeAsync_SignedTrailerPutWithItsCrc32_IsStoredAndTheChecksumEchoed()
+    {
+        var line = $"x-amz-checksum-crc32:{HelloWorldCrc32}";
+        var chain = SignedTrailerChain(line);
+        var harness = Harness(chain);
+
+        var response = await harness.SendRawAsync(SignedTrailerPut(line, $"x-amz-trailer-signature:{TrailerSignature}"));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        StringAssert.Contains(response, $"\r\nETag: {Md5ETag(Encoding.UTF8.GetBytes("hello world"))}\r\nx-amz-checksum-crc32: {HelloWorldCrc32}\r\nContent-Length: 0\r\n");
+        Assert.AreEqual("hello world", harness.ReadFile("examplebucket/a.txt"));
+        Assert.HasCount(3, chain.Asked);
+        Assert.HasCount(1, chain.AskedTrailers);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedTrailerPutWithABadTrailerSignature_Is403SignatureDoesNotMatchAndNotStored()
+    {
+        var line = $"x-amz-checksum-crc32:{HelloWorldCrc32}";
+        var harness = Harness(SignedTrailerChain(line));
+
+        var response = await harness.SendRawAsync(SignedTrailerPut(line, $"x-amz-trailer-signature:{new string('0', 64)}"));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+        StringAssert.Contains(response, "<Code>SignatureDoesNotMatch</Code>");
+        Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "examplebucket/a.txt")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedTrailerPutWithAWrongChecksum_Is400BadDigestAndNotStored()
+    {
+        var line = "x-amz-checksum-crc32:AAAAAA==";
+        var harness = Harness(SignedTrailerChain(line));
+
+        var response = await harness.SendRawAsync(SignedTrailerPut(line, $"x-amz-trailer-signature:{TrailerSignature}"));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 400 Bad Request\r\n");
+        StringAssert.Contains(response, "<Code>BadDigest</Code><Message>The CRC32 you specified did not match the calculated checksum.</Message>");
+        Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "examplebucket/a.txt")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedTrailerPutWithNoChainFromTheLogin_Is403SignatureDoesNotMatchBeforeTheBody()
+    {
+        var harness = Harness();
+
+        var response = await harness.SendRawAsync(SignedTrailerPut($"x-amz-checksum-crc32:{HelloWorldCrc32}", $"x-amz-trailer-signature:{TrailerSignature}"));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
     }
 
     [TestMethod]

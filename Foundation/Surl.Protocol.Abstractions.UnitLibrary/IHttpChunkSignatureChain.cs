@@ -19,4 +19,14 @@ public interface IHttpChunkSignatureChain
     /// <param name="chunkSignature">The <c>chunk-signature</c> the chunk's header carries, as sent.</param>
     /// <returns><see langword="true"/> when the signature is the one the chain expects.</returns>
     bool VerifyNextChunk(ReadOnlySpan<byte> chunkSha256, string chunkSignature);
+
+    /// <summary>
+    /// Checks the <c>x-amz-trailer-signature</c> of a body sent with
+    /// <c>x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER</c>, once the final
+    /// empty chunk has been checked: it is chained from that chunk's signature.
+    /// </summary>
+    /// <param name="trailerSha256">The SHA-256 of the trailer's lines, each as <c>name:value</c> ended by a line feed, the signature line left out.</param>
+    /// <param name="trailerSignature">The signature the <c>x-amz-trailer-signature</c> line carries, as sent.</param>
+    /// <returns><see langword="true"/> when the signature is the one the chain expects.</returns>
+    bool VerifyTrailer(ReadOnlySpan<byte> trailerSha256, string trailerSignature);
 }

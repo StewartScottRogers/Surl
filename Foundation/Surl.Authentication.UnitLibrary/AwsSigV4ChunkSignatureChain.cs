@@ -34,4 +34,15 @@ internal sealed class AwsSigV4ChunkSignatureChain(
 
         return true;
     }
+
+    /// <inheritdoc/>
+    public bool VerifyTrailer(ReadOnlySpan<byte> trailerSha256, string trailerSignature)
+    {
+        ArgumentNullException.ThrowIfNull(trailerSignature);
+
+        var expected = AwsSigV4Calculation.ComputeTrailerSignature(authorization, requestTime, signingKey, previousSignature, trailerSha256);
+        var sent = AwsSigV4Authorization.ReadSignature(trailerSignature);
+
+        return sent is not null && secretComparer.FixedTimeEquals(expected, sent);
+    }
 }
