@@ -13,6 +13,8 @@ namespace Surl.Conformance;
 /// </summary>
 public sealed class UpstreamTestCasePortComparison
 {
+    private const int TimingDependentCase = 251;
+
     private static readonly Regex FindingRow = new("^\\| `test([0-9]+)`", RegexOptions.CultureInvariant);
 
     private UpstreamTestCasePortComparison(IReadOnlyList<UpstreamTestCasePortRow> rows, IReadOnlySet<int> listedFindings)
@@ -20,9 +22,10 @@ public sealed class UpstreamTestCasePortComparison
         Rows = rows;
         PortDefects = [.. rows.Where(row => row.Verdict == CurlPortVerdictKind.PortDefect)];
         SurlDefects = [.. rows.Where(row => row.Verdict == CurlPortVerdictKind.SurlDefect)];
-        UnlistedPortDefects = [.. PortDefects.Where(row => !listedFindings.Contains(row.Number))];
+        UnlistedPortDefects = [.. PortDefects.Where(row => !IsListedFinding(row, listedFindings))];
         var defects = PortDefects.Select(row => row.Number).ToHashSet();
-        FindingsNoLongerAppearing = [.. listedFindings.Where(number => !defects.Contains(number)).Order()];
+        var agreements = rows.Where(row => row.Verdict == CurlPortVerdictKind.Agreement).Select(row => row.Number).ToHashSet();
+        FindingsNoLongerAppearing = [.. listedFindings.Where(number => !defects.Contains(number) && !(number == TimingDependentCase && agreements.Contains(number))).Order()];
         Families = CountFamilies(rows);
     }
 
@@ -139,6 +142,12 @@ public sealed class UpstreamTestCasePortComparison
         text.Append(FormatTotalRow());
         return text.ToString();
     }
+
+    // ADR-0089 amendment 10: test251 is judged either way. Showing the port's case timeout is the listed
+    // finding; finishing is not stale; any other port failure is not the listed finding.
+    private static bool IsListedFinding(UpstreamTestCasePortRow row, IReadOnlySet<int> listedFindings) =>
+        listedFindings.Contains(row.Number)
+        && (row.Number != TimingDependentCase || row.Port.Reason == UpstreamTestCaseResult.TimeoutReason);
 
     private static List<UpstreamTestCasePortFamilyCount> CountFamilies(IReadOnlyList<UpstreamTestCasePortRow> rows) =>
     [

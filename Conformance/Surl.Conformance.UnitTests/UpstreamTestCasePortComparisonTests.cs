@@ -56,6 +56,44 @@ public sealed class UpstreamTestCasePortComparisonTests
     }
 
     [TestMethod]
+    public void Compare_Test251ShowsTheTimeout_IsTheListedFinding()
+    {
+        UpstreamTestCasePortRow[] rows = [new(251, "ftp", UpstreamTestCaseResult.Pass(251), UpstreamTestCaseResult.Fail(251, UpstreamTestCaseResult.TimeoutReason))];
+
+        Assert.IsTrue(UpstreamTestCasePortComparison.Compare(rows, new HashSet<int> { 251 }).Passes);
+    }
+
+    [TestMethod]
+    public void Compare_Test251Finishes_IsNeitherStaleNorAFailure()
+    {
+        UpstreamTestCasePortRow[] rows = [new(251, "ftp", UpstreamTestCaseResult.Pass(251), UpstreamTestCaseResult.Pass(251))];
+
+        var comparison = UpstreamTestCasePortComparison.Compare(rows, new HashSet<int> { 251 });
+
+        Assert.IsTrue(comparison.Passes);
+        Assert.IsEmpty(comparison.FindingsNoLongerAppearing);
+    }
+
+    [TestMethod]
+    public void Compare_Test251FailsADifferentWay_Fails()
+    {
+        UpstreamTestCasePortRow[] rows = [new(251, "ftp", UpstreamTestCaseResult.Pass(251), UpstreamTestCaseResult.Fail(251, "protocol"))];
+
+        var comparison = UpstreamTestCasePortComparison.Compare(rows, new HashSet<int> { 251 });
+
+        Assert.IsFalse(comparison.Passes);
+        Assert.AreEqual(251, comparison.UnlistedPortDefects.Single().Number);
+    }
+
+    [TestMethod]
+    public void Compare_AnotherListedCaseThatFinishes_StillFailsAsStale()
+    {
+        UpstreamTestCasePortRow[] rows = [new(252, "ftp", UpstreamTestCaseResult.Pass(252), UpstreamTestCaseResult.Pass(252))];
+
+        Assert.IsFalse(UpstreamTestCasePortComparison.Compare(rows, new HashSet<int> { 252 }).Passes);
+    }
+
+    [TestMethod]
     public void FormatFamilyTable_Rows_CountsEachFamilyInOrdinalOrderAndTheTotal()
     {
         var comparison = UpstreamTestCasePortComparison.Compare(Rows, new HashSet<int> { 1 });
