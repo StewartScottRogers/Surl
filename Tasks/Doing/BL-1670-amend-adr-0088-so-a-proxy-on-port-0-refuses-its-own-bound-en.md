@@ -30,3 +30,4 @@ BL-1664 made the allowed-origin rule read the end points proxy and SOCKS listene
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
