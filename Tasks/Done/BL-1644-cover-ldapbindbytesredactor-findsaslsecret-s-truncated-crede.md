@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1644 — Cover LdapBindBytesRedactor.FindSaslSecret's truncated-credentials branch
 
@@ -31,10 +31,10 @@ member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Ldap.UnitTests` test redacts a BindRequest with SASL mechanism `PLAIN` whose credentials
+- [x] A named `Surl.Protocol.Ldap.UnitTests` test redacts a BindRequest with SASL mechanism `PLAIN` whose credentials
       octet string declares more bytes than the message holds, and asserts the logged bytes withhold everything from
       the credentials' value to the end of the message.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Ldap.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Ldap.UnitLibrary` reports `100 | 100`
       with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
@@ -45,3 +45,4 @@ member.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Added SaslPlainBindWhoseCredentialsOverrunTheirField test; Ldap 100|100, 0 failing members
