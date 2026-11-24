@@ -36,6 +36,20 @@ internal sealed class ManualTimeProvider : TimeProvider
         }
     }
 
+    /// <summary>
+    /// How many timers have been created so far.
+    /// </summary>
+    public int TimerCount
+    {
+        get
+        {
+            lock (gate)
+            {
+                return timers.Count;
+            }
+        }
+    }
+
     public override DateTimeOffset GetUtcNow()
     {
         lock (gate)
