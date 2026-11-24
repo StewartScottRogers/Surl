@@ -56,36 +56,12 @@ the table does not list, and when a listed one stops appearing (ADR-0089 decisio
 
 ### Findings (linux-x64)
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): 13 cases showed
-one port defect on linux-x64 and are listed for linux-x64 only (a heading that names a platform in parentheses
-applies on that platform alone). On Windows the family has no finding.
-
-| Test | Mirrors | Finding |
-| --- | --- | --- |
-| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(OAUTHBEARER, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(XOAUTH2, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(XOAUTH2, True)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedNamedChoiceMechanism_LogsInAndWritesTheStoredMessage(DIGEST-MD5, digest-md5)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedNamedChoiceMechanism_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage(AUTH=+LOGIN, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage(AUTH=CRAM-MD5, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(OAUTHBEARER, False)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(OAUTHBEARER, True)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(XOAUTH2, True)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(LOGIN, False, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(LOGIN, True, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(PLAIN, False, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-
-#### M-1: upstream curl's TLS session ends with a broken pipe, the port's does not
-
-- **Cases:** every row above (the case name's parentheses hold the data row).
-- **Measured:** exit code, standard output and the stored mail agree. The only difference is `surl`'s `-v` note:
-  upstream curl's run has `Exchange N ended because the protocol server threw IOException: Unable to write data
-  to the transport connection: Broken pipe.` where the port's run ends the exchange without it. Upstream curl
-  (OpenSSL) drops the connection after the last command; the port ends the TLS session another way, so the
-  server's final write meets a closed peer only for upstream.
-- **Classification:** port defect, in how the port ends a TLS session after the exchange (notes only; no
-  output, exit code or stored-mail difference).
+None. Run 44044472038 (BL-1343) listed 13 STARTTLS and IMAPS login cases (M-1) because `surl`'s `-v` note `Exchange N
+ended because the protocol server threw IOException: ... Broken pipe.` showed on upstream curl's run and not the port's.
+BL-1626 removed them: runs 45198867449 and 45412760425 showed none of the 13 (the note came and went from run to run),
+and the note is how a TLS connection ended, which ADR-0089 Amendment 1 leaves uncompared
+(`CurlPortRunSetup.WithoutTlsEndings`, now applied to this family). The exit code, output and stored mail still judge
+each case.
 
 ## osx-arm64
 
@@ -102,7 +78,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 108 passed, 13 failed, 0 not executed.
 - **Detail:** Failed: 13 cases, all SASL or STARTTLS logins: CRAM-MD5 authentication, `LOGIN` after STARTTLS (also with `--sasl-ir`), `PLAIN` after STARTTLS, the `LOGIN` command, `Smtp_Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage`, `Smtp_Send_ForcedBearerMechanismAfterStartTls_...` (OAUTHBEARER and XOAUTH2 rows), `Imap_Fetch_ImapsForcedBearerMechanism_...` (OAUTHBEARER and XOAUTH2 rows) and `Imap_Fetch_ImapsForcedNamedChoiceMechanism_...` (DIGEST-MD5).
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** All 13 failures were stale listings of M-1 (a TLS-ending note, not compared by ADR-0089 Amendment 1): the findings table is now empty and the test applies `WithoutTlsEndings`. Run 45198867449 failed the same 13; run 44044472038 showed the note on all 13. Nothing was added.
 
 ### Earlier run (44044472038, 2026-11-17)
 

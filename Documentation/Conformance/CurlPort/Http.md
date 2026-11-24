@@ -130,7 +130,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 35 passed, 1 failed, 21 not executed.
 - **Detail:** Failed: `Head_File_ExitsZeroWithAnHttp11OkStatusLine`. Not executed: 18 "Test is only supported on Windows" and 3 with no message.
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** The one failure was a test defect, already fixed by BL-1625: the two runs' `ETag:` header differed (surl derives it from each run's own file modification time), and `CurlPortResultNormaliser` now replaces `ETag:` values with `<etag>`. Run 45198867449 failed the same case on the same line 4; run 44044472038 did not run it (new at BL-1624's base). Nothing is added.
 
 ### Earlier run (44044472038, 2026-11-17)
 

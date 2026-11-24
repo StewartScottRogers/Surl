@@ -43,23 +43,12 @@ None: the Curl port agrees with upstream curl on every FTP and FTPS case on Wind
 
 ### Findings (linux-x64)
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): four TLS cases
-showed one port defect on linux-x64 and are listed for linux-x64 only (a heading that names a platform in
-parentheses applies on that platform alone).
-
-| Phase 7 test | Mirrors | Finding |
-| --- | --- | --- |
-| `Download_AccountOverImplicitFtps_WritesTheFile` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverImplicitFtps_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Download_AccountOverExplicitTls_WritesTheFile[--ssl-reqd]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Download_AccountOverExplicitTls_WritesTheFile[--ssl-reqd --ftp-ssl-ccc]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Download_AccountOverExplicitTls_WritesTheFile[--ftp-ssl-control]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-
-#### FTP-1: upstream curl's TLS session ends with a broken pipe, the port's does not
-
-- **Measured:** exit code, standard output and the stored file agree. The only difference is `surl`'s `-v` note on
-  line 3: upstream curl's run has `Exchange 1 ended because the protocol server threw IOException: Unable to write
-  data to the transport connection: Broken pipe.`, the port's run has no such note (the same finding as Mail's M-1).
-- **Classification:** port defect, in how the port ends a TLS session after the exchange (notes only).
+None. Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343) listed four TLS cases
+(FTP-1) because `surl`'s `-v` note `Exchange 1 ended because the protocol server threw IOException: ... Broken pipe.`
+showed on upstream curl's run and not the port's. BL-1626 removed them: runs 45198867449 and 45412760425 showed none of
+the four (the same note came and went from run to run), and the note is how a TLS connection ended, which ADR-0089
+Amendment 1 leaves uncompared (`CurlPortRunSetup.WithoutTlsEndings`, now applied to this family). The exit code, output
+and stored file still judge each case.
 
 ## osx-arm64
 
@@ -76,7 +65,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 39 passed, 4 failed, 3 not executed.
 - **Detail:** Failed: `Download_AccountOverImplicitFtps_WritesTheFile`, `Download_AccountOverExplicitTls_WritesTheFile` (`--ssl-reqd`, `--ssl-reqd --ftp-ssl-ccc`, `--ftp-ssl-control`). Not executed: 3, "Test is only supported on Windows".
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** All 4 failures were stale listings of FTP-1 (a TLS-ending note, not compared by ADR-0089 Amendment 1): the findings table is now empty and the test applies `WithoutTlsEndings`. Run 45198867449 failed the same 4; run 44044472038 showed the note on all 4. Nothing was added.
 
 ### Earlier run (44044472038, 2026-11-17)
 

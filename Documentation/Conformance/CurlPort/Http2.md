@@ -38,7 +38,7 @@ case mirrors the `UpstreamCurlFetchesFromSurlOverHttp2Tests` test of the same na
 
 ### Findings (win-x64)
 
-Shown on Windows only (BL-1625, from run 45412760425): on osx-arm64 the port agrees with upstream curl on these eight cases, so the run reported each listing as stale. The linux-x64 job failed the same cases; BL-1626 classifies those. A heading that names a platform in parentheses applies on that platform alone.
+Shown on Windows only (BL-1625, from run 45412760425): on osx-arm64 the port agrees with upstream curl on these eight cases, so the run reported each listing as stale. The linux-x64 job reported the same eight as stale (BL-1626), so the listing is scoped away from linux-x64 too. A heading that names a platform in parentheses applies on that platform alone.
 
 | Test | Mirrors | Finding |
 | --- | --- | --- |
@@ -59,6 +59,13 @@ Run 45412760425 (BL-1624), classified by BL-1625. The https cases above agree on
 | --- | --- | --- |
 | `GetWithDigest_PriorKnowledge_IsServedOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithDigest_PriorKnowledge_IsServedOverHttp2` | [2](#2-the-port-resets-stream-1-after-the-digest-401) |
 
+### Findings (linux-x64)
+
+Run 45412760425 (BL-1624), classified by BL-1626: the same extra `RST_STREAM` as on osx-arm64 shows on linux-x64 (reference build `153CA463…4E45`).
+
+| Test | Mirrors | Finding |
+| --- | --- | --- |
+| `GetWithDigest_PriorKnowledge_IsServedOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithDigest_PriorKnowledge_IsServedOverHttp2` | [2](#2-the-port-resets-stream-1-after-the-digest-401) |
 ### 1. The port does not offer h2 by ALPN on https
 
 - **Command lines** (every `https` case), each against `surl --self-signed https://127.0.0.1:0/`, with
@@ -89,7 +96,7 @@ Run 45412760425 (BL-1624), classified by BL-1625. The https cases above agree on
 ### 2. The port resets stream 1 after the Digest 401
 
 - **Case:** `curl -sS -f --http2-prior-knowledge --digest -u tester:secret -w %{http_version} {surl}/hello.txt`
-  against `surl --user-file <tester:secret>`, osx-arm64 (run 45412760425, BL-1625).
+  against `surl --user-file <tester:secret>`, osx-arm64 and linux-x64 (run 45412760425, BL-1625 and BL-1626).
 - **Exit code and output:** both 0, same body and version.
 - **First differing item:** the decoded request frames (`http`, so frames are compared, ADR-0089 amendment 4).
   After the 401 both clients send the same `SETTINGS` ack and a second `HEADERS` on stream 3 with the Digest
@@ -113,7 +120,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 5 passed, 10 failed, 0 not executed.
 - **Detail:** Failed: `Get_FileLargerThanTheInitialWindow_IsServedWholeOverHttp2`, `GetWithBasic_WrongPassword_IsRefusedWith401OverHttp2`, `GetWithBasic_HttpsByAlpn_IsServedOverHttp2`, `Get_HttpsByAlpn_IsServedOverHttp2`, `GetWithDigest_HttpsByAlpn_IsServedOverHttp2`, `GetWithDigest_PriorKnowledge_IsServedOverHttp2`, `Upload_AllowUploads_IsStoredWith201OverHttp2`, `Get_TwoUrls_ReuseOneHttp2Connection`, `GetWithRange_HttpsByAlpn_IsServedTheFirstTenBytesWith206OverHttp2`, `GetWithHttp2AndInclude_File_ShowsThe101ThenTheHttp2Head`. All 15 cases executed.
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** Of the 10 failures: 8 were stale listings of finding 1 (`Get_HttpsByAlpn`, `GetWithRange_HttpsByAlpn`, `GetWithBasic_HttpsByAlpn`, `GetWithBasic_WrongPassword`, `GetWithDigest_HttpsByAlpn`, `Upload_AllowUploads`, `Get_FileLargerThanTheInitialWindow`, `Get_TwoUrls_ReuseOneHttp2Connection`): on linux-x64, as on osx-arm64, the port offers h2, so they stay under `### Findings (win-x64)` only, as BL-1625 scoped them; `GetWithDigest_PriorKnowledge_IsServedOverHttp2` shows finding 2 on linux-x64 as on osx-arm64, now listed under `### Findings (linux-x64)`; `GetWithHttp2AndInclude_File_ShowsThe101ThenTheHttp2Head` was the `ETag:` test defect BL-1625 fixed. Only `Head_HttpsByAlpn_ExitsZeroWithAnHttp2OkHead` (finding 1, unscoped) still shows. Runs 45198867449 and 44044472038 did not execute these Http2 cases on linux-x64, so no verdict differed.
 
 ### Earlier run (44044472038, 2026-11-17)
 

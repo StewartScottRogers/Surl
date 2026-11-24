@@ -1317,7 +1317,8 @@ public sealed class CurlPortBesideUpstreamCurlOverMailTests
     }
 
     private static CurlPortSurlSide NormaliseSide(CurlPortSurlSide side, IReadOnlyDictionary<string, byte[]>? stored, string notes) =>
-        new(side.Port, notes, stored ?? new Dictionary<string, byte[]>())
+        // How a TLS session ended is left uncompared (ADR-0089 Amendment 1; BL-1626).
+        new(side.Port, CurlPortRunSetup.WithoutTlsEndings(notes), stored ?? new Dictionary<string, byte[]>())
         {
             RelayPort = side.RelayPort,
             ClientRequestBytes = side.ClientRequestBytes is null ? null : [.. side.ClientRequestBytes.Select(NormaliseServerChosenDigests)],

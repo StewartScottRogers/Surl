@@ -426,6 +426,8 @@ public sealed class CurlPortBesideUpstreamCurlOverFtpTests
         var measurement = await PinnedCurlPortBesideUpstreamCurl.MeasureAsync(
             TestContext,
             measurementCase,
+            // How a TLS session ended is left uncompared (ADR-0089 Amendment 1; BL-1626).
+            CurlPortRunSetup.None with { ComparedNotes = CurlPortRunSetup.WithoutTlsEndings },
             async (surl, cancellationToken) =>
             {
                 PinModificationTimes(surl.ServedDirectory!);

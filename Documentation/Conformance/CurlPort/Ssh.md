@@ -73,12 +73,10 @@ SSH-1 shows on Windows only for these four cases: the linux-x64 port build agree
 
 ### Findings (linux-x64)
 
-Run 44044472038 (BL-1343), classified from its `phase-7-linux-x64-results` artifact. Upstream curl is the
-linux-x64 build pinned in `UpstreamCurlBuilds.json`.
-
-| Phase 7 test | Mirrors | Finding |
-| --- | --- | --- |
-| `Login_PublicKey_DownloadsTheFile[scp]` | `UpstreamCurlLogsInToSurlOverSshTests.Login_PublicKey_DownloadsTheFile` | [SSH-2](#ssh-2-the-port-ends-an-scp-public-key-download-differently-on-linux-x64) |
+None. Run 44044472038 (BL-1343) listed `Login_PublicKey_DownloadsTheFile[scp]` (SSH-2) because `surl`'s `-v` note
+`SSH channel 0 handler failed: The SSH channel was closed before the data was sent.` showed on upstream curl's run and
+not the port's. BL-1626 removed it: runs 45198867449 and 45412760425 did not show it, and it is an scp teardown note,
+which ADR-0089 Amendment 6 leaves uncompared (the test's `TeardownNote` now names it).
 
 ### Findings (osx-arm64)
 
@@ -102,15 +100,6 @@ osx-arm64 reference build `04E0E69B…EEBF` (curl 8.21.0, libssh2 1.11.1).
   a defect of the macOS libssh2 build with these two legacy ciphers, not behaviour curl documents; the port is
   listed because the comparison cannot call a working download right where upstream crashed. The cause inside the
   port is not traced.
-
-### SSH-2: the port ends an scp public-key download differently on linux-x64
-
-- **Case:** `Login_PublicKey_DownloadsTheFile[scp]`; command line `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester: --key id_test --pubkey id_test.pub {surl}/a.txt`.
-- **Measured:** both clients exit 0 and write `hello world`. The only difference is `surl`'s `-v` note on line 11:
-  upstream curl's run has `SSH channel 0 handler failed: The SSH channel was closed before the data was sent.`
-  (upstream curl closes the channel as soon as it has the file), the port's run has no such note.
-- **Classification:** port defect, in how the port ends an scp channel (notes only; no output or exit code
-  difference).
 
 ### SSH-1: the port offers only the WinCNG backend's SSH algorithms
 
@@ -162,7 +151,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 71 passed, 1 failed, 7 not executed.
 - **Detail:** Failed: `Login_PublicKey_DownloadsTheFile` (`scp`). Not executed: 3 with no message, 2 "Test is only supported on OSX", 1 "Test is only supported on Windows", 1 Inconclusive ("The account's own home directory holds no .ssh/known_hosts for curl to fall back to.").
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** The one failure was a stale listing of SSH-2 (`SSH channel 0 handler failed: The SSH channel was closed before the data was sent.`, an scp teardown note, not compared by ADR-0089 Amendment 6): the row is removed and the test leaves that note out. Run 45198867449 failed the same case; run 44044472038 showed the note. Nothing was added.
 
 ### Earlier run (44044472038, 2026-11-17)
 

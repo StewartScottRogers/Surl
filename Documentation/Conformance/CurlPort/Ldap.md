@@ -217,7 +217,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 47 passed, 0 failed, 22 not executed.
 - **Detail:** Not executed: 22. 21 are the `WinLdap_` cases, Inconclusive with "WinLdap_ cases judge the WinLDAP build of upstream curl, which is Windows-only; the OpenLdap_ twins cover this platform."; 1 is "Test is only supported on Windows". The 47 `OpenLdap_` cases all passed on this run.
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** No case failed, so nothing is added. The listed L-1 to L-4 findings held (none reported stale) in this run, as in run 44044472038 and in run 45198867449.
 
 ### Earlier run (44044472038, 2026-11-17)
 

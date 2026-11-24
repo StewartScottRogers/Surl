@@ -214,4 +214,4 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 1 passed, 0 failed, 0 not executed.
 - **Detail:** Every case passed.
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** Nothing failed, so nothing is added: the listed UTC-4 (`test251`) and UTC-5 (`test1072`, `test1073`) still showed. One case flipped between runs: `test251` showed its timeout in runs 44044472038 and 45412760425 but was reported stale in run 45198867449 (it finished that time). The case is a 60-second timing race with a deliberately slow server, which no ADR-0089 amendment covers, so it stays listed; a decision task is filed (see BL-1626 Notes).

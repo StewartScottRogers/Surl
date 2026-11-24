@@ -112,7 +112,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 
 - **This family:** 12 passed, 1 failed, 0 not executed.
 - **Detail:** Failed: `Head_OverTcpWithHttp3On_CarriesAltSvcNamingThePort`.
-- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+- **Triaged by BL-1626.** The one failure was the same `ETag:` test defect as `Http.md` (here the lower-case `etag:` header), already fixed by BL-1625's `CurlPortResultNormaliser`; run 45198867449 failed it the same way. Nothing is added.
 
 ### Earlier run (44044472038, 2026-11-17)
 
