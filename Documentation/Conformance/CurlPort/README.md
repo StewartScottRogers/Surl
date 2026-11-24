@@ -116,9 +116,9 @@ they are the handoff's 31 findings.
 **Not measurable** (ADR-0089 Amendment 9): the `OpenLdap_` cases and the RTSP family on `osx-arm64`
 (the reference build lists no `ldap` or `rtsp`); the `WinLdap_` cases, the libcurl rows and the
 `[OSCondition(Windows)]` cases on both; the extended clients are outside Phase 7. Phase 7's closing
-condition for a platform holds in parts 1 and 3 on both platforms (the pin exists, every failure is a
-row). Part 2 holds for every measured family; part 4, the literal line "not measurable on <platform>:
-<reason>" in each family file, is open and is held by BL-1648.
+condition for a platform holds in all four parts on both platforms (the pin exists, every failure is a
+row, part 2 holds for every measured family, and each family file carries the literal line "not
+measurable on <platform>: <reason>" for its not-measurable rows, added by BL-1648).
 
 Two pairs of findings share a root and are worth fixing together: HTTP/2's finding 1 and HTTP/3's
 finding 2 (no `h2` offered by ALPN), and HTTP's finding 1 with SSH's SSH-1 (the port offers the WinCNG

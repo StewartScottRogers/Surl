@@ -207,6 +207,8 @@ the port is not traced, only what differs.
 Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
 - **This family:** 0 passed, 0 failed, 69 not executed.
+- **Not measurable.** not measurable on osx-arm64: the `OpenLdap_` cases (LDAP and LDAPS) have no oracle there; the OpenLDAP supplementary build is Linux only (`.github/actions/upstream-curl`, `openldap` input) and the osx-arm64 reference build lists no `ldap` (ADR-0089 Amendment 9).
+- **Not measurable.** not measurable on osx-arm64: the `WinLdap_` cases need upstream curl linked against WinLDAP, which exists on Windows only (BL-1343; ADR-0089 Amendment 9).
 - **Detail:** Not executed: all 69. 21 are the `WinLdap_` cases (Windows-only, as on linux-x64), 1 is "Test is only supported on Windows", and the 47 `OpenLdap_` cases are Inconclusive with "UpstreamCurlBuilds.json pins no upstream curl linked against OpenLDAP for osx-arm64; it pins /opt/upstream-curl/8.21.0-openldap/curl" (the `ldap` protocol is not in the osx-arm64 reference build). That is the locator's message, not a finding.
 - **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
 - **Triaged by BL-1625.** No case of this family failed on osx-arm64, so nothing is added to its findings table. The Curl port is never an oracle (ADR-0003).
@@ -216,6 +218,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
 
 - **This family:** 47 passed, 0 failed, 22 not executed.
+- **Not measurable.** not measurable on linux-x64: the `WinLdap_` cases need upstream curl linked against WinLDAP, which exists on Windows only (BL-1343; ADR-0089 Amendment 9).
 - **Detail:** Not executed: 22. 21 are the `WinLdap_` cases, Inconclusive with "WinLdap_ cases judge the WinLDAP build of upstream curl, which is Windows-only; the OpenLdap_ twins cover this platform."; 1 is "Test is only supported on Windows". The 47 `OpenLdap_` cases all passed on this run.
 - **Triaged by BL-1626.** No case failed, so nothing is added. The listed L-1 to L-4 findings held (none reported stale) in this run, as in run 44044472038 and in run 45198867449.
 

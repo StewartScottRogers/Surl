@@ -672,8 +672,8 @@ recorded, not chased).
 - On `linux-x64` and `osx-arm64`: the `WinLdap_` cases (upstream curl linked against WinLDAP exists on Windows
   only), the libcurl rows (upstream's static builds carry no shared libcurl, and the port's `Libcurl.dll` is
   pinned for `win-x64` only) and the cases under `[OSCondition(OperatingSystems.Windows)]`.
-- Phase 7 is not yet closed on `linux-x64` and `osx-arm64`: Amendment 9's condition 4, a "not measurable on
-  <platform>: <reason>" line in each family file, is open and held by BL-1648.
+- Phase 7 is closed on `linux-x64` and `osx-arm64`: Amendment 9's condition 4, a "not measurable on
+  <platform>: <reason>" line in each family file, holds (BL-1648).
 - The extended clients against upstream curl: upstream has no such schemes, so `Extended.md` records all
   19 clients judged by their specifications alone (ADR-0089 decision 9).
 - Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.

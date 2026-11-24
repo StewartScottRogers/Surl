@@ -190,8 +190,8 @@ task board in `Tasks/`, never here.
   the `OpenLdap_` cases and RTSP on `osx-arm64` (the reference build lists no `ldap` or `rtsp`), the
   `WinLdap_` cases, the libcurl rows and the `[OSCondition(Windows)]` cases on both non-Windows
   platforms, and the extended clients (outside Phase 7). The closing condition holds on `linux-x64`
-  and `osx-arm64` in its parts 1 to 3; part 4, the literal "not measurable on <platform>: <reason>"
-  line in each family file, is open and held by BL-1648. Still Stewart's: filing the 31 findings on
+  and `osx-arm64` in all four parts; part 4, the literal "not measurable on <platform>: <reason>"
+  line in each family file, was added by BL-1648. Still Stewart's: filing the 31 findings on
   the port's board.
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
@@ -204,7 +204,7 @@ task board in `Tasks/`, never here.
 - **Exit criteria:** the Phase 7 row's "Proves", success criterion 5: the Curl port measured
   beside pinned upstream curl with every disagreement written down as a finding a test reads
   and handed to the port's board. Met for `win-x64` and the original protocols. On `linux-x64` and `osx-arm64`
-  met except the closing condition's part 4 (BL-1648); the not-measurable groups above are decided, not open.
+  met, the closing condition holding in all four parts (BL-1648); the not-measurable groups above are decided, not open.
 - **Decisions:** ADR-0003 decision 6 (Phase 7 is a measurement of the port, never a check of
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).

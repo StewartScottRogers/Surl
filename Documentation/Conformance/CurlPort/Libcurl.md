@@ -106,6 +106,7 @@ rows.
 Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
 - **This family:** no result for this family appears in the artifact.
+- **Not measurable.** not measurable on osx-arm64: upstream's static Linux and macOS builds carry no shared libcurl and `CurlPortBuilds.json` pins the port's `Libcurl.dll` for win-x64 only (ADR-0089 Amendment 9).
 - **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
 - **Triaged by BL-1625.** No case of this family failed on osx-arm64, so nothing is added to its findings table. The Curl port is never an oracle (ADR-0003).
 
@@ -114,6 +115,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
 
 - **This family:** no result for this family appears in the artifact.
+- **Not measurable.** not measurable on linux-x64: upstream's static Linux and macOS builds carry no shared libcurl and `CurlPortBuilds.json` pins the port's `Libcurl.dll` for win-x64 only (ADR-0089 Amendment 9).
 - **Not classified here.** BL-1626 classifies the linux-x64 failures.
 
 ### Earlier run (44044472038, 2026-11-17)
