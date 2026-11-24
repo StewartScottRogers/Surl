@@ -66,3 +66,4 @@ exactly as a proxy on a fixed port does, instead of forwarding the request to it
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
