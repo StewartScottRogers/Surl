@@ -434,3 +434,61 @@ Alternatives considered:
 
 ADR-0083 decision 2's "CI does not run them" is amended: the `Integration` tests still never run in
 `ci.yml`; this non-gating workflow is the one place CI builds and runs the port.
+
+## Amendment 9 (2026-11-24, BL-1627): what "Phase 7 is closed on a platform" means on linux-x64 and osx-arm64
+
+Decided by Claude under Stewart's delegation, in BL-1627. The roadmap's "met for `win-x64` ... not met
+for other platforms" never said what met means off Windows. This amendment says, group by group, which
+cases must be compared on a platform and which are recorded as not measurable there. The rule is
+ADR-0003's: a case is measured only where a pinned upstream curl is the oracle; the port is never one.
+A case with no oracle on a platform is not a gap in Surl or in the port, so it is recorded, not chased.
+
+| Group | linux-x64 | osx-arm64 | Why |
+| --- | --- | --- | --- |
+| Every family's cases that run on win-x64 beside pinned upstream curl, except the rows below | must be measured | must be measured | the pinned upstream build lists the protocol on that platform |
+| `OpenLdap_` cases (47), LDAP and LDAPS | must be measured | not measurable | the OpenLDAP supplementary build is Linux only (`.github/actions/upstream-curl`, `openldap` input); the osx-arm64 reference build lists no `ldap` |
+| RTSP family | must be measured | not measurable | the osx-arm64 reference build (`04E0E69B...EEBF`, curl 8.21.0) lists no `rtsp` |
+| `WinLdap_` cases | not measurable | not measurable | they need upstream curl linked against WinLDAP, which exists on Windows only (BL-1343) |
+| Libcurl rows (`CurlPortLibcurlBesideUpstreamLibcurlOver*Tests`, `Libcurl.md`) | not measurable | not measurable | upstream's static Linux and macOS builds carry no shared libcurl and `CurlPortBuilds.json` pins the port's `Libcurl.dll` for win-x64 only |
+| Cases under `[OSCondition(OperatingSystems.Windows)]` | not measurable | not measurable | they test Windows-only behaviour (Negotiate through SSPI, Windows-build answers); the other platform's answer is pinned by its own `ConditionMode.Exclude` test where one exists, and that test is in the run |
+| Extended clients (`Extended.md`) | out of Phase 7 | out of Phase 7 | decision 9: judged by specification, with no upstream counterpart to run beside; their `CurlPortClient*Tests` and `PinnedCurlPortClientTalksToSurlOver*Tests` stay `Integration` tests of the extended track |
+
+**The workflow's filter is not widened to the extended clients.** Decision 9 already puts them outside
+Phase 7; running them in `curl-port-phase-7.yml` would add cases with no oracle to a comparison whose
+verdict is "the same as upstream curl". No task is filed for it.
+
+**Closing condition for a platform**, checkable from the repository alone. Phase 7 is closed on a
+platform when all of these hold:
+
+1. `CurlPortBuilds.json` pins the port at the commit decision 10 and this amendment name, with a
+   non-empty SHA-256 for that platform.
+2. Every family file in `Documentation/Conformance/CurlPort/` (and `README.md`'s platform table) has a
+   section for the platform that names a completed `curl-port-phase-7.yml` run (its run id and the
+   commit it ran) and is `Inconclusive` for no case outside the "not measurable" rows above.
+3. Every failure of that run is a row in the platform's findings table in the family file, in
+   decision 6's form, and in `Port-Board-Handoff.md` (decision 7).
+4. Each "not measurable" row above appears in the platform's section as "not measurable on <platform>:
+   <reason>", so a reader sees it was decided, not forgotten.
+
+The decision-5 tests keep this honest: a finding that no longer reproduces, or a new one, turns its test
+red until the file says so.
+
+**One commit for all three platforms.** Amendment 8 replaced `b42c319` with
+`74f3f45c47e86300b2b262dc1dacd43b508b09aa`; `win-x64` was re-measured at it on 2026-11-16
+(`Port-Board-Handoff.md`, "What the new commit fixed"); `CurlPortBuilds.json` pins `linux-x64` and
+`osx-arm64` at the same commit. `win-x64` needs no re-measurement, and no one re-measures it for these
+two platforms.
+
+Alternatives considered:
+
+- *Require every case on every platform.* Not chosen: five groups have no oracle off Windows by
+  construction, so the condition could never be met.
+- *Pin an rtsp- and LDAP-capable macOS upstream build so osx-arm64 measures them too.* Not chosen: it is
+  a download that needs Stewart's approval and buys two families on one platform; the rows stay "not
+  measurable" until Stewart chooses to pin one, which would amend this table. No `Stewart` task is filed.
+- *Treat Inconclusive as passing.* Not chosen: it would hide a case that could be measured; only the
+  listed rows may be Inconclusive.
+- *Widen the workflow filter to the extended clients.* Not chosen: see above.
+
+Follow-up work: none. Platform runs and their sections are the existing Phase 7 tasks (BL-1622 to
+BL-1629).

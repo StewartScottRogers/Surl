@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1627 — Decide which Phase 7 cases count as measured on linux-x64 and osx-arm64 and which are recorded as not measurable there
 
@@ -31,14 +31,17 @@ The single-commit rule needs no change: ADR-0089 Amendment 8 replaced `b42c319` 
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md` has a new numbered amendment, marked "Decided by Claude under Stewart's delegation" and naming BL-1627, that lists each group above with its verdict per platform (must be measured / not measurable, with the reason) and the alternatives considered.
-- [ ] The amendment states the closing condition for a platform as something checkable from the repository (for example: every family file's platform section names a completed run, and every failure of that run is listed in a platform findings table).
-- [ ] The amendment states that port commit `74f3f45c…` is the one commit for all three platforms and win-x64 needs no re-measurement.
-- [ ] Any follow-up the decision calls for is filed as a task (a `Stewart` task for any upstream build download) and listed in this task's Notes; if none, the Notes say so.
+- [x] `Documentation/Planning/Decisions/ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md` has a new numbered amendment, marked "Decided by Claude under Stewart's delegation" and naming BL-1627, that lists each group above with its verdict per platform (must be measured / not measurable, with the reason) and the alternatives considered.
+- [x] The amendment states the closing condition for a platform as something checkable from the repository (for example: every family file's platform section names a completed run, and every failure of that run is listed in a platform findings table).
+- [x] The amendment states that port commit `74f3f45c…` is the one commit for all three platforms and win-x64 needs no re-measurement.
+- [x] Any follow-up the decision calls for is filed as a task (a `Stewart` task for any upstream build download) and listed in this task's Notes; if none, the Notes say so.
 
 ## Notes
+
+- Decided in ADR-0089 Amendment 9. Extended clients stay out of Phase 7 (decision 9), so the workflow filter is not widened. No osx-arm64 upstream build download is wanted, so no Stewart task. No follow-up tasks filed.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. ADR-0089 Amendment 9 written
