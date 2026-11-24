@@ -1,4 +1,5 @@
 using System.Security.Authentication;
+using Surl.Cookies;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -359,6 +360,12 @@ public sealed record SurlCommandLine
     /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
     /// </summary>
     public IReadOnlyList<ConfiguredFault> Faults { get; init; } = [];
+
+    /// <summary>
+    /// The cookies from every <c>--set-cookie</c>, in command-line order, at most 64 (ADR-0189 decision 1). None by
+    /// default. <c>Surl.Composition</c> hands them to the HTTP server.
+    /// </summary>
+    public IReadOnlyList<CookieDefinition> Cookies { get; init; } = [];
 
     /// <summary>
     /// <c>--control</c>: the listen URL of the test control endpoint, always <c>http</c> on loopback

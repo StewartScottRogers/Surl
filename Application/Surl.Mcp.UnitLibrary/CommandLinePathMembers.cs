@@ -57,6 +57,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.FollowSymlinks),
         nameof(SurlCommandLine.ServeDotFiles),
         nameof(SurlCommandLine.AllowZoneTransfer),
+        nameof(SurlCommandLine.Cookies),
         nameof(SurlCommandLine.DeliveredTo),
         nameof(SurlCommandLine.DnsTransports),
         nameof(SurlCommandLine.KafkaFetchCompression),

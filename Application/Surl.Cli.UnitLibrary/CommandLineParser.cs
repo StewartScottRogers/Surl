@@ -1,3 +1,4 @@
+using Surl.Cookies;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -43,6 +44,7 @@ public static class CommandLineParser
     private const string GroupLongName = "group";
     private const string UserLdapLongName = "user-ldap";
     private const string FaultLongName = "fault";
+    private const string SetCookieLongName = "set-cookie";
     private const string MailDomainLongName = "mail-domain";
     private const string MailboxLongName = "mailbox";
     private const string MailAliasLongName = "mail-alias";
@@ -409,6 +411,7 @@ public static class CommandLineParser
         ?? longName switch
         {
             FaultLongName => CountFault(reading, reportedName),
+            SetCookieLongName => CountCookie(reading, reportedName),
             GroupLongName => CountItemOption(reading.GroupOptionNames, reportedName),
             ConfigLongName => ReadConfigFile(reading, argument),
             UrlLongName => ReadListenUrl(reading, argument),
@@ -649,6 +652,15 @@ public static class CommandLineParser
     private static CommandLineParseResult? CountFault(CommandLineReading reading, string reportedName) =>
         reading.CommandLine.Faults.Count > ConfiguredFaultReader.MaxRules
             ? RefusedOption(reportedName, ConfiguredFaultReader.TooManyRules)
+            : null;
+
+    /// <summary>
+    /// Refuses the <c>--set-cookie</c> past <see cref="ConfiguredCookieReader.MaxCookies"/> (ADR-0189 decision 1),
+    /// counted across the command line and every config file; null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? CountCookie(CommandLineReading reading, string reportedName) =>
+        reading.CommandLine.Cookies.Count > ConfiguredCookieReader.MaxCookies
+            ? RefusedOption(reportedName, ConfiguredCookieReader.TooManyCookies)
             : null;
 
     /// <summary>

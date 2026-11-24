@@ -337,6 +337,7 @@ public sealed class HelpTextTests
             Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(38, "    --set-cookie <cookie>", "Set a cookie on HTTP replies (repeatable)"),
             Row(38, "    --share <name>=<path>[;...]", "Serve a folder as a share (repeatable)"),
             Row(38, "    --share-access <share>=<member>:<r/rw>,...", "Share grants (repeatable)"),
             Row(38, "    --shared-folder <name>=<who>,...", "Share an IMAP folder (repeatable)"),
@@ -526,6 +527,7 @@ public sealed class HelpTextTests
             Row(34, "    --max-filesize <bytes>", "Largest upload accepted"),
             Row(34, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(34, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(34, "    --set-cookie <cookie>", "Set a cookie on HTTP replies (repeatable)"),
             Row(34, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(34, "    --user-file <file>", "Read accounts from a file"));
 
