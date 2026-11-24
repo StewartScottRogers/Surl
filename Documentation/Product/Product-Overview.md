@@ -775,7 +775,7 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   `--help`. It is a deliberate addition with no upstream curl equivalent: curl 8.21.0
   refuses `--aihelp` as an unknown option
   ([ADR-0046](../Planning/Decisions/ADR-0046-surl-aihelp-markdown-help-for-ai-agents.md)).
-  Built by BL-1663: `-w` / `--write-out <format>` prints a format to stdout once per exchange, with curl's `%{name}`, `%%` and `\n \r \t` rules and the server-side variables ([ADR-0190](../Planning/Decisions/ADR-0190-write-out-prints-a-format-to-stdout-once-per-exchange.md)).
+  Built by BL-1667: `-w` / `--write-out <format>` prints a format to stdout once per exchange, with curl's `%{name}`, `%%` and `\n \r \t` rules and the server-side variables ([ADR-0190](../Planning/Decisions/ADR-0190-write-out-prints-a-format-to-stdout-once-per-exchange.md)).
 
 The command-line surface - which of curl's option names carry a server-side meaning and
 what each does, how listen URLs are read, and the exact text surl prints - is decided in

@@ -1,5 +1,5 @@
 ---
-id: BL-1663
+id: BL-1667
 title: Print -w style output per exchange from surl
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-24
 completed: 2026-11-24
 ---
-# BL-1663 — Print -w style output per exchange from surl
+# BL-1667 — Print -w style output per exchange from surl
 
 ## Goal
 

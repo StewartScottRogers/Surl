@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-24
-- Decided by Claude under Stewart's delegation (BL-1663)
+- Decided by Claude under Stewart's delegation (BL-1667)
 
 ## Context
 
