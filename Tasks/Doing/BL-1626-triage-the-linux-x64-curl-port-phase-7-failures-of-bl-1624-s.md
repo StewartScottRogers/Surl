@@ -41,3 +41,4 @@ Judge by pinned upstream curl (linux-x64 reference `153CA463…4E45` and, for `O
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
