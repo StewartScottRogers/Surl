@@ -37,3 +37,4 @@ completes the exchange). Only builds pinned in `UpstreamCurlBuilds.json` may run
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
