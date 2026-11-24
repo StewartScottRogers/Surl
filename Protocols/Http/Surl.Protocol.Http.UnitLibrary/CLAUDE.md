@@ -107,6 +107,8 @@ Its tests drive it over the in-memory QUIC test connection, `Http3TestClient`, a
 `Surl.Http3.UnitTests`' `Http3TestQuicClient` (compiled in by link), which starts from pinned
 upstream curl's recorded Initials (`Fixtures/h3-client-initial`).
 
+Cookies (ADR-0189, BL-1660): CookieHandler wraps each connections answerer (HTTP/1.x, HTTP/2 streams and the h2c upgrade). It publishes a CookieReceivedEvent for each pair of each Cookie request field before the reply, and adds a Set-Cookie field for each CookieDefinition the server was constructed with whose OnPath and OnListener match, after every other field. With none configured the reply is unchanged. HttpProtocolServer has no option reader yet (BL-1661) and Http3ProtocolServer does not yet set cookies.
+
 The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test seam the shipped
 `surl` never composes: `Surl.Conformance.UnitTests` composes `HttpUpstreamTestCaseServer` with one
 case's `HttpUpstreamTestCaseReplies` (its reply parts by name as bytes and its `<servercmd>`

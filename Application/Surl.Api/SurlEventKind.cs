@@ -29,4 +29,7 @@ public enum SurlEventKind
 
     /// <summary>A <see cref="ConsumerGroupChangedEvent"/>: a consumer group's membership or generation changed.</summary>
     ConsumerGroupChanged,
+
+    /// <summary>A <see cref="CookieReceivedEvent"/>: a client sent a cookie in a <c>Cookie</c> header.</summary>
+    CookieReceived,
 }

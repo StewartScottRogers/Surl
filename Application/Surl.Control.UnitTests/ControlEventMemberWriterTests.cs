@@ -22,6 +22,7 @@ public sealed class ControlEventMemberWriterTests
         new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Accept, 6, "smtp://127.0.0.1:25"),
         new HookFailedEvent("h1", HookFailure.Threw, "x"),
         new ConsumerGroupChangedEvent(7, "kafka", "orders", ConsumerGroupChange.MemberJoined, "c-1", 1, "alice"),
+        new CookieReceivedEvent(8, "http", "sid", "abc123"),
     ];
 
     private static IEnumerable<Type> ExportedEventTypes() =>

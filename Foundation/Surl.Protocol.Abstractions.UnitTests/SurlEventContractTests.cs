@@ -16,6 +16,7 @@ public sealed class SurlEventContractTests
             new[]
             {
                 nameof(ConsumerGroupChangedEvent),
+                nameof(CookieReceivedEvent),
                 nameof(ExchangeBytesEvent),
                 nameof(ExchangeEndedEvent),
                 nameof(ExchangeStartedEvent),
@@ -134,6 +135,17 @@ public sealed class SurlEventContractTests
         Assert.AreEqual("c-1", changed.MemberId);
         Assert.AreEqual(2, changed.GenerationId);
         Assert.AreEqual("alice", changed.Account);
+    }
+
+    [TestMethod]
+    public void CookieReceivedEvent_ValueOverTheBound_IsCutWithoutHalfASurrogatePair()
+    {
+        var received = new CookieReceivedEvent(2, "https", "n", new string('x', 255) + "😀");
+
+        Assert.AreEqual(2, received.ExchangeId);
+        Assert.AreEqual("https", received.Scheme);
+        Assert.AreEqual("n", received.Name);
+        Assert.AreEqual(new string('x', 255), received.Value);
     }
 
     [TestMethod]

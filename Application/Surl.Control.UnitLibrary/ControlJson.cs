@@ -75,6 +75,8 @@ internal sealed record ControlEventJson
     public string? MemberId { get; init; }
 
     public int? GenerationId { get; init; }
+
+    public string? Value { get; init; }
 }
 
 /// <summary>The answer to <c>GET /v1/events</c>.</summary>

@@ -82,6 +82,7 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
     private static string[] ReadAllKinds() => new[]
         {
             typeof(ConsumerGroupChangedEvent),
+            typeof(CookieReceivedEvent),
             typeof(ExchangeBytesEvent),
             typeof(ExchangeEndedEvent),
             typeof(ExchangeStartedEvent),
