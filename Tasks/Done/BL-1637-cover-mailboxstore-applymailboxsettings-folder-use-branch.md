@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Protocols/Mail/Surl.MailStore.UnitTests]
+touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1637 — Cover MailboxStore.ApplyMailboxSettings' folder-use branch
 
@@ -28,10 +28,10 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.MailStore.UnitTests` test builds a store from `MailboxSettings` with `FolderUses` null, and one with
+- [x] A named `Surl.MailStore.UnitTests` test builds a store from `MailboxSettings` with `FolderUses` null, and one with
       `FolderUses` naming a folder that is not in `Folders` (for example `Archive` → `\Archive`). It asserts each
       folder is created, with the configured use for the second (the uses keys are created as folders too, line 1580).
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.MailStore.UnitLibrary` reports `100 | 100` with
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.MailStore.UnitLibrary` reports `100 | 100` with
       0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
@@ -42,3 +42,8 @@ completed:
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- Notes (2026-11-24): the `?? new Dictionary` branch was unreachable: `MailDomainConfiguration` normalises every
+  `MailboxSettings` so `FolderUses` is never null in the store. Replaced it with `FolderUses!` and a comment
+  (added `Surl.MailStore.UnitLibrary` to `touches`; no other Doing task names it). Added a test for the normalised-null
+  and unlisted-use-folder cases.
+- 2026-11-24: Doing -> Done. Unreachable null branch removed; folder-use normalisation test added; MailStore 100/100.

@@ -40,6 +40,17 @@ public sealed class MailboxStoreFolderUseTests
     }
 
     [TestMethod]
+    public void NullFolderUses_AreNormalisedToNone_AndAUseNamingAnUnlistedFolderCreatesIt()
+    {
+        var withoutUses = NewStore(null, folders: ["Archive"]);
+        var withUse = NewStore(new Dictionary<string, string> { ["Archive"] = @"\Archive" });
+
+        Assert.IsNull(Read(withoutUses, "Archive").Use);
+        Assert.IsFalse(withoutUses.HoldsAnyFolderUse);
+        Assert.AreEqual(@"\Archive", Read(withUse, "Archive").Use);
+    }
+
+    [TestMethod]
     public void ConfiguredFolder_AlsoListedInFolders_TakesTheUse()
     {
         var store = NewStore(new Dictionary<string, string> { ["Sent"] = "sent" }, folders: ["Sent"]);

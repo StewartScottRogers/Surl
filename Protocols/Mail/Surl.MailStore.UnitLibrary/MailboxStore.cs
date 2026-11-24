@@ -1576,7 +1576,8 @@ public sealed partial class MailboxStore
                 quotas.Add(owner, quota);
             }
 
-            var uses = mailbox.FolderUses ?? new Dictionary<string, string>();
+            // MailDomainConfiguration normalises every mailbox's settings, so FolderUses is never null here.
+            var uses = mailbox.FolderUses!;
             foreach (var folder in mailbox.Folders.Concat(uses.Keys))
             {
                 AddConfiguredMailbox(owner, folder, uses.GetValueOrDefault(folder));
