@@ -39,3 +39,4 @@ it as a follow-up task rather than widening this one.
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
