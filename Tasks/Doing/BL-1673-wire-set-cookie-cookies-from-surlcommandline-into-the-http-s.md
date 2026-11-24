@@ -31,3 +31,4 @@ ADR-0189 decision 7; BL-1661 reads the option into `SurlCommandLine.Cookies` (`C
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
