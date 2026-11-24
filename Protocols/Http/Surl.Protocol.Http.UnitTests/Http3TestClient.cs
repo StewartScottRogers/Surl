@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Surl.Content;
+using Surl.Cookies;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
 
@@ -57,6 +58,12 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
     /// <summary>The idle timeout <see cref="Http3ProtocolServer"/> is given.</summary>
     public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>The cookies <see cref="Http3ProtocolServer"/> is given to set; null gives it none.</summary>
+    public IReadOnlyList<CookieDefinition>? Cookies { get; set; }
+
+    /// <summary>Where the exchange publishes its events; null leaves the context's own publisher.</summary>
+    public ISurlEventPublisher? Events { get; set; }
+
     /// <summary>The fault plan the exchange asks, when a test sets one before starting the server.</summary>
     public IFaultPlan? Faults { get; set; }
 
@@ -75,13 +82,17 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
         {
             context = context with { DecryptedBytes = sink };
         }
+        if (Events is { } events)
+        {
+            context = context with { Events = events };
+        }
 
         var exposure = ContentExposureOptions.ServeEverythingInsideTheRoot with { AllowUploads = allowUploads };
         var store = new ContentStore(HttpServerHarness.Root, fileSystem ?? HttpServerHarness.StandardFileSystem(), exposure);
         if (ProtocolServerPolicy is { } policy)
         {
             Clock = Time;
-            Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout, TrustsClientCertificateChain).ServeAsync(Flow, context);
+            Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout, TrustsClientCertificateChain, Cookies).ServeAsync(Flow, context);
             return Serving;
         }
 

@@ -2,6 +2,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Content;
+using Surl.Cookies;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
 using static Surl.Protocol.Http.HttpServerHarness;
@@ -154,6 +155,72 @@ public sealed class Http3ProtocolServerTests
         Assert.AreEqual("200", response.Status);
         Assert.AreEqual(FileBody, response.BodyText);
         Assert.IsTrue(response.Fin);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConfiguredCookies_AddEachSetCookieFieldToTheHttp3Reply()
+    {
+        using var client = new Http3TestClient
+        {
+            ProtocolServerPolicy = new AnonymousAuthenticationPolicy(),
+            Cookies =
+            [
+                new CookieDefinition("sid", "abc123", Path: "/", MaxAge: 3600, Secure: true, HttpOnly: true),
+                new CookieDefinition("sess", "xyz", Path: "/"),
+                new CookieDefinition("other", "1", OnPath: "/elsewhere"),
+            ],
+        };
+        await client.StartAsync(Token);
+
+        client.Send(0, client.Request("GET", "/file.txt"), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        var response = client.Response(0);
+        Assert.AreEqual("200", response.Status);
+        CollectionAssert.AreEqual(
+            new[] { "set-cookie: sid=abc123; Path=/; Max-Age=3600; Secure; HttpOnly", "set-cookie: sess=xyz; Path=/" },
+            response.RegularFields.TakeLast(2).ToArray());
+        Assert.HasCount(2, response.Fields.Where(line => line.Name == "set-cookie"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RequestCookieFields_PublishesEachPairAsCookieReceivedEvents()
+    {
+        var events = new RecordingSurlEventPublisher();
+        using var client = new Http3TestClient { ProtocolServerPolicy = new AnonymousAuthenticationPolicy(), Events = events };
+        await client.StartAsync(Token);
+
+        // RFC 9114 section 4.2.1 lets a client split its cookies over several cookie field lines.
+        client.Send(0, client.Request("GET", "/file.txt", ("cookie", "sess=xyz; sid=abc123"), ("cookie", "a=1")), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new CookieReceivedEvent(1, "http", "sess", "xyz"),
+                new CookieReceivedEvent(1, "http", "sid", "abc123"),
+                new CookieReceivedEvent(1, "http", "a", "1"),
+            },
+            events.Events.OfType<CookieReceivedEvent>().ToArray());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NoCookieConfigured_Http3ReplyIsUnchanged()
+    {
+        // Without a ProtocolServerPolicy the test client serves the bare answerer, with no cookie handling.
+        using var bare = new Http3TestClient();
+        using var client = new Http3TestClient { ProtocolServerPolicy = new AnonymousAuthenticationPolicy() };
+        await bare.StartAsync(Token);
+        await client.StartAsync(Token);
+
+        bare.Send(0, bare.Request("GET", "/file.txt"), fin: true);
+        client.Send(0, client.Request("GET", "/file.txt"), fin: true);
+        await bare.UntilAsync(() => bare.HasEnded(0), Token);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        CollectionAssert.AreEqual(bare.Response(0).Fields.ToArray(), client.Response(0).Fields.ToArray());
+        Assert.AreEqual(bare.Response(0).BodyText, client.Response(0).BodyText);
+        Assert.IsFalse(client.Response(0).Fields.Any(line => line.Name == "set-cookie"));
     }
 
     [TestMethod]
