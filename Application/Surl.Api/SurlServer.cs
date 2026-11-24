@@ -51,7 +51,7 @@ public sealed class SurlServer : IAsyncDisposable
         Keys = new SurlServerKeys(composedServing.Stores, ThrowIfStopped);
         Directory = new SurlServerDirectory(composedServing.Stores, ThrowIfStopped);
         Zones = new SurlServerZones(composedServing.Stores, ThrowIfStopped);
-        Accounts = new SurlServerAccounts(composedServing.Stores, instruments.Log);
+        Accounts = new SurlServerAccounts(composedServing.Stores, instruments.Log, instruments.HasDirectory);
         ProxyAccounts = new SurlServerProxyAccounts(composedServing.Stores, instruments.Log);
         TlsSrpAccounts = new SurlServerTlsSrpAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
@@ -386,7 +386,7 @@ public sealed class SurlServer : IAsyncDisposable
                 stop,
                 serving,
                 custom.InOrderGiven([.. bound.Task.Result.Select(ToUri)]),
-                new ServerInstruments(record, custom, timeProvider, options.HookTimeLimit, log));
+                new ServerInstruments(record, custom, timeProvider, options.HookTimeLimit, log, commandLine.UserLdap is not null));
         }
 
         // Serving ended before every listener bound: cancelled, or a bind failure (45 or 6).
@@ -427,7 +427,7 @@ public sealed class SurlServer : IAsyncDisposable
 
     // What a started server observes and controls with, beside what it serves.
     private sealed record ServerInstruments(
-        ExchangeRecordSubscriber? Record, CustomProtocolServers Custom, TimeProvider TimeProvider, TimeSpan HookTimeLimit, TextWriter Log);
+        ExchangeRecordSubscriber? Record, CustomProtocolServers Custom, TimeProvider TimeProvider, TimeSpan HookTimeLimit, TextWriter Log, bool HasDirectory);
 
     private async Task<SurlExitCode> StopServingAsync()
     {

@@ -415,3 +415,20 @@ Each bound is a constant in `Surl.Authentication`, not an option, except `timeou
 - **BL-1068** (new, `Foundation/Surl.Networking.UnitLibrary` and `.UnitTests`): the TLS client
   connector of decision 11, tested against an in-process `SslStream` server on loopback.
 - ADR-0072 is unchanged; ADR-0100 decision 4.3's promise (no server changes) holds.
+
+## Amendment 1 (BL-1668, 2026-11-24): a configured directory is an account for the login requirement
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-24, from the
+  decision made in BL-1663 after a bug report: a directory-only HTTPS server served `GET` and `HEAD` without a login.
+- **Amends:** decision 6 (where the directory sits among the accounts) and ADR-0032 section 4 (anonymous reads only
+  "with no account configured").
+- **Rule:** a configured `--user-ldap` directory counts as an account configured, for each scheme `protocols=`
+  admits (every scheme when it is absent). A server whose only account source is such a directory therefore
+  requires a login on those schemes, reads included, as one with a `--user` account does; a scheme the directory
+  does not serve keeps its previous behaviour. `--allow-anonymous` still serves every request unchecked.
+  Implemented for the HTTP family by `HttpAuthenticationSession.HasAccountToLogInTo`.
+- **`Surl.Api`:** `SurlServerAccounts.Remove` of the last local account no longer warns that the server "now needs
+  no login" when the server was started with `--user-ldap`, since that is untrue. It writes
+  `surl: warning: no local account left; logins are now checked against the directory only` instead.
+  `SurlServerAccounts.HasAccounts` is unchanged: it reports the local accounts only.
+- Not changed here: other servers that decide by the account book alone (CoAPS, extended CoAP) are checked in BL-1669.

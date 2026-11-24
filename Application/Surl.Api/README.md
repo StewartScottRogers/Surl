@@ -285,7 +285,9 @@ server.Accounts.Add("bob", "builder");                              // Remove("b
 
 `Accounts.Remove` of the last account leaves the server needing no login, as `surl` with no `--user` needs none:
 it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
-goes to `Log`; `Accounts.Add` closes it again.
+goes to `Log`; `Accounts.Add` closes it again. When the server was started with `--user-ldap`, the directory is an
+account source (ADR-0149 amendment 1), so a login is still needed: the line is instead
+`surl: warning: no local account left; logins are now checked against the directory only`.
 
 `ProxyAccounts.Remove` of the last proxy account leaves the proxy needing no login: it stays allowed,
 `ProxyAccounts.HasAccounts` turns `false` and `surl: warning: no proxy account left; the proxy now needs no login`
