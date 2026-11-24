@@ -33,3 +33,4 @@ Filed by BL-1629, which states in those four documents that condition 4 is open 
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
