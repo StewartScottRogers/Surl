@@ -362,12 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Cipher MCP server session store (local SQLite database + its WAL/shared-memory
-# sidecars). Machine-local conversation state, not project source.
-/data/cipher-sessions.db
-/data/cipher-sessions.db-shm
-/data/cipher-sessions.db-wal
-
 # Claude Code personal files
 .claude/settings.local.json
 CLAUDE.local.md

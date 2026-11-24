@@ -8,7 +8,7 @@ depends-on: []
 touches: [CLAUDE.md, .gitignore]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1654 — Bring the root CLAUDE.md project layout up to date and drop the cipher MCP ignore lines
 
@@ -31,16 +31,19 @@ mentions cipher or byterover (checked 2026-11-24).
 
 ## Acceptance criteria
 
-- [ ] Each category line in the layout block names the projects `ls <category>` shows
+- [x] Each category line in the layout block names the projects `ls <category>` shows
       (production projects; extended servers may be summarised as
       `Surl.Extended.Protocol.*`).
-- [ ] The cipher comment and three `cipher-sessions` lines are gone from `.gitignore`, and
+- [x] The cipher comment and three `cipher-sessions` lines are gone from `.gitignore`, and
       `git status --ignored` still lists `data/` as ignored.
-- [ ] `hrdrClaudeNative.cmd` and `RunClaude.cmd` are untouched.
+- [x] `hrdrClaudeNative.cmd` and `RunClaude.cmd` are untouched.
 
 ## Notes
+
+Layout lists production projects per category; extended servers summarised as Surl.Extended.Protocol.*. Redis is extended-only, so DataStore names it that way.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Layout updated, cipher ignore lines removed
