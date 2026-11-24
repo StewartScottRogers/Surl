@@ -40,3 +40,4 @@ Record only; classifying failures is BL-1625 (osx-arm64) and BL-1626 (linux-x64)
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
