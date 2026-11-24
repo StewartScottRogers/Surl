@@ -30,3 +30,4 @@ The product overview's "Seeing the exchange" scope lists "`-w` style output per 
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
