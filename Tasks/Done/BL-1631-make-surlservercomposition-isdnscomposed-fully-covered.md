@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1631 — Make SurlServerComposition.IsDnsComposed fully covered
 
@@ -31,21 +31,23 @@ member and no new coverage exclusion.
 
 ## Acceptance criteria
 
-- [ ] Either a named `Surl.Composition.UnitTests` test reaches the case where only a
+- [x] Either a named `Surl.Composition.UnitTests` test reaches the case where only a
       `DnsConnectionRoutingProtocolServer` is composed, through a seam that already exists, or `IsDnsComposed` is
       reduced to a condition that every composition can reach both ways (for example, testing for the one DNS server
       type that every `dns` composition includes), with a comment saying why.
-- [ ] The existing DNS zone store tests (`ControlledDnsZones`, BL-1410, BL-1165) still pass unchanged: the zones are held
+- [x] The existing DNS zone store tests (`ControlledDnsZones`, BL-1410, BL-1165) still pass unchanged: the zones are held
       exactly when a listen URL serves `dns`.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Composition.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Composition.UnitLibrary` reports `100 | 100`
       with 0 failing members, without any new `[ExcludeFromCodeCoverage]`.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
 - No behaviour change: what is composed and which stores are held stay the same.
+- Chose the second option: IsDnsComposed now tests only for DnsDatagramRoutingProtocolServer, which every dns composition includes (comment added). Composition tests 886 pass; Measure-CodeQuality reports 100 | 100, 0 failing.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. IsDnsComposed tests the one always-present DNS server type; Composition library 100/100 coverage
