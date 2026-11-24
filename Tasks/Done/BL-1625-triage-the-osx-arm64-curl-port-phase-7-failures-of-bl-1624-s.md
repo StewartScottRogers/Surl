@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: protocol
 depends-on: [BL-1624]
-touches: [Documentation/Conformance/CurlPort, Conformance/Surl.Conformance.UnitTests]
+touches: [Documentation/Conformance/CurlPort, Conformance/Surl.Conformance.UnitTests, Conformance/Surl.Conformance.UnitLibrary]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1625 — Triage the osx-arm64 curl-port-phase-7 failures of BL-1624's run into each family's findings table
 
@@ -26,14 +26,21 @@ If the failures span more than about six families or 60 cases, triage the larges
 
 ## Acceptance criteria
 
-- [ ] Each osx-arm64 failure of BL-1624's run is either listed under its family file's `### Findings (osx-arm64)` with a finding ID and a one-line description, or fixed as a test defect, or filed as a Surl defect task; the Notes give the count of each.
-- [ ] Each new finding has its own `####` subsection in its family file, in the form the existing linux-x64 findings (for example `Ldap.md` L-1) use.
-- [ ] Each family file's `## osx-arm64` section says it was triaged by BL-1625 and what was added.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests (`TestCategory!=Integration`), including `CurlPortFindingsFileTests`, pass.
+- [x] Each osx-arm64 failure of BL-1624's run is either listed under its family file's `### Findings (osx-arm64)` with a finding ID and a one-line description, or fixed as a test defect, or filed as a Surl defect task; the Notes give the count of each.
+- [x] Each new finding has its own `####` subsection in its family file, in the form the existing linux-x64 findings (for example `Ldap.md` L-1) use.
+- [x] Each family file's `## osx-arm64` section says it was triaged by BL-1625 and what was added.
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests (`TestCategory!=Integration`), including `CurlPortFindingsFileTests`, pass.
 
 ## Notes
+
+- 2026-11-24: Read run 45412760425's `phase-7-osx-arm64-results` trx: 15 failures in 5 families. Counts: 4 listed as osx-arm64 findings (Http2 finding 2 `GetWithDigest_PriorKnowledge`: port sends an extra RST_STREAM; Ssh SSH-3 x2: upstream crashes 139 on the mac build with cast128/blowfish, port downloads; Upstream-Test-Cases UTC-5 test1072/1073 as one failure, exit 65 vs 25); 8 stale Http2 listings re-scoped to `### Findings (win-x64)` (only `Head_HttpsByAlpn` still shows on osx-arm64 and stays unscoped); 3 test defects fixed (Http3 `Head_OverTcp...`, Http `Head_File...`, Http2 `GetWithHttp2AndInclude_File...` differed only in `ETag:`, which surl derives from each run's own file mtime): `CurlPortResultNormaliser` now replaces `ETag:` values with `<etag>`, with a unit test; 0 Surl defect tasks filed. 4 + 8 + 3 = 15.
+- Decision: the normaliser lives in `Conformance/Surl.Conformance.UnitLibrary`, so it was added to `touches` (no Doing task names it). Its CLAUDE.md was updated.
+- The linux-x64 job failed the same Http2 cases and the same ETag cases; BL-1626 classifies those (the ETag fix and the win-x64 scoping already help there).
+- Other osx-arm64 sections: no failure, so each says "Triaged by BL-1625 ... nothing is added".
+- Build clean (`-warnaserror`), Conformance fast tests 1054/1054.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. osx-arm64 failures of run 45412760425 triaged: 4 listed findings, 8 stale listings re-scoped, 3 ETag test defects fixed in the normaliser

@@ -89,6 +89,17 @@ parentheses applies on that platform alone), and nine cases upstream skipped, wh
 | `test1072` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
 | `test1073` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
 
+### Findings (osx-arm64)
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) (BL-1624, triaged by BL-1625): the
+same two port defects show on osx-arm64, where the port exits 65 and upstream (the reference build `04E0E69B…EEBF`)
+exits 25. Every other failing case on osx-arm64 is already in the table above.
+
+| Case | Family | Port's first failing section | Finding |
+| --- | --- | --- | --- |
+| `test1072` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
+| `test1073` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
+
 **Cases upstream skipped are not compared.** The linux-x64 passing list names test358, 359, 2400, 2401, 2402,
 2404, 2406, 2501 and 2502, which need a Debug build of curl or the libtests binary. The Phase 7 test ran upstream
 without either, so they ended `skip debug-build` or `skip libtest` and the comparison called each a Surl defect.
@@ -102,7 +113,7 @@ That was a test defect: the test now locates the supplementary Debug build and l
   (`http://%HOSTIP:%HTTPPORT/1072 -T - -u testuser:testpass --anyauth`) and test1073 "HTTP chunked PUT to HTTP 1.0
   server with redirect" (`http://%HOSTIP:%HTTPPORT/1073 -T - -L`).
 - **Upstream:** exit 25 (upload failed), as each case's `<errorcode>` says. **Port:** exit 65 in both.
-- **Classification:** port defect (the port's linux-x64 build only: both pass on Windows). The cause inside the
+- **Classification:** port defect (the port's linux-x64 and osx-arm64 builds, run 45412760425 for the latter: both pass on Windows). The cause inside the
   port is not traced.
 
 Each case is run as runtests runs it (`UpstreamTestCaseCommandLine`): `-q`, `--output log/curl<N>.out`,
@@ -195,7 +206,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 - **This family:** 0 passed, 1 failed, 0 not executed.
 - **Detail:** Failed: `RunBesideAsync_EveryCaseOnThePassingList_PortDefectsAreTheListedFindings`.
 - **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
-- **No finding is classified here.** Failures are recorded, not classified; BL-1625 classifies the osx-arm64 ones. The Curl port is never an oracle (ADR-0003).
+- **Triaged by BL-1625.** The one failure is the unlisted `test1072` and `test1073` (port exit 65, upstream 25), now listed under `### Findings (osx-arm64)` as UTC-5; the other 12 port-defect cases of the run were already listed. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
 

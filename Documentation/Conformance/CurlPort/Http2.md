@@ -34,8 +34,15 @@ case mirrors the `UpstreamCurlFetchesFromSurlOverHttp2Tests` test of the same na
 
 | Test | Mirrors | Finding |
 | --- | --- | --- |
-| `Get_HttpsByAlpn_IsServedOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.Get_HttpsByAlpn_IsServedOverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
 | `Head_HttpsByAlpn_ExitsZeroWithAnHttp2OkHead` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.Head_HttpsByAlpn_ExitsZeroWithAnHttp2OkHead` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
+
+### Findings (win-x64)
+
+Shown on Windows only (BL-1625, from run 45412760425): on osx-arm64 the port agrees with upstream curl on these eight cases, so the run reported each listing as stale. The linux-x64 job failed the same cases; BL-1626 classifies those. A heading that names a platform in parentheses applies on that platform alone.
+
+| Test | Mirrors | Finding |
+| --- | --- | --- |
+| `Get_HttpsByAlpn_IsServedOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.Get_HttpsByAlpn_IsServedOverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
 | `GetWithRange_HttpsByAlpn_IsServedTheFirstTenBytesWith206OverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithRange_HttpsByAlpn_IsServedTheFirstTenBytesWith206OverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
 | `GetWithBasic_HttpsByAlpn_IsServedOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithBasic_HttpsByAlpn_IsServedOverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
 | `GetWithBasic_WrongPassword_IsRefusedWith401OverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithBasic_WrongPassword_IsRefusedWith401OverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
@@ -43,6 +50,14 @@ case mirrors the `UpstreamCurlFetchesFromSurlOverHttp2Tests` test of the same na
 | `Upload_AllowUploads_IsStoredWith201OverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.Upload_AllowUploads_IsStoredWith201OverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
 | `Get_FileLargerThanTheInitialWindow_IsServedWholeOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.Get_FileLargerThanTheInitialWindow_IsServedWholeOverHttp2` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
 | `Get_TwoUrls_ReuseOneHttp2Connection` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.Get_TwoUrls_ReuseOneHttp2Connection` | [1](#1-the-port-does-not-offer-h2-by-alpn-on-https) |
+
+### Findings (osx-arm64)
+
+Run 45412760425 (BL-1624), classified by BL-1625. The https cases above agree on osx-arm64 except Head_HttpsByAlpn_ExitsZeroWithAnHttp2OkHead, which still shows finding 1 and so stays in the table for every platform.
+
+| Test | Mirrors | Finding |
+| --- | --- | --- |
+| `GetWithDigest_PriorKnowledge_IsServedOverHttp2` | `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithDigest_PriorKnowledge_IsServedOverHttp2` | [2](#2-the-port-resets-stream-1-after-the-digest-401) |
 
 ### 1. The port does not offer h2 by ALPN on https
 
@@ -71,6 +86,18 @@ case mirrors the `UpstreamCurlFetchesFromSurlOverHttp2Tests` test of the same na
   (RFC 7301). The port with no option offers only `http/1.1`, so it never speaks HTTP/2 over TLS
   (its `h2c` cases on `http` agree with upstream, so its HTTP/2 framing itself is not at fault here).
 
+### 2. The port resets stream 1 after the Digest 401
+
+- **Case:** `curl -sS -f --http2-prior-knowledge --digest -u tester:secret -w %{http_version} {surl}/hello.txt`
+  against `surl --user-file <tester:secret>`, osx-arm64 (run 45412760425, BL-1625).
+- **Exit code and output:** both 0, same body and version.
+- **First differing item:** the decoded request frames (`http`, so frames are compared, ADR-0089 amendment 4).
+  After the 401 both clients send the same `SETTINGS` ack and a second `HEADERS` on stream 3 with the Digest
+  `authorization`; the port also sends `RST_STREAM stream=1 00000005` (error `STREAM_CLOSED`) between them,
+  which upstream does not.
+- **Right behaviour:** upstream curl's frames are the reference (ADR-0003): it sends no reset after the 401, so
+  the `RST_STREAM` is the port's extra frame. The cause inside the port is not traced.
+
 ## osx-arm64
 
 Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
@@ -78,7 +105,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 - **This family:** 5 passed, 10 failed, 0 not executed.
 - **Detail:** Failed: `Get_FileLargerThanTheInitialWindow_IsServedWholeOverHttp2`, `GetWithBasic_WrongPassword_IsRefusedWith401OverHttp2`, `GetWithBasic_HttpsByAlpn_IsServedOverHttp2`, `Get_HttpsByAlpn_IsServedOverHttp2`, `GetWithDigest_HttpsByAlpn_IsServedOverHttp2`, `GetWithDigest_PriorKnowledge_IsServedOverHttp2`, `Upload_AllowUploads_IsStoredWith201OverHttp2`, `Get_TwoUrls_ReuseOneHttp2Connection`, `GetWithRange_HttpsByAlpn_IsServedTheFirstTenBytesWith206OverHttp2`, `GetWithHttp2AndInclude_File_ShowsThe101ThenTheHttp2Head`. All 15 cases executed.
 - **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
-- **No finding is classified here.** Failures are recorded, not classified; BL-1625 classifies the osx-arm64 ones. The Curl port is never an oracle (ADR-0003).
+- **Triaged by BL-1625.** Of the 10 failures: 8 were stale listings (the cases agree on osx-arm64), now moved under `### Findings (win-x64)`; `GetWithDigest_PriorKnowledge_IsServedOverHttp2` is a new port defect (finding 2), listed under `### Findings (osx-arm64)`; `GetWithHttp2AndInclude_File_ShowsThe101ThenTheHttp2Head` differed only in the `etag` value, a test defect fixed by normalising `ETag:` (`CurlPortResultNormaliser`). `Head_HttpsByAlpn_ExitsZeroWithAnHttp2OkHead` still shows finding 1 on osx-arm64 and stays listed. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
 

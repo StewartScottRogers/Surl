@@ -80,6 +80,29 @@ linux-x64 build pinned in `UpstreamCurlBuilds.json`.
 | --- | --- | --- |
 | `Login_PublicKey_DownloadsTheFile[scp]` | `UpstreamCurlLogsInToSurlOverSshTests.Login_PublicKey_DownloadsTheFile` | [SSH-2](#ssh-2-the-port-ends-an-scp-public-key-download-differently-on-linux-x64) |
 
+### Findings (osx-arm64)
+
+Run 45412760425 (BL-1624), classified by BL-1625 from its `phase-7-osx-arm64-results` artifact. Upstream curl is the
+osx-arm64 reference build `04E0E69B…EEBF` (curl 8.21.0, libssh2 1.11.1).
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
+| `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes[blowfish-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes` | [SSH-3](#ssh-3-upstream-curl-crashes-on-the-osx-arm64-build-where-the-port-downloads-the-file) |
+| `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes[cast128-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes` | [SSH-3](#ssh-3-upstream-curl-crashes-on-the-osx-arm64-build-where-the-port-downloads-the-file) |
+
+#### SSH-3: upstream curl crashes on the osx-arm64 build where the port downloads the file
+
+- **Cases:** `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester:secret sftp://…/a.txt` against
+  `surl --allow-weak-ssh-algorithms` offering only `blowfish-cbc` or only `cast128-cbc`.
+- **Upstream:** both runs negotiate `curve25519-sha256`, `rsa-sha2-512`, the offered cipher and `hmac-sha2-256`, then
+  upstream exits 139 (a crash) with empty output and no login reaches `surl`. The mirrored test pins that crash
+  (`...AgreesItAndCurlCrashes`), so upstream completes the exchange as the test asserts.
+- **Port:** negotiates the same algorithms, logs in, reads `/a.txt` (12 bytes) and exits 0 with `hello world`.
+- **Classification:** port difference from upstream's measured behaviour, not a Surl defect. Upstream's crash is
+  a defect of the macOS libssh2 build with these two legacy ciphers, not behaviour curl documents; the port is
+  listed because the comparison cannot call a working download right where upstream crashed. The cause inside the
+  port is not traced.
+
 ### SSH-2: the port ends an scp public-key download differently on linux-x64
 
 - **Case:** `Login_PublicKey_DownloadsTheFile[scp]`; command line `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester: --key id_test --pubkey id_test.pub {surl}/a.txt`.
@@ -131,7 +154,7 @@ Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/454127
 - **This family:** 70 passed, 2 failed, 7 not executed.
 - **Detail:** Failed: `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes` (`cast128-cbc`, `blowfish-cbc`). Not executed: 3 with no message, 2 "Test is not supported on OSX", 1 "Test is only supported on Windows", 1 Inconclusive ("The account's own home directory holds .ssh/known_hosts, which curl falls back to.").
 - **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
-- **No finding is classified here.** Failures are recorded, not classified; BL-1625 classifies the osx-arm64 ones. The Curl port is never an oracle (ADR-0003).
+- **Triaged by BL-1625.** Both failures are one finding, SSH-3, now listed under `### Findings (osx-arm64)`. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
 
