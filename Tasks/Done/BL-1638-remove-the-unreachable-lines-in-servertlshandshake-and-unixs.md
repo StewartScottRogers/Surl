@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1638 — Remove the unreachable lines in ServerTlsHandshake and UnixSocketConnectionListener
 
@@ -36,19 +36,21 @@ member, without any new coverage exclusion.
 
 ## Acceptance criteria
 
-- [ ] `ServerTlsHandshake` has no statement after the protocol_version refusal that control cannot reach. The existing
+- [x] `ServerTlsHandshake` has no statement after the protocol_version refusal that control cannot reach. The existing
       TLS 1.3-only refusal tests still pass unchanged: same alert bytes `15 03 03 00 02 02 46`, same
       `TlsHandshakeException` message.
-- [ ] `UnixSocketConnectionListener` has no static constructor, and the retry pause is still 50 ms.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Networking.UnitLibrary` reports `100 | 100`
+- [x] `UnixSocketConnectionListener` has no static constructor, and the retry pause is still 50 ms.
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Networking.UnitLibrary` reports `100 | 100`
       with 0 failing members, and no `[ExcludeFromCodeCoverage]` was added.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
+- Done: `WriteProtocolVersionAlertAsync` now returns the exception and the call site does `throw await ...`; `RetryPause` is a `const int RetryPauseMilliseconds = 50`. Measure: 100 | 100, 0 failing, no exclusion added.
 - No behaviour change. BL-1639 depends on this task, because both edit `UnixSocketConnectionListener.cs`.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Networking library at 100/100 coverage: dead line and static constructor removed

@@ -244,7 +244,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     // short poll for a queued client, then an accept that returns at once, so the loop sees the
     // stop token within PollMicroseconds (BL-1568): on macOS disposing the socket does not wake a
     // thread blocked in Accept(). A client the runtime cannot accept is waited out for
-    // RetryPause, so one bad client cannot spin the loop.
+    // RetryPauseMilliseconds, so one bad client cannot spin the loop.
     [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
     private Socket AcceptBlocking(CancellationToken cancellationToken)
     {
@@ -264,12 +264,12 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
             catch (ArgumentException)
             {
                 // The runtime could not copy this peer's address: drop it, accept the next.
-                cancellationToken.WaitHandle.WaitOne(RetryPause);
+                cancellationToken.WaitHandle.WaitOne(RetryPauseMilliseconds);
             }
         }
     }
 
     private const int PollMicroseconds = 100_000;
 
-    private static readonly TimeSpan RetryPause = TimeSpan.FromMilliseconds(50);
+    private const int RetryPauseMilliseconds = 50;
 }
