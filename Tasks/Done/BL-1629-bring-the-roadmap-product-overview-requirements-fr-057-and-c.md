@@ -8,7 +8,7 @@ depends-on: [BL-1624, BL-1625, BL-1626, BL-1627, BL-1628]
 touches: [Documentation/Planning/Roadmap.md, Documentation/Product/Product-Overview.md, Documentation/Product/Requirements.md, Documentation/Conformance/CurlPort/README.md]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1629 — Bring the Roadmap, Product-Overview, Requirements FR-057 and CurlPort README in line with Phase 7 on linux-x64 and osx-arm64
 
@@ -28,15 +28,18 @@ Take numbers and findings from the family files and `Port-Board-Handoff.md` as B
 
 ## Acceptance criteria
 
-- [ ] `Roadmap.md` "Milestone 7 — Phase 7" Status and Exit criteria name port commit `74f3f45c…`, state per platform (win-x64, linux-x64, osx-arm64) whether the BL-1627 closing condition holds, name the run each platform was measured in, and no longer mention `b42c319…` except as the commit it replaced, nor "no task filed".
-- [ ] `Product-Overview.md` "Built for Phase 7" Measured / Result / Handoff / "What is not measured" state the same commit, the platforms and their counts, the handoff's total entry count, and the not-measurable groups with BL-1627's reasons.
-- [ ] `Requirements.md` FR-057 states the same commit, platforms, finding count and not-measured list, and no longer says "Windows only until a non-Windows port pin exists".
-- [ ] `CurlPort/README.md` "What was measured" lists the three platforms with their port SHA-256 pins from `CurlPortBuilds.json` and their upstream builds from `UpstreamCurlBuilds.json`, the Results section has the linux-x64 and osx-arm64 counts per family (a table per platform or a column per platform), and "The handoff" states the handoff's total.
-- [ ] A search of the four files for `b42c319`, "win-x64 alone", "Windows only" and "compared nothing" finds each only where the text says it is history.
+- [x] `Roadmap.md` "Milestone 7 — Phase 7" Status and Exit criteria name port commit `74f3f45c…`, state per platform (win-x64, linux-x64, osx-arm64) whether the BL-1627 closing condition holds, name the run each platform was measured in, and no longer mention `b42c319…` except as the commit it replaced, nor "no task filed".
+- [x] `Product-Overview.md` "Built for Phase 7" Measured / Result / Handoff / "What is not measured" state the same commit, the platforms and their counts, the handoff's total entry count, and the not-measurable groups with BL-1627's reasons.
+- [x] `Requirements.md` FR-057 states the same commit, platforms, finding count and not-measured list, and no longer says "Windows only until a non-Windows port pin exists".
+- [x] `CurlPort/README.md` "What was measured" lists the three platforms with their port SHA-256 pins from `CurlPortBuilds.json` and their upstream builds from `UpstreamCurlBuilds.json`, the Results section has the linux-x64 and osx-arm64 counts per family (a table per platform or a column per platform), and "The handoff" states the handoff's total.
+- [x] A search of the four files for `b42c319`, "win-x64 alone", "Windows only" and "compared nothing" finds each only where the text says it is history.
 
 ## Notes
+
+Amendment 9's closing condition 4 (a literal "not measurable on <platform>: <reason>" line in each family file) holds in no family file, so the four documents say Phase 7 is open on linux-x64 and osx-arm64 in that one part, and name BL-1648, filed for it. Per-platform counts in CurlPort/README.md are the run's raw counts before triage, as the family files give them. The 31 findings = 24 win-x64 + 7 from BL-1626/BL-1625, matching the handoff.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Four documents state port commit 74f3f45, three platforms, 31 findings, Amendment 9 not-measurable groups; condition 4 open under BL-1648

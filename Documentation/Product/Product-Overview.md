@@ -641,12 +641,16 @@ curl completed the exchange as the mirrored conformance test asserts and the por
 verdict is a **port defect**; it is written as a **Phase 7 finding**, and Surl does not change to make the
 port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section "Two programs named curl".
 
-- **Measured:** the Curl port at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe` (`curl.exe` SHA-256
-  `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7`, pinned in `CurlPortBuilds.json`),
-  on `win-x64` only, on 2026-11-05, 2026-11-06 and, for the extended clients, up to 2026-11-11.
-- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 23 findings, 2 cases not
-  comparable, and no Surl defect. The per-family numbers, the Surl commit each family was measured at
-  and the findings themselves are in
+- **Measured:** the Curl port at commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa` (ADR-0089 Amendment 8; it
+  replaced `b42c319`), pinned in `CurlPortBuilds.json` for `win-x64` (`curl.exe` SHA-256
+  `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467`), `linux-x64` (`DF507F32…CF57A`) and
+  `osx-arm64` (`B5B48DC7…6BBEE`). `win-x64` on 2026-11-05, 2026-11-06 and, for the extended clients, up to
+  2026-11-11, re-measured at the commit on 2026-11-16; `linux-x64` and `osx-arm64` in run 45412760425 of
+  `curl-port-phase-7` on 2026-11-24.
+- **Result:** on `win-x64`, 1,662 cases, 1,563 agreements, 97 port defects behind 24 findings, 2 cases not
+  comparable, and no Surl defect. On `linux-x64` and `osx-arm64` the run added 7 findings (HTTP/2 finding
+  2, LDAP L-1 to L-4 on `linux-x64`, SSH-3 on `osx-arm64`, UTC-4 and UTC-5) and no Surl defect; its per-family
+  counts, the Surl commit each family was measured at and the findings themselves are in
   [`Documentation/Conformance/CurlPort/README.md`](../Conformance/CurlPort/README.md) and the family
   files beside it.
 - **Harness** (`Surl.Conformance`): `CurlPortClientPins` and `CurlPortClientLocator` find the pinned port
@@ -656,16 +660,20 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   upstream's own test cases. One `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family reads its
   family file's findings table, so a finding that appears unlisted or a listed one that disappears
   fails the test.
-- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 23
-  findings as tasks in the port's own task shape. Stewart files them on the port's board himself; no
+- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds 29 entries (31
+  findings) as tasks in the port's own task shape. Stewart files them on the port's board himself; no
   Surl session writes into the port's repository (ADR-0089 decision 7).
 
-**What is not measured.**
+**What is not measured** (ADR-0089 Amendment 9, BL-1627: a case with no pinned upstream curl on a platform is
+recorded, not chased).
 
-- Every platform but `win-x64`: `CurlPortBuilds.json` pins the port for `win-x64` alone, so off Windows
-  every Phase 7 test is Inconclusive (ADR-0089 decision 8).
-- The 47 `OpenLdap_` cases, Inconclusive until a `linux-x64` port pin exists, and the cases excluded
-  on Windows by their `[OSCondition]` (6 SSH cases, 3 FTP listing twins).
+- On `osx-arm64`: the 47 `OpenLdap_` cases (the OpenLDAP upstream build is Linux only and the reference build
+  lists no `ldap`) and the RTSP family (the reference build lists no `rtsp`).
+- On `linux-x64` and `osx-arm64`: the `WinLdap_` cases (upstream curl linked against WinLDAP exists on Windows
+  only), the libcurl rows (upstream's static builds carry no shared libcurl, and the port's `Libcurl.dll` is
+  pinned for `win-x64` only) and the cases under `[OSCondition(OperatingSystems.Windows)]`.
+- Phase 7 is not yet closed on `linux-x64` and `osx-arm64`: Amendment 9's condition 4, a "not measurable on
+  <platform>: <reason>" line in each family file, is open and held by BL-1648.
 - The extended clients against upstream curl: upstream has no such schemes, so `Extended.md` records all
   19 clients judged by their specifications alone (ADR-0089 decision 9).
 - Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
