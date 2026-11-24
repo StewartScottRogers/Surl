@@ -29,3 +29,4 @@ ADR-0089 amendment 10 (BL-1647) and UTC-4 in `Upstream-Test-Cases.md`. Only test
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
