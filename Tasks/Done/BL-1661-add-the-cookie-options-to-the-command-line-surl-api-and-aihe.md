@@ -36,7 +36,7 @@ it as a follow-up task rather than widening this one.
 
 ## Notes
 
-- Reused lane 3's work (cherry-picked dbe2f5b85). Added Application/Surl.Mcp.UnitLibrary to touches: its CommandLinePathMembers table classifies every SurlCommandLine member and failed on the new Cookies member (no other Doing task touches it). Wiring into the HTTP server is follow-up BL-1672.
+- Reused lane 3's work (cherry-picked dbe2f5b85). Added Application/Surl.Mcp.UnitLibrary to touches: its CommandLinePathMembers table classifies every SurlCommandLine member and failed on the new Cookies member (no other Doing task touches it). Wiring into the HTTP server is follow-up BL-1673.
 
 ## Log
 
