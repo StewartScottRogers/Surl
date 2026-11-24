@@ -37,7 +37,10 @@ Record only; classifying failures is BL-1625 (osx-arm64) and BL-1626 (linux-x64)
 
 ## Notes
 
+- 2026-11-24: Dispatched curl-port-phase-7 on factory/phase-1 (head c8eb2e1e9, contains BL-1622 a808996a4 and BL-1623 e326c72ce): run 45412760425. Record its results when it completes.
+
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Blocked. Waiting for run:45412760425 (curl-port-phase-7)
