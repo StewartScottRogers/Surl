@@ -1,6 +1,6 @@
 # Phase 7 findings: LDAP and LDAPS
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 21 passed, 47 failed, 1 not executed; of the 47 `OpenLdap_` cases 20 passed and 27 failed (the other 20 failures are `WinLdap_` cases, which are Windows-only). A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, which contains BL-1622 and BL-1623; Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`) is the current outcome on linux-x64 and osx-arm64 and supersedes every earlier run named below. Both test jobs ran. This family: linux-x64 47 passed, 0 failed, 22 not executed; osx-arm64 0 passed, 0 failed, 69 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work (BL-1625 classifies osx-arm64, BL-1626 linux-x64), not a CI finding.
 
 What `CurlPortBesideUpstreamCurlOverLdapTests` in `Conformance/Surl.Conformance.UnitTests` found when it
 ran every LDAP and LDAPS conversation of `UpstreamCurlSearchesSurlOverLdapTests`,
@@ -204,24 +204,22 @@ the port is not traced, only what differs.
 
 ## osx-arm64
 
-Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `c87b86d5c2ed723aeaf615bbc980b8d31d44b462`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed with the `Phase 7 families (osx-arm64)` job green
-(BL-1324). Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes: 1 passed, 131 not
-executed, and every case of this family Inconclusive or failed before any comparison.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
-Findings:
-
-- **Nothing was compared.** `UpstreamCurlBuilds.json` pins no upstream curl build for `osx-arm64`, so the mirrored
-  tests are Inconclusive there with "pins no upstream curl build for osx-arm64" (upstream curl is the only oracle,
-  ADR-0003). Pinning one means downloading a build, which needs Stewart's approval (CLAUDE.md, "Decisions").
-- **The osx-arm64 port build is not pinned by hash on a CI runner.** The runner's published `curl` hashed
-  `71F9BB5EED0DCAB034D33883365082D2BA19758E9549B140037C4E663A98A0D3`, not the pinned
-  `B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE` (`ciHashStable: false`), so cases that reach the port
-  throw `UnpinnedCurlPortClientException`. The hash changes with each publish; it is not a port defect.
-- **No port defect and no Surl defect is recorded for osx-arm64.** The family's findings table is unchanged.
+- **This family:** 0 passed, 0 failed, 69 not executed.
+- **Detail:** Not executed: all 69. 21 are the `WinLdap_` cases (Windows-only, as on linux-x64), 1 is "Test is only supported on Windows", and the 47 `OpenLdap_` cases are Inconclusive with "UpstreamCurlBuilds.json pins no upstream curl linked against OpenLDAP for osx-arm64; it pins /opt/upstream-curl/8.21.0-openldap/curl" (the `ldap` protocol is not in the osx-arm64 reference build). That is the locator's message, not a finding.
+- **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
+- **No finding is classified here.** Failures are recorded, not classified; BL-1625 classifies the osx-arm64 ones. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
+
+- **This family:** 47 passed, 0 failed, 22 not executed.
+- **Detail:** Not executed: 22. 21 are the `WinLdap_` cases, Inconclusive with "WinLdap_ cases judge the WinLDAP build of upstream curl, which is Windows-only; the OpenLdap_ twins cover this platform."; 1 is "Test is only supported on Windows". The 47 `OpenLdap_` cases all passed on this run.
+- **Not classified here.** BL-1626 classifies the linux-x64 failures.
+
+### Earlier run (44044472038, 2026-11-17)
 
 Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
 (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.
@@ -236,4 +234,3 @@ Findings:
   `WinLdap_` failures were test defects (a WinLDAP-only judgement run against OpenLDAP upstream) and are now
   Inconclusive off Windows.
 - **The 47 `OpenLdap_` cases are no longer Inconclusive on linux-x64.** They ran against the OpenLDAP upstream build and compared: 20 passed, 27 failed. The 27 are real differences between the Curl port and pinned upstream curl, triaged by BL-1343 (L-1 to L-4).
-
