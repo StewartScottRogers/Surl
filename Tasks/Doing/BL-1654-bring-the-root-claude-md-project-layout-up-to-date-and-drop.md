@@ -43,3 +43,4 @@ mentions cipher or byterover (checked 2026-11-24).
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
