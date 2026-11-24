@@ -711,9 +711,9 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   `ConfigFiles` (ADR-0101 decision 2, BL-668). `surl-mcp`'s `start_server` takes `surl`'s own
   options, so the same items. Both are documented in the README's "Using Surl from a test suite
   or an AI agent" and in `Application/Surl.Api/README.md` and `Application/Surl.Mcp/README.md`.
-- **Not built yet, stated as intent.** LDAP as an optional source of accounts is decided by
-  BL-671 and built by BL-672 and BL-673. The Curl port's own clients reading the shared files
-  and messages are BL-669 and BL-670; they run in `Integration` tests only and prove nothing
+- **Built since.** LDAP as an optional source of accounts was decided by BL-671 and built by
+  BL-672 and BL-673. The Curl port's own clients reading the shared files and messages were
+  built by BL-669 and BL-670; they run in `Integration` tests only and prove nothing
   (ADR-0083). Test control of the stores - seeding, resetting, snapshotting and restoring them,
   the store change events and `--fault` - is documented in
   `Documentation/Wiki/Surl-As-A-Stand-In.md`.
@@ -751,8 +751,8 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   HTTP request with the HTTP challenges, which upstream curl's `--digest` answers on the same
   connection (ADR-0074 decision 7). Kerberos inside Negotiate is built for HTTP
   ([ADR-0064](../Planning/Decisions/ADR-0064-kerberos-inside-negotiate-the-choices-adr-0057-decision-8-left-open.md));
-  inside LDAP's `GSS-SPNEGO` it is in scope, not built yet (BL-327), as is `Proxy-Authenticate`
-  for the proxies.
+  inside LDAP's `GSS-SPNEGO` it is built too (BL-327, ADR-0072 Amendment 1), and the HTTP
+  proxy server issues `Proxy-Authenticate` (`HttpProxyExchange`).
 - **Proxies:** acting as the HTTP `CONNECT` proxy, HTTPS proxy and SOCKS4, SOCKS4a,
   SOCKS5 and SOCKS5h server that curl's proxy options talk to.
 - **TLS on the server side:** certificates and keys, client-certificate verification for
@@ -775,7 +775,7 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   `--help`. It is a deliberate addition with no upstream curl equivalent: curl 8.21.0
   refuses `--aihelp` as an unknown option
   ([ADR-0046](../Planning/Decisions/ADR-0046-surl-aihelp-markdown-help-for-ai-agents.md)).
-  In scope, not built yet: `-w` style output per exchange.
+  In scope, not built yet (BL-1663): `-w` style output per exchange.
 
 The command-line surface - which of curl's option names carry a server-side meaning and
 what each does, how listen URLs are read, and the exact text surl prints - is decided in

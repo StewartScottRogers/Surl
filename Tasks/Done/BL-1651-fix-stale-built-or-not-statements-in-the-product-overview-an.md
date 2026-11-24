@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Product/Product-Overview.md, Documentation/Planning/Roadmap.md]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1651 — Fix stale built-or-not statements in the product overview and the roadmap's Phase 7 status
 
@@ -38,16 +38,19 @@ Align-and-document audit, 2026-11-24 (line numbers at commit `bb654e099`):
 
 ## Acceptance criteria
 
-- [ ] `Product-Overview.md` no longer calls LDAP accounts, the port's shared-store clients,
+- [x] `Product-Overview.md` no longer calls LDAP accounts, the port's shared-store clients,
       store test control, Kerberos in `GSS-SPNEGO` or `Proxy-Authenticate` unbuilt, each
       reworded statement citing the task or type that built it.
-- [ ] The `-w` statement is either removed (built) or kept as intent with a task ID.
-- [ ] Milestone 7's status line agrees with its own exit criteria.
-- [ ] The two "no task filed" phrases name BL-1657.
+- [x] The `-w` statement is either removed (built) or kept as intent with a task ID.
+- [x] Milestone 7's status line agrees with its own exit criteria.
+- [x] The two "no task filed" phrases name BL-1657.
 
 ## Notes
+
+No `-w` code exists, so it stays intent; filed BL-1663 for it. Verified BL-327 (Roadmap line 114) and `Proxy-Authenticate` in `HttpProxyExchange`.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Stale built-or-not statements fixed; BL-1663 filed for -w
