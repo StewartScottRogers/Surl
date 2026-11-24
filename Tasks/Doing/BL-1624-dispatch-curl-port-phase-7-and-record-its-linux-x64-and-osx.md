@@ -45,3 +45,4 @@ Record only; classifying failures is BL-1625 (osx-arm64) and BL-1626 (linux-x64)
 - 2026-11-24: Backlog -> Doing.
 - 2026-11-24: Doing -> Blocked. Waiting for run:45412760425 (curl-port-phase-7)
 - 2026-11-24: Blocked -> Backlog. Run 45412760425 completed: success; read it with gh run view 45412760425
+- 2026-11-24: Backlog -> Doing.
