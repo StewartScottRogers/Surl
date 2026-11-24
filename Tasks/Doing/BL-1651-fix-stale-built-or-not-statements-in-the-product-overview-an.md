@@ -50,3 +50,4 @@ Align-and-document audit, 2026-11-24 (line numbers at commit `bb654e099`):
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
