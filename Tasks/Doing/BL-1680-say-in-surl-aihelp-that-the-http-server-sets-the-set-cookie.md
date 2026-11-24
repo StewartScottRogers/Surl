@@ -34,3 +34,4 @@ over HTTP/1.1. HTTP/3 does not set them until BL-1674 and BL-1679 are done: say 
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
