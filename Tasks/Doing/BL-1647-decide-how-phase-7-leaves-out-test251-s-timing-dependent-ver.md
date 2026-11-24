@@ -29,3 +29,4 @@ An ADR amendment decides whether and how Phase 7 leaves out the timing-dependent
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
