@@ -33,3 +33,4 @@ ADR-0189 decision 2 says every reply on every HTTP or HTTPS listener. BL-1660 wi
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
