@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1641 — Cover DictContentDictionary.FindDefinition's unmapped and missing-file branches
 
@@ -31,17 +31,18 @@ member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Dict.UnitTests` test makes the content store refuse to map a listed headword's path and
+- [x] A named `Surl.Protocol.Dict.UnitTests` test makes the content store refuse to map a listed headword's path and
       asserts `FindDefinition` returns null. Through the server, `DEFINE` answers `552 no match`.
-- [ ] A named test has a listed, mapped headword whose file status is null and asserts `FindDefinition` returns null.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Dict.UnitLibrary` reports `100 | 100`
+- [x] A named test has a listed, mapped headword whose file status is null and asserts `FindDefinition` returns null.
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Dict.UnitLibrary` reports `100 | 100`
       with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
-- Tests only (test-writer).
+- Tests only. The unmapped branch is reached by a file system that resolves the listed file outside the root once listed; the null-status branch by one that reports it gone once listed (two UnitTest* fakes, DictContentDictionaryTests). The "DEFINE answers 552" half goes through the same FindDefinition null.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Dict library at 100% line and branch, 0 failing members
