@@ -417,7 +417,7 @@ platform in its own test (root `CLAUDE.md`) and recorded against this ADR.
 
 ## Measured on Linux and macOS
 
-Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformance-Off-Windows.md (BL-1289): CI run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682 (commit 06ae86113e511d6d6204949c1fbf80e29b41ba9, attempt 1 of both legs), upstream curl 8.21.0 reference builds curl-linux-x86_64-musl-8.21.0.tar.xz (SHA-256 153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45) and curl-macos-arm64-8.21.0.tar.xz (SHA-256  4E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF).
+Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformance-Off-Windows.md (BL-1289): CI run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682 (commit a06ae86113e511d6d6204949c1fbf80e29b41ba9, attempt 1 of both legs), upstream curl 8.21.0 reference builds curl-linux-x86_64-musl-8.21.0.tar.xz (SHA-256 153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45) and curl-macos-arm64-8.21.0.tar.xz (SHA-256  4E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF).
 
 | Platform | `UpstreamCurlSendsMailToSurlOverSmtpTests` Passed | Inconclusive | Failed |
 |---|---|---|---|

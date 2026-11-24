@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md, Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md, Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1652 — Restore the commit hash a stray BEL character corrupted in ADR-0053, ADR-0055 and ADR-0056
 
@@ -26,9 +26,9 @@ intended commit exists. Found 2026-11-24.
 
 ## Acceptance criteria
 
-- [ ] `grep -lP "\x07" Documentation/Planning/Decisions/*.md` prints nothing.
-- [ ] Each of the three lines contains `commit a06ae86113e511d6d6204949c1fbf80e29b41ba9`.
-- [ ] No other byte in the three files changes (`git diff --stat` shows one line each).
+- [x] `grep -lP "\x07" Documentation/Planning/Decisions/*.md` prints nothing.
+- [x] Each of the three lines contains `commit a06ae86113e511d6d6204949c1fbf80e29b41ba9`.
+- [x] No other byte in the three files changes (`git diff --stat` shows one line each).
 
 ## Notes
 
@@ -39,3 +39,4 @@ leave it.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. BEL replaced by 'a' in the three ADRs; no BEL remains in Decisions
