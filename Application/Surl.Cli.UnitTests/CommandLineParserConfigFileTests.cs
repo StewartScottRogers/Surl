@@ -86,6 +86,19 @@ public sealed class CommandLineParserConfigFileTests
     }
 
     [TestMethod]
+    [DataRow("- # note", DisplayName = "A bare dash")]
+    [DataRow("-v9 # note", DisplayName = "Cluster with an unknown letter")]
+    [DataRow("-9 # note", DisplayName = "An unknown letter alone")]
+    [DataRow("--no-such-option # note", DisplayName = "An unknown long name")]
+    [DataRow("--log-file # note", DisplayName = "A valued long name")]
+    public void Parse_HashAfterANonFlagShortWord_IsTakenAsTheValueAndRefused(string line)
+    {
+        var result = CommandLineParser.Parse(["-K", "a.cfg", Url], [], Files(("a.cfg", $"{line}\n")));
+
+        Assert.AreEqual(CommandLineOutcome.Refused, result.Outcome);
+    }
+
+    [TestMethod]
     public void Parse_ShortOptionInAConfigFile_TakesTheLinesValue()
     {
         var commandLine = AssertServes(Files(("a.cfg", "-u \"ann:pass word\"\n-m 30\n")), "-K", "a.cfg", Url);
