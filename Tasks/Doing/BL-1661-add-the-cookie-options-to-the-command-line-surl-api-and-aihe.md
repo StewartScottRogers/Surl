@@ -41,3 +41,4 @@ it as a follow-up task rather than widening this one.
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
 - 2026-11-24: Doing -> Backlog. Lane 3 could not integrate: fast tests failed twice (Surl.Mcp.UnitTests: Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce; then Surl.Mcp.UnitTests: Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce) after rebasing onto the other lanes' work. The work is on branch factory/BL-1661-lane-3-20261124-122841; start with git cherry-pick --no-commit factory/BL-1661-lane-3-20261124-122841 and fix it.
+- 2026-11-24: Backlog -> Doing.
