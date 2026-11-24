@@ -36,3 +36,4 @@ The workflow gates nothing (ADR-0089 Amendment 8, ADR-0003 decision 6). The port
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
