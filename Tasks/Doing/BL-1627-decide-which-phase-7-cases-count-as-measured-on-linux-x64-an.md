@@ -41,3 +41,4 @@ The single-commit rule needs no change: ADR-0089 Amendment 8 replaced `b42c319` 
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
