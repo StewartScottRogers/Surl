@@ -212,6 +212,23 @@ public sealed class SmtpFaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "bob@x"), events.Events.Single());
     }
 
+    // The chosen error's reply waits in a write the client never reads; shutdown ends the wait.
+    [TestMethod]
+    public async Task ServeAsync_ErrorReplyWriteStalls_ShutdownEndsTheSessionWithTheReplyUnwritten()
+    {
+        var clock = new ManualTimeProvider();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new WriteStallingConnection(Ascii("NOOP\r\n"), writesBeforeStalling: 1);
+        var context = Context(clock, shutdown.Token, shutdownToken: shutdown.Token) with { Faults = new ScriptedFaultPlan(ErrorRule("NOOP")) };
+
+        var serving = Server(AliceAndBobStore(clock)).ServeAsync(connection, context);
+        await connection.WriteStalled;
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.DoesNotContain("try later", Utf8(connection.WrittenBytes));
+    }
+
     private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
         IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock,
         InMemoryConnection? connection = null)

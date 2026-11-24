@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1646 — Cover the SMTP command-fault switch's last outcome
 
@@ -31,10 +31,10 @@ member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Smtp.UnitTests` test reaches line 42's missing outcome and asserts the reply bytes or
+- [x] A named `Surl.Protocol.Smtp.UnitTests` test reaches line 42's missing outcome and asserts the reply bytes or
       connection outcome. If no test can reach it, the Log says so with the evidence, and the task moves to Blocked
       naming that, rather than adding an exclusion.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Smtp.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Smtp.UnitLibrary` reports `100 | 100`
       with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
@@ -45,3 +45,5 @@ member.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Missing outcome was the chosen-error reply write stalling (the await not completing synchronously), same as IMAP BL-1643's stalled fault-reply test; BL-1645 (POP3) likely the same. Added WriteStallingConnection and ServeAsync_ErrorReplyWriteStalls_ShutdownEndsTheSessionWithTheReplyUnwritten. SMTP 100 | 100, 0 failing.
+- 2026-11-24: Doing -> Done. SMTP library at 100% line and branch, 0 failing members; stalled error-reply write test added
