@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
+touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1635 — Cover the NATS CONNECT redaction rule's non-CONNECT and non-object branches
 
@@ -35,20 +35,22 @@ failing member.
 
 ## Acceptance criteria
 
-- [ ] A named test redacts a 7-letter operation line that is not CONNECT and asserts it is logged unchanged.
-- [ ] Named tests redact `CONNECT` with an empty argument and with a non-object JSON argument, and assert what the rule
+- [x] A named test redacts a 7-letter operation line that is not CONNECT and asserts it is logged unchanged.
+- [x] Named tests redact `CONNECT` with an empty argument and with a non-object JSON argument, and assert what the rule
       logs for each. This is whatever its caller does with the `JsonException`; the test must show no `pass` or
       `auth_token` value in clear.
-- [ ] A named test redacts a `CONNECT {"user":"a","pass":"secret"` line cut off before `}` and asserts the secret is not
+- [x] A named test redacts a `CONNECT {"user":"a","pass":"secret"` line cut off before `}` and asserts the secret is not
       logged in clear.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Nats.UnitLibrary` reports
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Nats.UnitLibrary` reports
       `100 | 100` with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
 - Tests only (test-writer). A secret that shows in clear is a defect: file it as its own task, do not fix it here.
+- Two branches were unreachable, not untested: with a final-block Utf8JsonReader, Read never returns false for a non-blank argument (truncated input throws JsonException, which the Redact caller masks whole). Added the library to touches and replaced the dead `!reader.Read()` and loop `reader.Read() &&` checks with ignored Reads (RedactObject, ReadsPropertyName); behaviour unchanged. Empty argument cannot reach RedactObject (ArgumentStart returns -1, line logged unchanged).
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Nats redaction rule branches covered; Measure-CodeQuality reports 100|100, 0 failing

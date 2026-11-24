@@ -95,13 +95,16 @@ internal sealed class NatsConnectLineRedactionRule : ILineRedactionRule
     private static void RedactObject(ReadOnlySpan<byte> json, ArrayBufferWriter<byte> output)
     {
         var reader = new Utf8JsonReader(json);
-        if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+        // The argument starts with a non-blank byte and the reader is final, so Read never returns
+        // false here: input it cannot finish throws JsonException instead.
+        _ = reader.Read();
+        if (reader.TokenType != JsonTokenType.StartObject)
         {
             throw new JsonException("CONNECT's argument is not a JSON object");
         }
 
         var copied = 0;
-        while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+        while (ReadsPropertyName(ref reader))
         {
             var isSecret = IsSecretName(reader.GetString());
             _ = reader.Read();
@@ -116,6 +119,12 @@ internal sealed class NatsConnectLineRedactionRule : ILineRedactionRule
         }
 
         output.Write(json[copied..]);
+    }
+
+    private static bool ReadsPropertyName(ref Utf8JsonReader reader)
+    {
+        _ = reader.Read();
+        return reader.TokenType == JsonTokenType.PropertyName;
     }
 
     private static bool IsSecretName(string? name) =>

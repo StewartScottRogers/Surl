@@ -76,6 +76,28 @@ public sealed class NatsExchangeLogRedactionTests
             Logged("PING\r\nCONNECT\r\nCONNECT  \r\nCONNECTX {\"pass\":\"a\"}\r\nSUB a 1\r\nCON\r\n"));
 
     [TestMethod]
+    public void SevenLetterOperationThatIsNotConnect_IsLoggedUnchanged() =>
+        Assert.AreEqual(
+            "CONNECX {\"pass\":\"s3cret\"}\r\nCONNECT {\"pass\":\"x\"}\r\n".Replace("\"x\"", "\"****\""),
+            Logged("CONNECX {\"pass\":\"s3cret\"}\r\nCONNECT {\"pass\":\"x\"}\r\n"));
+
+    [TestMethod]
+    public void Connect_NonObjectJsonArgument_IsMaskedWhole()
+    {
+        Assert.AreEqual("CONNECT ****\r\n", Logged("CONNECT []\r\n"));
+        Assert.AreEqual("CONNECT ****\r\n", Logged("CONNECT \"s3cret\"\r\n"));
+        Assert.AreEqual("CONNECT ****\r\n", Logged("CONNECT 1\r\n"));
+    }
+
+    [TestMethod]
+    public void Connect_ObjectCutOffBeforeClosingBrace_NeverLogsTheSecret()
+    {
+        var logged = Logged("CONNECT {\"user\":\"a\",\"pass\":\"s3cret\"");
+
+        Assert.DoesNotContain("s3cret", logged);
+    }
+
+    [TestMethod]
     public void RuleObserveSent_ChangesNothing()
     {
         var redactor = NewRedactor();
