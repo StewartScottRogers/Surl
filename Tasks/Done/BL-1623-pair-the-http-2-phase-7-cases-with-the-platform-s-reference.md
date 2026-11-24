@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1623 — Pair the HTTP/2 Phase 7 cases with the platform's reference build off Windows, as the mirrored HTTP/2 test does
 
@@ -26,13 +26,16 @@ ADR-0089 decision 2 (each case paired with the build its mirrored test runs). Th
 
 ## Acceptance criteria
 
-- [ ] `CurlPortBesideUpstreamCurlOverHttp2Tests.MeasureAsync` sets `UpstreamBuildSha256` to `Http2WindowsBuildSha256` on Windows and to `null` (the platform's reference build) elsewhere, in the form `CurlPortBesideUpstreamCurlOverHttp3Tests` uses, and the class summary says so.
-- [ ] On Windows the HTTP/2 cases still pair with `589C8E4D…2648`: `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~CurlPortBesideUpstreamCurlOverHttp2Tests"` gives the same outcome on a lane as before the change (Inconclusive where the pinned port or build is absent, otherwise the findings `Http2.md` lists for win-x64).
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests (`TestCategory!=Integration`) pass.
+- [x] `CurlPortBesideUpstreamCurlOverHttp2Tests.MeasureAsync` sets `UpstreamBuildSha256` to `Http2WindowsBuildSha256` on Windows and to `null` (the platform's reference build) elsewhere, in the form `CurlPortBesideUpstreamCurlOverHttp3Tests` uses, and the class summary says so.
+- [x] On Windows the HTTP/2 cases still pair with `589C8E4D…2648`: `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~CurlPortBesideUpstreamCurlOverHttp2Tests"` gives the same outcome on a lane as before the change (Inconclusive where the pinned port or build is absent, otherwise the findings `Http2.md` lists for win-x64).
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests (`TestCategory!=Integration`) pass.
 
 ## Notes
+
+Test-only change. On Windows the two failing cases (GetWithHttp2AndInclude_File..., GetWithDigest_PriorKnowledge...) are Integration findings against the local Curl port build; the Windows code path is unchanged by this edit, so they are not caused by it. Fast tests: 1053 pass.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. HTTP/2 Phase 7 now pairs with the platform reference build off Windows

@@ -7,7 +7,8 @@ namespace Surl.Conformance;
 /// <summary>
 /// Phase 7 for HTTP/2 (ADR-0089, BL-589): every conversation <see cref="UpstreamCurlFetchesFromSurlOverHttp2Tests"/>
 /// runs - prior knowledge and the <c>h2c</c> Upgrade on <c>http</c>, ALPN <c>h2</c> on <c>https</c> - through the
-/// static 8.21.0 build that test runs on Windows (ADR-0081 decision 1) and through the pinned Curl port, each
+/// static 8.21.0 build that test runs on Windows (ADR-0081 decision 1, the platform's reference build elsewhere,
+/// which lists HTTP2) and through the pinned Curl port, each
 /// against its own fresh <c>surl</c>, judged by <see cref="PinnedCurlPortBesideUpstreamCurl"/> and held to
 /// <c>Documentation/Conformance/CurlPort/Http2.md</c> by <see cref="CurlPortFindingsFile"/>. One test per
 /// mirrored test, of the same name, each naming it in its <see cref="DescriptionAttribute"/>. Upstream curl is
@@ -264,7 +265,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttp2Tests
     /// </summary>
     private async Task MeasureAsync(CurlPortMeasurementCase measurementCase)
     {
-        var setup = new CurlPortRunSetup { UpstreamBuildSha256 = Http2WindowsBuildSha256 };
+        var setup = new CurlPortRunSetup { UpstreamBuildSha256 = OperatingSystem.IsWindows() ? Http2WindowsBuildSha256 : null };
         var relays = new List<(ClientBytesRelay Relay, int Port)>();
         if (measurementCase.SurlScheme == "https")
         {
