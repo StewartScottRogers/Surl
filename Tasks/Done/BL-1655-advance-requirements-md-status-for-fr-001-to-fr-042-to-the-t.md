@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1655 — Advance Requirements.md status for FR-001 to FR-042 to the tests that prove them
 
@@ -26,17 +26,19 @@ built and proven against pinned upstream curl. A reader cannot tell what is done
 
 ## Acceptance criteria
 
-- [ ] The Status vocabulary is stated once above the table (e.g. `Draft`, `Proven`).
-- [ ] Every row from FR-001 to FR-042 moved off `Draft` names at least one existing test
+- [x] The Status vocabulary is stated once above the table (e.g. `Draft`, `Proven`).
+- [x] Every row from FR-001 to FR-042 moved off `Draft` names at least one existing test
       class that exercises it against pinned upstream curl.
-- [ ] FR-015 stays `Draft` and cites BL-1650.
-- [ ] No row's Requirement text changes.
+- [x] FR-015 stays `Draft` and cites BL-1650.
+- [x] No row's Requirement text changes.
 
 ## Notes
 
+Status words: `Draft`, `Proven by <test classes>`. FR-031, FR-034, FR-035 stay `Draft`: no existing test runs pinned upstream curl against them (FR-035 is Surl-only).
 BL-1656 does the rest of the table; both edit one file, so they run one after the other.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. FR-001..042 Status now Draft or Proven by named upstream-curl test classes; vocabulary stated
