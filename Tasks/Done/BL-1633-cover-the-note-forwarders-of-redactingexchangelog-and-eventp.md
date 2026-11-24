@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1633 — Cover the Note forwarders of RedactingExchangeLog and EventPublishingExchangeLog
 
@@ -29,18 +29,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Core.UnitTests` test calls `RedactingExchangeLog.Note` and asserts the inner log received exactly
+- [x] A named `Surl.Core.UnitTests` test calls `RedactingExchangeLog.Note` and asserts the inner log received exactly
       that text.
-- [ ] A named `Surl.Core.UnitTests` test calls `EventPublishingExchangeLog.Note` and asserts the inner log received
+- [x] A named `Surl.Core.UnitTests` test calls `EventPublishingExchangeLog.Note` and asserts the inner log received
       exactly that text. If the class publishes nothing for a note, the test also asserts that no event was published.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Core.UnitLibrary` reports `100 | 100` with 0
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Core.UnitLibrary` reports `100 | 100` with 0
       failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
-- Tests only (test-writer).
+- Tests only: ExchangeLogNoteForwardingTests (two tests); no production change.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Note forwarders of both exchange-log decorators covered; Surl.Core.UnitLibrary 100/100, 0 failing
