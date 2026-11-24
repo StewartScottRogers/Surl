@@ -11,7 +11,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   (ADR-0124 decision 2, BL-804): one `ProtocolServerRegistration(Schemes, Create)` per server,
   `Create` building it from the start's `ComposedProtocolServices` (content store, mail store,
   message bus, LDAP server, policy, `TimeProvider`, SSH host keys and algorithms, the TLS-upgrade,
-  `--ws-echo` and `--http3` flags). `https`, `imaps`, `ldaps`, `pop3s`, `smtps` and `wss` are
+  `--ws-echo` and `--http3` flags, and the `--set-cookie` list, `Cookies`, which the HTTP server
+  for `http` and `https` sets and the HTTP/3 server does not (ADR-0189, BL-1673)). `https`, `imaps`, `ldaps`, `pop3s`, `smtps` and `wss` are
   `ProtocolServerRegistration.ImplicitTls` entries, an `ImplicitTlsSchemeServer` over the server an
   earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
   entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,

@@ -43,7 +43,7 @@ public static class ProtocolServerRegistrations
     /// <summary>Gets every original protocol server's entry, in registration order.</summary>
     public static IReadOnlyList<ProtocolServerRegistration> Original { get; } =
     [
-        new(["http"], services => new HttpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("http"), services.AdvertisesHttp3)),
+        new(["http"], services => new HttpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("http"), services.AdvertisesHttp3, services.Cookies)),
         ProtocolServerRegistration.ImplicitTls("https", "http"),
         new(["dict"], services => new DictProtocolServer(services.ContentStore)) { MakesLogin = false },
         new(["ftp", "ftps"], services => new FtpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ftp"), services.IsTlsUpgradeAvailable)),

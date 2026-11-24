@@ -1,18 +1,18 @@
-using Surl.Extended.Protocol.Amqp0;
-using Surl.Extended.Protocol.AzureStorage;
-using Surl.Extended.Protocol.GoogleCloudStorage;
-using Surl.Extended.Protocol.McpServer;
-using Surl.Extended.Protocol.Mqtt5;
-using Surl.Extended.Protocol.OciRegistry;
-using Surl.Extended.Protocol.S3;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.McpServer;
+using Surl.Extended.Protocol.Mqtt5;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.Redis;
+using Surl.Extended.Protocol.S3;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -473,6 +473,7 @@ public static partial class SurlServerComposition
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
             Mqtt5DisconnectsAfterRetained = commandLine.Mqtt5DisconnectAfterRetained,
+            Cookies = commandLine.Cookies,
             KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
