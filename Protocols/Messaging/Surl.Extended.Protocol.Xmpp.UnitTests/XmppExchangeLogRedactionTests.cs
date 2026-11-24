@@ -97,6 +97,18 @@ public sealed class XmppExchangeLogRedactionTests
     public void OtherElements_AreLoggedAsReceived(string wire) => Assert.AreEqual(wire, Logged(wire));
 
     [TestMethod]
+    public void AuthWhoseMechanismHasNoEqualsSign_IsLoggedAsANonPlainElement() =>
+        Assert.AreEqual(
+            "<auth mechanism PLAIN>AHVzZXIAcGVuY2ls</auth>",
+            Logged("<auth mechanism PLAIN>AHVzZXIAcGVuY2ls</auth>"));
+
+    [TestMethod]
+    public void AuthWhoseMechanismEndsTheTagText_IsLoggedAsANonPlainElement() =>
+        Assert.AreEqual(
+            "<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism>AHVzZXIAcGVuY2ls</auth>",
+            Logged("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism>AHVzZXIAcGVuY2ls</auth>"));
+
+    [TestMethod]
     public void UnfinishedTag_AtFlush_IsLoggedAsReceived() =>
         Assert.AreEqual("<auth mechanism='PLA", Logged("<auth mechanism='PLA"));
 

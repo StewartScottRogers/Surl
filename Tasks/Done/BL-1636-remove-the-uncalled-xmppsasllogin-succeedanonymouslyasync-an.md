@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1636 — Remove the uncalled XmppSaslLogin.SucceedAnonymouslyAsync and cover MechanismIsPlain
 
@@ -31,13 +31,13 @@ failing member, and the library holds no uncalled method.
 
 ## Acceptance criteria
 
-- [ ] `SucceedAnonymouslyAsync` is deleted. `XmppAnonymousLoginTests` still passes unchanged, which shows ANONYMOUS still
+- [x] `SucceedAnonymouslyAsync` is deleted. `XmppAnonymousLoginTests` still passes unchanged, which shows ANONYMOUS still
       logs in as a new `anon-` JID.
-- [ ] Named `Surl.Extended.Protocol.Xmpp.UnitTests` tests redact an `<auth` element whose `mechanism` has no `=` after it
+- [x] Named `Surl.Extended.Protocol.Xmpp.UnitTests` tests redact an `<auth` element whose `mechanism` has no `=` after it
       and one whose `mechanism` ends the tag text, and each asserts the element is logged as a non-PLAIN one.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Xmpp.UnitLibrary` reports
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Xmpp.UnitLibrary` reports
       `100 | 100` with 0 failing members.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
@@ -45,7 +45,10 @@ failing member, and the library holds no uncalled method.
   to exist, the anonymous path's log line `Logged in as …` may be missing from the real path. Check that the
   `StartAsync` path logs it, and file a task if it does not.
 
+- Done 2026-11-24: nothing called SucceedAnonymouslyAsync (grep); the StartAsync path logs 'Logged in as' in SucceedAsync. Removed it. In MechanismIsPlain the held tag always ends in '>', so 'rest.Length == 0' was unreachable; replaced by StartsWith("=") (same behaviour, no dead branch). Added two redaction tests (no '=' after mechanism; mechanism ending the attribute text before '>').
+
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Xmpp library at 100/100 coverage: dead SucceedAnonymouslyAsync removed, MechanismIsPlain branches covered
