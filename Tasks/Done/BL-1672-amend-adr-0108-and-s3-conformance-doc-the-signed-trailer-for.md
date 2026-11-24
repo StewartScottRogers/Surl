@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: docs
 depends-on: []
-touches: [Documentation]
+touches: [Documentation, Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1672 — Amend ADR-0108 and S3 conformance doc: the signed trailer form STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER is served (BL-1665)
 
@@ -27,12 +27,15 @@ Decided by Claude under Stewart's delegation.
 
 ## Acceptance criteria
 
-- [ ] ADR-0108 gains an amendment serving the signed trailer form, and the conformance doc lists it as served.
-- [ ] `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` names the trailer chain.
+- [x] ADR-0108 gains an amendment serving the signed trailer form, and the conformance doc lists it as served.
+- [x] `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` names the trailer chain.
 
 ## Notes
+
+Added the Authentication CLAUDE.md to touches (criterion 2 edits it; no Doing task touches it).
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. ADR-0108 amendment 10, S3 conformance doc and Authentication CLAUDE.md state the signed trailer form is served

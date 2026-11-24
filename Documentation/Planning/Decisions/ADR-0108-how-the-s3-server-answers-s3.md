@@ -294,8 +294,8 @@ decision 4.3's table. The server references neither `Surl.Authentication` nor an
   Chunks"; a bad chunk signature `403 SignatureDoesNotMatch`) and
   `STREAMING-UNSIGNED-PAYLOAD-TRAILER` (its trailing checksum checked). `x-amz-decoded-content-length`
   is the object's length; missing it is `411 MissingContentLength`. Other streaming values
-  (`STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD`, the signed `-TRAILER` forms) are `501
-  NotImplemented`.
+  (`STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD` and its trailer form; the HMAC `-TRAILER` form is
+  served since Amendment 10) are `501 NotImplemented`.
 - **Checksums** ("Checking object integrity"): `Content-MD5` is checked when sent (`BadDigest`,
   or `InvalidDigest` when malformed); `x-amz-checksum-crc32`, `-crc32c`, `-sha1` and `-sha256` are
   checked when sent (`400 BadDigest`) and echoed on PutObject's answer; `crc64nvme` is `501
@@ -732,7 +732,7 @@ server's `S3ObjectBodyReader`, `S3AwsChunkedDecoder` and `S3ChecksumRequest`.
 5. **Streaming hashes are not bound to the body** on an `s3` request naming its service; only
    `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` gets a chain. Plain HTTP and Cloud Storage keep binding the
    value as a hash, so their behaviour does not change. The server refuses every `STREAMING-` form
-   it does not serve (`STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD`, the signed `-TRAILER` forms) `501
+   it does not serve (`STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD` and its trailer form; the HMAC `-TRAILER` form is served since Amendment 10) `501
    NotImplemented` before reading. Signed chunks with no chain (a presigned or anonymous request
    claiming them) are `403 SignatureDoesNotMatch`.
 6. **`aws-chunked` framing** (`S3AwsChunkedDecoder`): accepted under `Content-Length` or HTTP
@@ -766,3 +766,24 @@ server's `S3ObjectBodyReader`, `S3AwsChunkedDecoder` and `S3ChecksumRequest`.
 Error message texts the S3 error-code table does not give (the expiry range, the checksum
 messages) are written from AWS's documented responses where known and otherwise worded plainly; no
 S3 client parses them.
+
+## Amendment 10 - the signed trailer form `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER` is served, as BL-1665 built it (BL-1672, 2026-11-24)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-24, in
+BL-1665, and recorded here by BL-1672. It amends decision 4.5 and Amendment 9 decision 5, which
+listed the signed `-TRAILER` form among the streaming values answered `501 NotImplemented`.
+
+1. **Served.** `x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER` is
+   `S3PayloadForm.SignedChunksWithTrailer`. Every chunk signature is chained from the seed signature
+   as in `STREAMING-AWS4-HMAC-SHA256-PAYLOAD`; after the final empty chunk the trailer's fields are
+   read, and the `x-amz-trailer-signature` line is checked as well as the trailing checksum
+   (Amendment 9 decision 8).
+2. **Contract.** `IHttpChunkSignatureChain` gains `VerifyTrailer(trailerSha256, trailerSignature)`.
+   The string to sign is `AWS4-HMAC-SHA256-TRAILER`, the request time and scope, the final chunk's
+   signature and the SHA-256 of the trailer lines. The signing key stays in `Surl.Authentication`
+   (`AwsSigV4ChunkSignatureChain`, `AwsSigV4Calculation.ComputeTrailerSignature`); the server only
+   decodes the framing and asks.
+3. **Refusals.** A wrong trailer signature is `403 SignatureDoesNotMatch` with nothing stored; a
+   wrong checksum is `400 BadDigest`; signed chunks with no chain are `403 SignatureDoesNotMatch`
+   before the body is read.
+4. **Still `501 NotImplemented`:** `STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD` and its trailer form only.
