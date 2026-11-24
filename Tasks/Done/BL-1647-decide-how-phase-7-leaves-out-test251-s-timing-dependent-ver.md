@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/CurlPort/Upstream-Test-Cases.md]
 requirement: FR-057
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1647 — Decide how Phase 7 leaves out test251's timing-dependent verdict
 
@@ -22,11 +22,14 @@ An ADR amendment decides whether and how Phase 7 leaves out the timing-dependent
 
 ## Acceptance criteria
 
-- [ ] An ADR-0089 amendment names test251 and the rule applied, and `Upstream-Test-Cases.md` UTC-4 states it.
+- [x] An ADR-0089 amendment names test251 and the rule applied, and `Upstream-Test-Cases.md` UTC-4 states it.
 
 ## Notes
+
+- Decision: tolerated either way (ADR-0089 amendment 10); stays measured, not left out. Code change split into BL-1648 (touches Conformance projects outside this docs task).
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. ADR-0089 amendment 10 and UTC-4 text written

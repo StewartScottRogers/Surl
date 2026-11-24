@@ -492,3 +492,25 @@ Alternatives considered:
 
 Follow-up work: none. Platform runs and their sections are the existing Phase 7 tasks (BL-1622 to
 BL-1629).
+
+## Amendment 10 (2026-11-24, BL-1647): test251's timing-dependent verdict is tolerated either way
+
+Decided by Claude under Stewart's delegation.
+
+`test251` (UTC-4, FTP active mode with `-P` against a deliberately slow server) shows the port's 60-second
+timeout in some runs (44044472038, 45412760425) and finishes in others (45198867449), so decision 5's "a
+listed finding that no longer reproduces turns the test red" made the linux-x64 result differ run to run
+with no change to the port or to Surl.
+
+**Rule.** A listed case whose only recorded port defect is a case-timeout and whose pinned upstream curl
+passes it is a *timing-dependent finding*. Decision 5 judges it either way: showing the timeout is the
+listed finding; finishing (both its sections pass) is not stale and not a failure. Upstream curl must still
+pass the case every run (it is the oracle, ADR-0003), and any other difference, such as a section failing
+in a way other than the timeout, is judged as before. `test251` is the only case so marked; marking another
+needs its own amendment with run evidence of both outcomes.
+
+**Why not leave it out of the comparison.** It stays measured: a port that always finishes still shows
+upstream passing it, and a different failure still fails the test. Leaving it out would hide those.
+
+**Follow-up.** The comparison code is outside this task's files; BL-1647's Notes name the task filed to make
+`UpstreamTestCasePortComparison` apply this rule.
