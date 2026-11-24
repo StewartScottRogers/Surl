@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1640 — Cover the cancelled delay hold and the aborted peer watch in Surl.Protocol.Abstractions
 
@@ -39,9 +39,9 @@ failing member.
       apply ends with `OperationCanceledException` (or what the method's contract says) and the idle clock restarted.
 - [x] A named test starts `WatchForPeerCloseAsync` on an `InMemoryConnection(…, peerHalfClosesWhenExhausted: false)`,
       calls `Abort()`, and asserts the outcome it returns.
-- [ ] Both tests use the injected `FakeTimeProvider`-style clock, with no real sleeps, and pass 20 runs in a row
+- [x] Both tests use the injected `FakeTimeProvider`-style clock, with no real sleeps, and pass 20 runs in a row
       (`dotnet test --filter "FullyQualifiedName~<name>"`).
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Abstractions.UnitLibrary` reports
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Abstractions.UnitLibrary` reports
       `100 | 100` with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
@@ -52,3 +52,4 @@ failing member.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Delay-hold cancellation and aborted peer watch covered; Abstractions at 100% line and branch
