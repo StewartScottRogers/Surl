@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1634 — Cover the AMQP 0-9-1 Start-Ok redactor's response-past-the-end branch
 
@@ -31,14 +31,15 @@ failing member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Extended.Protocol.Amqp0.UnitTests` test feeds the redactor a Start-Ok whose `response` length runs
+- [x] A named `Surl.Extended.Protocol.Amqp0.UnitTests` test feeds the redactor a Start-Ok whose `response` length runs
       past the frame's end. It asserts what the exchange log then holds: either nothing of the response is shown in
       clear, or it is withheld the way the class's doc comment says an unlocatable response is handled.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Amqp0.UnitLibrary` reports
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Amqp0.UnitLibrary` reports
       `100 | 100` with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
+- The uncovered branch was the mechanism-length check (line 263), not the response one (line 270, already covered); both past-the-end inputs now log method + `****`, nothing of the response in clear (test `StartOk_MechanismOrResponseLengthRunsPastTheFrame_IsWrittenAsItsMethodThenMask`).
 - Tests only (test-writer). If the test shows a truncated response leaking credentials into the log, stop and file that
   as a defect task. Do not widen this one.
 
@@ -46,3 +47,4 @@ failing member.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Added past-the-end Start-Ok test; Amqp0 at 100/100, 0 failing members
