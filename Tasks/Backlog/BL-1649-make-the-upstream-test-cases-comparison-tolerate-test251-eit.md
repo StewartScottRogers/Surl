@@ -1,5 +1,5 @@
 ---
-id: BL-1648
+id: BL-1649
 title: Make the upstream-test-cases comparison tolerate test251 either way (ADR-0089 amendment 10)
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-057
 created: 2026-11-24
 completed:
 ---
-# BL-1648 — Make the upstream-test-cases comparison tolerate test251 either way (ADR-0089 amendment 10)
+# BL-1649 — Make the upstream-test-cases comparison tolerate test251 either way (ADR-0089 amendment 10)
 
 ## Goal
 

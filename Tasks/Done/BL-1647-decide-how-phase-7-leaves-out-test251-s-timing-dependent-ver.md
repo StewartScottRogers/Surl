@@ -26,7 +26,7 @@ An ADR amendment decides whether and how Phase 7 leaves out the timing-dependent
 
 ## Notes
 
-- Decision: tolerated either way (ADR-0089 amendment 10); stays measured, not left out. Code change split into BL-1648 (touches Conformance projects outside this docs task).
+- Decision: tolerated either way (ADR-0089 amendment 10); stays measured, not left out. Code change split into BL-1649 (touches Conformance projects outside this docs task).
 
 ## Log
 
