@@ -18,10 +18,11 @@ internal static class ProxyComposition
     /// <summary>
     /// The rule the proxy's origin connector applies: loopback only, widened by every
     /// <c>--proxy-allow-origin</c> and narrowed by each proxy listen URL's own end point
-    /// (decision 2). A proxy on port 0 has no port to refuse yet; a host that is not an address
-    /// refuses its port on every address.
+    /// (decision 2). A proxy on port 0 has no port to refuse yet, so the rule also reads
+    /// <paramref name="boundProxyEndPoints"/>, which the listeners fill as they bind; a host that is
+    /// not an address refuses its port on every address.
     /// </summary>
-    internal static AllowedOriginRule ComposeAllowedOriginRule(SurlCommandLine commandLine)
+    internal static AllowedOriginRule ComposeAllowedOriginRule(SurlCommandLine commandLine, BoundProxyEndPoints boundProxyEndPoints)
     {
         var rule = AllowedOriginRule.LoopbackOnly;
         foreach (var origin in commandLine.ProxyAllowedOrigins)
@@ -32,12 +33,19 @@ internal static class ProxyComposition
         var proxyListenUrls = commandLine.ProxyListenUrls.Concat(commandLine.ListenUrls.Where(listenUrl => listenUrl.Scheme.StartsWith("socks", StringComparison.Ordinal))).Distinct();
         foreach (var listenUrl in proxyListenUrls.Where(listenUrl => listenUrl.Port > 0))
         {
-            var address = IPAddress.TryParse(listenUrl.Host, out var parsed) ? parsed : IPAddress.Any;
-            rule = rule.WithProxyEndPoint(new IPEndPoint(address, listenUrl.Port));
+            rule = rule.WithProxyEndPoint(new IPEndPoint(AddressOf(listenUrl), listenUrl.Port));
         }
 
-        return rule;
+        return rule.WithLaterProxyEndPoints(boundProxyEndPoints.Snapshot);
     }
+
+    /// <summary>Says whether a listen URL is served by a proxy: a <c>--proxy</c> one or a SOCKS one.</summary>
+    internal static bool IsProxyListenUrl(ListenUrl listenUrl) =>
+        listenUrl.IsProxy || listenUrl.Scheme.StartsWith("socks", StringComparison.Ordinal);
+
+    /// <summary>The address a proxy listen URL names, or every address when its host is not one.</summary>
+    internal static IPAddress AddressOf(ListenUrl listenUrl) =>
+        IPAddress.TryParse(listenUrl.Host, out var parsed) ? parsed : IPAddress.Any;
 
     /// <summary>
     /// Wraps every server answering <c>http</c> or <c>https</c> so a <c>--proxy</c> listen URL is

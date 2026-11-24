@@ -104,6 +104,47 @@ public sealed class AllowedOriginRuleTests
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => AllowedOriginRule.LoopbackOnly.WithRange(null!, 8));
         Assert.ThrowsExactly<ArgumentNullException>(() => AllowedOriginRule.LoopbackOnly.WithProxyEndPoint(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => AllowedOriginRule.LoopbackOnly.WithLaterProxyEndPoints(null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => AllowedOriginRule.LoopbackOnly.Admits(null!));
+    }
+
+    [TestMethod]
+    [DataRow("127.0.0.1", "127.0.0.1")]
+    [DataRow("127.0.0.1", "::ffff:127.0.0.1")]
+    [DataRow("0.0.0.0", "127.0.0.1")]
+    [DataRow("0.0.0.0", "::ffff:127.0.0.1")]
+    public void Admits_AnEndPointLearnedAfterTheRuleWasBuilt_RefusesIt(string learnedAddress, string origin)
+    {
+        var learned = new List<IPEndPoint>();
+        var rule = AllowedOriginRule.EveryAddress.WithLaterProxyEndPoints(() => learned);
+
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Parse(origin), 4001)));
+
+        learned.Add(new IPEndPoint(IPAddress.Parse(learnedAddress), 4001));
+
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Parse(origin), 4001)));
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Parse(origin), 4002)));
+    }
+
+    [TestMethod]
+    public void Admits_ALaterEndPointOnOneLoopbackAddress_AdmitsTheSamePortOnAnother()
+    {
+        var rule = AllowedOriginRule.LoopbackOnly.WithLaterProxyEndPoints(() => [new IPEndPoint(IPAddress.Loopback, 4001)]);
+
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 4001)));
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Parse("127.0.0.2"), 4001)));
+    }
+
+    [TestMethod]
+    public void Admits_LaterEndPointsAreKeptByTheMembersThatNarrowOrWidenTheRuleAfterwards()
+    {
+        var rule = AllowedOriginRule.LoopbackOnly
+            .WithLaterProxyEndPoints(() => [new IPEndPoint(IPAddress.Loopback, 4001)])
+            .WithRange(IPAddress.Parse("192.0.2.0"), 24)
+            .WithProxyEndPoint(new IPEndPoint(IPAddress.Loopback, 4002));
+
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 4001)));
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 4002)));
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Parse("192.0.2.9"), 4001)));
     }
 }

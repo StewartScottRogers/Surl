@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1664 — Refuse a forward proxy's request for its own port when it listens on port 0
 
@@ -48,22 +48,25 @@ exactly as a proxy on a fixed port does, instead of forwarding the request to it
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Foundation/Surl.Protocol.Abstractions.UnitTests/AllowedOriginRuleTests.cs` show a rule
+- [x] Named tests in `Foundation/Surl.Protocol.Abstractions.UnitTests/AllowedOriginRuleTests.cs` show a rule
       refuses an end point learned after it was built (an IPv4 address, `0.0.0.0` on that port, and an
       IPv4-mapped IPv6 one), and admits the same port on another loopback address when the proxy bound a specific one.
-- [ ] A named regression test in `Application/Surl.Composition.UnitTests` composes `http://127.0.0.1:0/` with
+- [x] A named regression test in `Application/Surl.Composition.UnitTests` composes `http://127.0.0.1:0/` with
       `--proxy http://127.0.0.1:0/` through the in-memory listener and origin seams and shows the composed origin
       rule refuses the proxy's bound end point, and a second one shows the same for a `socks5://127.0.0.1:0/` listener.
-- [ ] Existing `ProxyCompositionTests` for fixed-port proxies still pass unchanged.
-- [ ] Notes record the decision, marked "Decided by Claude under Stewart's delegation", replacing ADR-0088's
+- [x] Existing `ProxyCompositionTests` for fixed-port proxies still pass unchanged.
+- [x] Notes record the decision, marked "Decided by Claude under Stewart's delegation", replacing ADR-0088's
       port-0 sentence, and the run files a `docs` task to amend ADR-0088 with it.
-- [ ] `dotnet build -warnaserror` is clean for both libraries, `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build -warnaserror` is clean for both libraries, `dotnet test --filter "TestCategory!=Integration"`
       is green, and both libraries keep 100% line and branch coverage on every member this task changes; no
       test needs `TestCategory=Integration`.
 
 ## Notes
 
+- Decided by Claude under Stewart's delegation: AllowedOriginRule.WithLaterProxyEndPoints(Func<IReadOnlyList<IPEndPoint>>) is read on every Admits; Composition's per-start BoundProxyEndPoints is filled by ListenerStartReporter.ListenUrlBound as each listener binds (before any status line), for --proxy and socks* listen URLs. Surl.Networking unchanged, no static state. Replaces ADR-0088's port-0 sentence; amendment filed as BL-1670.
+
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. a port-0 proxy or socks listener now refuses requests for its own bound end point (403 NotAllowed)

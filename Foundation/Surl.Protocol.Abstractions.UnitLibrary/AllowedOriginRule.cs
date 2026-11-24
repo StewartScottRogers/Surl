@@ -16,15 +16,18 @@ public sealed class AllowedOriginRule
     private readonly bool admitsEveryAddress;
     private readonly IReadOnlyList<(IPAddress Network, int PrefixLength)> ranges;
     private readonly IReadOnlyList<IPEndPoint> proxyEndPoints;
+    private readonly Func<IReadOnlyList<IPEndPoint>>? laterProxyEndPoints;
 
     private AllowedOriginRule(
         bool admitsEveryAddress,
         IReadOnlyList<(IPAddress Network, int PrefixLength)> ranges,
-        IReadOnlyList<IPEndPoint> proxyEndPoints)
+        IReadOnlyList<IPEndPoint> proxyEndPoints,
+        Func<IReadOnlyList<IPEndPoint>>? laterProxyEndPoints = null)
     {
         this.admitsEveryAddress = admitsEveryAddress;
         this.ranges = ranges;
         this.proxyEndPoints = proxyEndPoints;
+        this.laterProxyEndPoints = laterProxyEndPoints;
     }
 
     /// <summary>
@@ -54,7 +57,7 @@ public sealed class AllowedOriginRule
         ArgumentOutOfRangeException.ThrowIfNegative(prefixLength);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(prefixLength, normalized.GetAddressBytes().Length * 8);
 
-        return new AllowedOriginRule(admitsEveryAddress, [.. ranges, (normalized, prefixLength)], proxyEndPoints);
+        return new AllowedOriginRule(admitsEveryAddress, [.. ranges, (normalized, prefixLength)], proxyEndPoints, laterProxyEndPoints);
     }
 
     /// <summary>
@@ -68,7 +71,21 @@ public sealed class AllowedOriginRule
     {
         ArgumentNullException.ThrowIfNull(proxyEndPoint);
 
-        return new AllowedOriginRule(admitsEveryAddress, ranges, [.. proxyEndPoints, proxyEndPoint]);
+        return new AllowedOriginRule(admitsEveryAddress, ranges, [.. proxyEndPoints, proxyEndPoint], laterProxyEndPoints);
+    }
+
+    /// <summary>
+    /// Returns this rule also refusing every end point <paramref name="laterProxyEndPoints"/> holds
+    /// whenever <see cref="Admits"/> asks: for a proxy on port 0, whose port is known only once it
+    /// binds. The source is read on each check, so it must be safe to call from any thread.
+    /// </summary>
+    /// <param name="laterProxyEndPoints">Gives the end points the proxies have bound so far; an unspecified address refuses its port on every address.</param>
+    /// <returns>The narrowed rule.</returns>
+    public AllowedOriginRule WithLaterProxyEndPoints(Func<IReadOnlyList<IPEndPoint>> laterProxyEndPoints)
+    {
+        ArgumentNullException.ThrowIfNull(laterProxyEndPoints);
+
+        return new AllowedOriginRule(admitsEveryAddress, ranges, proxyEndPoints, laterProxyEndPoints);
     }
 
     /// <summary>
@@ -85,7 +102,7 @@ public sealed class AllowedOriginRule
 
         var address = Normalize(origin.Address);
 
-        return AdmitsAddress(address) && !proxyEndPoints.Any(proxy => IsProxyEndPoint(proxy, address, origin.Port));
+        return AdmitsAddress(address) && !proxyEndPoints.Concat(laterProxyEndPoints?.Invoke() ?? []).Any(proxy => IsProxyEndPoint(proxy, address, origin.Port));
     }
 
     private bool AdmitsAddress(IPAddress address) =>

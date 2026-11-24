@@ -268,7 +268,7 @@ public sealed class ProxyCompositionTests
     [TestMethod]
     public void ComposeAllowedOriginRule_NothingGiven_AdmitsLoopbackOnlyAndNeverTheProxyItself()
     {
-        var rule = ProxyComposition.ComposeAllowedOriginRule(CommandLine("http://127.0.0.1:3128"));
+        var rule = ProxyComposition.ComposeAllowedOriginRule(CommandLine("http://127.0.0.1:3128"), new BoundProxyEndPoints());
 
         Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Loopback, 80)));
         Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 3128)));
@@ -279,7 +279,7 @@ public sealed class ProxyCompositionTests
     public void ComposeAllowedOriginRule_EveryAddress_AdmitsAnOriginButStillNotTheProxy()
     {
         var rule = ProxyComposition.ComposeAllowedOriginRule(
-            CommandLine("http://127.0.0.1:3128") with { ProxyAllowedOrigins = [ProxyAllowedOrigin.EveryAddress] });
+            CommandLine("http://127.0.0.1:3128") with { ProxyAllowedOrigins = [ProxyAllowedOrigin.EveryAddress] }, new BoundProxyEndPoints());
 
         Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Parse("10.0.0.1"), 80)));
         Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 3128)));
@@ -290,7 +290,7 @@ public sealed class ProxyCompositionTests
     {
         var listenUrl = ListenUrlParser.ParseProxy("http://localhost:3128").ListenUrl!;
 
-        var rule = ProxyComposition.ComposeAllowedOriginRule(new SurlCommandLine { ProxyListenUrls = [listenUrl] });
+        var rule = ProxyComposition.ComposeAllowedOriginRule(new SurlCommandLine { ProxyListenUrls = [listenUrl] }, new BoundProxyEndPoints());
 
         Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 3128)));
         Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.IPv6Loopback, 3128)));
@@ -302,18 +302,72 @@ public sealed class ProxyCompositionTests
     {
         var listenUrl = ListenUrlParser.Parse("socks5://127.0.0.1:1080").ListenUrl!;
 
-        var rule = ProxyComposition.ComposeAllowedOriginRule(new SurlCommandLine { ListenUrls = [listenUrl, new ListenUrl("http", "127.0.0.1", 8080)] });
+        var rule = ProxyComposition.ComposeAllowedOriginRule(new SurlCommandLine { ListenUrls = [listenUrl, new ListenUrl("http", "127.0.0.1", 8080)] }, new BoundProxyEndPoints());
 
         Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 1080)));
         Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Loopback, 8080)));
     }
 
     [TestMethod]
-    public void ComposeAllowedOriginRule_AProxyOnPortZero_RefusesNoPort()
+    public void ComposeAllowedOriginRule_AProxyOnPortZeroBeforeItBinds_RefusesNoPort()
     {
-        var rule = ProxyComposition.ComposeAllowedOriginRule(CommandLine("http://127.0.0.1:0"));
+        var rule = ProxyComposition.ComposeAllowedOriginRule(CommandLine("http://127.0.0.1:0"), new BoundProxyEndPoints());
 
         Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Loopback, 3128)));
+    }
+
+    [TestMethod]
+    public async Task Start_AProxyOnPortZero_RefusesItsOwnBoundEndPointOnceItBinds()
+    {
+        var rule = await ComposedRuleOnceBoundAsync(
+            new SurlCommandLine { ListenUrls = [new ListenUrl("http", "127.0.0.1", 0)] } with
+            {
+                ProxyListenUrls = [ListenUrlParser.ParseProxy("http://127.0.0.1:0").ListenUrl!],
+            });
+
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, FakeListenerFactory.BoundPort)));
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Loopback, FakeListenerFactory.BoundPort + 1)));
+    }
+
+    [TestMethod]
+    public async Task Start_ASocksListenerOnPortZero_RefusesItsOwnBoundEndPointOnceItBinds()
+    {
+        var rule = await ComposedRuleOnceBoundAsync(
+            new SurlCommandLine { ListenUrls = [ListenUrlParser.Parse("socks5://127.0.0.1:0").ListenUrl!] });
+
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, FakeListenerFactory.BoundPort)));
+    }
+
+    [TestMethod]
+    public async Task Start_AFilesListenerOnPortZeroBesideNoProxy_StillAdmitsItsPort()
+    {
+        var rule = await ComposedRuleOnceBoundAsync(
+            new SurlCommandLine { ListenUrls = [new ListenUrl("http", "127.0.0.1", 0)] });
+
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Loopback, FakeListenerFactory.BoundPort)));
+    }
+
+    private async Task<AllowedOriginRule> ComposedRuleOnceBoundAsync(SurlCommandLine commandLine)
+    {
+        AllowedOriginRule? composed = null;
+        var seams = new StartTestSeams().Seams with
+        {
+            CreateOriginConnector = rule =>
+            {
+                composed = rule;
+                return new InMemoryOriginConnector();
+            },
+        };
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+        await using var serving = start.Serving ?? throw new AssertFailedException(string.Join(' ', start.Failure!.Lines));
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
+        await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        await serve;
+        return composed!;
     }
 
     [TestMethod]

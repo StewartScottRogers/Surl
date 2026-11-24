@@ -29,6 +29,9 @@ internal sealed class ListenerStartReporter(
 {
     private readonly List<ListenUrl> boundListenUrls = [];
 
+    /// <summary>Called with each listen URL as its listener binds, before any status line is written; <see langword="null"/> for none.</summary>
+    public Action<ListenUrl>? ListenUrlBound { get; init; }
+
     /// <summary>
     /// The bind failure that stopped a start, or <see langword="null"/> while none has.
     /// </summary>
@@ -78,6 +81,7 @@ internal sealed class ListenerStartReporter(
     private void ReportBound(ListenUrl boundListenUrl)
     {
         boundListenUrls.Add(boundListenUrl);
+        ListenUrlBound?.Invoke(boundListenUrl);
         if (boundListenUrls.Count == expectedListenerCount)
         {
             boundListenUrls.ForEach(statusLine.Write);
