@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Foundation/Surl.Protocol.Abstractions.UnitTests]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-24
 completed:
@@ -34,10 +34,10 @@ failing member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Abstractions.UnitTests` test applies a Delay rule on a watched `InMemoryConnection` that
+- [x] A named `Surl.Protocol.Abstractions.UnitTests` test applies a Delay rule on a watched `InMemoryConnection` that
       stays open (`peerHalfClosesWhenExhausted: false`), cancels the exchange's token during the hold, and asserts the
       apply ends with `OperationCanceledException` (or what the method's contract says) and the idle clock restarted.
-- [ ] A named test starts `WatchForPeerCloseAsync` on an `InMemoryConnection(…, peerHalfClosesWhenExhausted: false)`,
+- [x] A named test starts `WatchForPeerCloseAsync` on an `InMemoryConnection(…, peerHalfClosesWhenExhausted: false)`,
       calls `Abort()`, and asserts the outcome it returns.
 - [ ] Both tests use the injected `FakeTimeProvider`-style clock, with no real sleeps, and pass 20 runs in a row
       (`dotnet test --filter "FullyQualifiedName~<name>"`).
@@ -46,7 +46,7 @@ failing member.
 
 ## Notes
 
-- Tests only (test-writer). Only the `.UnitTests` project changes, so this runs beside protocol tasks.
+- Tests, plus two small library changes (no other Doing task touches the library, so UnitLibrary was added to touches): the abort test showed WatchForPeerCloseAsync line 201 can never run, because InMemoryConnection.WaitForCancellationOrAbortAsync always throws (IOException on abort, cancellation otherwise), so the helper is now generic and the watch returns its result; and the finally in WaitForDelayOrPeerAsync cancels with Cancel() instead of awaiting CancelAsync(), whose async-completion branch no test could reach. Tests: ExchangeCancelledDuringAHoldOnAnOpenConnection, ClientStaysThenConnectionAborted_ThrowsIOException (abort ends the watch with IOException, not PeerClosed). Coverage of the project own run is 100/100 on Abstractions.UnitLibrary. Original note: only the `.UnitTests` project changes, so this runs beside protocol tasks.
 
 ## Log
 

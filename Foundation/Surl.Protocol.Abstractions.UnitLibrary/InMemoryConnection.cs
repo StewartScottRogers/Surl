@@ -141,7 +141,7 @@ public sealed class InMemoryConnection : IConnection
             return CopyFromCurrentChunk(buffer.Span);
         }
 
-        return peerHalfClosesWhenExhausted ? 0 : await WaitForCancellationOrAbortAsync(cancellationToken);
+        return peerHalfClosesWhenExhausted ? 0 : await WaitForCancellationOrAbortAsync<int>(cancellationToken);
     }
 
     /// <summary>
@@ -195,12 +195,10 @@ public sealed class InMemoryConnection : IConnection
             return PeerWatchOutcome.PeerReset;
         }
 
-        if (!peerHalfClosesWhenExhausted)
-        {
-            await WaitForCancellationOrAbortAsync(cancellationToken);
-        }
-
-        return PeerWatchOutcome.PeerClosed;
+        // A client that stays never "closes" while watched: the wait always ends by throwing.
+        return peerHalfClosesWhenExhausted
+            ? PeerWatchOutcome.PeerClosed
+            : await WaitForCancellationOrAbortAsync<PeerWatchOutcome>(cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -299,7 +297,7 @@ public sealed class InMemoryConnection : IConnection
         return count - chunkOffset;
     }
 
-    private async Task<int> WaitForCancellationOrAbortAsync(CancellationToken cancellationToken)
+    private async Task<TResult> WaitForCancellationOrAbortAsync<TResult>(CancellationToken cancellationToken)
     {
         var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

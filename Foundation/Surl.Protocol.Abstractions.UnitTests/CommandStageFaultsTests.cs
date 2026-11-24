@@ -91,6 +91,22 @@ public sealed class CommandStageFaultsTests
     }
 
     [TestMethod]
+    public async Task FindAndApplyAsync_ExchangeCancelledDuringAHoldOnAnOpenConnection_ThrowsCancelled_AndRestartsTheIdleClock()
+    {
+        var delay = new FaultRule("f4b", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 };
+        using var exchangeEnd = new CancellationTokenSource();
+        var (context, _, idleClock, _) = NewContext(new ScriptedFaultPlan(delay), new NeverFiringTimeProvider(), exchangeEnd.Token);
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
+
+        var applying = CommandStageFaults.FindAndApplyAsync(context, connection, RetrPoint, "RETR").AsTask();
+        await exchangeEnd.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => applying);
+        Assert.AreEqual((1, 1), (idleClock.PauseCount, idleClock.RestartCount));
+        Assert.IsFalse(connection.Aborted);
+    }
+
+    [TestMethod]
     public async Task FindAndApplyAsync_NoContextConnectionOrPoint_Throws()
     {
         var (context, _, _, _) = NewContext(new ScriptedFaultPlan(), TimeProvider.System, TestContext.CancellationToken);
