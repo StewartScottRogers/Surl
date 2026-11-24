@@ -362,6 +362,11 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# Local runtime data at the repository root (MCP server stores and the like), never
+# project source. Anchored, so tracked upstream test input under
+# Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/ stays tracked.
+/data/
+
 # Claude Code personal files
 .claude/settings.local.json
 CLAUDE.local.md
