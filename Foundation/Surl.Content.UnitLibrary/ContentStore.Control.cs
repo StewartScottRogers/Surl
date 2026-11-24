@@ -249,6 +249,15 @@ public sealed partial class ContentStore
             ? configuredContents
             : throw new InvalidOperationException(OnDiskMessage);
 
+    /// <summary>
+    /// Maps a request path as the test, the server's owner, sees it: every share is open to it
+    /// whatever its <see cref="ContentShare.Grants"/> or <see cref="ContentShare.Schemes"/> say.
+    /// </summary>
+    /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
+    /// <returns>The resolved location and what is there, or the refusal and its reason. A refusal is a result, never an exception.</returns>
+    public ContentPathMapping MapRequestPathForTheTest(string requestPath) =>
+        Map(requestPath, TheTest, readsBucketNames: false);
+
     private ContentPathMapping MapForTheTest(string requestPath)
     {
         ContentPathMapping mapping = Map(requestPath, TheTest, readsBucketNames: false);

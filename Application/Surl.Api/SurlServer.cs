@@ -327,6 +327,7 @@ public sealed class SurlServer : IAsyncDisposable
             DataDirectoryFileSystem = host.DataDirectoryFileSystem,
             ReadStartFile = host.ReadStartFile,
             CanOpenShareDirectory = host.CanOpenDataDirectory,
+            ShareFileSystem = host.DataDirectoryFileSystem,
             ContentWithoutDataDirectory = await InMemoryFiles.ComposeAsync(options.Files, timeProvider, cancellationToken),
             AdditionalProtocolServers = custom.AdditionalProtocolServers,
         };

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Content.UnitLibrary, Foundation/Surl.Content.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1666 — List and read a share closed to clients through Surl.Api's Files as the test's own view
 
@@ -44,22 +44,24 @@ instead of throwing `No folder at /team`.
 
 ## Acceptance criteria
 
-- [ ] A named test in `Foundation/Surl.Content.UnitTests` shows the test-view mapping reaches a share whose grants
+- [x] A named test in `Foundation/Surl.Content.UnitTests` shows the test-view mapping reaches a share whose grants
       give an anonymous caller nothing, and a share limited by `Schemes`, while `MapRequestPath` still answers both
       as absent.
-- [ ] Named tests in `Application/Surl.Composition.UnitTests` (`ComposedStoresTests`) show `ListFolder` lists, and
+- [x] Named tests in `Application/Surl.Composition.UnitTests` (`ComposedStoresTests`) show `ListFolder` lists, and
       `ReadFileAsync` reads, inside a share closed by its grants, and that `ListFolder("/")` lists the share.
-- [ ] A named regression test in `Application/Surl.Api.UnitTests` starts a server with a `/team` share closed by
+- [x] A named regression test in `Application/Surl.Api.UnitTests` starts a server with a `/team` share closed by
       `ShareAccess`, seeds a file with `Files.PutAsync`, and gets it back from `Files.ListAsync("/team")` and
       `Files.ReadAsync`.
-- [ ] `SurlServerFiles.ListAsync`'s and `ReadAsync`'s XML docs say they read as the server's owner, whatever share
+- [x] `SurlServerFiles.ListAsync`'s and `ReadAsync`'s XML docs say they read as the server's owner, whatever share
       access says.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Content.UnitLibrary` and `Surl.Composition.UnitLibrary` keep 100% line and branch coverage on every
       member this task changes; no test needs `TestCategory=Integration`.
 
 ## Notes
 
+- Decision: `MapRequestPathForTheTest` returns the mapping (refusal as a result) so ComposedStores keeps its Refused outcome.
+- `SurlServer.cs` (Surl.Api) now passes `host.DataDirectoryFileSystem` as the composition's `ShareFileSystem` (null keeps the disk), so a host with an in-memory file system gets in-memory shares and the regression test needs no disk.
 - `touches` names `Application/Surl.Api` only for the doc comments in `SurlServerFiles.cs`, and
   `Application/Surl.Api.UnitTests` only for the one regression test; no behaviour changes in the host.
 
@@ -67,3 +69,4 @@ instead of throwing `No folder at /team`.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Surl.Api Files.ListAsync/ReadAsync read a share closed by ShareAccess as the server owner

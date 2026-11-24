@@ -268,7 +268,7 @@ public sealed partial class ComposedStores
     public async Task<ComposedReadResult<ComposedFileContents>> ReadFileAsync(string requestPath, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(requestPath);
-        var mapping = content.MapRequestPath(requestPath);
+        var mapping = content.MapRequestPathForTheTest(requestPath);
         if (!mapping.IsMapped)
         {
             return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.Refused, $"The path is not one a request may name ({mapping.Refusal}).");
@@ -310,7 +310,7 @@ public sealed partial class ComposedStores
             return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
         }
 
-        var mapping = content.MapRequestPath(requestPath);
+        var mapping = content.MapRequestPathForTheTest(requestPath);
         if (!mapping.IsMapped)
         {
             return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.Refused, $"The path is not one a request may name ({mapping.Refusal}).");

@@ -109,17 +109,40 @@ public sealed class ComposedStoresContentReadTests
         Assert.ThrowsExactly<ArgumentNullException>(() => serving.Stores.ListFolder(null!, null, 10, TestContext.CancellationToken));
     }
 
+    [TestMethod]
+    public async Task ReadFileAsyncAndListFolder_AShareClosedByItsGrants_AreReadAsTheTestsOwnView()
+    {
+        await using var serving = await ComposeAsync("--user", "alice:pw", "--share", "team=team", "--share-access", "team=alice:rw");
+        var stores = serving.Stores;
+        await SeedAsync(stores, "/team/a.txt", "inside");
+
+        var file = await stores.ReadFileAsync("/team/a.txt", TestContext.CancellationToken);
+        var folder = stores.ListFolder("/team", null, 100, TestContext.CancellationToken);
+        var root = stores.ListFolder("/", null, 100, TestContext.CancellationToken);
+
+        Assert.AreEqual("inside", Encoding.ASCII.GetString(file.Value!.Bytes.Span));
+        CollectionAssert.AreEqual(new[] { "a.txt" }, folder.Value!.Entries.Select(entry => entry.Name).ToArray());
+        Assert.IsTrue(root.Value!.Entries.Any(entry => entry.Name == "team" && entry.IsFolder));
+    }
+
     private async Task SeedAsync(ComposedStores stores, string path, string text)
     {
         await using var contents = new MemoryStream(Encoding.ASCII.GetBytes(text));
         Assert.AreEqual(ContentUploadResult.Written, await stores.SeedFileAsync(path, contents, TestContext.CancellationToken));
     }
 
+    private static InMemoryContentFileSystem TeamShareFiles()
+    {
+        var files = new InMemoryContentFileSystem(TimeProvider.System);
+        files.CreateDirectory(Path.GetFullPath("team"));
+        return files;
+    }
+
     private async Task<ComposedServing> ComposeAsync(params string[] options)
     {
         var start = await SurlServerComposition.ComposeAsync(
             StartTestSeams.Parse([.. options, "--allow-anonymous", "http://127.0.0.1:0/"]),
-            new StartTestSeams().Seams with { ContentWithoutDataDirectory = new InMemoryContentFileSystem(TimeProvider.System) },
+            new StartTestSeams().Seams with { ContentWithoutDataDirectory = new InMemoryContentFileSystem(TimeProvider.System), CanOpenShareDirectory = _ => true, ShareFileSystem = TeamShareFiles() },
             TestContext.CancellationToken);
         return start.Serving!;
     }

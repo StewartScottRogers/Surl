@@ -72,6 +72,7 @@ public sealed class SurlServerFiles
 
     /// <summary>
     /// Reads the file at <paramref name="path"/>: its exact bytes, size, modification time and content type.
+    /// Reads as the server's owner, whatever share access says: a share closed to clients by <c>ShareAccess</c> is read as it is.
     /// Publishes nothing, asks no fault rule, and works on a <c>DataDirectory</c> server (ADR-0164, decisions 1 to 4).
     /// </summary>
     /// <param name="path">The file's request path, such as <c>/reports/a.txt</c>.</param>
@@ -91,6 +92,7 @@ public sealed class SurlServerFiles
 
     /// <summary>
     /// Lists the children of the folder at <paramref name="path"/> in ordinal order of name, one page at a time.
+    /// Lists as the server's owner, whatever share access says: a share closed to clients by <c>ShareAccess</c> is listed as it is.
     /// Publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 4).
     /// </summary>
     /// <param name="path">The folder's request path; <c>/</c> for the root.</param>
