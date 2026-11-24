@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1642 — Remove the HTTP empty answer's unreachable non-error branch and cover HTTP/2 ObserveSent
 
@@ -38,18 +38,19 @@ member, and no new coverage exclusion.
 
 ## Acceptance criteria
 
-- [ ] `EmptyAnswerFields` and `EmptyAnswerBody` no longer branch on a status that every caller makes `>= 400`. The
+- [x] `EmptyAnswerFields` and `EmptyAnswerBody` no longer branch on a status that every caller makes `>= 400`. The
       answers stay byte for byte the same: the existing ADR-0186 error-text tests and the BL-1563 body-check tests pass
       unchanged.
-- [ ] A named `Surl.Protocol.Http.UnitTests` test calls `ObserveSent` on an `HttpConnectionBytesRedactor` already serving
+- [x] A named `Surl.Protocol.Http.UnitTests` test calls `ObserveSent` on an `HttpConnectionBytesRedactor` already serving
       HTTP/2 (prior-knowledge preface received first), with bytes that start `HTTP/1.1 101`. It asserts the redaction of
       the next received HTTP/2 header block is unchanged, so the bytes are not mistaken for an upgrade.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` reports `100 | 100`
       with 0 failing members, without any new `[ExcludeFromCodeCoverage]`.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
+- Removed the 1xx-3xx arm from EmptyAnswerFields and EmptyAnswerBody; added ObserveSent_ConnectionAlreadyHttp2_IgnoresBytesThatStartAsAnUpgradeAnswer.
 - No behaviour change on the wire. If a future caller needs a 1xx-3xx empty answer, it adds the branch back with its
   test.
 
@@ -57,3 +58,4 @@ member, and no new coverage exclusion.
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. HTTP library at 100/100 coverage: dead empty-answer branch removed, HTTP/2 ObserveSent covered
