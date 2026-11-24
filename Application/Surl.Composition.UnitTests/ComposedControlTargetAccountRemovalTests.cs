@@ -29,6 +29,21 @@ public sealed class ComposedControlTargetAccountRemovalTests
     }
 
     [TestMethod]
+    public async Task RemoveAccountAsync_TheLastLocalAccountWithADirectory_WritesTheDirectoryWarning()
+    {
+        await using var serving = await ComposeAsync("-u", "alice:secret");
+        var log = new StringWriter();
+        var target = new ComposedControlTarget(serving.Events, serving.Faults, serving.Stores, log, hasDirectory: true);
+
+        var removed = await target.RemoveAccountAsync("alice", TestContext.CancellationToken);
+
+        Assert.IsTrue(removed);
+        Assert.AreEqual(
+            "surl: warning: no local account left; logins are now checked against the directory only" + Environment.NewLine,
+            log.ToString());
+    }
+
+    [TestMethod]
     public async Task RemoveAccountAsync_ANonLastAccountOrAnUnknownName_WritesNothing()
     {
         await using var serving = await ComposeAsync("-u", "alice:secret");

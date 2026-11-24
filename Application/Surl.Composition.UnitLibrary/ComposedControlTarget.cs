@@ -20,7 +20,8 @@ namespace Surl.Composition;
 /// <param name="faults">The instance's fault plan.</param>
 /// <param name="stores">The instance's stores.</param>
 /// <param name="log">The instance log, where removing the last account or proxy account is warned (BL-1477).</param>
-internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores, TextWriter log) : IControlTarget
+/// <param name="hasDirectory">Whether the server was started with <c>--user-ldap</c>, so removing the last local account still leaves logins checked against the directory (ADR-0149 amendment 1, BL-1671).</param>
+internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores, TextWriter log, bool hasDirectory = false) : IControlTarget
 {
     /// <summary>Creates a target whose warnings go nowhere.</summary>
     /// <param name="events">The instance's event stream.</param>
@@ -223,7 +224,9 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         var isRemoved = stores.RemoveAccount(user);
         if (isRemoved && !stores.HasAccounts)
         {
-            log.WriteLine("surl: warning: no account left; the server now needs no login");
+            log.WriteLine(hasDirectory
+                ? "surl: warning: no local account left; logins are now checked against the directory only"
+                : "surl: warning: no account left; the server now needs no login");
         }
 
         return Task.FromResult(isRemoved);

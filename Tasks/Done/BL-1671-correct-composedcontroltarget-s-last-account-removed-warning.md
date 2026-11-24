@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1671 — Correct ComposedControlTarget's last-account-removed warning for a configured directory
 
@@ -22,7 +22,7 @@ The control endpoint (`ComposedControlTarget.RemoveAccountAsync`) warns truthful
 
 ## Acceptance criteria
 
-- [ ] A test pins the directory wording `surl: warning: no local account left; logins are now checked against the directory only`.
+- [x] A test pins the directory wording `surl: warning: no local account left; logins are now checked against the directory only`.
 
 ## Notes
 
@@ -30,3 +30,4 @@ The control endpoint (`ComposedControlTarget.RemoveAccountAsync`) warns truthful
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. Control endpoint warns 'no local account left' when --user-ldap is set
