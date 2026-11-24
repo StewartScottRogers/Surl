@@ -33,3 +33,4 @@ Each entry follows the existing entries' shape (`## <n>. <imperative title>`, th
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
