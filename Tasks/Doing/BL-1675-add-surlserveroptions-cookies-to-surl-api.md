@@ -33,3 +33,4 @@ ADR-0189 decision 1 names the property `HttpServerOptions.Cookies`; `Surl.Api` h
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
