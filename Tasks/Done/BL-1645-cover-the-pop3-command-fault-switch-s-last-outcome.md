@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitTests]
 requirement: none
 created: 2026-11-24
-completed:
+completed: 2026-11-24
 ---
 # BL-1645 — Cover the POP3 command-fault switch's last outcome
 
@@ -31,17 +31,19 @@ member.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Pop3.UnitTests` test reaches line 54's missing outcome and asserts the reply bytes or
+- [x] A named `Surl.Protocol.Pop3.UnitTests` test reaches line 54's missing outcome and asserts the reply bytes or
       connection outcome. If no test can reach it, the Log says so with the evidence, and the task moves to Blocked
       naming that, rather than adding an exclusion.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Pop3.UnitLibrary` reports `100 | 100`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Pop3.UnitLibrary` reports `100 | 100`
       with 0 failing members, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
 - Tests only (test-writer). Record which outcome it was in the Log, for BL-1643 and BL-1646.
+- The missing outcome was an await in a switch arm completing asynchronously (a write that yields), not another rule kind: with a connection whose WriteAsync does `await Task.Yield()` (`YieldingWriteConnection`), `ServeAsync_WriteCompletesAsynchronously_AnswersTheChosenErrorAndTheUsualAnswer` reaches it. For BL-1643 and BL-1646: use a write-yielding fake with an Error rule and an unfaulted command. Also added a RefuseLogin-at-command test, which was not the gap.
 
 ## Log
 
 - 2026-11-24: Created.
 - 2026-11-24: Backlog -> Doing.
+- 2026-11-24: Doing -> Done. POP3 command-fault switch fully covered: 100/100 with a write-yielding fake
