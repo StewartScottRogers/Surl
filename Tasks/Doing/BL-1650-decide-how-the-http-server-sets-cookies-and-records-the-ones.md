@@ -60,3 +60,4 @@ BL-1659 (library), BL-1660 (HTTP server), BL-1661 (options and `--aihelp`) and B
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-24: Backlog -> Doing.
