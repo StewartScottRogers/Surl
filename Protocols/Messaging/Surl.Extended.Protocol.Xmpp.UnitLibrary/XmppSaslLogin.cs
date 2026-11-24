@@ -224,15 +224,6 @@ internal sealed class XmppSaslLogin(
         await write(XmppSaslText.Success(step.AdditionalSuccessData));
     }
 
-    // RFC 4505: the trace token, if any, is not checked; no account is named, so the JID is a new anon- one.
-    private async Task SucceedAnonymouslyAsync()
-    {
-        var bareJid = XmppJids.BareJid(null, domain, randomSource)!;
-        BareJid = bareJid;
-        context.Log.Note($"Logged in as {bareJid}.");
-        await write(XmppSaslText.Success(ReadOnlyMemory<byte>.Empty));
-    }
-
     private async Task FailAsync(string condition, string reason)
     {
         exchange = null;

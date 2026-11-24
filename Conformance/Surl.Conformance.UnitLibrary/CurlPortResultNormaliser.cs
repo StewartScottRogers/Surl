@@ -17,6 +17,9 @@ public static class CurlPortResultNormaliser
     /// <summary>The text a <c>Date:</c> or <c>Last-Modified:</c> field value is replaced by.</summary>
     public const string DatePlaceholder = "<date>";
 
+    /// <summary>The text an <c>ETag:</c> field value is replaced by: <c>surl</c> derives it from the file's last-write time, which differs for every run's own copy of the file.</summary>
+    public const string ETagPlaceholder = "<etag>";
+
     /// <summary>The text a measured time, speed or time stamp is replaced by.</summary>
     public const string TimePlaceholder = "<time>";
 
@@ -52,6 +55,9 @@ public static class CurlPortResultNormaliser
     private static readonly Regex DateField = new(
         @"^((?:Date|Last-Modified):[ \t]*)[^\r\n]*", RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
+    private static readonly Regex ETagField = new(
+        @"^(ETag:[ \t]*)[^\r\n]*",RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
     private static readonly Regex LoopbackPort = new(
         @"(?<=(?:127\.0\.0\.1|\[::1\]|localhost)(?::| port ))[0-9]+", RegexOptions.CultureInvariant);
 
@@ -61,7 +67,7 @@ public static class CurlPortResultNormaliser
 
     /// <summary>
     /// Normalises a client's standard output: the <c>surl</c> port, <c>Date:</c> and
-    /// <c>Last-Modified:</c> field values, and the values of <c>-w</c> variables that measure time
+    /// <c>Last-Modified:</c> and <c>ETag:</c> field values, and the values of <c>-w</c> variables that measure time
     /// (<c>%{time_*}</c>, <c>%{speed_*}</c>).
     /// </summary>
     /// <param name="output">The bytes the client wrote.</param>
@@ -152,6 +158,7 @@ public static class CurlPortResultNormaliser
     private static string NormaliseOutputText(string text, int surlPort, IReadOnlyList<string> arguments)
     {
         text = DateField.Replace(ReplacePort(text, surlPort), "$1" + DatePlaceholder);
+        text = ETagField.Replace(text, "$1" + ETagPlaceholder);
         var timedWriteOut = TimedWriteOutPattern(arguments);
         return timedWriteOut is null ? text : timedWriteOut.Replace(text, match => ReplaceTimedValues(match));
     }

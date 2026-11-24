@@ -78,7 +78,7 @@ to make the port pass. One case is compared and judged here (BL-578), request by
   output and request bytes name.
 - `CurlPortMeasuredRun.Of` makes one run from an `UpstreamCurlRunResult` or a `CurlPortClientRunResult`.
 - `CurlPortResultNormaliser` is decision 4's normalisation column: the client-facing port as `<port>` (in standard output `surl`'s own port too, when a relay stands between them),
-  `Date:` and `Last-Modified:` values as `<date>`, the `-w` values of `%{time_*}` and `%{speed_*}` as
+  `Date:` and `Last-Modified:` values as `<date>`, `ETag:` values as `<etag>` (surl derives them from the file's last-write time, which differs for each run's own copy; BL-1625), the `-w` values of `%{time_*}` and `%{speed_*}` as
   `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines (every loopback port in them, the client's ephemeral one too, as `<port>`), `surl` notes'
   loopback ports and time stamps. `NormaliseRequestBytes` applies the request-byte rules, which the
   internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` and DICT's `CLIENT` text as

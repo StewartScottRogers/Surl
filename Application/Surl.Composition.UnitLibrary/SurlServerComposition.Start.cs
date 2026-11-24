@@ -555,8 +555,10 @@ public static partial class SurlServerComposition
     private static bool ServesScheme(SurlCommandLine commandLine, params string[] schemes) =>
         commandLine.ListenUrls.Any(url => schemes.Contains(url.Scheme));
 
+    // ExtendedProtocolServers registers the datagram and the connection DNS server together under the one `dns` scheme, so
+    // every composition that has a DNS server has the datagram one; testing for it alone is the same answer, reachable both ways.
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
-        servers.OfType<DnsDatagramRoutingProtocolServer>().Any() || servers.OfType<DnsConnectionRoutingProtocolServer>().Any();
+        servers.OfType<DnsDatagramRoutingProtocolServer>().Any();
 
     // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
     private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>

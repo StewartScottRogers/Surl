@@ -180,25 +180,31 @@ task board in `Tasks/`, never here.
 
 ## Milestone 7 — Phase 7
 
-- **Status:** Built for `win-x64` and measured once; not closed (2026-11-12). The Curl port was
-  measured at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, the one commit every family
-  file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 23 findings, 2 cases not
-  comparable, and no Surl defect. `Extended.md` records all 19 extended clients. Still open: off
-  Windows every Phase 7 test is Inconclusive, because `CurlPortBuilds.json` pins the port for
-  `win-x64` alone; the 47 `OpenLdap_` cases wait for a `linux-x64` port pin (no task filed); and
-  Stewart has not yet filed the 23 findings on the port's board (his to do).
+- **Status:** Measured on all three platforms; on `linux-x64` and `osx-arm64` not yet closed (2026-11-24). The Curl port is
+  measured at commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa` (ADR-0089 Amendment 8; it replaced
+  `b42c319`). `win-x64`: 1,662 cases, 1,563 agreements, 97 port defects behind 24 findings, 2 cases
+  not comparable, and no Surl defect, re-measured at that commit on 2026-11-16. `linux-x64` and
+  `osx-arm64`: run 45412760425 of `curl-port-phase-7` (2026-11-24, triaged by BL-1626 and BL-1625),
+  which added 7 findings (the handoff now holds 29 entries, 31 findings) and no Surl defect.
+  `Extended.md` records all 19 extended clients. Not measurable, by ADR-0089 Amendment 9 (BL-1627):
+  the `OpenLdap_` cases and RTSP on `osx-arm64` (the reference build lists no `ldap` or `rtsp`), the
+  `WinLdap_` cases, the libcurl rows and the `[OSCondition(Windows)]` cases on both non-Windows
+  platforms, and the extended clients (outside Phase 7). The closing condition holds on `linux-x64`
+  and `osx-arm64` in all four parts; part 4, the literal "not measurable on <platform>: <reason>"
+  line in each family file, was added by BL-1648. Still Stewart's: filing the 31 findings on
+  the port's board.
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
   `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one
   `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family, running the port beside the
   pinned upstream build against a fresh `surl` each; the findings files and their summary in
-  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 23 findings as tasks
+  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 29 entries (31 findings) as tasks
   in the port's own task shape. What was measured and found is in the product overview, "Built
   for Phase 7: the Curl port measured beside pinned upstream curl".
 - **Exit criteria:** the Phase 7 row's "Proves", success criterion 5: the Curl port measured
   beside pinned upstream curl with every disagreement written down as a finding a test reads
-  and handed to the port's board. Met for `win-x64` and the original protocols. Not met for
-  other platforms or the `OpenLdap_` cases (above).
+  and handed to the port's board. Met for `win-x64` and the original protocols. On `linux-x64` and `osx-arm64`
+  met, the closing condition holding in all four parts (BL-1648); the not-measurable groups above are decided, not open.
 - **Decisions:** ADR-0003 decision 6 (Phase 7 is a measurement of the port, never a check of
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).

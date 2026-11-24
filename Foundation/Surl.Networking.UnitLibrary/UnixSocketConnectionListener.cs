@@ -31,15 +31,14 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     private readonly TimeProvider timeProvider;
 
     // Keeps the bound socket and reads the created file's write time, its identity at stop.
-    [ExcludeFromCodeCoverage(Justification = "Constructed only over a bound socket; covered by UnixSocketConnectionListenerTests.")]
     private UnixSocketConnectionListener(
         ListenUrl listenUrl, Socket listeningSocket, UnixDomainSocketEndPoint localEndPoint, ServerTlsSettings? tlsSettings, TimeProvider timeProvider)
     {
         ListenUrl = listenUrl;
         this.listeningSocket = listeningSocket;
         this.localEndPoint = localEndPoint;
-        createdFilePath = listenUrl.UnixSocket!.IsAbstract ? null : listenUrl.UnixSocket.Name;
-        createdFileWriteTime = createdFilePath is null ? default : File.GetLastWriteTimeUtc(createdFilePath);
+        createdFilePath = CreatedFilePathOf(listenUrl.UnixSocket!);
+        createdFileWriteTime = WriteTimeOf(createdFilePath);
         tlsHandshake = ServerTlsHandshake.ForListener(tlsSettings, listenUrl);
         this.timeProvider = timeProvider;
         acceptRace = new AcceptRace<Socket>(1, AcceptFromSocketAsync, ReleaseSocket);
@@ -48,14 +47,12 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     /// <inheritdoc/>
     public ListenUrl ListenUrl
     {
-        [ExcludeFromCodeCoverage(Justification = "Set only by the socket-reading constructor; covered by UnixSocketConnectionListenerTests.")]
         get;
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<EndPoint> BoundEndPoints
     {
-        [ExcludeFromCodeCoverage(Justification = "Reads the bound endpoint; covered by UnixSocketConnectionListenerTests.")]
         get => [localEndPoint];
     }
 
@@ -76,7 +73,6 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     /// platform, something already at the path, a directory that is not there, or the
     /// operating system refused the bind. Nothing stays bound and no file is left behind.
     /// </exception>
-    [ExcludeFromCodeCoverage(Justification = "Binds a socket; covered by UnixSocketConnectionListenerTests.")]
     public static ValueTask<UnixSocketConnectionListener> StartAsync(
         ListenUrl listenUrl, ServerTlsSettings? tlsSettings, CancellationToken cancellationToken, TimeProvider? timeProvider = null)
     {
@@ -94,7 +90,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         }
 
         var endPoint = new UnixDomainSocketEndPoint(UnixSocketBindRules.EndPointNameOf(address));
-        var socket = BindListeningSocket(listenUrl, endPoint);
+        var socket = BindListeningSocket(listenUrl, endPoint, MakeOwnerOnly);
 
         return ValueTask.FromResult(new UnixSocketConnectionListener(listenUrl, socket, endPoint, tlsSettings, timeProvider ?? TimeProvider.System));
     }
@@ -105,7 +101,6 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     /// The listening socket failed. An accept that failed for one client only is absorbed, and
     /// the listener accepts again (ADR-0022).
     /// </exception>
-    [ExcludeFromCodeCoverage(Justification = "Accepts a socket; covered by UnixSocketConnectionListenerTests.")]
     public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
     {
         var accepted = await acceptRace.AcceptNextAsync(cancellationToken);
@@ -125,7 +120,6 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     /// twice is harmless.
     /// </summary>
     /// <returns>A task that completes once the socket is closed and its file deleted.</returns>
-    [ExcludeFromCodeCoverage(Justification = "Disposes a socket and deletes its file; covered by UnixSocketConnectionListenerTests.")]
     public async ValueTask DisposeAsync()
     {
         var stopping = acceptRace.StopAsync();
@@ -136,8 +130,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
 
     // Creates an AF_UNIX stream socket, binds it, makes its file owner-only off Windows, and
     // listens. A failure after the bind disposes the socket and deletes the file it made.
-    [ExcludeFromCodeCoverage(Justification = "Binds a socket; covered by UnixSocketConnectionListenerTests.")]
-    private static Socket BindListeningSocket(ListenUrl listenUrl, UnixDomainSocketEndPoint endPoint)
+    internal static Socket BindListeningSocket(ListenUrl listenUrl, UnixDomainSocketEndPoint endPoint, Action<UnixSocketAddress> makeOwnerOnly)
     {
         var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         var bound = false;
@@ -146,7 +139,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         {
             socket.Bind(new UnixSocketFileEndPoint(endPoint));
             bound = true;
-            MakeOwnerOnly(listenUrl.UnixSocket!);
+            makeOwnerOnly(listenUrl.UnixSocket!);
             socket.Listen();
 
             return socket;
@@ -160,8 +153,15 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         }
     }
 
+    // The file the bind created, or null for an abstract name, which has none.
+    internal static string? CreatedFilePathOf(UnixSocketAddress address) => address.IsAbstract ? null : address.Name;
+
+    // The write time that identifies the created file at stop; default when there is no file.
+    internal static DateTime WriteTimeOf(string? createdFilePath) =>
+        createdFilePath is null ? default : File.GetLastWriteTimeUtc(createdFilePath);
+
     // Sets the socket file's mode to 0600 on Linux and macOS; Windows keeps its directory's ACL.
-    [ExcludeFromCodeCoverage(Justification = "Calls File.SetUnixFileMode off Windows; covered by UnixSocketConnectionListenerTests.")]
+    [ExcludeFromCodeCoverage(Justification = "File.SetUnixFileMode runs only off Windows, and the abstract-name arm is refused on Windows before any bind, so no fast test on Windows reaches either.")]
     private static void MakeOwnerOnly(UnixSocketAddress address)
     {
         if (!address.IsAbstract && !OperatingSystem.IsWindows())
@@ -170,8 +170,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         }
     }
 
-    [ExcludeFromCodeCoverage(Justification = "Deletes a file; covered by UnixSocketConnectionListenerTests.")]
-    private static void DeleteFileMadeByFailedStart(UnixSocketAddress address, bool bound)
+    internal static void DeleteFileMadeByFailedStart(UnixSocketAddress address, bool bound)
     {
         if (bound && !address.IsAbstract)
         {
@@ -182,7 +181,6 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     // Deletes the socket file only while the path still names the file this listener created:
     // something there with another write time was put there by someone else, and is left alone.
     // Disposing the socket may already have removed it, as .NET does on Windows.
-    [ExcludeFromCodeCoverage(Justification = "Deletes a file; covered by UnixSocketConnectionListenerTests.")]
     private static void DeleteCreatedFile(string? path, DateTime createdWriteTime)
     {
         if (path is not null && File.Exists(path) && File.GetLastWriteTimeUtc(path) == createdWriteTime)
@@ -191,8 +189,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         }
     }
 
-    [ExcludeFromCodeCoverage(Justification = "Deletes a file; covered by UnixSocketConnectionListenerTests.")]
-    private static void TryDelete(string path)
+    internal static void TryDelete(string path)
     {
         try
         {
@@ -204,11 +201,9 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         }
     }
 
-    [ExcludeFromCodeCoverage(Justification = "Reads the file system; covered by UnixSocketConnectionListenerTests.")]
     private static bool PathExists(string path) => File.Exists(path) || Directory.Exists(path);
 
-    [ExcludeFromCodeCoverage(Justification = "Classifies a socket or file failure; covered by UnixSocketConnectionListenerTests.")]
-    private static ListenerBindFailure ClassifyBindFailure(Exception exception) => exception switch
+    internal static ListenerBindFailure ClassifyBindFailure(Exception exception) => exception switch
     {
         SocketException socketException => BindFailureClassifier.Classify(socketException.SocketErrorCode),
         UnauthorizedAccessException => ListenerBindFailure.PermissionDenied,
@@ -216,7 +211,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     };
 
     // Reads Socket.RemoteEndPoint; a client gone before it could be read is named unnamed.
-    [ExcludeFromCodeCoverage(Justification = "Reads Socket.RemoteEndPoint; covered by UnixSocketConnectionListenerTests.")]
+    [ExcludeFromCodeCoverage(Justification = "The SocketException arm needs a peer that vanished between accept and the read; no fast test can make one happen on demand.")]
     private static EndPoint? RemoteEndPointOf(Socket socket)
     {
         try
@@ -229,10 +224,8 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         }
     }
 
-    [ExcludeFromCodeCoverage(Justification = "Disposes a socket; covered by UnixSocketConnectionListenerTests.")]
-    private static void ReleaseSocket(Socket socket) => socket.Dispose();
+    internal static void ReleaseSocket(Socket socket) => socket.Dispose();
 
-    [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
     private Task<Socket> AcceptFromSocketAsync(int index, CancellationToken cancellationToken) =>
         Task.Factory.StartNew(() => AcceptBlocking(cancellationToken), cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
@@ -244,32 +237,41 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     // short poll for a queued client, then an accept that returns at once, so the loop sees the
     // stop token within PollMicroseconds (BL-1568): on macOS disposing the socket does not wake a
     // thread blocked in Accept(). A client the runtime cannot accept is waited out for
-    // RetryPause, so one bad client cannot spin the loop.
-    [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
+    // RetryPauseMilliseconds, so one bad client cannot spin the loop.
     private Socket AcceptBlocking(CancellationToken cancellationToken)
     {
-        while (true)
+        Socket? accepted = null;
+
+        while (accepted is null)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!listeningSocket.Poll(PollMicroseconds, SelectMode.SelectRead))
-            {
-                continue;
-            }
+            accepted = listeningSocket.Poll(PollMicroseconds, SelectMode.SelectRead)
+                ? AcceptOrDropClient(cancellationToken)
+                : null;
+        }
 
-            try
-            {
-                return listeningSocket.Accept();
-            }
-            catch (ArgumentException)
-            {
-                // The runtime could not copy this peer's address: drop it, accept the next.
-                cancellationToken.WaitHandle.WaitOne(RetryPause);
-            }
+        return accepted;
+    }
+
+    // Accepts the queued client, or null after waiting out one the runtime could not accept.
+    [ExcludeFromCodeCoverage(Justification = "The ArgumentException arm is thrown only by macOS's runtime for a client bound to a named socket; no fast test on Windows reaches it.")]
+    private Socket? AcceptOrDropClient(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return listeningSocket.Accept();
+        }
+        catch (ArgumentException)
+        {
+            // The runtime could not copy this peer's address: drop it, accept the next.
+            cancellationToken.WaitHandle.WaitOne(RetryPauseMilliseconds);
+
+            return null;
         }
     }
 
     private const int PollMicroseconds = 100_000;
 
-    private static readonly TimeSpan RetryPause = TimeSpan.FromMilliseconds(50);
+    private const int RetryPauseMilliseconds = 50;
 }

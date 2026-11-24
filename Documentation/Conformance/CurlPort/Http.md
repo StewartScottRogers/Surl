@@ -1,6 +1,6 @@
 # Phase 7 findings: HTTP/1.1 and HTTPS
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 36 passed, 0 failed, 21 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, which contains BL-1622 and BL-1623; Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`) is the current outcome on linux-x64 and osx-arm64 and supersedes every earlier run named below. Both test jobs ran. This family: linux-x64 35 passed, 1 failed, 21 not executed; osx-arm64 35 passed, 1 failed, 21 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work (BL-1625 classifies osx-arm64, BL-1626 linux-x64), not a CI finding.
 
 The Curl port measured beside pinned upstream curl against a live `surl` (ADR-0089), by
 `Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverHttpTests.cs` (BL-580). It mirrors
@@ -117,24 +117,24 @@ The test reads this table: its first column is the Phase 7 case's name (ADR-0089
 
 ## osx-arm64
 
-Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `c87b86d5c2ed723aeaf615bbc980b8d31d44b462`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed with the `Phase 7 families (osx-arm64)` job green
-(BL-1324). Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes: 1 passed, 131 not
-executed, and every case of this family Inconclusive or failed before any comparison.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
-Findings:
-
-- **Nothing was compared.** `UpstreamCurlBuilds.json` pins no upstream curl build for `osx-arm64`, so the mirrored
-  tests are Inconclusive there with "pins no upstream curl build for osx-arm64" (upstream curl is the only oracle,
-  ADR-0003). Pinning one means downloading a build, which needs Stewart's approval (CLAUDE.md, "Decisions").
-- **The osx-arm64 port build is not pinned by hash on a CI runner.** The runner's published `curl` hashed
-  `71F9BB5EED0DCAB034D33883365082D2BA19758E9549B140037C4E663A98A0D3`, not the pinned
-  `B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE` (`ciHashStable: false`), so cases that reach the port
-  throw `UnpinnedCurlPortClientException`. The hash changes with each publish; it is not a port defect.
-- **No port defect and no Surl defect is recorded for osx-arm64.** The family's findings table is unchanged.
+- **This family:** 35 passed, 1 failed, 21 not executed.
+- **Not measurable.** not measurable on osx-arm64: the cases under `[OSCondition(OperatingSystems.Windows)]` test Windows-only behaviour (Negotiate through SSPI, Windows-build answers); the other platform's answer is pinned by its own `ConditionMode.Exclude` test where one exists, and that test is in the run (ADR-0089 Amendment 9).
+- **Detail:** Failed: `Head_File_ExitsZeroWithAnHttp11OkStatusLine`. Not executed: 18 "Test is only supported on Windows" and 3 with no message.
+- **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
+- **Triaged by BL-1625.** The one failure, `Head_File_ExitsZeroWithAnHttp11OkStatusLine`, differed only in the `ETag:` value (surl derives it from the file's last-write time, which differs for each run's own copy): a test defect, fixed by normalising `ETag:` in `CurlPortResultNormaliser`, so nothing is added to the findings table. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
+
+- **This family:** 35 passed, 1 failed, 21 not executed.
+- **Not measurable.** not measurable on linux-x64: the cases under `[OSCondition(OperatingSystems.Windows)]` test Windows-only behaviour (Negotiate through SSPI, Windows-build answers); the other platform's answer is pinned by its own `ConditionMode.Exclude` test where one exists, and that test is in the run (ADR-0089 Amendment 9).
+- **Detail:** Failed: `Head_File_ExitsZeroWithAnHttp11OkStatusLine`. Not executed: 18 "Test is only supported on Windows" and 3 with no message.
+- **Triaged by BL-1626.** The one failure was a test defect, already fixed by BL-1625: the two runs' `ETag:` header differed (surl derives it from each run's own file modification time), and `CurlPortResultNormaliser` now replaces `ETag:` values with `<etag>`. Run 45198867449 failed the same case on the same line 4; run 44044472038 did not run it (new at BL-1624's base). Nothing is added.
+
+### Earlier run (44044472038, 2026-11-17)
 
 Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
 (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.

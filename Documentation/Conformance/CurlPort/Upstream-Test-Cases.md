@@ -1,5 +1,7 @@
 # Phase 7 findings: upstream curl's own test cases
 
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, which contains BL-1622 and BL-1623; Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`) is the current outcome on linux-x64 and osx-arm64 and supersedes every earlier run named below. Both test jobs ran. This family: linux-x64 1 passed, 0 failed, 0 not executed; osx-arm64 0 passed, 1 failed, 0 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work (BL-1625 classifies osx-arm64, BL-1626 linux-x64), not a CI finding.
+
 What `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` in `Conformance/Surl.Conformance.UnitTests`
 found when it played every case on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt` -
 the upstream test cases (tag `curl-8_21_0`) Surl's runner passes with pinned upstream curl as the client
@@ -87,6 +89,17 @@ parentheses applies on that platform alone), and nine cases upstream skipped, wh
 | `test1072` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
 | `test1073` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
 
+### Findings (osx-arm64)
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) (BL-1624, triaged by BL-1625): the
+same two port defects show on osx-arm64, where the port exits 65 and upstream (the reference build `04E0E69B…EEBF`)
+exits 25. Every other failing case on osx-arm64 is already in the table above.
+
+| Case | Family | Port's first failing section | Finding |
+| --- | --- | --- | --- |
+| `test1072` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
+| `test1073` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
+
 **Cases upstream skipped are not compared.** The linux-x64 passing list names test358, 359, 2400, 2401, 2402,
 2404, 2406, 2501 and 2502, which need a Debug build of curl or the libtests binary. The Phase 7 test ran upstream
 without either, so they ended `skip debug-build` or `skip libtest` and the comparison called each a Surl defect.
@@ -100,7 +113,7 @@ That was a test defect: the test now locates the supplementary Debug build and l
   (`http://%HOSTIP:%HTTPPORT/1072 -T - -u testuser:testpass --anyauth`) and test1073 "HTTP chunked PUT to HTTP 1.0
   server with redirect" (`http://%HOSTIP:%HTTPPORT/1073 -T - -L`).
 - **Upstream:** exit 25 (upload failed), as each case's `<errorcode>` says. **Port:** exit 65 in both.
-- **Classification:** port defect (the port's linux-x64 build only: both pass on Windows). The cause inside the
+- **Classification:** port defect (the port's linux-x64 and osx-arm64 builds, run 45412760425 for the latter: both pass on Windows). The cause inside the
   port is not traced.
 
 Each case is run as runtests runs it (`UpstreamTestCaseCommandLine`): `-q`, `--output log/curl<N>.out`,
@@ -185,22 +198,22 @@ files all as the case's `<verify>` says.
   The same result came on every run of the shift (three of three).
 - **What is right:** `-P`/`--ftp-port` makes the client use active mode with the given address (RFC 959
   section 3.2, `PORT`); the case pins the command order and that the transfer completes.
+- **Timing:** a timing-dependent finding (ADR-0089 amendment 10): the case is judged either way. Showing the
+  timeout is this finding; finishing is neither stale nor a failure. Upstream must pass it every run.
 
 ## osx-arm64
 
-Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `c87b86d5c2ed723aeaf615bbc980b8d31d44b462`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed with the `Phase 7 families (osx-arm64)` job green
-(BL-1324). Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes: 1 passed, 131 not
-executed, and every case of this family Inconclusive or failed before any comparison.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
-Findings:
+- **This family:** 0 passed, 1 failed, 0 not executed.
+- **Detail:** Failed: `RunBesideAsync_EveryCaseOnThePassingList_PortDefectsAreTheListedFindings`.
+- **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
+- **Triaged by BL-1625.** The one failure is the unlisted `test1072` and `test1073` (port exit 65, upstream 25), now listed under `### Findings (osx-arm64)` as UTC-5; the other 12 port-defect cases of the run were already listed. The Curl port is never an oracle (ADR-0003).
 
-- **Nothing was compared.** `UpstreamCurlBuilds.json` pins no upstream curl build for `osx-arm64`, so the mirrored
-  tests are Inconclusive there with "pins no upstream curl build for osx-arm64" (upstream curl is the only oracle,
-  ADR-0003). Pinning one means downloading a build, which needs Stewart's approval (CLAUDE.md, "Decisions").
-- **The osx-arm64 port build is not pinned by hash on a CI runner.** The runner's published `curl` hashed
-  `71F9BB5EED0DCAB034D33883365082D2BA19758E9549B140037C4E663A98A0D3`, not the pinned
-  `B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE` (`ciHashStable: false`), so cases that reach the port
-  throw `UnpinnedCurlPortClientException`. The hash changes with each publish; it is not a port defect.
-- **No port defect and no Surl defect is recorded for osx-arm64.** The family's findings table is unchanged.
+## linux-x64
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
+
+- **This family:** 1 passed, 0 failed, 0 not executed.
+- **Detail:** Every case passed.
+- **Triaged by BL-1626.** Nothing failed, so nothing is added: the listed UTC-4 (`test251`) and UTC-5 (`test1072`, `test1073`) still showed. One case flipped between runs: `test251` showed its timeout in runs 44044472038 and 45412760425 but was reported stale in run 45198867449 (it finished that time). The case is a 60-second timing race with a deliberately slow server, which no ADR-0089 amendment covers, so it stays listed; BL-1647 decided it is tolerated either way (ADR-0089 amendment 10).

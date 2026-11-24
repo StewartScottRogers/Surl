@@ -130,6 +130,24 @@ public sealed class Amqp0ExchangeLogRedactionTests
     }
 
     [TestMethod]
+    public void StartOk_MechanismOrResponseLengthRunsPastTheFrame_IsWrittenAsItsMethodThenMask()
+    {
+        byte[][] pastTheEnd =
+        [
+            [.. Long(0), 5, (byte)'P', .. Long(0)],
+            [.. Long(0), 1, (byte)'P', .. Long(9), .. Text("s3cret")],
+        ];
+        foreach (var arguments in pastTheEnd)
+        {
+            var logged = Logged(Bytes(ProtocolHeader, Method(0, 10, 11, arguments)));
+
+            CollectionAssert.AreEqual(
+                Bytes(ProtocolHeader, [1, 0, 0, 0, 0, 0, (byte)(4 + arguments.Length), 0, 10, 0, 11], Text("****")),
+                logged);
+        }
+    }
+
+    [TestMethod]
     public void FramesAfterTheLogin_AreLoggedAsReceived()
     {
         var publish = Method(1, 60, 40, [.. Short(0), .. ShortString(string.Empty), .. ShortString("q"), 0, .. Text("\0alice\0s3cret")]);

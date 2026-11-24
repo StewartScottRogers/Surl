@@ -22,6 +22,14 @@ public sealed class CurlPortResultNormaliserTests
     }
 
     [TestMethod]
+    public void NormaliseOutput_ReplacesETagValuesInAnyCase()
+    {
+        Assert.AreEqual(
+            "ETag: <etag>\r\netag:<etag>\r\nX-ETag: \"kept\"\r\n",
+            Output("ETag: \"8df4a3783b9be31-10\"\r\netag:\"1-2\"\r\nX-ETag: \"kept\"\r\n", 1, []));
+    }
+
+    [TestMethod]
     public void NormaliseOutput_ReplacesOnlyTheWriteOutValuesThatMeasureTime()
     {
         string[] arguments = ["--write-out", "%{http_code}|%{time_connect}|%{speed_upload}%%\\t\\r\\n", "{surl}/"];

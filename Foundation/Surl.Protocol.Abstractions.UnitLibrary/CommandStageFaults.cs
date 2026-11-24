@@ -146,7 +146,7 @@ public static class CommandStageFaults
         }
         finally
         {
-            await holdEnded.CancelAsync();
+            holdEnded.Cancel();
         }
 
         if (watch is not null)

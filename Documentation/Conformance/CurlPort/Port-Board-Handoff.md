@@ -14,8 +14,8 @@ the upstream documentation or specification that says what is right, so the port
 it without re-deriving it.
 
 **What this file holds.** One entry per finding in the Phase 7 findings files
-([summary](README.md)): 24 entries, the 14 of the family files, the 4 of `Upstream-Test-Cases.md` and
-the 6 of [`Extended.md`](Extended.md), the extended clients. Each entry is in the port's task shape (its `.claude/skills/task-board/TASK-TEMPLATE.md`): front matter fields, then `Goal`,
+([summary](README.md)): 29 entries. Entries 1 to 24 are the win-x64 findings: the 14 of the family files, the 4 of `Upstream-Test-Cases.md` and
+the 6 of [`Extended.md`](Extended.md), the extended clients. Entries 25 to 29 are the 7 linux-x64 and osx-arm64 findings. Each entry is in the port's task shape (its `.claude/skills/task-board/TASK-TEMPLATE.md`): front matter fields, then `Goal`,
 `Context` and `Acceptance criteria`.
 
 **Evidence common to every entry.** Measured on Windows (`win-x64`), 2026-11-05 and 2026-11-06 (entry 18: 2026-11-11, with no
@@ -59,6 +59,11 @@ Each entry names its own Surl commit, Surl test and the findings file that holds
 | 22 | Publish or fail a -T upload to amqp:// | Extended clients | 1 |
 | 23 | Allow auto topic creation in the kafka client's Metadata request | Extended clients | 1 |
 | 24 | Finish an active-mode FTP listing with -P when the server answers slowly | Upstream test cases | 1 |
+| 25 | Do not reset stream 1 after a Digest 401 over HTTP/2 with prior knowledge | HTTP/2 | 1 |
+| 26 | Bind with SASL over ldap:// as OpenLDAP does on linux-x64 | LDAP | 24 |
+| 27 | Match OpenLDAP on StartTLS without a trusted certificate on linux-x64 | LDAP | 3 |
+| 28 | Settle blowfish-cbc and cast128-cbc downloads where libssh2 on macOS crashes | SCP and SFTP | 2 |
+| 29 | Exit 25 on a chunked PUT to an HTTP/1.0 server on linux-x64 and osx-arm64 | Upstream test cases | 2 |
 
 ---
 
@@ -879,12 +884,187 @@ passes with the port.
 
 ---
 
+## 25. Do not reset stream 1 after a Digest 401 over HTTP/2 with prior knowledge
+
+*New at port commit `74f3f45`; seen on osx-arm64 and linux-x64.*
+
+- **title:** Do not reset stream 1 after a Digest 401 over HTTP/2 with prior knowledge
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+`curl --http2-prior-knowledge --digest -u tester:secret` sends no `RST_STREAM` for stream 1 between the 401
+and the second `HEADERS` on stream 3, as upstream curl 8.21.0 does.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Http2.md`, finding 2 (osx-arm64 and linux-x64).
+- **Platforms and run:** osx-arm64 and linux-x64, `curl-port-phase-7` run 45412760425 (2026-11-24, Surl commit
+  `70828fe7e0becfaef1aeec787cdb7c42023732f7`), triaged by BL-1625 and BL-1626. Port commit
+  `74f3f45c47e86300b2b262dc1dacd43b508b09aa`.
+- **Case (1):** `GetWithDigest_PriorKnowledge_IsServedOverHttp2`, mirroring
+  `UpstreamCurlFetchesFromSurlOverHttp2Tests.GetWithDigest_PriorKnowledge_IsServedOverHttp2`.
+- **Command line:** `curl -sS -f --http2-prior-knowledge --digest -u tester:secret -w %{http_version} <surl>/hello.txt`
+  against `surl --user-file <tester:secret>`.
+- **Upstream result:** exit 0, same body and version; after the 401 it sends the `SETTINGS` ack and a second
+  `HEADERS` on stream 3 with the Digest `authorization`, and no reset.
+- **Port result:** exit 0, same body and version; the frames differ by an extra `RST_STREAM stream=1 00000005`
+  (`STREAM_CLOSED`) between them.
+- **What decides:** upstream curl's frames (ADR-0003); RFC 9113 section 5.4.
+
+### Acceptance criteria
+
+- [ ] The port's frames for this exchange match upstream's, with no `RST_STREAM` on stream 1.
+
+---
+
+## 26. Bind with SASL over ldap:// as OpenLDAP does on linux-x64
+
+*New at port commit `74f3f45`; seen on linux-x64.*
+
+- **title:** Bind with SASL over ldap:// as OpenLDAP does on linux-x64
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+On linux-x64 the port binds with SASL as upstream curl 8.21.0 linked against OpenLDAP does: it completes the
+challenge-response, bearer, `EXTERNAL`, `GSSAPI` and any-mechanism binds (exit 0 with the base entry, or 67
+where upstream's is 67), refuses `GSSAPI` for a user naming no realm, and sends the same first bind request for
+`PLAIN` and `LOGIN`.
+
+### Context
+
+- **Findings:** Surl `Documentation/Conformance/CurlPort/Ldap.md`, L-1, L-2 and L-3 (one root: the port's SASL
+  bind is not OpenLDAP's).
+- **Platform and run:** linux-x64, first seen in `curl-port-phase-7` run 44044472038 (BL-1343) and kept by
+  BL-1626 after run 45412760425. Port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`. osx-arm64 compared
+  none of these cases (no OpenLDAP upstream build is pinned there).
+- **Cases (24):** the `OpenLdap_SaslBind_*` rows of Ldap.md's `### Findings (linux-x64)` table, mirroring
+  `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests`: L-1 (17: challenge-response, bearer, `EXTERNAL`,
+  `GSSAPI`, `AnyMechanism`), L-2 (1: `GssapiWithAUserNamingNoRealm`), L-3 (6:
+  `PlainTextMechanismWithAllowPlaintextAuth` and `WrongPassword`).
+- **Upstream result:** L-1 exit 0 with the base entry on stdout, or 67; L-2 exit 67 with no bind; L-3 first
+  request's BER length byte `0x3E`.
+- **Port result:** L-1 exit 38 with nothing on stdout, first bind shorter (`0x12` against `0x3E` on bearer);
+  L-2 exit 0 and the base entry (`0x17`); L-3 same exit and output, length byte `0x16` or `0x17`.
+- **What decides:** curl 8.21.0 manual (`--login-options`, `-u`); RFC 4513 section 5.2; RFC 4422.
+
+### Acceptance criteria
+
+- [ ] The 24 cases pass with the port on linux-x64 against Surl, shown by port tests.
+
+---
+
+## 27. Match OpenLDAP on StartTLS without a trusted certificate on linux-x64
+
+*New at port commit `74f3f45`; seen on linux-x64.*
+
+- **title:** Match OpenLDAP on StartTLS without a trusted certificate on linux-x64
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+On linux-x64 the port answers `ldap://` StartTLS with `--ssl-reqd`, `--ssl` or an untrusted certificate with
+the exit code and request bytes upstream curl 8.21.0 linked against OpenLDAP gives.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Ldap.md`, L-4.
+- **Platform and run:** linux-x64, first seen in `curl-port-phase-7` run 44044472038 (BL-1343) and kept by
+  BL-1626 after run 45412760425. Port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`.
+- **Cases (3):** `OpenLdap_StartTls_SslReqdWithNoCertificate_Exits1UnsupportedProtocol`,
+  `OpenLdap_StartTls_SslWithNoCertificate_CarriesOnInClearWithAVersion2BindAndExits0`,
+  `OpenLdap_StartTls_UntrustedCertificate_Exits64UseSslFailedNamingTheVerifyResult`.
+- **Upstream result:** `--ssl-reqd` exits 1 (`Unsupported protocol`); `--ssl` carries on with a version 2 bind
+  (`0x02` at offset 40); an untrusted certificate exits 64 (`SSL certificate OpenSSL verify result:
+  self-signed certificate (18)`).
+- **Port result:** exit 64; version 3 bind (`0x03`); exit 60 with the same verify result.
+- **What decides:** curl 8.21.0 manual (`--ssl`, `--ssl-reqd`, exit codes 1, 60 and 64); RFC 4513 section 3.
+
+### Acceptance criteria
+
+- [ ] The three cases pass with the port on linux-x64, shown by port tests.
+
+---
+
+## 28. Settle blowfish-cbc and cast128-cbc downloads where libssh2 on macOS crashes
+
+*New at port commit `74f3f45`; seen on osx-arm64.*
+
+- **title:** Settle blowfish-cbc and cast128-cbc downloads where libssh2 on macOS crashes
+- **priority:** Low · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+The port's owners decide whether the port's SFTP client matches the macOS libssh2 build's measured behaviour
+(exit 139, empty output) or keeps downloading `/a.txt`; the comparison cannot call a working download right
+where upstream crashed, so the two cases stay listed until the port's board settles it.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Ssh.md`, SSH-3. Not a Surl defect; upstream's crash is a
+  defect of its macOS libssh2 build, not documented curl behaviour.
+- **Platform and run:** osx-arm64, `curl-port-phase-7` run 45412760425 (2026-11-24), BL-1625. Port commit
+  `74f3f45c47e86300b2b262dc1dacd43b508b09aa`.
+- **Cases (2):** `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes[blowfish-cbc]` and
+  `[cast128-cbc]`, mirroring `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests`.
+- **Command line:** `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester:secret sftp://…/a.txt` against
+  `surl --allow-weak-ssh-algorithms` offering only that cipher.
+- **Upstream result:** negotiates `curve25519-sha256`, `rsa-sha2-512`, the cipher and `hmac-sha2-256`, then
+  exits 139 with empty output; no login reaches `surl`.
+- **Port result:** the same algorithms, logs in, reads `/a.txt` (12 bytes), exits 0 with `hello world`.
+- **What decides:** upstream curl 8.21.0's measured result (ADR-0003); no documentation asks for a crash.
+
+### Acceptance criteria
+
+- [ ] The port's owners record whether the two cases are accepted as a known difference or matched, and the
+      Phase 7 listing follows.
+
+---
+
+## 29. Exit 25 on a chunked PUT to an HTTP/1.0 server on linux-x64 and osx-arm64
+
+*New at port commit `74f3f45`; seen on linux-x64 and osx-arm64.*
+
+- **title:** Exit 25 on a chunked PUT to an HTTP/1.0 server on linux-x64 and osx-arm64
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+`curl -T -` to a server that answers HTTP/1.0 exits 25 (upload failed) on linux-x64 and osx-arm64, as upstream
+curl 8.21.0 does and as the port already does on Windows, so upstream test cases 1072 and 1073 pass.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Upstream-Test-Cases.md`, UTC-5.
+- **Platforms and run:** linux-x64 (first seen in run 44044472038, BL-1343, kept by BL-1626) and osx-arm64
+  (run 45412760425, BL-1625). Port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`.
+- **Cases (2):** `test1072` "HTTP chunked PUT to HTTP 1.0 server with authorization"
+  (`http://%HOSTIP:%HTTPPORT/1072 -T - -u testuser:testpass --anyauth`) and `test1073` "HTTP chunked PUT to HTTP
+  1.0 server with redirect" (`http://%HOSTIP:%HTTPPORT/1073 -T - -L`), upstream tag `curl-8_21_0`, played by
+  `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests`.
+- **Upstream result:** exit 25, as each case's `<errorcode>` says.
+- **Port result:** exit 65 in both; the cause inside the port is not traced.
+- **What decides:** the cases' `<errorcode>` section; curl 8.21.0 exit code 25 (`CURLE_UPLOAD_FAILED`).
+
+### Acceptance criteria
+
+- [ ] Upstream test cases 1072 and 1073 pass with the port on linux-x64 and osx-arm64.
+
+---
+
 ## What the new commit fixed
 
 Port commit `74f3f45` (Amendment 8 of ADR-0089) replaced `b42c319`. Re-measured on `win-x64`, it **fixed
 none** of the 23 earlier findings (each listed case still shows its defect) and **added one**, entry 24.
-The `linux-x64` run 44044472038 and the `osx-arm64` run 44000208980 record no new finding: osx-arm64
-compared nothing. linux-x64's failing cases are triaged by BL-1343 in each family's own "Findings (linux-x64)"
-table, not yet as entries here: a port defect on linux-x64 only (OpenLDAP SASL binds and StartTLS, how a TLS
-session or an scp channel ends, a chunked PUT to an HTTP/1.0 server) - Ldap.md L-1 to L-4, Mail.md M-1, Ftp.md
-FTP-1, Ssh.md SSH-2 and Upstream-Test-Cases.md UTC-5 - for the port's owners to take over.
+The `linux-x64` and `osx-arm64` runs of `curl-port-phase-7` (45412760425, 2026-11-24, triaged by BL-1625 and
+BL-1626) **added five entries, 25 to 29**, for seven findings: Http2.md finding 2 (osx-arm64 and linux-x64),
+Ldap.md L-1 to L-3 and L-4 (linux-x64), Ssh.md SSH-3 (osx-arm64) and Upstream-Test-Cases.md UTC-5 (linux-x64
+and osx-arm64). BL-1626 removed Mail.md M-1, Ftp.md FTP-1 and Ssh.md SSH-2 as run-to-run noise (how a TLS
+connection or an scp channel ends is left uncompared, ADR-0089 Amendments 1 and 6), so they are not entries.
+osx-arm64 now compares, and its other cases agree with upstream curl.

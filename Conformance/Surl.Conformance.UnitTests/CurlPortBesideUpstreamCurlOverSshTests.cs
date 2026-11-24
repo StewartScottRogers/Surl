@@ -714,7 +714,7 @@ public sealed class CurlPortBesideUpstreamCurlOverSshTests
     /// uncompared; the exit code, output and stored files carry the transfer's outcome.
     /// </summary>
     private static readonly Regex TeardownNote = new(
-        @"^#\d+ \* (SSH disconnect received: |SSH channel \d+ ended: |SFTP session ended: |Exchange \d+ ended|SCP download \S+(: sent \d+ bytes| refused: read error: The SSH channel was closed before the data was sent))",
+        @"^#\d+ \* (SSH disconnect received: |SSH channel \d+ ended: |SFTP session ended: |Exchange \d+ ended|SSH channel \d+ handler failed: The SSH channel was closed before the data was sent|SCP download \S+(: sent \d+ bytes| refused: read error: The SSH channel was closed before the data was sent))",
         RegexOptions.CultureInvariant);
 
     private static readonly string[] ExtensionSwitches = ["CURL_EXTENSIONS", "SURL_EXTENSIONS"];

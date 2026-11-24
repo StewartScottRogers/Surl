@@ -187,6 +187,16 @@ public sealed class LdapExchangeLogRedactionTests
     }
 
     [TestMethod]
+    public void SaslPlainBindWhoseCredentialsOverrunTheirField_IsMaskedFromTheCredentialsValue()
+    {
+        var message = Hex("30 18 02 01 01 60 13 02 01 03 04 01 78 A3 0B 04 05 50 4C 41 49 4E 04 0A 00 61");
+
+        var logged = Logged(message);
+
+        CollectionAssert.AreEqual(Concat(message[..24], "****"u8.ToArray()), logged);
+    }
+
+    [TestMethod]
     public void NonBerBytes_AreLoggedUnchanged()
     {
         var bytes = Encoding.Latin1.GetBytes("\x16\x03\x01 not ber");

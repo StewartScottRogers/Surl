@@ -1,6 +1,6 @@
 # Phase 7 findings: SCP and SFTP
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 67 passed, 5 failed, 7 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, which contains BL-1622 and BL-1623; Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`) is the current outcome on linux-x64 and osx-arm64 and supersedes every earlier run named below. Both test jobs ran. This family: linux-x64 71 passed, 1 failed, 7 not executed; osx-arm64 70 passed, 2 failed, 7 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work (BL-1625 classifies osx-arm64, BL-1626 linux-x64), not a CI finding.
 
 What `CurlPortBesideUpstreamCurlOverSshTests` in `Conformance/Surl.Conformance.UnitTests` found when it
 ran every SCP and SFTP conversation of `UpstreamCurlTransfersFilesWithSurlOverScpTests`,
@@ -73,21 +73,33 @@ SSH-1 shows on Windows only for these four cases: the linux-x64 port build agree
 
 ### Findings (linux-x64)
 
-Run 44044472038 (BL-1343), classified from its `phase-7-linux-x64-results` artifact. Upstream curl is the
-linux-x64 build pinned in `UpstreamCurlBuilds.json`.
+None. Run 44044472038 (BL-1343) listed `Login_PublicKey_DownloadsTheFile[scp]` (SSH-2) because `surl`'s `-v` note
+`SSH channel 0 handler failed: The SSH channel was closed before the data was sent.` showed on upstream curl's run and
+not the port's. BL-1626 removed it: runs 45198867449 and 45412760425 did not show it, and it is an scp teardown note,
+which ADR-0089 Amendment 6 leaves uncompared (the test's `TeardownNote` now names it).
+
+### Findings (osx-arm64)
+
+Run 45412760425 (BL-1624), classified by BL-1625 from its `phase-7-osx-arm64-results` artifact. Upstream curl is the
+osx-arm64 reference build `04E0E69B…EEBF` (curl 8.21.0, libssh2 1.11.1).
 
 | Phase 7 test | Mirrors | Finding |
 | --- | --- | --- |
-| `Login_PublicKey_DownloadsTheFile[scp]` | `UpstreamCurlLogsInToSurlOverSshTests.Login_PublicKey_DownloadsTheFile` | [SSH-2](#ssh-2-the-port-ends-an-scp-public-key-download-differently-on-linux-x64) |
+| `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes[blowfish-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes` | [SSH-3](#ssh-3-upstream-curl-crashes-on-the-osx-arm64-build-where-the-port-downloads-the-file) |
+| `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes[cast128-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes` | [SSH-3](#ssh-3-upstream-curl-crashes-on-the-osx-arm64-build-where-the-port-downloads-the-file) |
 
-### SSH-2: the port ends an scp public-key download differently on linux-x64
+#### SSH-3: upstream curl crashes on the osx-arm64 build where the port downloads the file
 
-- **Case:** `Login_PublicKey_DownloadsTheFile[scp]`; command line `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester: --key id_test --pubkey id_test.pub {surl}/a.txt`.
-- **Measured:** both clients exit 0 and write `hello world`. The only difference is `surl`'s `-v` note on line 11:
-  upstream curl's run has `SSH channel 0 handler failed: The SSH channel was closed before the data was sent.`
-  (upstream curl closes the channel as soon as it has the file), the port's run has no such note.
-- **Classification:** port defect, in how the port ends an scp channel (notes only; no output or exit code
-  difference).
+- **Cases:** `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester:secret sftp://…/a.txt` against
+  `surl --allow-weak-ssh-algorithms` offering only `blowfish-cbc` or only `cast128-cbc`.
+- **Upstream:** both runs negotiate `curve25519-sha256`, `rsa-sha2-512`, the offered cipher and `hmac-sha2-256`, then
+  upstream exits 139 (a crash) with empty output and no login reaches `surl`. The mirrored test pins that crash
+  (`...AgreesItAndCurlCrashes`), so upstream completes the exchange as the test asserts.
+- **Port:** negotiates the same algorithms, logs in, reads `/a.txt` (12 bytes) and exits 0 with `hello world`.
+- **Classification:** port difference from upstream's measured behaviour, not a Surl defect. Upstream's crash is
+  a defect of the macOS libssh2 build with these two legacy ciphers, not behaviour curl documents; the port is
+  listed because the comparison cannot call a working download right where upstream crashed. The cause inside the
+  port is not traced.
 
 ### SSH-1: the port offers only the WinCNG backend's SSH algorithms
 
@@ -126,24 +138,24 @@ linux-x64 build pinned in `UpstreamCurlBuilds.json`.
 
 ## osx-arm64
 
-Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `c87b86d5c2ed723aeaf615bbc980b8d31d44b462`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed with the `Phase 7 families (osx-arm64)` job green
-(BL-1324). Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes: 1 passed, 131 not
-executed, and every case of this family Inconclusive or failed before any comparison.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
-Findings:
-
-- **Nothing was compared.** `UpstreamCurlBuilds.json` pins no upstream curl build for `osx-arm64`, so the mirrored
-  tests are Inconclusive there with "pins no upstream curl build for osx-arm64" (upstream curl is the only oracle,
-  ADR-0003). Pinning one means downloading a build, which needs Stewart's approval (CLAUDE.md, "Decisions").
-- **The osx-arm64 port build is not pinned by hash on a CI runner.** The runner's published `curl` hashed
-  `71F9BB5EED0DCAB034D33883365082D2BA19758E9549B140037C4E663A98A0D3`, not the pinned
-  `B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE` (`ciHashStable: false`), so cases that reach the port
-  throw `UnpinnedCurlPortClientException`. The hash changes with each publish; it is not a port defect.
-- **No port defect and no Surl defect is recorded for osx-arm64.** The family's findings table is unchanged.
+- **This family:** 70 passed, 2 failed, 7 not executed.
+- **Not measurable.** not measurable on osx-arm64: the cases under `[OSCondition(OperatingSystems.Windows)]` test Windows-only behaviour (Negotiate through SSPI, Windows-build answers); the other platform's answer is pinned by its own `ConditionMode.Exclude` test where one exists, and that test is in the run (ADR-0089 Amendment 9).
+- **Detail:** Failed: `Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes` (`cast128-cbc`, `blowfish-cbc`). Not executed: 3 with no message, 2 "Test is not supported on OSX", 1 "Test is only supported on Windows", 1 Inconclusive ("The account's own home directory holds .ssh/known_hosts, which curl falls back to.").
+- **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
+- **Triaged by BL-1625.** Both failures are one finding, SSH-3, now listed under `### Findings (osx-arm64)`. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
+
+- **This family:** 71 passed, 1 failed, 7 not executed.
+- **Not measurable.** not measurable on linux-x64: the cases under `[OSCondition(OperatingSystems.Windows)]` test Windows-only behaviour (Negotiate through SSPI, Windows-build answers); the other platform's answer is pinned by its own `ConditionMode.Exclude` test where one exists, and that test is in the run (ADR-0089 Amendment 9).
+- **Detail:** Failed: `Login_PublicKey_DownloadsTheFile` (`scp`). Not executed: 3 with no message, 2 "Test is only supported on OSX", 1 "Test is only supported on Windows", 1 Inconclusive ("The account's own home directory holds no .ssh/known_hosts for curl to fall back to.").
+- **Triaged by BL-1626.** The one failure was a stale listing of SSH-2 (`SSH channel 0 handler failed: The SSH channel was closed before the data was sent.`, an scp teardown note, not compared by ADR-0089 Amendment 6): the row is removed and the test leaves that note out. Run 45198867449 failed the same case; run 44044472038 showed the note. Nothing was added.
+
+### Earlier run (44044472038, 2026-11-17)
 
 Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
 (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.

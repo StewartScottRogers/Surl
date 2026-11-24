@@ -79,6 +79,23 @@ public sealed class Http2ExchangeRedactionTests
     }
 
     [TestMethod]
+    public void ObserveSent_ConnectionAlreadyHttp2_IgnoresBytesThatStartAsAnUpgradeAnswer()
+    {
+        var redactor = Server().CreateRedactor(RedactionContext);
+        var output = new ArrayBufferWriter<byte>();
+        var frame = AuthorizedHeaders();
+
+        redactor.Redact(Http2ConnectionPreface.Preface.ToArray(), output);
+        redactor.ObserveSent("HTTP/1.1 101 Switching Protocols\r\n\r\n"u8);
+        redactor.Redact(frame, output);
+        redactor.Flush(output);
+
+        CollectionAssert.AreEqual(
+            Join(Http2ConnectionPreface.Preface.ToArray(), frame[..9], "****"u8.ToArray()),
+            output.WrittenSpan.ToArray());
+    }
+
+    [TestMethod]
     public void CreateRedactor_Http1RequestThatStartsWithP_IsRedactedAsHttp1()
     {
         var redactor = Server().CreateRedactor(RedactionContext);

@@ -95,6 +95,35 @@ public sealed class Pop3FaultTests
         Assert.AreEqual(Greeting + "-ERR Local error in processing\r\n", written);
     }
 
+    // The answer's write completes asynchronously, both for the chosen error and for the usual
+    // answer when no rule matches: the switch awaits each and still ends the exchange in order.
+    [TestMethod]
+    public async Task ServeAsync_WriteCompletesAsynchronously_AnswersTheChosenErrorAndTheUsualAnswer()
+    {
+        var clock = new ManualTimeProvider();
+        var store = new MailboxStore(["alice"], allowAnonymous: false, clock);
+        var connection = new YieldingWriteConnection(Ascii("CAPA\r\nUSER alice\r\nQUIT\r\n"));
+        var policy = new Pop3TestPolicy { Verdict = PasswordLoginVerdict.Accepted };
+        var context = Context(clock, TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(ErrorRule("CAPA")) };
+
+        await Server(store, policy).ServeAsync(connection, context);
+
+        Assert.AreEqual(Greeting + "-ERR " + TryLater + "\r\n+OK User accepted\r\n+OK surl signing off\r\n", Utf8(connection.WrittenBytes));
+    }
+
+    // A rule of a kind with no command-stage effect (RefuseLogin) that matches the command is
+    // neither an error nor a drop: the command is answered as usual and nothing is published.
+    [TestMethod]
+    public async Task ServeAsync_RefuseLoginRuleMatchingACommand_AnswersTheCommandAsUsual()
+    {
+        var rule = new FaultRule("f1", FaultKind.RefuseLogin) { Stage = FaultStage.Command, Command = "CAPA" };
+
+        var (written, events) = await ServeAsync(Ascii("CAPA\r\n"), new ScriptedFaultPlan(rule));
+
+        StringAssert.StartsWith(written, Greeting + "+OK Capability list follows\r\n");
+        Assert.IsEmpty(events.Events);
+    }
+
     // ADR-0141: a command-stage delay holds RETR's answer on the exchange's clock, with the idle
     // clock paused for the whole hold, then answers it as usual.
     [TestMethod]

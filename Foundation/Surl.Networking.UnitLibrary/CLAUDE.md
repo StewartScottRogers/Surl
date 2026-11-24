@@ -83,8 +83,8 @@ protocol server.
   to a `UnixDomainSocketEndPoint` whatever stands there by then. Each connection's local
   endpoint is the listener's `UnixDomainSocketEndPoint`; a client that bound no name (curl) is
   `UnnamedUnixSocketPeer.Instance`. No `NoDelay` (it does not exist on `AF_UNIX`). The members
-  touching the socket or file are excluded from coverage and exercised by
-  `UnixSocketConnectionListenerTests`, fast tests on a socket file under `Path.GetTempPath()`.
+  touching the socket or file are covered by
+  `UnixSocketConnectionListenerTests`, fast tests on a socket file under `Path.GetTempPath()`; only `MakeOwnerOnly`, `RemoteEndPointOf` and `AcceptOrDropClient` stay excluded, each with the reason no fast test on Windows reaches it.
 - `SocketListenerFactory` (public) - implements `IListenerFactory` by delegating
   to `TcpConnectionListener.StartAsync` (or `UnixSocketConnectionListener.StartAsync` when the
   listen URL's `UnixSocket` is set) and `UdpDatagramListener.StartAsync`; it is what the

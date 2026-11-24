@@ -301,21 +301,14 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             fields.Add(new("Allow", allow));
         }
 
-        if (HttpErrorText.Carries(status))
-        {
-            fields.AddRange(HttpErrorText.FieldsOf(status));
-        }
-        else
-        {
-            fields.Add(new("Content-Length", "0"));
-        }
+        fields.AddRange(HttpErrorText.FieldsOf(status));
 
         return AddChallenges(fields, challenges);
     }
 
-    // A 4xx or 5xx carries ADR-0186's fixed text (none after a HEAD's head); every other status has no body.
+    // Every caller passes a 4xx or 5xx, which carries ADR-0186's fixed text (none after a HEAD's head).
     private static HttpAnswerBody EmptyAnswerBody(HttpRequest request, HttpStatus status) =>
-        HttpErrorText.Carries(status) ? HttpErrorText.BodyOf(status, request.Method == "HEAD") : HttpAnswerBody.None;
+        HttpErrorText.BodyOf(status, request.Method == "HEAD");
 
     // A file is answered 200 with its length; a GET carries its bytes, a HEAD none. A GET whose
     // Range selects bytes is answered 206 with them - several ranges as multipart/byteranges - or

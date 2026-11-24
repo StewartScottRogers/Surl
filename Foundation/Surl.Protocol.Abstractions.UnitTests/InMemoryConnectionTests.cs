@@ -615,6 +615,19 @@ public sealed class InMemoryConnectionTests
     }
 
     [TestMethod]
+    public async Task WatchForPeerCloseAsync_ClientStaysThenConnectionAborted_ThrowsIOException()
+    {
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
+
+        var watching = connection.WatchForPeerCloseAsync(16, TestContext.CancellationToken).AsTask();
+        var stillWatching = !watching.IsCompleted;
+        connection.Abort();
+
+        Assert.IsTrue(stillWatching);
+        await Assert.ThrowsExactlyAsync<IOException>(() => watching);
+    }
+
+    [TestMethod]
     public async Task WatchForPeerCloseAsync_NonPositiveLimit_Throws()
     {
         var connection = new InMemoryConnection([]);

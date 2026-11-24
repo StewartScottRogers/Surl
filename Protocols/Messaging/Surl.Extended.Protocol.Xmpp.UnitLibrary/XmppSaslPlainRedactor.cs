@@ -182,7 +182,8 @@ internal sealed class XmppSaslPlainRedactor : IReceivedBytesRedactor
         }
 
         var rest = tag.AsSpan(at + "mechanism".Length).TrimStart();
-        if (rest.Length == 0 || rest[0] != '=')
+        // A held tag always ends in '>', so something follows "mechanism"; StartsWith needs no empty-span branch.
+        if (!rest.StartsWith("=", StringComparison.Ordinal))
         {
             return false;
         }

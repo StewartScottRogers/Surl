@@ -1,6 +1,6 @@
 # Phase 7 findings: SMTP, IMAP and POP3
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 108 passed, 13 failed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, which contains BL-1622 and BL-1623; Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`) is the current outcome on linux-x64 and osx-arm64 and supersedes every earlier run named below. Both test jobs ran. This family: linux-x64 108 passed, 13 failed, 0 not executed; osx-arm64 121 passed, 0 failed, 0 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work (BL-1625 classifies osx-arm64, BL-1626 linux-x64), not a CI finding.
 
 What the Curl port does against `surl` over `smtp`, `smtps`, `imap`, `imaps`, `pop3` and `pop3s`
 (with `STARTTLS` and `STLS`), measured beside pinned upstream curl as
@@ -56,57 +56,31 @@ the table does not list, and when a listed one stops appearing (ADR-0089 decisio
 
 ### Findings (linux-x64)
 
-Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): 13 cases showed
-one port defect on linux-x64 and are listed for linux-x64 only (a heading that names a platform in parentheses
-applies on that platform alone). On Windows the family has no finding.
-
-| Test | Mirrors | Finding |
-| --- | --- | --- |
-| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(OAUTHBEARER, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(XOAUTH2, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(XOAUTH2, True)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedNamedChoiceMechanism_LogsInAndWritesTheStoredMessage(DIGEST-MD5, digest-md5)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedNamedChoiceMechanism_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage(AUTH=+LOGIN, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Imap_Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage(AUTH=CRAM-MD5, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(OAUTHBEARER, False)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(OAUTHBEARER, True)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(XOAUTH2, True)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(LOGIN, False, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(LOGIN, True, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(PLAIN, False, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-| `Smtp_Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
-
-#### M-1: upstream curl's TLS session ends with a broken pipe, the port's does not
-
-- **Cases:** every row above (the case name's parentheses hold the data row).
-- **Measured:** exit code, standard output and the stored mail agree. The only difference is `surl`'s `-v` note:
-  upstream curl's run has `Exchange N ended because the protocol server threw IOException: Unable to write data
-  to the transport connection: Broken pipe.` where the port's run ends the exchange without it. Upstream curl
-  (OpenSSL) drops the connection after the last command; the port ends the TLS session another way, so the
-  server's final write meets a closed peer only for upstream.
-- **Classification:** port defect, in how the port ends a TLS session after the exchange (notes only; no
-  output, exit code or stored-mail difference).
+None. Run 44044472038 (BL-1343) listed 13 STARTTLS and IMAPS login cases (M-1) because `surl`'s `-v` note `Exchange N
+ended because the protocol server threw IOException: ... Broken pipe.` showed on upstream curl's run and not the port's.
+BL-1626 removed them: runs 45198867449 and 45412760425 showed none of the 13 (the note came and went from run to run),
+and the note is how a TLS connection ended, which ADR-0089 Amendment 1 leaves uncompared
+(`CurlPortRunSetup.WithoutTlsEndings`, now applied to this family). The exit code, output and stored mail still judge
+each case.
 
 ## osx-arm64
 
-Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `c87b86d5c2ed723aeaf615bbc980b8d31d44b462`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed with the `Phase 7 families (osx-arm64)` job green
-(BL-1324). Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes: 1 passed, 131 not
-executed, and every case of this family Inconclusive or failed before any comparison.
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed with the `Phase 7 families (osx-arm64)` job run. Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes.
 
-Findings:
-
-- **Nothing was compared.** `UpstreamCurlBuilds.json` pins no upstream curl build for `osx-arm64`, so the mirrored
-  tests are Inconclusive there with "pins no upstream curl build for osx-arm64" (upstream curl is the only oracle,
-  ADR-0003). Pinning one means downloading a build, which needs Stewart's approval (CLAUDE.md, "Decisions").
-- **The osx-arm64 port build is not pinned by hash on a CI runner.** The runner's published `curl` hashed
-  `71F9BB5EED0DCAB034D33883365082D2BA19758E9549B140037C4E663A98A0D3`, not the pinned
-  `B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE` (`ciHashStable: false`), so cases that reach the port
-  throw `UnpinnedCurlPortClientException`. The hash changes with each publish; it is not a port defect.
-- **No port defect and no Surl defect is recorded for osx-arm64.** The family's findings table is unchanged.
+- **This family:** 121 passed, 0 failed, 0 not executed.
+- **Detail:** Every case passed.
+- **Cases compared.** The `UpstreamCurlBuilds.json` pin for `osx-arm64` (curl 8.21.0, SHA-256 `04E0E69B...EEBF`, pinned 2026-09-28) was found, and BL-1622 removed `UnpinnedCurlPortClientException` (357 of them in run 44044472038), so cases that reach the port compared it with upstream curl. An earlier statement that no upstream curl build is pinned for `osx-arm64` was false.
+- **Triaged by BL-1625.** No case of this family failed on osx-arm64, so nothing is added to its findings table. The Curl port is never an oracle (ADR-0003).
 
 ## linux-x64
+
+Run [45412760425](https://github.com/StewartScottRogers/Surl/actions/runs/45412760425) of `curl-port-phase-7` (2026-11-24, `factory/phase-1` at Surl commit `70828fe7e0becfaef1aeec787cdb7c42023732f7`, Curl port commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, BL-1624) completed. Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing. It supersedes run 44044472038 and the later scheduled run 45198867449 (2026-11-23).
+
+- **This family:** 108 passed, 13 failed, 0 not executed.
+- **Detail:** Failed: 13 cases, all SASL or STARTTLS logins: CRAM-MD5 authentication, `LOGIN` after STARTTLS (also with `--sasl-ir`), `PLAIN` after STARTTLS, the `LOGIN` command, `Smtp_Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage`, `Smtp_Send_ForcedBearerMechanismAfterStartTls_...` (OAUTHBEARER and XOAUTH2 rows), `Imap_Fetch_ImapsForcedBearerMechanism_...` (OAUTHBEARER and XOAUTH2 rows) and `Imap_Fetch_ImapsForcedNamedChoiceMechanism_...` (DIGEST-MD5).
+- **Triaged by BL-1626.** All 13 failures were stale listings of M-1 (a TLS-ending note, not compared by ADR-0089 Amendment 1): the findings table is now empty and the test applies `WithoutTlsEndings`. Run 45198867449 failed the same 13; run 44044472038 showed the note on all 13. Nothing was added.
+
+### Earlier run (44044472038, 2026-11-17)
 
 Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
 (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.
