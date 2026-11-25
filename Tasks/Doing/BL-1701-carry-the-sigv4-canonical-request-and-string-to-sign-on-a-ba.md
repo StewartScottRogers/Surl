@@ -67,3 +67,4 @@ string to sign the server computed, so the S3 server can write them into its `Si
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
