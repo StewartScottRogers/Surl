@@ -127,7 +127,7 @@ internal sealed partial class Amqp0BrokerConnection
     // Under the channel's gate: a new delivery tag, outstanding unless the consumer is no-ack, and the bytes sent or held by channel.flow.
     private void WriteDelivery(Amqp0Channel channel, Amqp0Consumer consumer, BusQueueDelivery delivery, Amqp0WindowedDelivery? windowed)
     {
-        var content = Amqp0BusMessages.ToOutgoingContent(delivery.Message, delivery.QueueName, context.TimeProvider.GetUtcNow());
+        var content = Amqp0BusMessages.ToOutgoingContent(delivery.Message, delivery.QueueName, context.TimeProvider.GetUtcNow(), topicNames);
         lock (channel.Gate)
         {
             var tag = NextDeliveryTag(channel, windowed is null ? null : new(consumer.Bus, delivery.QueueName, delivery.DeliveryTag, windowed));
@@ -176,7 +176,7 @@ internal sealed partial class Amqp0BrokerConnection
             return;
         }
 
-        var content = Amqp0BusMessages.ToOutgoingContent(delivery.Message, queue, context.TimeProvider.GetUtcNow());
+        var content = Amqp0BusMessages.ToOutgoingContent(delivery.Message, queue, context.TimeProvider.GetUtcNow(), topicNames);
         lock (channel.Gate)
         {
             var tag = NextDeliveryTag(channel, noAck ? null : new(null, queue, delivery.DeliveryTag));

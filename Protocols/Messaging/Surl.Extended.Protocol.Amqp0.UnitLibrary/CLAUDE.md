@@ -50,8 +50,14 @@ Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6
   by its connections: `amq.direct`, `amq.fanout`, `amq.topic`, `amq.headers` and `amq.match` from
   start, and the direct, fanout, topic and headers exchanges clients declare (`Amqp0TopicKeyMatcher` matches `*` and `#`), with
   their bindings. The default exchange routes by queue name; `amq.topic` is the bus's topic space,
-  its publishes `BusConnection.Publish` and its bindings `BindQueue`, mapped through
-  `AmqpTopicExchangeNames`. Queues are the bus's named queues; nothing of a queue is held here.
+  its publishes `BusConnection.Publish` and its bindings `BindQueue`. Queues are the bus's named
+  queues; nothing of a queue is held here.
+- `Amqp0TopicNames` maps routing keys, `amq.topic` binding keys and `reply-to`, both ways, through
+  `MessageBus.Names` for the listener's scheme, so a `--topic-map` naming `amqp` or `amqps` applies
+  (ADR-0102 decision 3.3 and its BL-1704 amendment): exact keys only, a wildcard binding key by the
+  default rules alone. A bus message with no `amqp0` native form on a topic with no routing key (a
+  hidden one, or one whose map name is past 255 bytes, included) is delivered from the default
+  exchange under the queue's name.
 - After `open-ok` each connection opens one `BusConnection` for its account, and every frame but a
   heartbeat goes through one ordered outbound queue, so a delivery the bus makes on another thread
   never overtakes the answer before it. Deliveries (`Deliver`) run on the bus's thread and only

@@ -12,13 +12,14 @@ namespace Surl.Extended.Protocol.Amqp0.UnitTests;
 public sealed class Amqp0BusMessagesTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
+    private static readonly Amqp0TopicNames DefaultNames = new(new TopicNameLookup([]), "amqp");
 
     [TestMethod]
     public void ToOutgoingContent_TopicWithNoRoutingKey_IsTheDefaultExchangeAndTheQueueName()
     {
         var message = new BusMessage("a.b/c", Encoding.ASCII.GetBytes("x")) { PublishedAt = Now };
 
-        var content = Amqp0BusMessages.ToOutgoingContent(message, "orders", Now);
+        var content = Amqp0BusMessages.ToOutgoingContent(message, "orders", Now, DefaultNames);
 
         Assert.AreEqual(string.Empty, content.Exchange);
         Assert.AreEqual("orders", content.RoutingKey);
@@ -39,7 +40,7 @@ public sealed class Amqp0BusMessagesTests
             ExpiresAt = Now.AddMilliseconds(1500),
         };
 
-        var content = Amqp0BusMessages.ToOutgoingContent(message, "q", Now);
+        var content = Amqp0BusMessages.ToOutgoingContent(message, "q", Now, DefaultNames);
 
         Assert.AreEqual("amq.topic", content.Exchange);
         Assert.AreEqual("sensors.hall", content.RoutingKey);
@@ -63,7 +64,7 @@ public sealed class Amqp0BusMessagesTests
             ExpiresAt = Now.AddSeconds(-1),
         };
 
-        var properties = ReadProperties(Amqp0BusMessages.ToOutgoingContent(message, "q", Now));
+        var properties = ReadProperties(Amqp0BusMessages.ToOutgoingContent(message, "q", Now, DefaultNames));
 
         Assert.IsNull(properties.ContentType);
         Assert.IsNull(properties.CorrelationId);
@@ -83,7 +84,7 @@ public sealed class Amqp0BusMessagesTests
         };
         var (flags, list) = properties.Encode();
 
-        var message = Amqp0BusMessages.ToBusMessage("t", "amq.topic", "t", new(60, 1, flags, list), properties, [1], Now);
+        var message = Amqp0BusMessages.ToBusMessage("t", "amq.topic", "t", new(60, 1, flags, list), properties, [1], Now, DefaultNames);
 
         Assert.AreEqual("h", message.Headers.Single().Name);
         Assert.IsNull(message.ResponseTopic);
