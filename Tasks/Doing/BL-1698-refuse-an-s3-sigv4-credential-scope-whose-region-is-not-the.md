@@ -72,3 +72,4 @@ regional AWS `Host` (`s3.<region>.amazonaws.com` or `<bucket>.s3.<region>.amazon
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
