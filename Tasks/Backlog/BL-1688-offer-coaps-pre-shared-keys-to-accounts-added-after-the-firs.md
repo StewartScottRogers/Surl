@@ -1,5 +1,5 @@
 ---
-id: BL-1685
+id: BL-1688
 title: Offer coaps pre-shared keys to accounts added after the first flow
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1685 — Offer coaps pre-shared keys to accounts added after the first flow
+# BL-1688 — Offer coaps pre-shared keys to accounts added after the first flow
 
 ## Goal
 

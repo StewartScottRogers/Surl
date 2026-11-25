@@ -50,7 +50,7 @@ is added while it runs, as the HTTP server does.
 - One early coverage run (whole-solution `dotnet test` under the measure script, PowerShell 7) reported a failed test
   that its filtered output did not name; the later full runs passed.
 - `dotnet format --verify-no-changes` reports line-ending and import-order findings in files this task did not change.
-- Filed BL-1685: the `coaps` pre-shared-key lookup is still decided once, at the first flow.
+- Filed BL-1688: the `coaps` pre-shared-key lookup is still decided once, at the first flow.
 
 ## Log
 
