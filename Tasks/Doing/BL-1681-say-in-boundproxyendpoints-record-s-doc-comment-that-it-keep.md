@@ -29,3 +29,4 @@ Found by BL-1670. `Application/Surl.Composition.UnitLibrary/BoundProxyEndPoints.
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-25: Backlog -> Doing.
