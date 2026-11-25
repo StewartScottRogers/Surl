@@ -278,13 +278,36 @@ public sealed partial class SocketIoSessionTests
         client.SendText("41");
         client.SendText("40/other,");
         await client.WaitForMessagesAsync(4);
-        await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(20));
-        await harness.Clock.AdvanceWhenWaitingAsync(FiveSeconds);
+        await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(25));
         await client.WaitForMessagesAsync(5);
         await harness.Clock.AdvanceWhenWaitingAsync(FiveSeconds);
 
         Assert.AreEqual(1000, await client.WaitForCloseCodeAsync());
         CollectionAssert.AreEqual(new[] { "2", "44/other,{\"message\":\"Invalid namespace\"}", "2" }, client.Messages()[2..]);
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task Disconnect_LastNamespaceWithAHeadTimeoutEndingBeforeThePongDeadline_ClosesWhenItEnds()
+    {
+        var harness = new SocketIoServerHarness();
+        var limits = new ExchangeLimits(FiveSeconds, 102400, 8192, 1048576, 104857600);
+        var client = await SocketIoClient.ConnectAsync(harness, harness.Context(limits));
+        client.SendText("40" + TokenPayload);
+        await client.WaitForMessagesAsync(2);
+        await harness.Clock.AdvanceWhenWaitingAsync(FiveSeconds);
+        await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(20));
+        await client.WaitForMessagesAsync(3);
+        await WaitForPongDeadlineTimerAsync(harness);
+        client.SendText("3");
+
+        // The CONNECT_ERROR shows the pong and the leave were read.
+        client.SendText("41");
+        client.SendText("40/other,");
+        await client.WaitForMessagesAsync(4);
+        await harness.Clock.AdvanceWhenWaitingAsync(FiveSeconds);
+
+        Assert.AreEqual(1000, await client.WaitForCloseCodeAsync());
         await client.EndAsync();
     }
 
