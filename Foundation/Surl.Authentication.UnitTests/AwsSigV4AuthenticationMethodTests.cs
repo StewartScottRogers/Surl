@@ -74,6 +74,32 @@ public sealed class AwsSigV4AuthenticationMethodTests
         AssertAccepted(await VerifyAsync(RecordedFixture.ReadRequest(caseName)));
     }
 
+    [TestMethod]
+    public async Task RecordedRequestSendingAHeaderThreeTimes_SignsItsNameOnceAndIsAccepted()
+    {
+        // curl -H 'X-Test: b' -H 'x-test:  a  ' -H 'X-TEST: c'.
+        var request = RecordedFixture.ReadRequest("aws-sigv4-repeated-header");
+
+        Assert.AreEqual(3, request.Fields.Count(field => string.Equals(field.Key, "x-test", StringComparison.OrdinalIgnoreCase)));
+        StringAssert.Contains(
+            RecordedFixture.ReadAuthorization("aws-sigv4-repeated-header"),
+            "SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-test,",
+            StringComparison.Ordinal);
+        AssertAccepted(await VerifyAsync(request));
+    }
+
+    [TestMethod]
+    [DataRow("host;host;x-amz-content-sha256;x-amz-date", DisplayName = "in the same case")]
+    [DataRow("host;x-amz-content-sha256;x-amz-date;X-Amz-Date", DisplayName = "in another case")]
+    public async Task SignedHeadersRepeatingAName_IsRefusedAsMalformedCredentials(string signedHeaders)
+    {
+        var check = await VerifyAsync(WithAuthorization(Credentials(signedHeaders: signedHeaders)));
+
+        AssertRefused(check, userAsSent: null);
+        Assert.AreEqual(HttpAuthenticationRefusal.MalformedCredentials, check.Refusal);
+        Assert.IsNull(check.SignatureMismatch);
+    }
+
     private static HttpAuthenticationRequest GetFixture => RecordedFixture.ReadRequest("aws-sigv4-get");
 
     private static HttpAuthenticationRequest WithField(HttpAuthenticationRequest request, string name, string? value) =>

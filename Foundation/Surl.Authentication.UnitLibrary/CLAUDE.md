@@ -185,7 +185,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   the account's password as the secret, at the injected `TimeProvider`'s time (ADR-0043): the
   signed `x-<provider>-date` must be within `RequestTimeWindow` (15 minutes) either way, and
   `host` and the date must be signed. It holds no per-connection state.
-- `AwsSigV4Authorization` reads the `Credential`, `SignedHeaders` and `Signature` parameters;
+- `AwsSigV4Authorization` reads the `Credential`, `SignedHeaders` and `Signature` parameters,
+  and reads a `SignedHeaders` list naming a header twice, in any case, as malformed, so no
+  canonical request repeats a field's values (ADR-0043 amendment 2, BL-1719; `Authorization`,
+  presigned and `GOOG4-HMAC-SHA256` alike);
   `AwsSigV4Provider` recognises any `<PROVIDER>4-HMAC-SHA256` scheme (`AuthenticationMethods`
   maps them all to `AwsSigV4`) and spells the algorithm and key prefix;
   `AwsSigV4CanonicalRequest` rebuilds the canonical request as measured from pinned upstream

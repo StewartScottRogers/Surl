@@ -273,6 +273,19 @@ public sealed partial class AccountBookTests
     }
 
     [TestMethod]
+    public async Task SetPassword_WithAnotherAccount_LeavesThatAccountsPassword()
+    {
+        var book = new AccountBook([Alice, Bob]);
+        var policy = PolicyFixture.Create(book, clock);
+
+        book.SetPassword("bob", "newpass");
+
+        var (_, verdict) = await SettleAsync(
+            policy.CheckPasswordLoginAsync(MqttLogin(Alice.UserName, Alice.Password), CancellationToken.None));
+        Assert.AreEqual(PasswordLoginVerdict.Accepted, verdict);
+    }
+
+    [TestMethod]
     public void SetPassword_UnknownUser_ThrowsAndPublishesNothing()
     {
         var events = new RecordingSurlEventPublisher();

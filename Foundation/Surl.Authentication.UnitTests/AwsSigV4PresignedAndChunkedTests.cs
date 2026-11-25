@@ -282,6 +282,16 @@ public sealed class AwsSigV4PresignedAndChunkedTests
     }
 
     [TestMethod]
+    [DataRow("host%3Bhost", DisplayName = "in the same case")]
+    [DataRow("host%3BHost", DisplayName = "in another case")]
+    public async Task Presigned_SignedHeadersRepeatingAName_IsForbiddenAsMalformedCredentials(string signedHeaders)
+    {
+        var verdict = await JudgeAsync(CreatePolicy(), PresignedGet(PresignedTarget(signedHeaders: signedHeaders)));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.MalformedCredentials);
+    }
+
+    [TestMethod]
     [DataRow("/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256", DisplayName = "only the algorithm")]
     [DataRow("/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host", DisplayName = "no signature")]
     [DataRow("/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=" + PresignedSignature, DisplayName = "no signed headers")]

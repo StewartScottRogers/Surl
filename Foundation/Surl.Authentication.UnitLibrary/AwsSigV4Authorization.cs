@@ -11,7 +11,7 @@ namespace Surl.Authentication;
 /// <param name="ScopeDate">The scope's <c>yyyyMMdd</c> date.</param>
 /// <param name="Service">The scope's service, which decides how the path is canonicalised.</param>
 /// <param name="Provider">The scope terminator's provider, lower case (<c>aws</c> in <c>aws4_request</c>).</param>
-/// <param name="SignedHeaders">The signed header names, lower case, in the order sent.</param>
+/// <param name="SignedHeaders">The signed header names as sent (curl sends them lower case), in the order sent, none listed twice.</param>
 /// <param name="Signature">The signature's 32 bytes.</param>
 internal sealed record AwsSigV4Authorization(
     string AccessKeyId,
@@ -62,10 +62,11 @@ internal sealed record AwsSigV4Authorization(
     /// <summary>
     /// Reads the three values as an <c>Authorization</c> field or a presigned URL's
     /// <c>X-Amz-Credential</c>, <c>X-Amz-SignedHeaders</c> and <c>X-Amz-Signature</c> carry them;
-    /// anything malformed reads as <see langword="null"/>.
+    /// anything malformed reads as <see langword="null"/>, a signed header name listed twice in any
+    /// case included (ADR-0043 amendment 2).
     /// </summary>
     /// <param name="credential">The access key ID and the scope, joined by <c>/</c>.</param>
-    /// <param name="signedHeaders">The signed header names joined by <c>;</c>.</param>
+    /// <param name="signedHeaders">The signed header names joined by <c>;</c>, each once.</param>
     /// <param name="signature">The signature in lower-case hex.</param>
     /// <returns>The credentials, or <see langword="null"/>.</returns>
     public static AwsSigV4Authorization? TryCreate(string credential, string signedHeaders, string signature)
@@ -73,7 +74,8 @@ internal sealed record AwsSigV4Authorization(
         // The key is everything before the last four parts, so a key holding a / still reads.
         var parts = credential.Split('/');
         var signatureBytes = ReadSignature(signature);
-        if (parts.Length < 5 || signatureBytes is null || signedHeaders.Length == 0)
+        var signedHeaderNames = ReadSignedHeaderNames(signedHeaders);
+        if (parts.Length < 5 || signatureBytes is null || signedHeaderNames is null)
         {
             return null;
         }
@@ -90,9 +92,20 @@ internal sealed record AwsSigV4Authorization(
                 parts[^4],
                 parts[^2],
                 provider,
-                signedHeaders.Split(';'),
+                signedHeaderNames,
                 signatureBytes)
             : null;
+    }
+
+    // The names joined by ';', else null: for an empty list, and for a name listed twice in any
+    // case. The canonical request writes every value of a field once per listing of its name, so a
+    // repeated name would make text far larger than the request head (ADR-0043 amendment 2).
+    private static string[]? ReadSignedHeaderNames(string signedHeaders)
+    {
+        var names = signedHeaders.Split(';');
+        var isEachNameListedOnce = names.Distinct(StringComparer.OrdinalIgnoreCase).Count() == names.Length;
+
+        return signedHeaders.Length > 0 && isEachNameListedOnce ? names : null;
     }
 
     /// <summary>

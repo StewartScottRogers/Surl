@@ -260,6 +260,16 @@ public sealed class GoogleV4HmacAuthenticationMethodTests
     }
 
     [TestMethod]
+    [DataRow("host;host;x-goog-content-sha256;x-goog-date", DisplayName = "in the same case")]
+    [DataRow("host;x-goog-content-sha256;x-goog-date;X-Goog-Date", DisplayName = "in another case")]
+    public async Task VerifyAsync_SignedHeadersRepeatingAName_IsForbiddenAsMalformed(string signedHeaders)
+    {
+        var verdict = await JudgeAsync(CreatePolicy(), WorkedGet(Authorization(signedHeaders: signedHeaders)));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.MalformedCredentials);
+    }
+
+    [TestMethod]
     [DataRow("GOOG4-HMAC-SHA256", DisplayName = "no credentials")]
     [DataRow("GOOG4-HMAC-SHA256 Credential=SURL-TEST-ACCESS-ID/20191201/us-central1/storage/goog4_request", DisplayName = "parameters missing")]
     public async Task VerifyAsync_UnparsableCredentials_AreForbiddenAsMalformed(string authorization)

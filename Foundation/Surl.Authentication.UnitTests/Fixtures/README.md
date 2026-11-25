@@ -170,6 +170,15 @@ field, which the tests set their clock to. What the requests show is ADR-0043's 
 | `aws-sigv4-extra-headers` | `aws:amz:us-east-1:s3` | `'-H','X-Test:  a   b  ','-H','Content-Type: text/plain','http://127.0.0.1:18122/x'` | both fields signed; `x-test` signed as `a b` |
 | `aws-sigv4-refused` | `aws:amz:us-east-1:s3` | `'http://127.0.0.1:18122/x'` | signed with the wrong secret; after the `401` curl exits 0 with an empty body and does not sign again |
 
+### A repeated header (BL-1719)
+
+Recorded on 2026-11-25 as above, with `-Port 18719` and the recorder's default response (an empty
+`200`); curl exited 0.
+
+| Folder | `<provider>` | Other `-CurlArgs` | What it shows |
+| --- | --- | --- | --- |
+| `aws-sigv4-repeated-header` | `aws:amz:us-east-1:s3` | `'-H','X-Test: b','-H','x-test:  a  ','-H','X-TEST: c','http://127.0.0.1:18719/x'` | all three fields sent; `x-test` listed once in `SignedHeaders`, its values signed as `b,a,c` |
+
 ### Bodies (BL-136)
 
 Recorded on 2026-09-29 as above, with `-Port 18136` and the same `200`; each exited 0. `<file>`
