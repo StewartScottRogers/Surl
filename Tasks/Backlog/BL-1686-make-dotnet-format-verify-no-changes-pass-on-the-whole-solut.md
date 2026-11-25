@@ -1,5 +1,5 @@
 ---
-id: BL-1685
+id: BL-1686
 title: Make dotnet format --verify-no-changes pass on the whole solution
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1685 — Make dotnet format --verify-no-changes pass on the whole solution
+# BL-1686 — Make dotnet format --verify-no-changes pass on the whole solution
 
 ## Goal
 

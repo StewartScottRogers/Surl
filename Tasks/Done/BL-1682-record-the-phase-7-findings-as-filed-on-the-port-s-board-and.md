@@ -59,7 +59,7 @@ port's board".
   was pending or Stewart's. Neither other task in Doing (BL-1676, BL-1683) names them. ADR-0089 decision 7
   is left as decided.
 - Verify, 2026-11-25: build 0 warnings; fast tests 28,911 passed, 3 skipped. `dotnet format
-  --verify-no-changes` fails on `.cs` files this task did not change; filed BL-1685, and reformatted
+  --verify-no-changes` fails on `.cs` files this task did not change; filed BL-1686, and reformatted
   nothing here.
 
 ## Log
