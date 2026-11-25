@@ -43,3 +43,4 @@ to `coaps` at the server's first flow.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
