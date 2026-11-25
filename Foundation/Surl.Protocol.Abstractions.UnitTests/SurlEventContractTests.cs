@@ -149,6 +149,15 @@ public sealed class SurlEventContractTests
     }
 
     [TestMethod]
+    public void CookieReceivedEvent_CutEndingInAHighSurrogate_DropsIt()
+    {
+        // 253 bytes plus the lone high surrogate's 3-byte replacement fits the bound of 256.
+        var received = new CookieReceivedEvent(2, "https", "n", new string('x', 253) + "😀");
+
+        Assert.AreEqual(new string('x', 253), received.Value);
+    }
+
+    [TestMethod]
     public void StoreChange_Unbound_IsTheLastMember()
     {
         Assert.AreEqual(StoreChange.Unbound, Enum.GetValues<StoreChange>()[^1]);
