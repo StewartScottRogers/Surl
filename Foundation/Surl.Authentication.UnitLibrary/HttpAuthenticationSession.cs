@@ -177,8 +177,13 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             return new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], connectionAccountName);
         }
 
-        return policy.Settings.Accounts.HasAccounts || request.IsWrite ? Challenge() : ProceedAnonymously;
+        return HasAccountToLogInTo() || request.IsWrite ? Challenge() : ProceedAnonymously;
     }
+
+    // A directory serving the HTTP login scheme is an account configured (ADR-0032 section 4, ADR-0149).
+    private bool HasAccountToLogInTo() =>
+        policy.Settings.Accounts.HasAccounts
+        || policy.Settings.LdapAccountSource?.Serves(AuthenticationPolicy.HttpLoginScheme) == true;
 
     private async ValueTask<HttpAuthenticationVerdict> VerifyAsync(
         IHttpCredentialVerifier verifier,

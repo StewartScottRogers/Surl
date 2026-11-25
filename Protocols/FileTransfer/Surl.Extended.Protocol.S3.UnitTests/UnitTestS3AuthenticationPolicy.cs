@@ -114,7 +114,7 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
             AccountName,
             bodyCheck is null ? new CheckedLogin("AWS4-HMAC-SHA256", AccountName, true) : null,
             bodyCheck,
-            ChunkSignatures: contentSha256 == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" ? ChunkSignatures : null);
+            ChunkSignatures: contentSha256 is "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" or "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER" ? ChunkSignatures : null);
     }
 
     private sealed class Session(UnitTestS3AuthenticationPolicy policy) : IHttpAuthenticationSession

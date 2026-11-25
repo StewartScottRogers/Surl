@@ -24,6 +24,7 @@ internal sealed class ControlEventMemberWriter(ControlEventJson head) : ISurlEve
         ["Message"] = (json, value) => json with { Message = value },
         ["Group"] = (json, value) => json with { Group = value },
         ["MemberId"] = (json, value) => json with { MemberId = value },
+        ["Value"] = (json, value) => json with { Value = value },
     };
 
     private static readonly Dictionary<string, Func<ControlEventJson, IReadOnlyList<string>?, ControlEventJson>> TextListMembers = new(StringComparer.Ordinal)

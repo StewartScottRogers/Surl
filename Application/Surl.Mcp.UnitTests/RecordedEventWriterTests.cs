@@ -134,6 +134,7 @@ public sealed class RecordedEventWriterTests
         new ExchangeStartedEvent(1, "http://127.0.0.1:1/", "http", new IPEndPoint(IPAddress.Loopback, 1)),
         new FaultAppliedEvent("f", default, default, 1, "/"),
         new HookFailedEvent("h", HookFailure.TimedOut, "m"),
+        new CookieReceivedEvent(8, "http", "sid", "abc123"),
         new LoginJudgedEvent(1, "smtp", "a", "PLAIN", true, false),
         new StoreChangedEvent(StoreKind.Content, StoreChange.Renamed, "b", 1, 1) { PreviousName = "a" },
     ];

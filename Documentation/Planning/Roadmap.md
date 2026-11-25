@@ -141,7 +141,7 @@ task board in `Tasks/`, never here.
 ## Milestone 6 — Phase 6
 
 - **Status:** Built, and proven in part (2026-11-14). Still open: no release is tagged, and the
-  release row of the pass-rate file is empty (no task filed: a tag is Stewart's). The three
+  release row of the pass-rate file is empty (BL-1657 files it: a tag is Stewart's). The three
   builds `win-arm64`, `linux-arm64` and `osx-x64` lacked are pinned (BL-361, ADR-0151) and the
   release dry run's conformance job runs on each. `win-x64` conformance against the published
   binary runs only locally, but two consecutive full runs passed (BL-604, BL-1090), and BL-1059
@@ -180,7 +180,7 @@ task board in `Tasks/`, never here.
 
 ## Milestone 7 — Phase 7
 
-- **Status:** Measured on all three platforms; on `linux-x64` and `osx-arm64` not yet closed (2026-11-24). The Curl port is
+- **Status:** Measured on all three platforms and closed on each, the closing condition holding in all four parts (BL-1648; 2026-11-24). The Curl port is
   measured at commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa` (ADR-0089 Amendment 8; it replaced
   `b42c319`). `win-x64`: 1,662 cases, 1,563 agreements, 97 port defects behind 24 findings, 2 cases
   not comparable, and no Surl defect, re-measured at that commit on 2026-11-16. `linux-x64` and
@@ -268,7 +268,7 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
 
 - **Status:** The hosts are built and proved, and the stand-in features on them are built and
   documented by BL-821 (2026-11-14). Still open: the packages are packed but not published until
-  the first release tag (no task filed). `--control`'s help text says it is served (BL-1125).
+  the first release tag (BL-1657). `--control`'s help text says it is served (BL-1125).
 - **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
   the in-process .NET interface with typed options, exchange recording, queries and waits, fault
   rules, hooks, seeding, reset and snapshots and a test's own protocol servers; `Surl.Mcp`, the

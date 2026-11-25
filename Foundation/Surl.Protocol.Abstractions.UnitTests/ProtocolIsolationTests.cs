@@ -16,6 +16,7 @@ public sealed class ProtocolIsolationTests
     private const string Abstractions = "Surl.Protocol.Abstractions.UnitLibrary";
     private const string Compression = "Surl.Compression.UnitLibrary";
     private const string Content = "Surl.Content.UnitLibrary";
+    private const string Cookies = "Surl.Cookies.UnitLibrary";
     private const string Cryptography = "Surl.Cryptography.UnitLibrary";
     private const string BcryptPbkdf = "Surl.Cryptography.BcryptPbkdf.UnitLibrary";
     private const string Blowfish = "Surl.Cryptography.Blowfish.UnitLibrary";
@@ -67,6 +68,7 @@ public sealed class ProtocolIsolationTests
     {
         [Compression] = [],
         [Content] = [Abstractions],
+        [Cookies] = [Abstractions],
         [Cryptography] = [],
         [BcryptPbkdf] = [Blowfish],
         [Blowfish] = [],

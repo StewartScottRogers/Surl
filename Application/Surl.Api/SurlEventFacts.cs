@@ -54,7 +54,8 @@ internal static class SurlEventFacts
 
     private static bool IsNamed(SurlEvent surlEvent, SurlEventQuery query) =>
         query.Name is not { } name
-        || (surlEvent is StoreChangedEvent change && IsNameOrSegmentPrefix(name, change.Name));
+        || (surlEvent is StoreChangedEvent change && IsNameOrSegmentPrefix(name, change.Name))
+        || (surlEvent is CookieReceivedEvent cookie && string.Equals(name, cookie.Name, StringComparison.Ordinal));
 
     /// <summary>Whether <paramref name="name"/> is <paramref name="prefix"/> or lies under it as a path segment.</summary>
     /// <param name="prefix">The queried name.</param>

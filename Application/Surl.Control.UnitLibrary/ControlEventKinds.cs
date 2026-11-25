@@ -24,6 +24,7 @@ internal static class ControlEventKinds
         NameOfType(typeof(FaultAppliedEvent)),
         NameOfType(typeof(HookFailedEvent)),
         NameOfType(typeof(ConsumerGroupChangedEvent)),
+        NameOfType(typeof(CookieReceivedEvent)),
     };
 
     /// <summary>The kind a record type's events have, as <see cref="SurlEvent.KindName"/> spells it.</summary>

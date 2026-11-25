@@ -92,6 +92,26 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task Files_AShareClosedByShareAccess_IsListedAndReadAsTheServersOwner()
+    {
+        var options = StoreOptions(Http);
+        options.Shares.Add("team=team");
+        options.ShareAccess.Add("team=alice:rw");
+        var shareFiles = new Surl.Content.InMemoryContentFileSystem(TimeProvider.System);
+        shareFiles.CreateDirectory(Path.GetFullPath("team"));
+        var host = new ApiTestSeams().Host with { DataDirectoryFileSystem = shareFiles };
+        await using var server = await SurlServer.StartAsync(options, host, TestContext.CancellationToken);
+        var token = TestContext.CancellationToken;
+        await server.Files.PutAsync("/team/a.txt", "inside"u8.ToArray(), token);
+
+        var listing = await server.Files.ListAsync("/team", null, 100, token);
+        var file = await server.Files.ReadAsync("/team/a.txt", token);
+
+        Assert.AreEqual("a.txt", listing.Entries.Single().Name);
+        CollectionAssert.AreEqual("inside"u8.ToArray(), file.Bytes.ToArray());
+    }
+
+    [TestMethod]
     public async Task Files_ReadBack_GivesTheExactBytesAndTheListing()
     {
         await using var server = await StartSeededForReadBackAsync();

@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Security.Cryptography;
 using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.Amqp1;
 using Surl.Extended.Protocol.AzureStorage;
@@ -17,8 +19,6 @@ using Surl.Extended.Protocol.SocketIo;
 using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.WebTransport;
 using Surl.Extended.Protocol.Xmpp;
-using System.Reflection;
-using System.Security.Cryptography;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;

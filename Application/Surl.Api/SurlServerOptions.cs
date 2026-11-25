@@ -235,6 +235,17 @@ public sealed class SurlServerOptions
     public IList<string> TopicAccess { get; } = [];
 
     /// <summary>
+    /// The cookies set on HTTP/1.x and HTTP/2 replies (<c>--set-cookie</c>, once each, in order; ADR-0189), each item as
+    /// <c>surl</c> reads the option's value:
+    /// <c>name=value[;Attribute[=value]]...[;on-path=/prefix][;on-listener=&lt;listen URL&gt;]</c>. None by default.
+    /// <c>surl</c>'s limit of 64 also counts any <c>--set-cookie</c> in <see cref="ConfigFiles"/> and
+    /// <see cref="AdditionalArguments"/>, and a cookie <c>surl</c> would refuse refuses the start with its text. A cookie
+    /// a client sends back over HTTP/1.x or HTTP/2 is a <see cref="SurlEventKind.CookieReceived"/> event whether or not
+    /// any is set. May not hold null.
+    /// </summary>
+    public IList<string> Cookies { get; } = [];
+
+    /// <summary>
     /// Config files read at start (<c>--config</c>, ADR-0101 decision 2), in order, after every property above and before
     /// <see cref="AdditionalArguments"/>, so <see cref="AdditionalArguments"/> can override a file and a file the properties.
     /// A refusal inside a file is <c>surl</c>'s, prefixed by <c>&lt;file&gt;:&lt;line&gt;: </c>. <c>-</c> (standard input) is refused.

@@ -74,7 +74,7 @@ internal sealed record S3ChecksumRequest(S3ChecksumAlgorithm Algorithm, byte[]? 
             return S3Error.MultipleChecksums;
         }
 
-        return trailer is not null && (form != S3PayloadForm.UnsignedChunksWithTrailer || S3ChecksumAlgorithm.OfFieldName(trailer) is null)
+        return trailer is not null && (form is not (S3PayloadForm.UnsignedChunksWithTrailer or S3PayloadForm.SignedChunksWithTrailer) || S3ChecksumAlgorithm.OfFieldName(trailer) is null)
             ? S3Error.InvalidChecksum
             : null;
     }

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Surl.Content;
+using Surl.Cookies;
 using Surl.Http3;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
@@ -19,6 +20,8 @@ namespace Surl.Protocol.Http;
 /// decision 7). A flow past a connection limit whose first datagram is a version 1 Initial is refused
 /// with one Initial packet holding <c>CONNECTION_CLOSE</c> <c>CONNECTION_REFUSED</c> (0x02); any other
 /// first datagram gets no bytes (<see cref="QuicConnectionRefusal"/>).
+/// Every reply gains a <c>set-cookie</c> field for each configured cookie it is scoped to, and each cookie a request carries
+/// is published as a <see cref="CookieReceivedEvent"/>, whether or not any is set (ADR-0189).
 /// </remarks>
 public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter, IExchangeBytesRedactingServer
 {
@@ -28,6 +31,7 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
     private readonly AsymmetricAlgorithm certificateKey;
     private readonly TimeSpan idleTimeout;
     private readonly Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? trustsClientCertificateChain;
+    private readonly IReadOnlyList<CookieDefinition> cookies;
 
     /// <summary>
     /// Creates the server.
@@ -43,13 +47,15 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
     /// client certificate and completes only with one it trusts, and the TLS session each request is
     /// judged with carries that certificate. Null asks for none.
     /// </param>
+    /// <param name="cookies">The cookies to set, in the order written; null or none leaves every reply unchanged.</param>
     public Http3ProtocolServer(
         ContentStore contentStore,
         IAuthenticationPolicy authenticationPolicy,
         IReadOnlyList<ReadOnlyMemory<byte>> certificateChain,
         AsymmetricAlgorithm certificateKey,
         TimeSpan idleTimeout,
-        Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? trustsClientCertificateChain = null)
+        Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? trustsClientCertificateChain = null,
+        IReadOnlyList<CookieDefinition>? cookies = null)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -62,6 +68,7 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
         this.certificateKey = certificateKey;
         this.idleTimeout = idleTimeout;
         this.trustsClientCertificateChain = trustsClientCertificateChain;
+        this.cookies = cookies ?? [];
     }
 
     /// <summary>
@@ -101,7 +108,7 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
             DecryptedBytes = context.DecryptedBytes,
         };
         using var random = RandomNumberGenerator.Create();
-        var application = new Http3ApplicationProtocol(contentStore, authenticationPolicy, context);
+        var application = new Http3ApplicationProtocol(contentStore, authenticationPolicy, cookies, context);
 
         // Once HTTP/3 is served, cancelling the exchange is the HTTP/3 server's to answer, with
         // GOAWAY and CONNECTION_CLOSE H3_NO_ERROR, and the flow loop ends after it (ADR-0082

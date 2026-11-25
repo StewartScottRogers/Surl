@@ -20,6 +20,7 @@ public sealed class SurlEventFactsTests
         [new FaultAppliedEvent("r1", FaultKind.Delay, FaultStage.Accept, 6, "smtp"), SurlEventKind.FaultApplied, 6L],
         [new HookFailedEvent("h1", HookFailure.Threw, "boom"), SurlEventKind.HookFailed, null],
         [new ConsumerGroupChangedEvent(7, "kafka", "g1", ConsumerGroupChange.MemberJoined, "m1", 1, "bob"), SurlEventKind.ConsumerGroupChanged, 7L],
+        [new CookieReceivedEvent(8, "http", "sid", "abc"), SurlEventKind.CookieReceived, 8L],
         [new UnknownEvent(), null, null],
     ];
 

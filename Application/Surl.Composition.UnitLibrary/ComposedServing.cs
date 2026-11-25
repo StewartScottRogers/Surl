@@ -29,6 +29,7 @@ public sealed class ComposedServing : IAsyncDisposable
     private readonly ServerTlsComposition tls;
     private readonly IDisposable? dataDirectoryLock;
     private readonly SeededIdentifierRandom? seededIdentifiers;
+    private readonly BoundProxyEndPoints boundProxyEndPoints;
 
     internal ComposedServing(
         SurlCommandLine commandLine,
@@ -38,8 +39,10 @@ public sealed class ComposedServing : IAsyncDisposable
         EventStreamAndFaultPlan instruments,
         ComposedStores stores,
         ServerTlsComposition tls,
-        IDisposable? dataDirectoryLock)
+        IDisposable? dataDirectoryLock,
+        BoundProxyEndPoints boundProxyEndPoints)
     {
+        this.boundProxyEndPoints = boundProxyEndPoints;
         this.commandLine = commandLine;
         this.seams = seams;
         this.servers = servers;
@@ -173,7 +176,10 @@ public sealed class ComposedServing : IAsyncDisposable
             new ListenerStatusLine(StatusOutputOf(outputs)),
             commandLine.ListenUrls.Count,
             allListenersBound,
-            listenUrl => WriteHttp3Note(listenUrl, outputs.Log));
+            listenUrl => WriteHttp3Note(listenUrl, outputs.Log))
+        {
+            ListenUrlBound = boundProxyEndPoints.Record,
+        };
         var engine = new ServingEngine(
             reporter,
             servers,
@@ -199,7 +205,7 @@ public sealed class ComposedServing : IAsyncDisposable
         IListenerFactory listenerFactory, ControlToken controlToken, SurlServingOutputs outputs, CancellationToken cancellationToken)
     {
         using var stopControl = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores, outputs.Log), controlToken);
+        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores, outputs.Log, commandLine.UserLdap is not null), controlToken);
         var feed = endpoint.FeedEventsAsync(stopControl.Token);
         var bound = new TaskCompletionSource<ListenUrl>(TaskCreationOptions.RunContinuationsAsynchronously);
         var controlReporter = new ListenerStartReporter(

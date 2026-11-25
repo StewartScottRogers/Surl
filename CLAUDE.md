@@ -227,16 +227,19 @@ Surl/
 ├── Application/           ← the three hosts Surl.Console, Surl.Api, Surl.Mcp (ADR-0098); Surl.Cli, Surl.Composition,
 │                            Surl.Mcp.UnitLibrary, Surl.Control
 ├── Conformance/           ← Surl.Conformance
-├── Cryptography/          ← Surl.Cryptography and its hand-built primitives, Surl.Kerberos, Surl.Kerberos.TestKdc
+├── Cryptography/          ← Surl.Cryptography and its hand-built primitives (Surl.Cryptography.*), Surl.Tls13,
+│                            Surl.Tls13Stream, Surl.TlsSrp, Surl.Dtls, Surl.Kerberos, Surl.Kerberos.TestKdc
 ├── Foundation/            ← Surl.Protocol.Abstractions, Surl.Core, Surl.Networking, Surl.Content,
-│                            Surl.Authentication, Surl.Cookies, Surl.Output
+│                            Surl.Authentication, Surl.Cookies, Surl.Output, Surl.Compression
 ├── Protocols/
-│   ├── DataStore/         ← Redis
-│   ├── FileTransfer/      ← Ftp, Ssh (scp, sftp), Tftp, Smb
-│   ├── Http/              ← Http, Ws, Rtsp, and Surl.HttpMessage which they share
-│   ├── Lookup/            ← Dict, Gopher
+│   ├── DataStore/         ← Surl.Extended.Protocol.Redis
+│   ├── FileTransfer/      ← Ftp, Ssh (scp, sftp), Tftp, Smb, and Surl.Extended.Protocol.* servers
+│   ├── Http/              ← Http, HttpProxy, Ws, Rtsp, and the libraries they share: Surl.HttpMessage,
+│   │                        Surl.HttpServing, Surl.Http2, Surl.Http3, Surl.Hpack, Surl.Qpack, Surl.Quic,
+│   │                        Surl.WebSocket, Surl.McpServing; plus Surl.Extended.Protocol.* servers
+│   ├── Lookup/            ← Dict, Gopher, and Surl.Extended.Protocol.* servers
 │   ├── Mail/              ← Smtp, Imap, Pop3, and Surl.MailStore and Surl.LineProtocol which they share
-│   ├── Messaging/         ← Ldap, Mqtt
+│   ├── Messaging/         ← Ldap, Mqtt, Surl.MessageBus, and Surl.Extended.Protocol.* servers
 │   ├── Proxy/             ← Socks
 │   └── Terminal/          ← Telnet
 ├── Documentation/         ← shared project (docs and planning)

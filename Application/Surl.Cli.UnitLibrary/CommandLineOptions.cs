@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Authentication;
+using Surl.Cookies;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -167,6 +168,8 @@ internal static class CommandLineOptions
             new("<file>", "Like --trace, but without hex", ["logging"], IsInShortList: false, Default: "none")),
         Flag("trace-time", null, negatable: true, (c, on) => c with { TraceTime = on },
             new(null, "Add time stamps to log lines", ["logging"], IsInShortList: false, Default: "off")),
+        WithArgument<string>("write-out", 'w', OptionArgumentReader.Text, (c, v) => c with { WriteOut = v },
+            new("<format>", "Print <format> after each exchange", ["logging"], IsInShortList: false, Default: "none")),
         WithArgument<string>("log-file", null, OptionArgumentReader.Path, (c, v) => c with { LogFile = v },
             new("<file>", "Append the log to <file>", ["logging"], IsInShortList: false, Default: "stderr")),
         WithArgument<string>("directory", null, OptionArgumentReader.Path, (c, v) => c with { DataDirectory = v },
@@ -313,6 +316,8 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredFault>("fault", null, ConfiguredFaultReader.Reading, (c, v) => c with { Faults = [.. c.Faults, v] },
             new("<kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)", ["security", "testing"], IsInShortList: false, Default: "no faults",
                 FaultExplanation)),
+        WithArgument<CookieDefinition>("set-cookie", null, ConfiguredCookieReader.Reading, (c, v) => c with { Cookies = [.. c.Cookies, v] },
+            new("<cookie>", "Set a cookie on HTTP replies (repeatable)", ["http"], IsInShortList: false, Default: "no cookies set")),
         WithArgument<string>("control", null, OptionArgumentReader.ControlListenUrlText, (c, _) => c,
             new("<listen URL>", "Serve the test control endpoint", ["security", "testing"], IsInShortList: false, Default: "off",
                 ControlExplanation)),

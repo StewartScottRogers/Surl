@@ -2,6 +2,7 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Content;
+using Surl.Cookies;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
@@ -13,13 +14,15 @@ namespace Surl.Protocol.Http;
 /// connection to once its handshake is complete: it starts the connection's authentication
 /// session as an encrypted one, with the TLS 1.3 session QUIC agreed and the client certificate
 /// the handshake trusted, if it asked for one, and serves the connection with an
-/// <see cref="Http3ConnectionServer"/>.
+/// <see cref="Http3ConnectionServer"/>, setting and publishing cookies through a <see cref="CookieHandler"/>.
 /// </summary>
 /// <param name="contentStore">What GET and HEAD serve.</param>
 /// <param name="authenticationPolicy">The policy every request is judged by.</param>
+/// <param name="cookies">The cookies to set, in the order written.</param>
 /// <param name="context">The exchange.</param>
 internal sealed class Http3ApplicationProtocol(
-    ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, ExchangeContext context) : IQuicApplicationProtocol
+    ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, IReadOnlyList<CookieDefinition> cookies, ExchangeContext context)
+    : IQuicApplicationProtocol
 {
     private volatile bool hasStarted;
 
@@ -43,6 +46,7 @@ internal sealed class Http3ApplicationProtocol(
             SslProtocols.Tls13, (TlsCipherSuite)(ushort)connection.CipherSuite, connection.ApplicationProtocol, ServerName: null, clientCertificate);
         var answerer = new HttpRequestAnswerer(context, contentStore, authenticationPolicy.StartHttpConnection(tlsSession, LoginExchange.Of(context)));
         var options = new Http3ServerOptions { ServerFieldValue = HttpResponseHead.ServerName };
-        await new Http3ConnectionServer(new Http3StreamAnswerWriter(answerer, context), options, context).ServeAsync(connection, cancellationToken);
+        var streamAnswers = new Http3StreamAnswerWriter(new CookieHandler(answerer, cookies, context), context);
+        await new Http3ConnectionServer(streamAnswers, options, context).ServeAsync(connection, cancellationToken);
     }
 }

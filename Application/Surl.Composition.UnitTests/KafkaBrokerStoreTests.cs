@@ -1,9 +1,9 @@
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Text;
-using Surl.Extended.Protocol.Kafka;
 using Surl.Cli;
 using Surl.Core;
+using Surl.Extended.Protocol.Kafka;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;

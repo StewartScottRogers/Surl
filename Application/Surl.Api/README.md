@@ -52,6 +52,7 @@ extensions off, `UnsupportedProtocol`, as `surl` does). Listen on `mcp://127.0.0
   | `RandomSeed` | `--random-seed`, 0 to `long.MaxValue`; same seed, same non-secret identifiers |
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
   | `ControlListenUrl`, `ControlTokenFile` | `--control`, `--control-token-file` |
+  | `Cookies` (in order, at most 64) | `--set-cookie <item>`, once each |
 
 - A start is read as `surl` reads a command line, left to right, in this order: `ListenUrls`, then
   each property that differs from its default, then `ConfigFiles` (`--config`), then
@@ -107,6 +108,24 @@ extensions off, `UnsupportedProtocol`, as `surl` does). Listen on `mcp://127.0.0
   `AdditionalArguments`, an account `--user` could not spell, a negative duration other than
   `Timeout.InfiniteTimeSpan`, or a non-positive recording bound.
 
+## Cookies
+
+Each `Cookies` item is a `--set-cookie` value; over HTTP/1.x and HTTP/2 the server writes it as a
+`Set-Cookie` header on every reply it matches (ADR-0189). No cookie is set unless one is given, here or
+as `--set-cookie` in `ConfigFiles` or `AdditionalArguments`; the limit of 64 counts all three. With
+`RecordExchanges` on, a test waits for the client to send it back:
+
+```csharp
+options.Cookies.Add("session=t1;Path=/;HttpOnly");
+options.RecordExchanges = true;
+await using var server = await SurlServer.StartAsync(options);
+// ... run the client twice, keeping its cookies ...
+var sentBack = (CookieReceivedEvent)await server.WaitForEventAsync(
+    new SurlEventQuery { Kind = SurlEventKind.CookieReceived, Name = "session" },
+    TimeSpan.FromSeconds(5));
+// sentBack.Value is "t1"
+```
+
 ## What a client sent
 
 Set `RecordExchanges` and read `server.Exchanges` to see each exchange's bytes, oldest first:
@@ -153,8 +172,9 @@ var faults = server.FindEvents(new SurlEventQuery { Kind = SurlEventKind.FaultAp
 Every property left unset matches anything: `Scheme`, `ListenUrl` (as `BoundUrls` lists it),
 `Account` (an exchange in which that account's login was judged, or an event naming it), `Kind`,
 `Store`, `Name` (a `StoreChanged` event's path, mailbox, topic, queue, key or account, matched exactly or as
-a segment prefix, so `/uploads` matches `/uploads/a.txt` but not `/uploads2`; case-sensitive; no other
-event matches it; ADR-0164 decision 8), `Since` (inclusive) and `Until` (exclusive) on `TimeProvider`'s clock, and
+a segment prefix, so `/uploads` matches `/uploads/a.txt` but not `/uploads2`, ADR-0164 decision 8; or a
+`CookieReceived` event's cookie name, matched exactly, ADR-0189 decision 5; case-sensitive; no other event
+matches it, and an exchange matches it only by its store changes), `Since` (inclusive) and `Until` (exclusive) on `TimeProvider`'s clock, and
 `AfterSequence`. An exchange matches `Kind` and `Store` when one of its events does. Events are the
 server's own event records without their bytes, at most `MaxRecordedEvents` (10000) of them, the
 oldest dropped and counted in `DroppedEventCount`. A wait checks what is already kept first, so it
@@ -285,7 +305,9 @@ server.Accounts.Add("bob", "builder");                              // Remove("b
 
 `Accounts.Remove` of the last account leaves the server needing no login, as `surl` with no `--user` needs none:
 it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
-goes to `Log`; `Accounts.Add` closes it again.
+goes to `Log`; `Accounts.Add` closes it again. When the server was started with `--user-ldap`, the directory is an
+account source (ADR-0149 amendment 1), so a login is still needed: the line is instead
+`surl: warning: no local account left; logins are now checked against the directory only`.
 
 `ProxyAccounts.Remove` of the last proxy account leaves the proxy needing no login: it stays allowed,
 `ProxyAccounts.HasAccounts` turns `false` and `surl: warning: no proxy account left; the proxy now needs no login`

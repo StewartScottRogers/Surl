@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using Surl.Content;
+using Surl.Cookies;
 using Surl.Hpack;
 using Surl.HttpMessage;
 using Surl.HttpServing;
@@ -171,6 +172,8 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
     private readonly bool advertisesHttp3;
 
+    private readonly IReadOnlyList<CookieDefinition> cookies;
+
     /// <summary>
     /// Creates an HTTP server that serves <paramref name="contentStore"/> to the requests
     /// <paramref name="authenticationPolicy"/> lets in (ADR-0032, sections 4 and 6).
@@ -196,7 +199,23 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// </param>
     /// <param name="advertisesHttp3">Whether HTTP/3 is served on the port of every TLS connection (<c>--http3</c>).</param>
     public HttpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool advertisesHttp3)
+        : this(contentStore, authenticationPolicy, advertisesHttp3, [])
     {
+    }
+
+    /// <summary>
+    /// Creates an HTTP server as the constructor above does, which also adds a <c>Set-Cookie</c> field for each of
+    /// <paramref name="cookies"/> to the replies it is scoped to (ADR-0189). Every server publishes the cookies clients send
+    /// back as <see cref="CookieReceivedEvent"/>s, whether or not any is set.
+    /// </summary>
+    /// <param name="contentStore">The content store every request path is looked up in.</param>
+    /// <param name="authenticationPolicy">Judges every request.</param>
+    /// <param name="advertisesHttp3">Whether HTTP/3 is served on the port of every TLS connection (<c>--http3</c>).</param>
+    /// <param name="cookies">The cookies to set; none leaves every reply unchanged.</param>
+    public HttpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool advertisesHttp3, IReadOnlyList<CookieDefinition> cookies)
+    {
+        ArgumentNullException.ThrowIfNull(cookies);
+        this.cookies = cookies;
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
@@ -234,7 +253,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
-        var answerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession, connection), connection);
+        var answerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession, connection), connection, context);
         if (connection.TlsSession is { ApplicationProtocol: not Http2OverTlsApplicationProtocol })
         {
             await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
@@ -243,7 +262,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         }
 
         // HTTP/2 streams share the connection, so their answerer holds none (ADR-0141 amendment 2).
-        var streamAnswerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession), connection);
+        var streamAnswerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession), connection, context);
         var preface = new Http2ConnectionPreface();
         if (!await ReadPrefaceWithinHeadTimeoutAsync(preface, connection, context))
         {
@@ -264,10 +283,14 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
     // With --http3, every answer on a TLS connection names HTTP/3 on the connection's own port;
     // a cleartext connection's, and every answer without --http3, are left as they are.
-    private IHttpRequestHandler AdvertiseHttp3(HttpRequestAnswerer answerer, IConnection connection) =>
-        advertisesHttp3 && connection is { TlsSession: not null, LocalEndPoint: IPEndPoint local }
-            ? new AltSvcAdvertisingHandler(answerer, local.Port)
-            : answerer;
+    // Cookies (ADR-0189) are added outside it, so they reach every answer.
+    private CookieHandler AdvertiseHttp3(HttpRequestAnswerer answerer, IConnection connection, ExchangeContext context) =>
+        new(
+            advertisesHttp3 && connection is { TlsSession: not null, LocalEndPoint: IPEndPoint local }
+                ? new AltSvcAdvertisingHandler(answerer, local.Port)
+                : answerer,
+            cookies,
+            context);
 
     // The head timeout bounds the preface as it bounds a first request head: when it runs out
     // the connection closes with no bytes (ADR-0081, decision 5), as HTTP/1.x closes one that

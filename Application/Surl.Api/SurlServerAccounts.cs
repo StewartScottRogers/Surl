@@ -14,10 +14,13 @@ public sealed class SurlServerAccounts
 
     private readonly TextWriter log;
 
-    internal SurlServerAccounts(ComposedStores stores, TextWriter log)
+    private readonly bool hasDirectory;
+
+    internal SurlServerAccounts(ComposedStores stores, TextWriter log, bool hasDirectory)
     {
         this.stores = stores;
         this.log = log;
+        this.hasDirectory = hasDirectory;
     }
 
     /// <summary>
@@ -77,7 +80,10 @@ public sealed class SurlServerAccounts
     /// so the next unauthenticated request is served. That stays allowed; <see cref="HasAccounts"/> turns
     /// <see langword="false"/> and a line <c>surl: warning: no account left; the server now needs no login</c> goes to
     /// <see cref="SurlServerOptions.Log"/> (shown at every log level that shows warnings, which is all of them).
-    /// <see cref="Add"/> closes it again.
+    /// <see cref="Add"/> closes it again. When the server was started with <c>--user-ldap</c> the directory is an
+    /// account source beside the accounts (ADR-0149 amendment, BL-1668), so the server still needs a login on the
+    /// schemes the directory serves: <see cref="HasAccounts"/> still reports only the local accounts, and the line is
+    /// <c>surl: warning: no local account left; logins are now checked against the directory only</c>.
     /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns><see langword="true"/> when an account had that name.</returns>
@@ -88,7 +94,9 @@ public sealed class SurlServerAccounts
         var isRemoved = stores.RemoveAccount(userName);
         if (isRemoved && !HasAccounts)
         {
-            log.WriteLine("surl: warning: no account left; the server now needs no login");
+            log.WriteLine(hasDirectory
+                ? "surl: warning: no local account left; logins are now checked against the directory only"
+                : "surl: warning: no account left; the server now needs no login");
         }
 
         return isRemoved;

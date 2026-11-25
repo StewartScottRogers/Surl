@@ -207,6 +207,28 @@ public sealed partial class ContentStoreTests
         Assert.ThrowsExactly<ArgumentNullException>(() => store.MapBucketRequestPathForCaller("/", null!));
     }
 
+    [TestMethod]
+    public async Task MapRequestPathForTheTest_ReachesAShareClosedByGrantsAndOneLimitedBySchemes_WhichMapRequestPathAnswersAsAbsent()
+    {
+        ContentShare closed = GrantedShare(MemoryWith(("doc.txt", "secret")), ("alice", ContentShareAccess.ReadWrite));
+        ContentShare limited = new("sftponly", MemoryRoot, MemoryWith(("x.txt", "scheme")))
+        {
+            Schemes = new HashSet<string> { "sftp" },
+        };
+        ContentStore store = StoreWith(MemoryWith(), closed, limited);
+
+        ContentPathMapping closedForTest = store.MapRequestPathForTheTest("/team/doc.txt");
+        ContentPathMapping limitedForTest = store.MapRequestPathForTheTest("/sftponly/x.txt");
+
+        Assert.AreEqual("secret", await ReadAsync(store, closedForTest));
+        Assert.AreEqual("scheme", await ReadAsync(store, limitedForTest));
+        Assert.IsTrue(store.ListDirectory(store.MapRequestPathForTheTest("/team"), CancellationToken.None).IsListed);
+        CollectionAssert.Contains(store.ListDirectory(store.MapRequestPathForTheTest("/"), CancellationToken.None).Entries.Select(entry => entry.Name).ToArray(), "team");
+        Assert.IsNull(store.GetFileStatus(store.MapRequestPath("/team/doc.txt")));
+        Assert.IsNull(store.GetFileStatus(store.MapRequestPath("/sftponly/x.txt")));
+        Assert.IsFalse(store.MapRequestPathForTheTest("/a/../b").IsMapped);
+    }
+
     private static ContentShare GrantedShare(IContentFileSystem files, params (string Member, ContentShareAccess Access)[] grants) =>
         new("team", MemoryRoot, files) { Grants = grants.ToDictionary(grant => grant.Member, grant => grant.Access) };
 

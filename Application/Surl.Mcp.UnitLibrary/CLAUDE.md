@@ -35,7 +35,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     `stop_server`. Its description names the cut (65536 bytes of each exchange, 1 MiB in all) and the `is_cut`,
     `shown_bytes` and `recorded_bytes` members, building the numbers from `RecordedExchangeWriter`'s constants (BL-1550).
   - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (derived from the event records, `EventToolFilter.AllKinds`; today `exchange_started`,
-    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`; `exchange_bytes` is in the enum too but is never kept, so it finds nothing and its description says so, BL-1551), `scheme`, `listen_url`,
+    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`, `cookie_received`; `exchange_bytes` is in the enum too but is never kept, so it finds nothing and its description says so, BL-1551), `scheme`, `listen_url`,
     `account`, `store` (a `StoreKind` in snake_case; a schema enum), `name` (a store change's name, exactly or as a
     segment prefix) and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
     has_more, dropped_event_count}`, oldest first.

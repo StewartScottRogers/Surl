@@ -236,6 +236,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `AWS4-HMAC-SHA256-PAYLOAD`, the date, the scope, the previous signature (the seed first), the empty
   hash and the chunk data's hash (`AwsSigV4Calculation.ComputeChunkSignature`, with
   `DeriveSigningKey`). The S3 server decodes the body and refuses the forms it does not serve.
+- `STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER` (BL-1665, ADR-0108 amendment 10) gets the same chain, and
+  `AwsSigV4ChunkSignatureChain.VerifyTrailer` checks the `x-amz-trailer-signature` in fixed time over
+  `AWS4-HMAC-SHA256-TRAILER`, the date, the scope, the final chunk's signature and the trailer lines' hash
+  (`AwsSigV4Calculation.ComputeTrailerSignature`).
 - `AwsSigV4PresignedAndChunkedTests` replays the API Reference's "Using Query Parameters" and
   "Transferring Payload in Multiple Chunks" worked examples, their signatures included.
 

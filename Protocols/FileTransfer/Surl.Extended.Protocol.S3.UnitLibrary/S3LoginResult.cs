@@ -14,7 +14,7 @@ internal sealed record S3LoginResult(ContentCaller? Caller, IHttpRequestBodyChec
 {
     /// <summary>
     /// The chain each <c>aws-chunked</c> chunk's signature is checked against, for a
-    /// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> body; <see langword="null"/> otherwise.
+    /// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> or <c>-TRAILER</c> body; <see langword="null"/> otherwise.
     /// </summary>
     public IHttpChunkSignatureChain? ChunkSignatures { get; init; }
 

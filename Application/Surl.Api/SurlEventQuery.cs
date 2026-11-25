@@ -45,8 +45,9 @@ public sealed record SurlEventQuery
     /// <summary>
     /// The name a <see cref="StoreChangedEvent"/> changed (a path, mailbox, topic, queue, key or account), exactly or as a
     /// segment prefix: <c>/uploads</c> matches <c>/uploads</c> and <c>/uploads/a.txt</c> but not <c>/uploads2</c>.
-    /// Case-sensitive. An event of any other kind never matches when this is set (ADR-0164 decision 8). For an exchange,
-    /// one of its store changes changed such a name.
+    /// Or the name of a <see cref="CookieReceivedEvent"/>'s cookie, exactly (ADR-0189 decision 5). Case-sensitive. An
+    /// event of any other kind never matches when this is set (ADR-0164 decision 8). For an exchange, one of its store
+    /// changes changed such a name; a received cookie's name does not count.
     /// </summary>
     public string? Name { get; init; }
 

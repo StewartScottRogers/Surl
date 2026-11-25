@@ -337,6 +337,7 @@ public sealed class HelpTextTests
             Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(38, "    --set-cookie <cookie>", "Set a cookie on HTTP replies (repeatable)"),
             Row(38, "    --share <name>=<path>[;...]", "Serve a folder as a share (repeatable)"),
             Row(38, "    --share-access <share>=<member>:<r/rw>,...", "Share grants (repeatable)"),
             Row(38, "    --shared-folder <name>=<who>,...", "Share an IMAP folder (repeatable)"),
@@ -368,6 +369,7 @@ public sealed class HelpTextTests
             Row(38, "    --user-ldap <ldap-url>[;...]", "Check logins against LDAP"),
             Row(38, "-v, --verbose", "Log every exchange event"),
             Row(38, "-V, --version", "Show version number and quit"),
+            Row(38, "-w, --write-out <format>", "Print <format> after each exchange"),
             Row(38, "    --ws-echo", "Echo client messages, not the path"));
     }
 
@@ -525,6 +527,7 @@ public sealed class HelpTextTests
             Row(34, "    --max-filesize <bytes>", "Largest upload accepted"),
             Row(34, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(34, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(34, "    --set-cookie <cookie>", "Set a cookie on HTTP replies (repeatable)"),
             Row(34, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(34, "    --user-file <file>", "Read accounts from a file"));
 
@@ -555,7 +558,8 @@ public sealed class HelpTextTests
             "     --trace <file>        Write a debug trace to <file>",
             "     --trace-ascii <file>  Like --trace, but without hex",
             "     --trace-time          Add time stamps to log lines",
-            " -v, --verbose             Log every exchange event");
+            " -v, --verbose             Log every exchange event",
+            " -w, --write-out <format>  Print <format> after each exchange");
 
     [TestMethod]
     [DataRow("--silent", DisplayName = "Long name")]

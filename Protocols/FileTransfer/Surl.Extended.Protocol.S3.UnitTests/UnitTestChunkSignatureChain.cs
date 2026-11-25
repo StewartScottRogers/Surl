@@ -15,6 +15,18 @@ internal sealed class UnitTestChunkSignatureChain(params (byte[] DataSha256, str
 
     public List<(byte[] DataSha256, string Signature)> Asked { get; } = [];
 
+    /// <summary>The trailer expected after the chunks, by the SHA-256 of its lines and its signature.</summary>
+    public (byte[] TrailerSha256, string Signature)? ExpectedTrailer { get; init; }
+
+    public List<(byte[] TrailerSha256, string Signature)> AskedTrailers { get; } = [];
+
+    public bool VerifyTrailer(ReadOnlySpan<byte> trailerSha256, string trailerSignature)
+    {
+        AskedTrailers.Add((trailerSha256.ToArray(), trailerSignature));
+
+        return ExpectedTrailer is { } trailer && trailerSha256.SequenceEqual(trailer.TrailerSha256) && trailerSignature == trailer.Signature;
+    }
+
     public bool VerifyNextChunk(ReadOnlySpan<byte> chunkSha256, string chunkSignature)
     {
         Asked.Add((chunkSha256.ToArray(), chunkSignature));

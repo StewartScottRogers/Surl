@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Cookies.UnitLibrary\Surl.Cookies.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Hpack.UnitLibrary\Surl.Hpack.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Http2.UnitLibrary\Surl.Http2.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Http3.UnitLibrary\Surl.Http3.UnitLibrary.csproj" />

@@ -1,18 +1,18 @@
-using Surl.Extended.Protocol.Amqp0;
-using Surl.Extended.Protocol.AzureStorage;
-using Surl.Extended.Protocol.GoogleCloudStorage;
-using Surl.Extended.Protocol.McpServer;
-using Surl.Extended.Protocol.Mqtt5;
-using Surl.Extended.Protocol.OciRegistry;
-using Surl.Extended.Protocol.S3;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.McpServer;
+using Surl.Extended.Protocol.Mqtt5;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.Redis;
+using Surl.Extended.Protocol.S3;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -454,7 +454,8 @@ public static partial class SurlServerComposition
                 loaded.FailureMessage);
         }
 
-        var originConnector = ComposeOriginConnector(commandLine, seams);
+        var boundProxyEndPoints = new BoundProxyEndPoints();
+        var originConnector = ComposeOriginConnector(commandLine, seams, boundProxyEndPoints);
         var services = new ComposedProtocolServices(
             contentStore,
             loaded.State,
@@ -472,6 +473,7 @@ public static partial class SurlServerComposition
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
             Mqtt5DisconnectsAfterRetained = commandLine.Mqtt5DisconnectAfterRetained,
+            Cookies = commandLine.Cookies,
             KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
@@ -501,7 +503,7 @@ public static partial class SurlServerComposition
             ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],
         };
         var stores = ComposeStores(served, servers, loaded.State, contentStore, authentication, services, instruments);
-        return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
+        return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock, boundProxyEndPoints);
     }
 
 
@@ -575,9 +577,10 @@ public static partial class SurlServerComposition
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
     // (ADR-0088 decision 2); the host's seam when it gives one.
-    private static IOriginConnector ComposeOriginConnector(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
+    private static IOriginConnector ComposeOriginConnector(
+        SurlCommandLine commandLine, SurlServerCompositionSeams seams, BoundProxyEndPoints boundProxyEndPoints)
     {
-        var rule = ProxyComposition.ComposeAllowedOriginRule(commandLine);
+        var rule = ProxyComposition.ComposeAllowedOriginRule(commandLine, boundProxyEndPoints);
         return seams.CreateOriginConnector is { } create ? create(rule) : new SocketOriginConnector(rule, seams.TimeProvider);
     }
 
@@ -589,7 +592,8 @@ public static partial class SurlServerComposition
         ComposedAuthentication authentication,
         EventStreamAndFaultPlan instruments,
         QuicCertificateSource quicCertificateSource,
-        IDisposable? dataDirectoryLock)
+        IDisposable? dataDirectoryLock,
+        BoundProxyEndPoints boundProxyEndPoints)
     {
         ServerTlsComposition tls;
         try
@@ -625,7 +629,7 @@ public static partial class SurlServerComposition
             ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate, tls.ClientTrustAnchors, seams.TimeProvider)]
             : servers;
         return new SurlServerStart(
-            null, new ComposedServing(commandLine, seams, served, authentication, instruments, stores, tls, dataDirectoryLock));
+            null, new ComposedServing(commandLine, seams, served, authentication, instruments, stores, tls, dataDirectoryLock, boundProxyEndPoints));
     }
 
     // --http3: the HTTP/3 server on every https listen URL's UDP side, sharing the scheme with the

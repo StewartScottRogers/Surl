@@ -76,4 +76,30 @@ internal static class AwsSigV4Calculation
 
         return HMACSHA256.HashData(signingKey, Encoding.Latin1.GetBytes(stringToSign));
     }
+
+    /// <summary>
+    /// The signature of an <c>aws-chunked</c> body's trailer ("Signature Calculations for the
+    /// Authorization Header: Transferring Payload in Multiple Chunks", the trailer page): over
+    /// <c>&lt;ALGORITHM&gt;-TRAILER</c>, the request time, the scope, the final chunk's signature
+    /// and the trailer lines' SHA-256, one per line.
+    /// </summary>
+    /// <param name="authorization">The credentials, for the provider and the scope.</param>
+    /// <param name="requestTime">The request's date field as sent.</param>
+    /// <param name="signingKey">The key <see cref="DeriveSigningKey"/> gave.</param>
+    /// <param name="finalChunkSignature">The signature of the final empty chunk.</param>
+    /// <param name="trailerSha256">The SHA-256 of the trailer's lines.</param>
+    /// <returns>The trailer's signature's 32 bytes.</returns>
+    public static byte[] ComputeTrailerSignature(
+        AwsSigV4Authorization authorization, string requestTime, byte[] signingKey, byte[] finalChunkSignature, ReadOnlySpan<byte> trailerSha256)
+    {
+        var stringToSign = string.Join(
+            '\n',
+            AwsSigV4Provider.AlgorithmOf(authorization.Provider) + "-TRAILER",
+            requestTime,
+            authorization.Scope,
+            Convert.ToHexStringLower(finalChunkSignature),
+            Convert.ToHexStringLower(trailerSha256));
+
+        return HMACSHA256.HashData(signingKey, Encoding.Latin1.GetBytes(stringToSign));
+    }
 }

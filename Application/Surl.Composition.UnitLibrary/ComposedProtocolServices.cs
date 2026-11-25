@@ -1,5 +1,6 @@
 using Surl.Authentication;
 using Surl.Content;
+using Surl.Cookies;
 using Surl.Core;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Kafka;
@@ -182,6 +183,12 @@ public sealed class ComposedProtocolServices(
 
     /// <summary>Gets a value indicating whether <c>--http3</c> is given, so the HTTP server adds <c>Alt-Svc</c> on https.</summary>
     public bool AdvertisesHttp3 { get; } = advertisesHttp3;
+
+    /// <summary>
+    /// Gets every <c>--set-cookie</c>, in command-line order, which the HTTP server, for <c>http</c> and
+    /// <c>https</c>, adds to the replies each is scoped to (ADR-0189); none unless set.
+    /// </summary>
+    public IReadOnlyList<CookieDefinition> Cookies { get; init; } = [];
 
     /// <summary>
     /// Finds the server an earlier entry of a composition over these services built for

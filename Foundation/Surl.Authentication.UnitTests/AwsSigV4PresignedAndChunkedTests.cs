@@ -265,6 +265,74 @@ public sealed class AwsSigV4PresignedAndChunkedTests
         Assert.IsNull(verdict.ChunkSignatures);
     }
 
+    // The trailer page's formulas written out with the BCL: the signing key is four HMACs over the scope's parts,
+    // each signature an HMAC of its string to sign, the lines joined by line feeds.
+    private static byte[] ExampleSigningKey()
+    {
+        var key = System.Text.Encoding.UTF8.GetBytes("AWS4" + ExampleSecretAccessKey);
+        foreach (var part in new[] { "20130524", "us-east-1", "s3", "aws4_request" })
+        {
+            key = HMACSHA256.HashData(key, System.Text.Encoding.UTF8.GetBytes(part));
+        }
+
+        return key;
+    }
+
+    private static string HmacHex(string stringToSign) =>
+        Convert.ToHexStringLower(HMACSHA256.HashData(ExampleSigningKey(), System.Text.Encoding.UTF8.GetBytes(stringToSign)));
+
+    private static string ChunkSignatureOf(string previousSignature, byte[] data) =>
+        HmacHex(string.Join('\n', "AWS4-HMAC-SHA256-PAYLOAD", "20130524T000000Z", "20130524/us-east-1/s3/aws4_request", previousSignature, Convert.ToHexStringLower(SHA256.HashData([])), Convert.ToHexStringLower(SHA256.HashData(data))));
+
+    private static string TrailerSignatureOf(string finalChunkSignature, string trailerLines) =>
+        HmacHex(string.Join('\n', "AWS4-HMAC-SHA256-TRAILER", "20130524T000000Z", "20130524/us-east-1/s3/aws4_request", finalChunkSignature, Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(trailerLines)))));
+
+    private async Task<(IHttpChunkSignatureChain Chain, string Seed)> SignedTrailerChainAsync()
+    {
+        var request = Signed(ChunkedPut(ChunkedAuthorization(), SignatureV4Check.StreamingSignedPayloadWithTrailer));
+        var verdict = await JudgeAsync(CreatePolicy(), request);
+        var seed = request.Fields.Single(field => field.Key == "Authorization").Value[^64..];
+
+        Assert.AreEqual(ExampleAccessKeyId, verdict.AccountName);
+        Assert.IsNull(verdict.BodyCheck);
+
+        return (verdict.ChunkSignatures!, seed);
+    }
+
+    [TestMethod]
+    public async Task SignedTrailerPayload_IsAcceptedWithAChainThatVerifiesEachChunkThenTheTrailer()
+    {
+        var (chain, seed) = await SignedTrailerChainAsync();
+        var first = ChunkSignatureOf(seed, "hello"u8.ToArray());
+        var last = ChunkSignatureOf(first, []);
+
+        Assert.IsTrue(chain.VerifyNextChunk(SHA256.HashData("hello"u8), first));
+        Assert.IsTrue(chain.VerifyNextChunk(SHA256.HashData([]), last));
+        Assert.IsTrue(chain.VerifyTrailer(SHA256.HashData("x-amz-checksum-crc32:NhCmhg==\n"u8), TrailerSignatureOf(last, "x-amz-checksum-crc32:NhCmhg==\n")));
+    }
+
+    [TestMethod]
+    public async Task SignedTrailerPayload_ATamperedTrailerLineOrSignature_IsRefused()
+    {
+        var (chain, seed) = await SignedTrailerChainAsync();
+        var last = ChunkSignatureOf(seed, []);
+        var good = TrailerSignatureOf(last, "x-amz-checksum-crc32:NhCmhg==\n");
+
+        Assert.IsTrue(chain.VerifyNextChunk(SHA256.HashData([]), last));
+        Assert.IsFalse(chain.VerifyTrailer(SHA256.HashData("x-amz-checksum-crc32:AAAAAA==\n"u8), good));
+        Assert.IsFalse(chain.VerifyTrailer(SHA256.HashData("x-amz-checksum-crc32:NhCmhg==\n"u8), new string('0', 64)));
+        Assert.IsFalse(chain.VerifyTrailer(SHA256.HashData("x-amz-checksum-crc32:NhCmhg==\n"u8), "not hex"));
+        Assert.IsTrue(chain.VerifyTrailer(SHA256.HashData("x-amz-checksum-crc32:NhCmhg==\n"u8), good));
+    }
+
+    [TestMethod]
+    public async Task SignedTrailerPayload_NullArguments_Throw()
+    {
+        var (chain, _) = await SignedTrailerChainAsync();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => chain.VerifyTrailer(SHA256.HashData([]), null!));
+    }
+
     [TestMethod]
     public async Task StreamingPayloadForAnotherService_IsBoundAsAHashAndFailsOnTheBody()
     {

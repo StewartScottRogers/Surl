@@ -25,6 +25,8 @@ public sealed partial class SurlServerArgumentsTests
         options.Queues.Add("q");
         options.TopicMaps.Add("tm");
         options.TopicAccess.Add("ta");
+        options.Cookies.Add("c1");
+        options.Cookies.Add("c2");
         options.ConfigFiles.Add("c.conf");
         options.AdditionalArguments.Add("--allow-uploads");
 
@@ -36,7 +38,7 @@ public sealed partial class SurlServerArgumentsTests
                 HttpListenUrl, "--group", "g=a", "--mail-domain", "d", "--mailbox", "m", "--mailbox-file", "mf",
                 "--mail-alias", "al", "--mail-catch-all", "ca", "--shared-folder", "sf", "--share", "s",
                 "--share-access", "sa", "--bucket", "b", "--topic", "t", "--queue", "q", "--topic-map", "tm",
-                "--topic-access", "ta", "--config", "c.conf", "--allow-uploads",
+                "--topic-access", "ta", "--set-cookie", "c1", "--set-cookie", "c2", "--config", "c.conf", "--allow-uploads",
             },
             actual.ToArray());
     }
@@ -169,6 +171,15 @@ public sealed partial class SurlServerArgumentsTests
     {
         var options = ApiTestSeams.Options(HttpListenUrl);
         options.TopicAccess.Add(null!);
+
+        Assert.ThrowsExactly<ArgumentException>(() => SurlServerArguments.ThrowIfMisused(options));
+    }
+
+    [TestMethod]
+    public void ThrowIfMisused_ANullCookie_IsAnArgumentException()
+    {
+        var options = ApiTestSeams.Options(HttpListenUrl);
+        options.Cookies.Add(null!);
 
         Assert.ThrowsExactly<ArgumentException>(() => SurlServerArguments.ThrowIfMisused(options));
     }

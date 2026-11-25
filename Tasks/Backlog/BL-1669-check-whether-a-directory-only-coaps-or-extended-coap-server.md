@@ -1,16 +1,16 @@
 ---
-id: BL-1506
-title: x
+id: BL-1669
+title: Check whether a directory-only CoAPS or extended CoAP server answers unauthenticated reads openly
 priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
 touches: []
 requirement: none
-created: 2026-11-20
+created: 2026-11-24
 completed:
 ---
-# BL-1506 — x
+# BL-1669 — Check whether a directory-only CoAPS or extended CoAP server answers unauthenticated reads openly
 
 ## Goal
 
@@ -28,5 +28,4 @@ completed:
 
 ## Log
 
-- 2026-11-20: Created.
-- 2026-11-20: Backlog -> Deferred. Filed by mistake while checking the new command; no work. Superseded by the BL-1486 follow-ups.
+- 2026-11-24: Created.

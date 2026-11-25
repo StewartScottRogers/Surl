@@ -74,7 +74,7 @@ public sealed class SurlEventMemberTests
         CollectionAssert.AreEqual(
             new[]
             {
-                "consumer_group_changed", "exchange_bytes", "exchange_ended", "exchange_started",
+                "consumer_group_changed", "cookie_received", "exchange_bytes", "exchange_ended", "exchange_started",
                 "fault_applied", "hook_failed", "login_judged", "store_changed",
             },
             names);
@@ -171,6 +171,7 @@ public sealed class SurlEventMemberTests
     private static IEnumerable<(Type Type, SurlEvent Event)> OneOfEachEvent()
     {
         yield return (typeof(ConsumerGroupChangedEvent), new ConsumerGroupChangedEvent(1, "kafka", "g", ConsumerGroupChange.MemberLeft, "m", 2, "a"));
+        yield return (typeof(CookieReceivedEvent), new CookieReceivedEvent(1, "http", "sid", "v"));
         yield return (typeof(ExchangeBytesEvent), new ExchangeBytesEvent(1, ExchangeDirection.Received, new byte[] { 1 }));
         yield return (typeof(ExchangeEndedEvent), new ExchangeEndedEvent(1, 10, 20));
         yield return (typeof(ExchangeStartedEvent), new ExchangeStartedEvent(1, "http://127.0.0.1:1", "http", Client));

@@ -1,4 +1,5 @@
 using System.Security.Authentication;
+using Surl.Cookies;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -72,6 +73,12 @@ public sealed record SurlCommandLine
 
     /// <summary><c>--trace-time</c>: stamp each exchange log line with the local time. Off by default.</summary>
     public bool TraceTime { get; init; }
+
+    /// <summary>
+    /// <c>-w</c> / <c>--write-out</c>: the format printed to stdout once per exchange, as
+    /// <see cref="WriteOutFormat.Expand"/> reads it (BL-1663); <see langword="null"/> prints nothing.
+    /// </summary>
+    public string? WriteOut { get; init; }
 
     /// <summary>
     /// <c>--log-file</c>: the file the log stream is appended to, as given (<c>-</c> is
@@ -353,6 +360,12 @@ public sealed record SurlCommandLine
     /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
     /// </summary>
     public IReadOnlyList<ConfiguredFault> Faults { get; init; } = [];
+
+    /// <summary>
+    /// The cookies from every <c>--set-cookie</c>, in command-line order, at most 64 (ADR-0189 decision 1). None by
+    /// default. <c>Surl.Composition</c> hands them to the HTTP server.
+    /// </summary>
+    public IReadOnlyList<CookieDefinition> Cookies { get; init; } = [];
 
     /// <summary>
     /// <c>--control</c>: the listen URL of the test control endpoint, always <c>http</c> on loopback

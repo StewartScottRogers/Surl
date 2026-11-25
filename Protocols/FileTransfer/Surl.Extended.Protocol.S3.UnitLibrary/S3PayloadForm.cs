@@ -21,7 +21,12 @@ internal enum S3PayloadForm
     UnsignedChunksWithTrailer,
 
     /// <summary>
-    /// Any other <c>STREAMING-</c> value (ECDSA, the signed trailer forms): <c>501 NotImplemented</c>.
+    /// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER</c>: <c>aws-chunked</c>, every chunk signed, a trailer after the last that is signed too.
+    /// </summary>
+    SignedChunksWithTrailer,
+
+    /// <summary>
+    /// Any other <c>STREAMING-</c> value (the ECDSA forms): <c>501 NotImplemented</c>.
     /// </summary>
     Unserved,
 }

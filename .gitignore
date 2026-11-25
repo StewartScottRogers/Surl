@@ -362,11 +362,10 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Cipher MCP server session store (local SQLite database + its WAL/shared-memory
-# sidecars). Machine-local conversation state, not project source.
-/data/cipher-sessions.db
-/data/cipher-sessions.db-shm
-/data/cipher-sessions.db-wal
+# Local runtime data at the repository root (MCP server stores and the like), never
+# project source. Anchored, so tracked upstream test input under
+# Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/ stays tracked.
+/data/
 
 # Claude Code personal files
 .claude/settings.local.json

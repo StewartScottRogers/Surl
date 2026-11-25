@@ -212,6 +212,25 @@ public sealed class CommandLineRunnerLogTests
     }
 
     [TestMethod]
+    public async Task RunAsync_WriteOut_PrintsTheFormatToStdoutOnceAfterTheExchangeAndWarnsOfAnUnknownVariable()
+    {
+        var run = await ServeOneConnectionAsync(
+            TimeProvider.System, "-w", "%{scheme} %{remote_ip}:%{remote_port} #%{exchange_id} %{bogus}|\n", Listen);
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+        Assert.AreEqual(ListeningLine + "http 127.0.0.1:50000 #1 |\n", run.Output);
+        Assert.Contains("surl: unknown --write-out variable: 'bogus'" + NewLine, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WithoutWriteOut_PrintsNoExchangeLineToStdout()
+    {
+        var run = await ServeOneConnectionAsync(TimeProvider.System, Listen);
+
+        Assert.AreEqual(ListeningLine, run.Output);
+    }
+
+    [TestMethod]
     public async Task RunAsync_LogFileCannotBeOpened_WritesCouldNotOpenAndReturnsCouldNotWriteFileBeforeAnyListenerStarts()
     {
         var run = await RunRefusedAsync(

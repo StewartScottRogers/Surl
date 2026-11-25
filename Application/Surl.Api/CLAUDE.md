@@ -93,10 +93,13 @@ measures it by name.
   `MailboxFiles`, `MailAliases`, `MailCatchAlls`, `SharedFolders`, `Shares`, `ShareAccess`,
   `Buckets`, `Topics`, `Queues`, `TopicMaps` and `TopicAccess` are `IList<string>`s, each item the
   option's value in `surl`'s own grammar, composed as that option once per item after the faults
-  and the log level; `ConfigFiles` follow as `--config`, then `AdditionalArguments`. A null item or
+  and before the log level; `ConfigFiles` follow as `--config`, then `AdditionalArguments`. A null item or
   a `-` config file is an `ArgumentException`; every grammar refusal is `surl`'s, from the parser.
   Config files are read by `ApiConfigFileSource` through `ReadStartFile` (disk when null). Share
   directories are probed with the host's `CanOpenDataDirectory`.
+- Cookies (BL-1675, ADR-0189): `SurlServerOptions.Cookies` is an `IList<string>`, each item a `--set-cookie`
+  value composed once per item after `--topic-access`; a null item is an `ArgumentException`, every other refusal
+  is `surl`'s. Cookies received over HTTP/1.x and HTTP/2 are `SurlEventKind.CookieReceived` events.
 - A test's own protocol servers (BL-813, ADR-0124 decision 2): `SurlServerOptions.ProtocolServers` holds
   `SurlProtocolServer(Scheme, Create)` records; `Create` takes `SurlProtocolServices` (the content store, mail
   store, message bus, `AuthenticationPolicy` and `TimeProvider` of `ComposedProtocolServices`). `CustomProtocolServers.Of`
