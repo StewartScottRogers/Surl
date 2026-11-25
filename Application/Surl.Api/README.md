@@ -26,7 +26,7 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
 `mcp+stdio:` is the one listen URL `surl` accepts that `Surl.Api` refuses: it serves the standard
 input and output of a `surl` process, which an in-process host has no session on. `StartAsync`
 throws `SurlServerStartException` with `SurlExitCode.FailedInit` before any listener binds (with
-extensions off, `UnsupportedProtocol`, as `surl` does). Listen on `mcp://127.0.0.1:0/` instead.
+the extended servers off, `UnsupportedProtocol`, as `surl` does). Listen on `mcp://127.0.0.1:0/` instead.
 
 - Every option is `surl`'s: the properties are spellings of `surl` options (`DataDirectory` is
   `--directory`, `AllowUploads` is `--allow-uploads`, `ListDirectories` is

@@ -199,7 +199,7 @@ internal static class SurlServerArguments
     /// <paramref name="extendedSchemes"/>.
     /// </summary>
     /// <param name="options">The options.</param>
-    /// <param name="extendedSchemes">The extended schemes served, none while extensions are off.</param>
+    /// <param name="extendedSchemes">The extended schemes served, none while the extended servers are off.</param>
     /// <returns>The command line to compose.</returns>
     /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the command line.</exception>
     /// <exception cref="ArgumentException">The arguments ask for help, the version, a log file or a trace file.</exception>
@@ -213,7 +213,7 @@ internal static class SurlServerArguments
     /// scheme back.
     /// </summary>
     /// <param name="options">The options.</param>
-    /// <param name="extendedSchemes">The extended schemes served, none while extensions are off.</param>
+    /// <param name="extendedSchemes">The extended schemes served, none while the extended servers are off.</param>
     /// <param name="readFile">Reads a config file's bytes; null reads the disk.</param>
     /// <param name="custom">The test's own protocol servers.</param>
     /// <returns>The command line to compose.</returns>
