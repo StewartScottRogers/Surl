@@ -479,6 +479,16 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Testing_SaysAnHttpChosen401CarriesTheServersChallenges()
+    {
+        var page = AiHelpText.Answer("testing").Output;
+
+        StringAssert.Contains(page, "An `http` or `https` `error` rule that chooses `401` (`error;scheme=http;reply=401`) sends it with the challenges the server's own `401` would offer on that connection, as `WWW-Authenticate` fields (see the auth topic).");
+        StringAssert.Contains(page, "When the server offers none on the connection, the `401` goes without one and the log says so.");
+        StringAssert.Contains(page, "Over HTTP/2 and HTTP/3, a `401` whose only challenges are NTLM or Negotiate is reset instead (`HTTP_1_1_REQUIRED`, `H3_VERSION_FALLBACK`), so the client does not receive it or its `body=` text, though one of the rule's `times` is spent.");
+    }
+
+    [TestMethod]
     [DataRow("allow-anonymous", "yes, for tests only")]
     [DataRow("self-signed", "yes, for tests only")]
     [DataRow("allow-uploads", "yes, widens what a peer may do")]
