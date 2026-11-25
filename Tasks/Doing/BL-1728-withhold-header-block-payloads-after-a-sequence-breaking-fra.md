@@ -46,3 +46,4 @@ that frame's payload and every later header-block payload on the connection as `
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
