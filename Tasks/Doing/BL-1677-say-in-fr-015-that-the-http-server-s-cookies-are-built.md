@@ -29,3 +29,4 @@ FR-015's status says what is built and proven instead of "unbuilt".
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-25: Backlog -> Doing.
