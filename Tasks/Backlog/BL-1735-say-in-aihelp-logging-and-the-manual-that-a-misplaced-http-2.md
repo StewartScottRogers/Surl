@@ -1,5 +1,5 @@
 ---
-id: BL-1717
+id: BL-1735
 title: Say in --aihelp logging and the manual that a misplaced HTTP/2 preface withholds a connection's later bytes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1717 — Say in --aihelp logging and the manual that a misplaced HTTP/2 preface withholds a connection's later bytes
+# BL-1735 — Say in --aihelp logging and the manual that a misplaced HTTP/2 preface withholds a connection's later bytes
 
 ## Goal
 

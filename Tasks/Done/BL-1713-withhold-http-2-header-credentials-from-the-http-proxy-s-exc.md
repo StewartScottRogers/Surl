@@ -51,10 +51,10 @@ The HTTP and HTTPS proxy's levelled log never holds an `authorization` or `proxy
   Amendment 7 does for SOCKS).
 - `DATA` frames on an HTTP/2 `CONNECT` stream do carry credentials (`https-proxy-h2-connect` shows plaintext HTTP/1.1
   in them) and are logged as received. Fixing that changes `Surl.Http2`, which BL-1714 (claimed by lane 2) holds, so
-  it is filed as BL-1715 (High) and not done here: **a credential tunnelled that way can still be logged**.
-  BL-1714 finished on the shift branch during this run; this lane may not rebase, so BL-1715 builds on it.
-- Follow-ups filed: BL-1715 (`DATA` frames), BL-1716 (FTP and mail logins in a `CONNECT` tunnel), BL-1717 (help text),
-  BL-1718 (request start after `Content-Length: 0`). The shift branch already uses these numbers, so integration's
+  it is filed as BL-1733 (High) and not done here: **a credential tunnelled that way can still be logged**.
+  BL-1714 finished on the shift branch during this run; this lane may not rebase, so BL-1733 builds on it.
+- Follow-ups filed: BL-1733 (`DATA` frames), BL-1734 (FTP and mail logins in a `CONNECT` tunnel), BL-1735 (help text),
+  BL-1736 (request start after `Content-Length: 0`). The shift branch already uses these numbers, so integration's
   `dedupe` renumbers them.
 - Evidence: criteria 1 and 2 are `H2ProxyConnection_HpackProxyAuthorization_IsAbsentFromTheLog` and
   `ConnectTunnel_HpackAuthorizationAfterThePreface_IsAbsentFromTheLog`. `dotnet build -warnaserror` clean, format
@@ -66,4 +66,4 @@ The HTTP and HTTPS proxy's levelled log never holds an `authorization` or `proxy
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
-- 2026-11-25: Doing -> Done. The HTTP proxy's exchange log withholds HTTP/2 authorization and proxy-authorization header blocks on h2 and CONNECT-tunnel connections, in composed surl too; h2 CONNECT DATA frames are filed as BL-1715
+- 2026-11-25: Doing -> Done. The HTTP proxy's exchange log withholds HTTP/2 authorization and proxy-authorization header blocks on h2 and CONNECT-tunnel connections, in composed surl too; h2 CONNECT DATA frames are filed as BL-1733

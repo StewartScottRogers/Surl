@@ -1,5 +1,5 @@
 ---
-id: BL-1718
+id: BL-1736
 title: Report a request start right after a Content-Length: 0 head in HttpRequestHeadBytesRedactor
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1718 — Report a request start right after a Content-Length: 0 head in HttpRequestHeadBytesRedactor
+# BL-1736 — Report a request start right after a Content-Length: 0 head in HttpRequestHeadBytesRedactor
 
 ## Goal
 

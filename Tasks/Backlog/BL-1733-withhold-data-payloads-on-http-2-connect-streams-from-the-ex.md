@@ -1,5 +1,5 @@
 ---
-id: BL-1715
+id: BL-1733
 title: Withhold DATA payloads on HTTP/2 CONNECT streams from the exchange log
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1715 — Withhold DATA payloads on HTTP/2 CONNECT streams from the exchange log
+# BL-1733 — Withhold DATA payloads on HTTP/2 CONNECT streams from the exchange log
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1716
+id: BL-1734
 title: Withhold FTP and mail logins sent through an HTTP proxy CONNECT tunnel from the exchange log
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1716 — Withhold FTP and mail logins sent through an HTTP proxy CONNECT tunnel from the exchange log
+# BL-1734 — Withhold FTP and mail logins sent through an HTTP proxy CONNECT tunnel from the exchange log
 
 ## Goal
 

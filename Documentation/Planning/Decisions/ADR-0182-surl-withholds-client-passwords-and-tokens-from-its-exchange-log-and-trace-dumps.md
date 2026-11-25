@@ -270,15 +270,15 @@ Accepted limits:
 
 - The `DATA` frames of an HTTP/2 `CONNECT` stream are still logged as received, so a credential tunnelled there **can
   be logged**: curl 8.21.0 `--proxy-http2 -p` sends plaintext HTTP/1.1 in them (fixture `https-proxy-h2-connect`).
-  The aim of keeping these two fields out of the proxy's log is not met for this case (BL-1715).
+  The aim of keeping these two fields out of the proxy's log is not met for this case (BL-1733).
 - A preface where a request may start, followed by bytes that are not frames, is read as frames, so text sent after it
   **can be logged**, on an origin listen URL too when `--proxy` is named. curl does not do this.
 - After a `101` to `Upgrade: h2c`, a client that sends anything but the exact preface and then `HEADERS` is not
   masked, although the origin HTTP server's redactor would have masked it. Only a non-conforming client does this.
 - A preface anywhere else loses all later log detail, an upload body that holds it included, on origin listen URLs too
-  when `--proxy` is named. Saying so in the help text is BL-1717.
+  when `--proxy` is named. Saying so in the help text is BL-1735.
 - An upgrade request declaring `Content-Length: 0` leaves `HttpRequestHeadBytesRedactor` not at a request start until
-  the next byte arrives, so the preface after it withholds the rest (BL-1718).
-- FTP and mail logins in cleartext inside a `CONNECT` tunnel are still not masked, as before this amendment (BL-1716).
+  the next byte arrives, so the preface after it withholds the rest (BL-1736).
+- FTP and mail logins in cleartext inside a `CONNECT` tunnel are still not masked, as before this amendment (BL-1734).
 - An over-long first `HEADERS` frame relies on BL-1714 to withhold the `CONTINUATION` after it, here as in the
   origin's own log.
