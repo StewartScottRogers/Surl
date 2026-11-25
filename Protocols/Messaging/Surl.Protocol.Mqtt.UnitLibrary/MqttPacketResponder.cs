@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
@@ -96,9 +97,6 @@ internal sealed partial class MqttPacketResponder
         return qualityOfService == 0 || (reader.TryReadUInt16(out packetIdentifier) && packetIdentifier != 0);
     }
 
-    private static bool TryReadTopicName(MqttBodyReader reader, out string topic) =>
-        reader.TryReadString(out topic) && MqttTopicNames.ToCanonicalTopic(topic).IsMapped;
-
     // Each filter as sent, or null for one that is not a valid MQTT topic filter.
     private static bool TryReadSubscriptions(MqttBodyReader reader, List<string?> filters)
     {
@@ -149,6 +147,35 @@ internal sealed partial class MqttPacketResponder
 
     private static bool TryReadNonZeroPacketIdentifier(MqttBodyReader reader, out ushort packetIdentifier) =>
         reader.TryReadUInt16(out packetIdentifier) && packetIdentifier != 0;
+
+    // The canonical topic the PUBLISH's topic name means on this scheme: a --topic-map alias's
+    // target, otherwise the name itself (ADR-0102, decision 3.3).
+    private bool TryReadTopicName(MqttBodyReader reader, [NotNullWhen(true)] out string? topic)
+    {
+        topic = reader.TryReadString(out var name) ? bus.Names.ToCanonicalTopic(context.Scheme, name).Name : null;
+        return topic is not null;
+    }
+
+    // The canonical filter of each filter not refused, in order; a --topic-map applies to a filter
+    // that is exactly an aliased name, never to a wildcard one (ADR-0102, decision 3.3).
+    private List<string> CanonicalFiltersOf(List<string?> filters) =>
+        [.. filters.OfType<string>().Select(filter => bus.Names.ToCanonicalFilter(context.Scheme, filter).Name!)];
+
+    // Each message under the name this scheme gives its canonical topic; a topic a --topic-map
+    // hides from the scheme has no name here and is left out (ADR-0102, BL-1703 amendment).
+    private List<(string TopicName, byte[] Payload)> NamedForThisScheme(IReadOnlyList<KeyValuePair<string, byte[]>> messages)
+    {
+        var named = new List<(string TopicName, byte[] Payload)>(messages.Count);
+        foreach (var (topic, payload) in messages)
+        {
+            if (bus.Names.FromCanonicalTopic(context.Scheme, topic) is { IsMapped: true } mapping)
+            {
+                named.Add((mapping.Name, payload));
+            }
+        }
+
+        return named;
+    }
 
     private ValueTask<bool> AnswerConnectedAsync(MqttPacket packet) => packet.Type switch
     {
@@ -349,15 +376,16 @@ internal sealed partial class MqttPacketResponder
             return false;
         }
 
-        var reading = MqttBusRetainedMessages.Read(bus, account, [.. filters.OfType<string>()]);
+        var reading = MqttBusRetainedMessages.Read(bus, account, CanonicalFiltersOf(filters));
         await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, ReturnCodesFor(filters, reading.Granted)));
-        foreach (var (topic, payload) in reading.Matching)
+        var deliverable = NamedForThisScheme(reading.Matching);
+        foreach (var (topicName, payload) in deliverable)
         {
-            await WriteAsync(MqttPacketEncoder.RetainedPublish(topic, payload));
+            await WriteAsync(MqttPacketEncoder.RetainedPublish(topicName, payload));
         }
 
         NoteDeniedSubscriptions(reading.Granted.Count(granted => !granted));
-        context.Log.Note($"SUBSCRIBE: {reading.Matching.Count} retained messages delivered; sent DISCONNECT and closed.");
+        context.Log.Note($"SUBSCRIBE: {deliverable.Count} retained messages delivered; sent DISCONNECT and closed.");
         return await SendAndCloseAsync(MqttPacketEncoder.Disconnect);
     }
 

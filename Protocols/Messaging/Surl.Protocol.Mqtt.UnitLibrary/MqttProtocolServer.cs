@@ -21,9 +21,20 @@ namespace Surl.Protocol.Mqtt;
 /// messaging server on the bus shares them (ADR-0100, decision 3). A <c>SUBSCRIBE</c> is answered <c>SUBACK</c>,
 /// granting QoS 0 to each valid topic filter and failure (<c>0x80</c>) to each invalid one;
 /// then one QoS 0 <c>PUBLISH</c>, <c>RETAIN</c> set, for every kept message a valid filter
-/// matches, in ordinal order of topic; then <c>DISCONNECT</c>, and the connection is closed.
+/// matches, in ordinal order of the bus's topic; then <c>DISCONNECT</c>, and the connection is closed.
 /// The <c>DISCONNECT</c> (server to client, which section 3.14 does not define) is sent because upstream
 /// curl 8.21.0 ends its fetch and exits 0 on it and exits 56 on a bare close (ADR-0014, ADR-0176). A subscriber is never kept waiting for a future publish.
+/// </para>
+/// <para>
+/// <b>Topic names.</b> Every topic name and filter goes through the bus's
+/// <see cref="MessageBus.TopicNameLookup"/> (<see cref="MessageBus.MessageBus.Names"/>) for the
+/// listener's scheme: an MQTT name is the bus's topic as it stands, except where a
+/// <c>--topic-map</c> names <c>mqtt</c> or <c>mqtts</c> on its left (ADR-0102 decision 3.3), which
+/// covers both schemes. A <c>PUBLISH</c> on an aliased name is published on the alias's target. A
+/// filter that is exactly an aliased name subscribes to the target; a wildcard filter is taken as it
+/// stands. A retained message is sent under the aliased name when a map targets its topic, and is
+/// not sent when its topic is spelled as an aliased name that means another topic, because no name
+/// of the scheme reaches it.
 /// </para>
 /// <para>
 /// <b>Connect.</b> The first packet must be <c>CONNECT</c>. <c>MQTT</c> at a level other

@@ -7,9 +7,11 @@ namespace Surl.Protocol.Mqtt;
 /// The command-stage faults (ADR-0124 decision 4, ADR-0139, ADR-0141): an accepted <c>CONNECT</c>,
 /// each valid <c>SUBSCRIBE</c> topic filter and each well-formed <c>PUBLISH</c> is asked about at a
 /// <see cref="FaultStage.Command"/> point once the login has been judged and before the message bus
-/// is touched. A matching <see cref="FaultKind.Delay"/> rule holds the packet's answer for the rule's
-/// <c>ms</c> with the idle clock paused, then answers it as usual; a <see cref="FaultKind.Drop"/> rule
-/// aborts the connection with no answer to the packet (<see cref="CommandStageFaults"/>). A matching
+/// is touched. A <c>PUBLISH</c> is asked about under the bus's topic, a <c>--topic-map</c> alias
+/// applied, and a filter as sent (ADR-0102, BL-1705 amendment). A matching
+/// <see cref="FaultKind.Delay"/> rule holds the packet's answer for the rule's <c>ms</c> with the idle
+/// clock paused, then answers it as usual; a <see cref="FaultKind.Drop"/> rule aborts the connection
+/// with no answer to the packet (<see cref="CommandStageFaults"/>). A matching
 /// <see cref="FaultKind.Error"/> rule's reply is an MQTT 5 reason code 128 to 255, which MQTT 3.1.1
 /// answers as it can: a <c>CONNECT</c> with the nearest <c>CONNACK</c> return code and a close, a
 /// filter with <c>SUBACK</c> failure <c>0x80</c>, a <c>PUBLISH</c> - which has no negative

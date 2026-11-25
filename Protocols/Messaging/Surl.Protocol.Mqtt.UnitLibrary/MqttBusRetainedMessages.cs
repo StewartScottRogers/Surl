@@ -17,9 +17,9 @@ internal static class MqttBusRetainedMessages
     /// </summary>
     /// <param name="bus">The bus the server publishes to.</param>
     /// <param name="account">The connection's checked account, or <see langword="null"/> for an anonymous caller.</param>
-    /// <param name="filters">Valid MQTT topic filters, already canonical (<see cref="MqttTopicNames.ToCanonicalFilter"/>).</param>
+    /// <param name="filters">Canonical topic filters, as <see cref="TopicNameLookup.ToCanonicalFilter"/> answers them.</param>
     /// <returns>Whether each filter was granted, in the order given, and every retained message
-    /// a granted filter matches, each topic once, in ordinal order of topic.</returns>
+    /// a granted filter matches, each canonical topic once, in ordinal order of topic.</returns>
     public static MqttRetainedReading Read(MessageBus.MessageBus bus, string? account, IReadOnlyList<string> filters)
     {
         var matching = new SortedDictionary<string, byte[]>(StringComparer.Ordinal);
