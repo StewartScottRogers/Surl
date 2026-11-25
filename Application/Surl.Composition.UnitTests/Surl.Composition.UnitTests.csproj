@@ -12,6 +12,12 @@
     <ProjectReference Include="..\Surl.Composition.UnitLibrary\Surl.Composition.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!-- The DTLS client and its datagram flow, shared with Surl.Extended.Protocol.Coap.UnitTests. -->
+  <ItemGroup>
+    <Compile Include="..\..\Protocols\Http\Surl.Extended.Protocol.Coap.UnitTests\UnitTestDtlsClient.cs" Link="UnitTestDtlsClient.cs" />
+    <Compile Include="..\..\Protocols\Http\Surl.Extended.Protocol.Coap.UnitTests\UnitTestDtlsDatagramFlow.cs" Link="UnitTestDtlsDatagramFlow.cs" />
+  </ItemGroup>
+
   <!-- The QUIC client and the Initial datagrams pinned upstream curl sent, shared with Surl.Http3.UnitTests. -->
   <ItemGroup>
     <Compile Include="..\..\Protocols\Http\Surl.Http3.UnitTests\UnitTestQuicClient.cs" Link="UnitTestQuicClient.cs" />

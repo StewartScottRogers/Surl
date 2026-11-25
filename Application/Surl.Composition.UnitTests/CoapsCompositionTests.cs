@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Surl.Authentication;
 using Surl.Cli;
+using Surl.Dtls;
+using Surl.Extended.Protocol.Coap;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
@@ -10,6 +12,8 @@ namespace Surl.Composition;
 [TestClass]
 public sealed class CoapsCompositionTests
 {
+    private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(30);
+
     [TestMethod]
     [DataRow(false, false, false)]
     [DataRow(true, false, true)]
@@ -111,14 +115,29 @@ public sealed class CoapsCompositionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_NeitherCertificateNorAccount_RefusesToBuild()
+    public async Task ServeAsync_AccountAddedAfterAFirstFlowWithACertificateAndNoAccount_CompletesItsPreSharedKeyHandshake()
     {
-        var server = new DeferredCoapsProtocolServer(ComposeServices(false, []));
-        using var cancelled = new CancellationTokenSource();
-        await cancelled.CancelAsync();
-        await using var flow = new InMemoryDatagramFlow(new byte[1], []);
+        var services = ComposeServices(false, []);
+        using var certificate = ThrowawayServerCertificate.Create(TimeProvider.System, ["127.0.0.1"]);
+        services.QuicCertificate.Certificate = QuicServerCertificate.From(certificate, []);
+        var server = new DeferredCoapsProtocolServer(services);
+        await AssertPreSharedKeyRefusedAsync(server);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => server.ServeAsync(flow, ContextFor(cancelled.Token)));
+        services.AuthenticationPolicy.Settings.Accounts.Add(new Account("alice", "secret"));
+
+        await AssertPreSharedKeyEstablishedAsync(server);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FirstFlowWithNeitherCertificateNorAccount_StillServesAFlowAfterAnAccountIsAdded()
+    {
+        var services = ComposeServices(false, []);
+        var server = new DeferredCoapsProtocolServer(services);
+        await AssertPreSharedKeyRefusedAsync(server);
+
+        services.AuthenticationPolicy.Settings.Accounts.Add(new Account("alice", "secret"));
+
+        await AssertPreSharedKeyEstablishedAsync(server);
     }
 
     [TestMethod]
@@ -210,6 +229,38 @@ public sealed class CoapsCompositionTests
         {
             // The cancelled exchange stops the flow once the server is built.
         }
+    }
+
+    // TLS_PSK_WITH_AES_128_GCM_SHA256 (RFC 5487), the one suite every platform has; the client's key is "secret".
+    private static UnitTestDtlsClient PreSharedKeyClient() => new() { CipherSuites = [0x00A8] };
+
+    // RFC 4279 section 2: an identity no account has ends in decrypt_error, as a wrong key does.
+    private static async Task AssertPreSharedKeyRefusedAsync(DeferredCoapsProtocolServer server)
+    {
+        using var patience = new CancellationTokenSource(PatienceLimit);
+        await using var flow = new UnitTestDtlsDatagramFlow(PreSharedKeyClient());
+
+        await server.ServeAsync(flow, ContextFor(patience.Token));
+
+        Assert.IsFalse(flow.IsEstablished);
+        Assert.AreEqual(new DtlsAlert(true, DtlsAlertDescription.DecryptError), flow.ReceivedAlerts.Single());
+    }
+
+    private static async Task AssertPreSharedKeyEstablishedAsync(DeferredCoapsProtocolServer server)
+    {
+        using var exchange = new CancellationTokenSource();
+        using var patience = new CancellationTokenSource(PatienceLimit);
+        await using var flow = new UnitTestDtlsDatagramFlow(PreSharedKeyClient());
+
+        var serving = server.ServeAsync(flow, ContextFor(exchange.Token));
+        while (!flow.IsEstablished && !serving.IsCompleted)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(10), patience.Token);
+        }
+
+        Assert.IsTrue(flow.IsEstablished);
+        await exchange.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
     }
 
     private static LdapAccountSource DirectoryServing(string? protocol)

@@ -125,6 +125,9 @@ offers a GCM suite gets the 16-byte tag.
   identity hint is sent, so the server sends no `ServerKeyExchange` on a PSK handshake (RFC 4279
   section 2). `Surl.Dtls` knows no accounts: it takes a caller-given lookup from identity bytes to
   key bytes, and the CoAP server composes it from the accounts.
+  **Amended** by [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md)
+  amendment 1 (BL-1688): `surl` composes the lookup over the live accounts whether or not one exists, so the PSK
+  rows stay live and, with no account, every identity is unknown.
 - **Who the peer is.** A finished handshake reports to the CoAP server the PSK identity, the client
   certificate, or neither. Whether that is a login is the CoAP server's own ADR's decision.
 - **Starting without a credential.** `coaps` is not one of `TlsSchemes.IsImplicitTls`'s schemes:

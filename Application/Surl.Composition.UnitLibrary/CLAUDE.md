@@ -178,6 +178,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `AuthenticationSettings.HasAccountToLogInTo("coap")` is true on the `coap` policy: an account allowed there, or a
   `--user-ldap` directory serving `coap` or `coaps`. The rules ask it at each read, so an account added or removed
   while the server runs counts at once (ADR-0132, BL-1683).
+- `coaps` pre-shared keys (ADR-0170 and its amendment 1, BL-1688): `DeferredCoapsProtocolServer` builds the server at
+  the first flow and always gives it the live account lookup, so the PSK suites are offered while no account exists
+  (every identity then ends in `decrypt_error`) and an account added later logs in. Tests: `CoapsCompositionTests`.
 
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.

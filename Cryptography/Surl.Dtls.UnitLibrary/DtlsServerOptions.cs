@@ -39,8 +39,9 @@ public sealed record DtlsServerOptions(
     public bool AesCcmSupported { get; init; } = AesCcm.IsSupported;
 
     /// <summary>
-    /// Looks up the key of a PSK identity, or <see langword="null"/> (the default) when no account
-    /// exists, so no PSK suite is live (ADR-0087 decisions 2 and 3).
+    /// Looks up the key of a PSK identity; while it is set the PSK suites are live, even if it knows
+    /// no identity. <see langword="null"/> (the default) offers no PSK suite (ADR-0087 decisions 2 and 3,
+    /// ADR-0170 amendment 1).
     /// </summary>
     public DtlsPreSharedKeyLookup? PreSharedKeys { get; init; }
 

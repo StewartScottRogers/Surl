@@ -95,6 +95,24 @@ Three account sources live outside the instance's `AccountBook`, and so outside 
     verifiers, which are the stored form and not reversible to the password; the snapshot is held in memory as the account
     snapshot is (ADR-0132).
 
+**Amendment 1 (2026-11-25, BL-1688; decided by Claude under Stewart's delegation). The PSK suites are offered while
+no account exists.** Amends ADR-0087 decisions 2 and 3 for how `surl` composes `coaps`.
+
+- `DeferredCoapsProtocolServer` builds the server once, at the first flow, and always gives it the live lookup of
+  decision 5, whether or not any account admits `coaps` then. So an account added afterwards logs in by PSK, and a
+  first flow with no certificate and no account (every account removed before it) no longer fails the build, which
+  had failed every later flow too.
+- **A PSK-only client while no account admits `coaps`** is answered as any unknown identity is (decision 7, ADR-0087
+  decision 10): `ServerHello`, `ServerHelloDone`, then `decrypt_error` once its `Finished` cannot be verified, published
+  as a refused `psk` login. Before, it got `handshake_failure` at its hello. Nobody is admitted, and the answer no
+  longer tells a peer whether any account exists.
+- A client offering certificate and PSK suites still gets a certificate suite when a certificate is served, because
+  certificate suites come first in the server's order. With no certificate and no account, a client offering no PSK
+  suite still gets `handshake_failure`.
+- The start is unchanged: a `coaps` listen URL with no certificate and no account is refused `(58)`.
+- Rejected: asking "does an account exist now" at each hello so that no PSK suite is live without one. It needs a new
+  `Surl.Dtls` option and keeps a difference a peer can read, for no gain in who is admitted.
+
 ## Consequences
 
 A test can seed, remove, reset, snapshot and restore all three account sources, sees every `coaps` PSK login on the event
