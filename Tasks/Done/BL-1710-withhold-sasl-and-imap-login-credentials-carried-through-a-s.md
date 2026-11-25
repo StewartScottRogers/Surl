@@ -47,7 +47,7 @@ SMTP, IMAP and POP3 `AUTH`, IMAP `AUTHENTICATE` and `LOGIN` credentials carried 
 - The review found, and this task fixed: a bare `+` or `334` continuation left the answer logged; a tunnel opening
   with a numbered IMAP tag was logged raw; two spaces after an IMAP tag hid `LOGIN`; a literal made of bare line
   feeds could be counted short.
-- Filed BL-1737: `SaslLineRedactionRule` logs an initial response that follows two spaces (outside `touches`).
+- Filed BL-1738: `SaslLineRedactionRule` logs an initial response that follows two spaces (outside `touches`).
 - `--aihelp` (`logging`, `security`) and the manual still list SASL and IMAP `LOGIN` as not withheld in a tunnel. They
   are in `Surl.Cli`, which BL-1721 held in Doing; BL-1723, which depends on this task, updates them.
 - Final gates: format clean, `dotnet build -warnaserror` clean, fast tests green (83 test assemblies; SOCKS 302),

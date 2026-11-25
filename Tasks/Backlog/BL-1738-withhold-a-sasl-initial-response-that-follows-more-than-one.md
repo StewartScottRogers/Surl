@@ -1,5 +1,5 @@
 ---
-id: BL-1737
+id: BL-1738
 title: Withhold a SASL initial response that follows more than one space in SaslLineRedactionRule
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1737 — Withhold a SASL initial response that follows more than one space in SaslLineRedactionRule
+# BL-1738 — Withhold a SASL initial response that follows more than one space in SaslLineRedactionRule
 
 ## Goal
 

@@ -319,7 +319,7 @@ Accepted limits:
   `+` that invites an IMAP `APPEND` literal) has a client line masked. That loses log detail only.
 - The answer to a synchronizing literal is not awaited, so after a refused `LOGIN` literal the next lines are withheld
   until the announced count is used up.
-- An initial response after two spaces is logged, as in the mail servers' own logs (BL-1737).
+- An initial response after two spaces is logged, as in the mail servers' own logs (BL-1738).
 - An IMAP tag that begins the tunnel with neither a letter nor `1`-`9` leaves the tunnel logged byte for byte.
 - A client that answers before the continuation reaches it, which curl does not do, has that answer judged without it.
   So may a client so fast that its answer is judged between the relay's write of the continuation and its being shown
