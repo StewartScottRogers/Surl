@@ -30,7 +30,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - The HTTP and HTTPS proxies (ADR-0088 Amendment 6, BL-1003): `ComposeAsync` appends `SurlCommandLine.ProxyListenUrls`
   to the listen URLs, and `ProxyComposition.RouteProxyListeners` wraps each server answering `http` or `https` in a
   `ProxyRoutingProtocolServer`, which serves a listen URL with `IsProxy` by one `HttpProxyProtocolServer` and any other by
-  the wrapped server. The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
+  the wrapped server. For the exchange log the router returns the proxy server's redactor on every listen URL it
+  routes, origin ones included, since `ExchangeRedactionContext` does not say which kind it is (ADR-0182 Amendment 8;
+  `ProxyRedactionCompositionTests`). The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
   (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.

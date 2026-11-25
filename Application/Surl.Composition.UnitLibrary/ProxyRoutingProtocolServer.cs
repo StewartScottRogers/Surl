@@ -55,15 +55,20 @@ public sealed class ProxyRoutingProtocolServer : IConnectionProtocolServer, ICon
             : ValueTask.CompletedTask;
 
     /// <summary>
-    /// Hands the engine the redactor of the server behind this one (ADR-0182): the origin servers when it
-    /// redacts, else the proxy servers, else one that passes every byte through. The redaction context does
-    /// not say whether the listen URL is a proxys, and the HTTP servers redactor masks
-    /// <c>Authorization</c> and <c>Proxy-Authorization</c> on either kind.
+    /// Hands the engine the redactor of a server behind this one (ADR-0182, amendment 8): the proxy
+    /// server's when it redacts, else the origin server's, else one that passes every byte through.
+    /// The redaction context does not say whether the listen URL is a proxy's, so with <c>--proxy</c>
+    /// named the origin <c>http</c> and <c>https</c> listen URLs use the proxy's redactor too. For a
+    /// conforming client - one that sends the HTTP/2 connection preface outside a body only to start
+    /// HTTP/2, and does send it after <c>101 Switching Protocols</c> for <c>h2c</c> - the proxy's
+    /// redactor withholds every credential the HTTP origin server's withholds. It also withholds
+    /// every later byte when that preface appears where no request may start, an upload body
+    /// included.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>The redactor for the exchange.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
-        originServer is IExchangeBytesRedactingServer origin ? origin.CreateRedactor(context)
-        : proxyServer is IExchangeBytesRedactingServer proxy ? proxy.CreateRedactor(context)
+        proxyServer is IExchangeBytesRedactingServer proxy ? proxy.CreateRedactor(context)
+        : originServer is IExchangeBytesRedactingServer origin ? origin.CreateRedactor(context)
         : new PassThroughRedactor();
 }
