@@ -7,7 +7,8 @@
   real servers"): `surl` is configured as a real server, with mail domains, mailboxes, shares,
   topics and groups. That approval is his and is not reopened here; this ADR decides what each
   option means.
-- **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379).
+- **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379); a map hides its source name's default topic from that scheme, see the
+  BL-1703 amendment at the end.
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and
@@ -644,3 +645,33 @@ writes it to a peer.
     is an account name like any other to groups, access rows and scheme views.
 - The extended brokers' and object servers' own build tasks word decisions 2.3 and 3.4's denials
   from the specifications cited; the Curl port never decides any of them (ADR-0083).
+
+## Amendment (BL-1703) - a map hides its source name's default topic from that scheme (2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1703, answering
+item 5 (Question) of the Surly bug report `2026-11-25T1430-Surl-bug-report.md`, made against Surl
+v0.1.8 (`9f8005dff`). With
+
+`surl --allow-anonymous --topic-map nats:orders.created=mqtt:shop/orders/new nats://127.0.0.1:P1/ mqtt://127.0.0.1:P2/`
+
+a NATS subscriber to `>` receives nothing for `curl -d B mqtt://127.0.0.1:P2/orders/created`.
+
+**This is intended, and is kept.**
+
+1. Decision 3.3 already says the left name's default mapping is no longer reached from that scheme,
+   and makes a map apply both ways: on `nats`, the subject `orders.created` now means
+   `shop/orders/new`. A name means one topic in both directions, or a subscriber that republishes
+   on, or subscribes to, the subject it was handed reaches a different topic.
+2. Delivering the canonical topic `orders/created` as `orders.created` would hand a `>` subscriber
+   that wrong name, and inventing another name for it (an escape form) would be a mapping no NATS
+   client knows. So the topic has no NATS name, and a topic a scheme cannot name is not delivered to
+   it, wildcard subscribers included, as for any topic NATS cannot name already.
+3. `TopicNameLookup.FromCanonicalTopic` answers `TopicNameMappingOutcome.Unreachable` for a topic
+   whose default name on the scheme is aliased to another topic, for every scheme family it knows.
+   The `nats`, `mqtt5`, `amqp1`, `kafka`, `stomp` and `redis` servers and their TLS twins ask it and
+   drop such a topic. The `mqtt` (MQTT 3.1.1) and `amqp` (AMQP 0-9-1) servers and their TLS twins
+   map names by the default rules alone and never ask it, so as of this amendment a map naming them
+   on its left side is accepted and not applied: they deliver the topic as before. That falls short
+   of decision 3.3; BL-1704 (`amqp`) and BL-1705 (`mqtt`) are to apply the maps there.
+4. A test that wants the hidden topic on that scheme gives it another name with a second map
+   (`nats:orders.created.raw=mqtt:orders/created`); `surl --aihelp messages` says so.
