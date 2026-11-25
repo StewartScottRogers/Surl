@@ -1,5 +1,5 @@
 ---
-id: BL-1712
+id: BL-1724
 title: Send the session's challenges with a chosen RTSP 401 error
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1712 — Send the session's challenges with a chosen RTSP 401 error
+# BL-1724 — Send the session's challenges with a chosen RTSP 401 error
 
 ## Goal
 

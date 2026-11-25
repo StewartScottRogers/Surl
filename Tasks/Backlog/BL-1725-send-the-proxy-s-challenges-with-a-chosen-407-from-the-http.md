@@ -1,5 +1,5 @@
 ---
-id: BL-1713
+id: BL-1725
 title: Send the proxy's challenges with a chosen 407 from the HTTP proxy
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1713 — Send the proxy's challenges with a chosen 407 from the HTTP proxy
+# BL-1725 — Send the proxy's challenges with a chosen 407 from the HTTP proxy
 
 ## Goal
 

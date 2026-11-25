@@ -57,7 +57,7 @@ requires.
 
 - RTSP's chosen error (`RtspRequestResponder`, ADR-0134 decision 2) has the same shape; if a chosen RTSP `401`
   also goes without a challenge, the lane files a follow-up task for it rather than widening this one.
-  It does: filed as BL-1712.
+  It does: filed as BL-1724.
 - Plan: `HttpRequestAnswerer.Faults.cs` (`WwwAuthenticateValuesForChosenError`) asks the session's
   `CreateChallenges()` for a chosen `401`; no exit-code or public-surface change.
 - Decision 1 refined after review (ADR-0134 Amendment 1, D1): a let-in verdict's `WWW-Authenticate` values are
@@ -74,8 +74,8 @@ requires.
   Doing named it.
 - Gates on 2026-11-25: build 0 warnings, format clean, fast tests 28996 passed, 0 failed, 3 skipped;
   `Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` 0 failing members. One earlier full run had
-  one failure in the MQTT 5 tests, which this change does not reach: filed as BL-1714. Other follow-ups:
-  BL-1713 (proxy `407`), BL-1715 (`--aihelp`).
+  one failure in the MQTT 5 tests, which this change does not reach: filed as BL-1726. Other follow-ups:
+  BL-1725 (proxy `407`), BL-1727 (`--aihelp`).
 
 ## Log
 

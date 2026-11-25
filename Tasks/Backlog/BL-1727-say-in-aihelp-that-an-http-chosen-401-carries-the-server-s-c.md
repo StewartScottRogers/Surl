@@ -1,5 +1,5 @@
 ---
-id: BL-1715
+id: BL-1727
 title: Say in --aihelp that an HTTP chosen 401 carries the server's challenges
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1715 — Say in --aihelp that an HTTP chosen 401 carries the server's challenges
+# BL-1727 — Say in --aihelp that an HTTP chosen 401 carries the server's challenges
 
 ## Goal
 
@@ -27,7 +27,7 @@ challenges.
   an `http` or `https` chosen `401` carries the challenges as `WWW-Authenticate` fields; when the server offers none
   on the connection it goes without one and the log says so; over HTTP/2 and HTTP/3, a `401` whose only challenges
   are NTLM or Negotiate is reset (`HTTP_1_1_REQUIRED`, `H3_VERSION_FALLBACK`), so the client does not receive it.
-- RTSP's chosen `401` (BL-1712) and the proxy's chosen `407` (BL-1713): describe either only if its task is in `Done`
+- RTSP's chosen `401` (BL-1724) and the proxy's chosen `407` (BL-1725): describe either only if its task is in `Done`
   (or its archive) and the code does it when this task runs; the proxy's `--fault` paragraph is in the `proxy`
   topic of the same file. Otherwise say nothing about them.
 - A grep of `ManualText.cs` for `--fault` on 2026-11-25 found nothing, so the manual is expected to need no change.
@@ -37,8 +37,8 @@ challenges.
 
 - [ ] The `testing` topic's `--fault` text states the three facts about an HTTP chosen `401` listed in Context.
 - [ ] A test `AiHelpTextTests.Answer_Testing_SaysAnHttpChosen401CarriesTheServersChallenges` passes.
-- [ ] RTSP and proxy behaviour is mentioned only where the code does it, and the Log says which of BL-1712 and
-      BL-1713 were done at the time.
+- [ ] RTSP and proxy behaviour is mentioned only where the code does it, and the Log says which of BL-1724 and
+      BL-1725 were done at the time.
 - [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and the fast tests, the `--aihelp`
       completeness tests included, are green.
 

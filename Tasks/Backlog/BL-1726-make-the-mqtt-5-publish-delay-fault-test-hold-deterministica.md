@@ -1,5 +1,5 @@
 ---
-id: BL-1714
+id: BL-1726
 title: Make the MQTT 5 publish delay fault test hold deterministically
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1714 — Make the MQTT 5 publish delay fault test hold deterministically
+# BL-1726 — Make the MQTT 5 publish delay fault test hold deterministically
 
 ## Goal
 
