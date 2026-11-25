@@ -638,7 +638,12 @@ public sealed class XmppStanzaRouterTests
         Assert.AreEqual(
             new FaultPoint(FaultStage.Command)
             {
-                ExchangeId = 1, ListenUrl = "xmpp://im.example.com:5222/", Scheme = "xmpp", Account = "juliet", Path = "romeo@im.example.com/orchard", Command = "message",
+                ExchangeId = 1,
+                ListenUrl = "xmpp://im.example.com:5222/",
+                Scheme = "xmpp",
+                Account = "juliet",
+                Path = "romeo@im.example.com/orchard",
+                Command = "message",
             },
             faults.Points.First());
         await CloseAsync(juliet, romeo);

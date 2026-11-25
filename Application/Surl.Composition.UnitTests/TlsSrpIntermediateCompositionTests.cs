@@ -27,7 +27,8 @@ public sealed class TlsSrpIntermediateCompositionTests
             File.WriteAllText(certificateFile, leaf.ExportCertificatePem() + "\n" + intermediate.ExportCertificatePem());
             File.WriteAllText(keyFile, key.ExportPkcs8PrivateKeyPem());
             var commandLine = (CommandLineParser.Parse(["--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/"]).CommandLine
-                ?? throw new AssertFailedException("The command line was refused.")) with { CertificateFile = certificateFile, KeyFile = keyFile };
+                ?? throw new AssertFailedException("The command line was refused.")) with
+            { CertificateFile = certificateFile, KeyFile = keyFile };
 
             using var composition = ServerTlsComposition.Compose(commandLine, TimeProvider.System);
 

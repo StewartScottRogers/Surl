@@ -40,7 +40,7 @@ public sealed class FaultPlanCompositionTests
                 AfterBytes = 10,
                 Close = FaultClose.Graceful,
                 Reply = "451 later",
-            Body = "chosen text",
+                Body = "chosen text",
                 Times = 3,
             },
             rule);

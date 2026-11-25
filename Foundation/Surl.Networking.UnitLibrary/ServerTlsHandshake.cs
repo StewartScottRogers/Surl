@@ -3,9 +3,9 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Protocol.Abstractions;
-using Tls13AlertException = Surl.Tls13.TlsAlertException;
 using Surl.Tls13Stream;
 using Surl.TlsSrp;
+using Tls13AlertException = Surl.Tls13.TlsAlertException;
 
 namespace Surl.Networking;
 

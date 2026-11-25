@@ -1,5 +1,5 @@
-using Surl.Protocol.Abstractions;
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ldap;
 

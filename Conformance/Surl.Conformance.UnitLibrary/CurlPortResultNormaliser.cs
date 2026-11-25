@@ -56,7 +56,7 @@ public static class CurlPortResultNormaliser
         @"^((?:Date|Last-Modified):[ \t]*)[^\r\n]*", RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
     private static readonly Regex ETagField = new(
-        @"^(ETag:[ \t]*)[^\r\n]*",RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.IgnoreCase);
+        @"^(ETag:[ \t]*)[^\r\n]*", RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
     private static readonly Regex LoopbackPort = new(
         @"(?<=(?:127\.0\.0\.1|\[::1\]|localhost)(?::| port ))[0-9]+", RegexOptions.CultureInvariant);
