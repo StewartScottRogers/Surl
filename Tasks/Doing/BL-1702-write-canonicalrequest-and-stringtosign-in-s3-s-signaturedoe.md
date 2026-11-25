@@ -66,3 +66,4 @@ holding what the server computed, as AWS S3's does.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
