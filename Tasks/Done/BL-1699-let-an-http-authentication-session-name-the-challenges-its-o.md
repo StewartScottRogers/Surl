@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1699 — Let an HTTP authentication session name the challenges its own 401 offers
 
@@ -43,15 +43,15 @@ still send a challenge.
 
 ## Acceptance criteria
 
-- [ ] A named test in `Foundation/Surl.Protocol.Abstractions.UnitTests` shows an implementation that does not
+- [x] A named test in `Foundation/Surl.Protocol.Abstractions.UnitTests` shows an implementation that does not
       override `CreateChallenges` returns an empty list.
-- [ ] Named tests in `Foundation/Surl.Authentication.UnitTests/HttpAuthenticationSessionTests.cs`: with Basic,
+- [x] Named tests in `Foundation/Surl.Authentication.UnitTests/HttpAuthenticationSessionTests.cs`: with Basic,
       Digest and Bearer offered over TLS, `CreateChallenges()` returns the same values, in the same order, as the
       `Challenge` verdict for a request without `Authorization`; over plain HTTP without `--allow-plaintext-auth`
       it omits Basic as that verdict does; with no HTTP method it is empty.
-- [ ] Regression test for this report's root cause: a session that just returned `Proceed` for a valid Bearer
+- [x] Regression test for this report's root cause: a session that just returned `Proceed` for a valid Bearer
       login still returns `Bearer realm="surl"` from `CreateChallenges()`.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` and
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` and
       `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` are clean, the fast tests of the
       whole solution are green, and both libraries stay at 100% line and branch coverage.
 
@@ -59,8 +59,21 @@ still send a challenge.
 
 - Four projects because the contract member is a few lines and its only implementation is in Surl.Authentication;
   the HTTP server's use of it is BL-1700.
+- The `/feature` stages ran in the lane's own session, with no subagent per stage: the task already fixed the design
+  and the production change is one contract member and one method. Tests were written first and failed to compile
+  (`CS1061`, no `CreateChallenges`). Conformance was skipped: no byte Surl sends changes until BL-1700 calls this.
+- `CreateChallenges` filters with the session's existing `SendsRefusedPlaintextSecret`, the same condition
+  `Challenge()` applied inline before.
+- `Surl.Protocol.Abstractions.UnitLibrary` was at 99.51% branch before this change: no test reached
+  `CookieReceivedEvent.Bound`'s high-surrogate branch (BL-1660). Added
+  `SurlEventContractTests.CookieReceivedEvent_CutEndingInAHighSurrogate_DropsIt`; both libraries now measure
+  100% line and branch.
+- Verify: build 0 warnings, format check and the fast tests of all 83 test assemblies passed.
+  `RunAsync_Heartbeat_PingsEveryPingIntervalAfterThePong` (SocketIo, untouched) failed once in the first full run
+  after its 10 s timeout and passed in the reruns.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. IHttpAuthenticationSession.CreateChallenges() returns the WWW-Authenticate values the connection's own 401 offers, empty by default; filed BL-1704 for an intermittent Socket.IO test
