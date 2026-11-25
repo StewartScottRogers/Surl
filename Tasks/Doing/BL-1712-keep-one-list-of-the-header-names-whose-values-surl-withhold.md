@@ -39,3 +39,4 @@ the SigV4 canonical request both read that list.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
