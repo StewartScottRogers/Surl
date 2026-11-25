@@ -114,11 +114,12 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer, IExchangeBy
     /// <summary>
     /// Creates the redactor that writes secrets as <c>****</c> in the exchange log: the RFC 1929
     /// <c>PASSWD</c> and, in a granted tunnel carrying a text protocol, the argument of <c>PASS</c> and
-    /// <c>ACCT</c> and the credentials of <c>Authorization</c> and <c>Proxy-Authorization</c>. In such a
-    /// tunnel, an HTTP/2 header block carrying either credential field has its frame payloads written as
-    /// <c>****</c>, and every byte after a preface that neither opened the tunnel nor followed an
-    /// <c>HTTP/1.1 101</c> is withheld. Everything else is logged as it arrived (ADR-0182, amendments 6
-    /// and 7, which list the limits).
+    /// <c>ACCT</c>, the credentials of <c>Authorization</c> and <c>Proxy-Authorization</c>, the IMAP
+    /// <c>LOGIN</c> password, and SASL <c>AUTH</c> and <c>AUTHENTICATE</c> initial responses and the
+    /// lines answering <c>334</c> or <c>+</c>. In such a tunnel, an HTTP/2 header block carrying either
+    /// credential field has its frame payloads written as <c>****</c>, and every byte after a preface
+    /// that neither opened the tunnel nor followed an <c>HTTP/1.1 101</c> is withheld. Everything else is
+    /// logged as it arrived (ADR-0182, amendments 6, 7 and 9, which list the limits).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for the connection, used by that exchange alone.</returns>

@@ -183,7 +183,7 @@ masked them (Surly bug report 2026-11-25, item 1). Amendment 2's rule for the HT
    selection; SOCKS4 `00 5A …`), seen through `IReceivedBytesRedactor.ObserveSent`, the client's tunnelled bytes are
    redacted by a tunnel phase (`SocksTunnelBytesRedactor`). Before it, `Socks5PasswordRedactor` redacts the handshake.
 2. **Text or binary.** SOCKS does not say what the tunnel carries, so the first tunnelled client byte decides: an ASCII
-   letter (`A`-`Z`, `a`-`z`) starts a text protocol's command or request line, and the rest of the tunnel goes through
+   letter (`A`-`Z`, `a`-`z`; amendment 9 adds the digits `1`-`9`) starts a text protocol's command or request line, and the rest of the tunnel goes through
    `LineBytesRedactor` with the SOCKS library's `SocksTunnelLineRedactionRule`; any other first byte (TLS `0x16`, MQTT,
    LDAP BER and other binary protocols) passes through unchanged, so ciphertext and binary frames are never held or
    mangled.
@@ -202,8 +202,8 @@ Accepted limits:
 - A binary protocol whose first byte is a letter (AMQP's `AMQP` header, SSH's banner) goes through the line redactor: its
   later bytes are held until a `CR LF`, and past 64 KiB written as `****` (decision 6). So is TLS started inside a text
   tunnel (`STARTTLS`). That loses log detail only.
-- Logins other than the two forms above are not masked inside a tunnel: SASL and IMAP `LOGIN`, and binary logins (MQTT
-  `CONNECT`, LDAP simple bind).
+- SASL and IMAP `LOGIN` credentials were not masked; amendment 9 masks them. Binary logins (MQTT `CONNECT`, LDAP
+  simple bind) are not masked inside a tunnel.
 - HTTP/2 in cleartext (`--http2-prior-knowledge`, or the frames after an `h2c` upgrade) carries `authorization` as an
   HPACK field, not a header line, so the line rule does not see it. Closed by amendment 7.
 - A client that sends ahead of the server's replies (greeting and login together, or tunnelled bytes with the request),
@@ -282,3 +282,45 @@ Accepted limits:
 - FTP and mail logins in cleartext inside a `CONNECT` tunnel are still not masked, as before this amendment (BL-1734).
 - An over-long first `HEADERS` frame relies on BL-1714 to withhold the `CONTINUATION` after it, here as in the
   origin's own log.
+
+## Amendment 9 (BL-1710, decided by Claude under Stewart's delegation)
+
+SMTP, IMAP and POP3 logins carried through a SOCKS tunnel were logged in clear.
+
+1. **Which tunnels are text.** A first tunnelled client byte that is an ASCII letter, or a digit from `1` to `9`
+   (a numbered IMAP tag). `0` (`0x30`) is left out because it opens LDAP's BER sequence. This widens amendment 6,
+   point 2, and amendment 7, point 5.
+2. **Four rules, every line.** SOCKS does not say which protocol the tunnel carries, so `SocksTunnelLineRedactionRule`
+   shows every client line to all of these and logs what the one that withholds from earliest in the line writes:
+
+   | Rule | Masks |
+   | --- | --- |
+   | `SocksTunnelPasswordAndAuthorizationLineRule` | Amendment 6, point 3 |
+   | `SocksTunnelImapLoginLineRule` | The IMAP `LOGIN` password (point 3) |
+   | `SaslLineRedactionRule` (ADR-0183), `AUTH`, `334 ` | SMTP: the `AUTH` initial response and each line answering `334` |
+   | `SaslLineRedactionRule`, `AUTH` and `AUTHENTICATE`, `+ ` | POP3 and IMAP: the initial response and each line answering `+` |
+
+   `Surl.Protocol.Socks.UnitLibrary` now references `Surl.LineProtocol.UnitLibrary`, one of ADR-0002 decision 3's
+   horizontal libraries, which adds to the references ADR-0121 lists for it.
+3. **`LOGIN`.** On a line whose second word is `LOGIN`, the user name (atom or quoted string) stays and everything
+   after it is `****`. A literal marker alone in the password's place is logged. When the line ends in `{n}` or
+   `{n+}`, every line holding the literal's bytes, and the rest of the command on the line that finishes them, is
+   `****`. The SOCKS library keeps its own rule: it may not reference the IMAP server (ADR-0002 decision 3), and
+   masking everything after the user name suits a peer whose dialect is unknown.
+4. **Continuations.** The origin's `334` or `+` line is recognised when the origin's reads split it, and when it has
+   no space after it.
+5. **Bare line feeds.** `SocksTunnelLinesRedactor` judges a line ended by a bare line feed as soon as it arrives, not
+   at the next `CR LF`, so such a client's answers are judged while the continuation is still the origin's last line.
+6. **Raw bytes elsewhere.** The event stream and `SocksUpstreamTestCaseServer` keep raw bytes (decision 4).
+
+Accepted limits:
+
+- Text that only looks like these forms (a message or HTTP body line, any line the origin starts with `+ `, the
+  `+` that invites an IMAP `APPEND` literal) has a client line masked. That loses log detail only.
+- The answer to a synchronizing literal is not awaited, so after a refused `LOGIN` literal the next lines are withheld
+  until the announced count is used up.
+- An initial response after two spaces is logged, as in the mail servers' own logs (BL-1737).
+- An IMAP tag that begins the tunnel with neither a letter nor `1`-`9` leaves the tunnel logged byte for byte.
+- A client that answers before the continuation reaches it, which curl does not do, has that answer judged without it.
+  So may a client so fast that its answer is judged between the relay's write of the continuation and its being shown
+  to the redactor; that window has not been reproduced.
