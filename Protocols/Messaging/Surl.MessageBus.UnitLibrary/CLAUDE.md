@@ -170,7 +170,9 @@ What it holds now (BL-629):
   `TopicNameLookup` every server maps through (ADR-0100's planned `ITopicNameLookup`): the
   default mapping for its scheme (`mqtt`, `mqtt5`, `amqp`, `amqp1`, `kafka`, `nats`, `stomp`,
   `redis` and their TLS twins, and `mqtt5+ws`; a Redis channel is canonical as it stands, BL-866), with each `TopicMap` (`--topic-map`) alias of
-  one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound.
+  one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound,
+  and a filter that is a wildcard on its scheme gets no alias, even when a map names the same text
+  (`orders.*` is an AMQP 0-9-1 routing key and a wildcard binding key, BL-1704).
   `TopicAccessGrant`s (`--topic-access`): with none, everyone may do everything; with any, a
   caller needs a grant to its account or `@everyone`. The caller is an account name, `null`
   for anonymous, on `Connect(string?)`, `Publish(BusMessage, string?)` and

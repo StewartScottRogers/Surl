@@ -131,6 +131,17 @@ public sealed class TopicNameLookupTests
         Assert.AreEqual(TopicNameMapping.Of("a"), lookup.FromCanonicalTopic("amqp", "t"));
     }
 
+    // '*' is an ordinary character of an AMQP 0-9-1 routing key, so a map may name "orders.*";
+    // as a binding key the same text is a wildcard.
+    [TestMethod]
+    public void ToCanonicalFilter_AnAliasedAmqpNameThatAsABindingKeyIsAWildcard_IsMappedByTheDefaultRules()
+    {
+        var lookup = new TopicNameLookup([new TopicMap("amqp", "orders.*", "mqtt", "shop/orders")]);
+
+        Assert.AreEqual(TopicNameMapping.Of("shop/orders"), lookup.ToCanonicalTopic("amqp", "orders.*"));
+        Assert.AreEqual(TopicNameMapping.Of("orders/+"), lookup.ToCanonicalFilter("amqp", "orders.*"));
+    }
+
     [TestMethod]
     public void IsKnownScheme_MessagingAndOtherSchemes_SaysWhichItMaps()
     {
