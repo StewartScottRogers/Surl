@@ -14,7 +14,7 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
 
 - `CommandLineOptions` is the one option table: every `CommandLineOption` row carries its
   `OptionHelp` (argument name, description, `HelpCategories`, short-list flag, default and,
-  for a loosening option, its `Explanation`), so an option cannot be added without its help.
+  for a loosening option and `--mqtt-hold-subscription`, its `Explanation`), so an option cannot be added without its help.
   `CommandLineParser.Parse` reads a whole command line by it, left to right, into a
   `CommandLineParseResult`: `Serve` with a `SurlCommandLine`, `ShowHelp` with its
   `HelpSubject`, `ShowAiHelp` with its `AiHelpTopic`, `ShowManual`, `ShowVersion`, or `Refused` with a `CommandLineFailure`.
@@ -189,6 +189,11 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
 Never touch the console here; `Surl.Console` hands this library its arguments and writers.
 Any change to an option's behaviour updates its `OptionHelp` and the `ManualText` section
 that describes it in the same change (ADR-0034 decision 6).
+
+`--mqtt-hold-subscription <count>` (category `mqtt`, ADR-0014 Amendment 1, BL-1721) reads digits only
+(`OptionArgumentReader.Number`) into `SurlCommandLine.MqttHoldSubscriptionCount`, `null` when not given, the last one
+winning; `Surl.Composition` hands it to the MQTT server. Its `Explanation`, which `--help --mqtt-hold-subscription` and
+`--aihelp mqtt` write, the `mqtt` paragraphs in `AiHelpProse` and the manual's MQTT OPTIONS section change together.
 
 `-x`/`--proxy` is read where it is given (`CommandLineParser.ReadProxyListenUrl`) into
 `SurlCommandLine.ProxyListenUrls`, not into `ListenUrls`, and is refused beside a Unix socket

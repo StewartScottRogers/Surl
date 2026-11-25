@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "KAFKA OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "MQTT 5 OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "KAFKA OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "MQTT OPTIONS", "MQTT 5 OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -411,6 +411,19 @@ public sealed class ManualTextTests
             "    byte on port 443 and needs --cert or --self-signed. Logins are judged by",
             "    the accounts allowed on mcp, or --allow-anonymous.",
             "    surl --aihelp mcp says how each request is answered.",
+            "",
+            "MQTT OPTIONS",
+            "",
+            "    --mqtt-hold-subscription <count> holds every subscription of an mqtt or",
+            "    mqtts listener open: after SUBACK and the retained messages, surl sends",
+            "    each later publish, from any protocol, and sends DISCONNECT right after",
+            "    the PUBLISH that reaches the count, retained messages counted, so curl",
+            "    exits 0. A count of 0 is never reached. Until the count is reached, curl's",
+            "    own --max-time ends the fetch with exit 28 and what had arrived on",
+            "    stdout, and a connection surl closes, on stop or at a limit, is exit 56.",
+            "    Give curl -N to read each message as it arrives. Without the option, the",
+            "    default, a subscribe ends with DISCONNECT after the retained messages.",
+            "    surl --aihelp mqtt says more.",
             "",
             "MQTT 5 OPTIONS",
             "",

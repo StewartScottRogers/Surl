@@ -61,6 +61,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.DeliveredTo),
         nameof(SurlCommandLine.DnsTransports),
         nameof(SurlCommandLine.KafkaFetchCompression),
+        nameof(SurlCommandLine.MqttHoldSubscriptionCount),
         nameof(SurlCommandLine.Mqtt5DisconnectAfterRetained),
         nameof(SurlCommandLine.DnsListenUrlsWithPort),
         nameof(SurlCommandLine.MaxConnections),

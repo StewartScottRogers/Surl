@@ -472,6 +472,7 @@ public static partial class SurlServerComposition
             AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
+            MqttHoldSubscriptionCount = commandLine.MqttHoldSubscriptionCount,
             Mqtt5DisconnectsAfterRetained = commandLine.Mqtt5DisconnectAfterRetained,
             Cookies = commandLine.Cookies,
             KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),

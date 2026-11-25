@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Superseded in part:** decision 3's "a will, user name and password the flags allow are accepted and not read" is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): the user name and password are checked.
 - **Superseded in part:** decision 1's "whatever its `RETAIN` flag says" is superseded by [ADR-0176](ADR-0176-how-the-mqtt-3-1-1-server-treats-the-retain-flag-and-why-it-keeps-the-server-sent-disconnect.md): only a RETAIN 1 publish (or a `--topic ...;retain` match) is retained. Decision 2's `DISCONNECT` is kept by ADR-0176.
-- **Amended by:** [Amendment 1](#amendment-1-2026-11-25-bl-1715-a-subscription-may-be-held-open-for-live-publishes) (2026-11-25, BL-1715): a new option holds a subscription open for live publishes; the server does so since BL-1720, and the option is to be built by BL-1721. Without it decision 2's one-shot subscribe stands.
+- **Amended by:** [Amendment 1](#amendment-1-2026-11-25-bl-1715-a-subscription-may-be-held-open-for-live-publishes) (2026-11-25, BL-1715): a new option holds a subscription open for live publishes; the server does so since BL-1720, and `surl` has the option since BL-1721. Without it decision 2's one-shot subscribe stands.
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28, in BL-036
 
@@ -103,7 +103,7 @@ needs only the `CONNACK`.
 ## Amendment 1 (2026-11-25, BL-1715): a subscription may be held open for live publishes
 
 **Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"). No package, no threshold
-change, no download. The server is built (BL-1720); not yet built: BL-1721 (option) and BL-1722 (pinned curl
+change, no download. The server (BL-1720) and the option (BL-1721) are built; not yet built: BL-1722 (pinned curl
 proof).
 
 ### Why
@@ -148,7 +148,10 @@ exits 0 only on `DISCONNECT`, and sends `PINGREQ` only while it receives nothing
    messages. `mqtt5` is unaffected (it has its own
    [ADR-0093](ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md) behaviour). `Surl.Api`,
    `-K` files and `surl-mcp` get it as they get every command-line option. No warning is printed: it grants no
-   topic `--topic-access` does not already allow.
+   topic `--topic-access` does not already allow. Because the option decides how curl's fetch ends,
+   `surl --help --mqtt-hold-subscription` and `--aihelp mqtt` write an explanation paragraph for it, the kind
+   [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) decision 5 gives loosening options; `--help testing` does not
+   list it (BL-1721).
 3. **What is sent.** The server subscribes on the bus before it writes `SUBACK`, so a publish made after the
    subscriber has the `SUBACK` is never missed. `SUBACK` comes first, then the retained messages as in
    decision 2, then each later publish once per connection however many filters match: QoS 0, `RETAIN` and

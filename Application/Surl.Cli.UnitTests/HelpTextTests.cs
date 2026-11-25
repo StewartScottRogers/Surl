@@ -324,6 +324,7 @@ public sealed class HelpTextTests
             Row(38, "    --max-message <bytes>", "Largest framed message accepted"),
             Row(38, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(38, "-m, --max-time <seconds>", "Longest time one exchange may take"),
+            Row(38, "    --mqtt-hold-subscription <count>", "Hold a subscribe open for live publishes"),
             Row(38, "    --mqtt5-disconnect-after-retained", "End a subscribe after retained messages"),
             Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
             Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
@@ -720,14 +721,15 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("mqtt"),
             "mqtt: MQTT and MQTTS protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            Row(32, "    --directory <directory>", "Data directory, else in memory"),
-            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
-            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
-            Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
-            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
-            Row(32, "    --user-file <file>", "Read accounts from a file"));
+            Row(40, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(40, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(40, "    --directory <directory>", "Data directory, else in memory"),
+            Row(40, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(40, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(40, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(40, "    --mqtt-hold-subscription <count>", "Hold a subscribe open for live publishes"),
+            Row(40, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(40, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Ftp_ListsEveryOptionTheFtpServerReads() =>

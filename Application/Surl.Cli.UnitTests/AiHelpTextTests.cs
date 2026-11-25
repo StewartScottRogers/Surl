@@ -464,7 +464,7 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("testing").Output;
 
-        foreach (var option in CommandLineOptions.All.Where(option => option.Help.Explanation is not null))
+        foreach (var option in CommandLineOptions.All.Where(option => option.Help.Explanation is not null && option.Help.Categories.Contains("testing")))
         {
             StringAssert.Contains(page, NewLine + NewLine + $"`--{option.LongName}`: {option.Help.Explanation}" + NewLine, option.LongName);
         }

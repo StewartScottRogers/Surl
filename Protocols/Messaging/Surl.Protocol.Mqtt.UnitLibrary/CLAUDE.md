@@ -13,8 +13,8 @@ it reads them), then `DISCONNECT`, sent because upstream curl 8.21.0 exits 56 on
 The server keeps no retained messages of its own (BL-635). ADR-0014 records every answer.
 
 The held subscription (ADR-0014 Amendment 1, BL-1720): `MqttProtocolServer`'s optional third
-constructor value, a publish count, absent by default (`surl` gives none until BL-1721 adds the
-option). With it a `SUBSCRIBE` is answered as above but stays open (`MqttHeldSubscription`,
+constructor value, a publish count, absent by default (`surl` gives it `--mqtt-hold-subscription`'s,
+BL-1721). With it a `SUBSCRIBE` is answered as above but stays open (`MqttHeldSubscription`,
 `MqttPacketResponder.HeldSubscription.cs`): the bus subscribe precedes `SUBACK`; each later publish
 is sent once per connection (`BusConnection.AfterMessageDelivered`) as a `PUBLISH` `0x30` while the
 client's packets go on being read; `DISCONNECT` follows the count-th `PUBLISH`, retained ones

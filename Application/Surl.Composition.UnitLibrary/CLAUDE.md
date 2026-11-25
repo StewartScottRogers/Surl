@@ -18,6 +18,10 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
   entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,
   "`surl --aihelp`"). The overload `ComposeProtocolServers(registrations, services)` builds any list.
+- `--mqtt-hold-subscription` (ADR-0014 Amendment 1, BL-1721): the start sets
+  `ComposedProtocolServices.MqttHoldSubscriptionCount` to `SurlCommandLine.MqttHoldSubscriptionCount`, which the
+  one `MqttProtocolServer` for `mqtt` and `mqtts` is built with; `null`, the default, holds no subscription. Tests:
+  `SurlServerCompositionTests.MqttHoldSubscription.cs`.
 - Per-scheme accounts (ADR-0102 decision 4.3 and its 2026-11-06 amendment, BL-881): every
   registration with a login builds its server with `ComposedProtocolServices.AuthenticationPolicyFor(<its
   plain scheme>)`, which the start sets to `SchemeAuthenticationPolicies.For` (carried on
