@@ -42,7 +42,7 @@ The `logging` topic of `surl --aihelp` and the manual say that a SOCKS tunnel ca
   holding secrets.
 - Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests green
   (`Surl.Cli.UnitTests` 1961 passed). No Integration run: help text only.
-- Filed BL-1719 to update these lists once the open redaction tasks land.
+- Filed BL-1723 to update these lists once the open redaction tasks land.
 
 ## Log
 

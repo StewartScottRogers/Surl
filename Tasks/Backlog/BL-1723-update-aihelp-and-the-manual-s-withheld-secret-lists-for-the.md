@@ -1,5 +1,5 @@
 ---
-id: BL-1719
+id: BL-1723
 title: Update --aihelp and the manual's withheld-secret lists for the API-key headers and the closed SOCKS tunnel gaps
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1719 — Update --aihelp and the manual's withheld-secret lists for the API-key headers and the closed SOCKS tunnel gaps
+# BL-1723 — Update --aihelp and the manual's withheld-secret lists for the API-key headers and the closed SOCKS tunnel gaps
 
 ## Goal
 
