@@ -1,5 +1,5 @@
 ---
-id: BL-1712
+id: BL-1715
 title: Decide whether an MQTT 3.1.1 subscription stays open for live publishes
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1712 — Decide whether an MQTT 3.1.1 subscription stays open for live publishes
+# BL-1715 — Decide whether an MQTT 3.1.1 subscription stays open for live publishes
 
 ## Goal
 

@@ -47,7 +47,7 @@ ADR-0102 decision 3.3 says.
   `MessageBus.Names` for the exchange's scheme. Tests: `MqttTopicMapTests`. Recorded in ADR-0102's BL-1705 amendment.
 - Criterion 2 reworded. The server answers a `SUBSCRIBE` with retained messages only, then `DISCONNECT` (ADR-0014), so
   "live" delivery to an MQTT 3.1.1 subscriber does not exist. Adding it changes bytes with no map, which this task
-  forbids; filed as BL-1712.
+  forbids; filed as BL-1715.
 - Will: the server skips the `CONNECT`'s will and publishes none, so there is no will topic to map.
 - Fault rule path: canonical topic at `PUBLISH`, filter as sent at `SUBSCRIBE`, as MQTT 5 does (amends ADR-0139).
 - `touches` gained ADR-0102 and ADR-0139; no task in Doing named either.
