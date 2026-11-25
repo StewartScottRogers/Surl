@@ -48,3 +48,4 @@ canonical request is built, so a request head cannot make the server build text 
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
