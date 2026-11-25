@@ -32,3 +32,4 @@ ADR-0189 decision 2. `SurlServerComposition.ComposeHttp3ProtocolServer` (`SurlSe
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-25: Backlog -> Doing.
