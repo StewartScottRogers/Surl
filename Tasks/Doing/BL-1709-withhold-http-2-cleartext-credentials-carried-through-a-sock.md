@@ -40,3 +40,4 @@ cleartext through its tunnel, with prior knowledge or after an `h2c` upgrade.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
