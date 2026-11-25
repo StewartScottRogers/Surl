@@ -36,3 +36,4 @@ A retained publish made while a held MQTT 3.1.1 `SUBSCRIBE` is still subscribing
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
