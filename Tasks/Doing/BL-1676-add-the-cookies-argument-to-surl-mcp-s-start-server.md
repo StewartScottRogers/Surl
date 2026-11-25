@@ -33,3 +33,4 @@ ADR-0189 decision 1. `Application/Surl.Mcp.UnitLibrary/StartServerTool.cs` holds
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-25: Backlog -> Doing.
