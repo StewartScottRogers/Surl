@@ -9,9 +9,15 @@ only when its `RETAIN` flag is 1 (MQTT 3.1.1 section 3.3.1.3, ADR-0176; a `--top
 declaration makes the bus retain a matching one regardless); a RETAIN 0 publish, all upstream curl sends,
 reaches live subscribers and neither replaces nor removes a retained message; a subscribe is answered with the bus's retained messages its
 filters match (`MqttBusRetainedMessages`, which subscribes to each filter only for the moment
-it reads them), then `DISCONNECT`, sent because upstream curl 8.21.0 exits 56 on a bare close. Topic names and filters are checked and mapped with the
-bus's `MqttTopicNames` (BL-630). The server keeps no retained messages of its own (BL-635).
-ADR-0014 records every answer.
+it reads them), then `DISCONNECT`, sent because upstream curl 8.21.0 exits 56 on a bare close.
+The server keeps no retained messages of its own (BL-635). ADR-0014 records every answer.
+
+Topic names and filters are mapped with the bus's `TopicNameLookup` (`MessageBus.Names`) for the
+exchange's scheme: MQTT's names are the bus's as they stand (`MqttTopicNames`, BL-630, which also
+checks each filter), with each `--topic-map` alias naming `mqtt` or `mqtts` on its left applied
+both ways (ADR-0102 decision 3.3, BL-1705). A wildcard filter gets no alias, and a retained
+message on a topic the map hides from the scheme is not sent. The `CONNECT`'s will is skipped, so
+there is no will topic to map.
 
 Every `CONNECT`'s user name and password (the will is read and skipped) go to the
 `IAuthenticationPolicy` from `Surl.Protocol.Abstractions`, with the connection's
@@ -29,9 +35,9 @@ QoS, since MQTT 3.1.1 has no negative acknowledgement, and the connection goes o
 
 The chosen-error fault (ADR-0124 decision 4, ADR-0139; `MqttPacketResponder.Faults.cs`): the
 exchange's `IFaultPlan` is asked at an accepted `CONNECT`, at each valid `SUBSCRIBE` filter (the
-filter as its path) and at each `PUBLISH` (the topic as its path), with the account the login proved,
-before the bus. A matching `error` rule's reason code 128 to 255 is answered `CONNACK` with the 3.1.1
-code of the same meaning (else 3) and a close, `SUBACK` `0x80` for that filter, or a close with nothing
+filter as sent as its path) and at each `PUBLISH` (the bus's topic, a `--topic-map` alias applied, as
+its path), with the account the login proved, before the bus. A matching `error` rule's reason code
+128 to 255 is answered `CONNACK` with the 3.1.1 code of the same meaning (else 3) and a close, `SUBACK` `0x80` for that filter, or a close with nothing
 published; each publishes one `FaultAppliedEvent`. A `delay` or `drop` rule there is applied through
 `CommandStageFaults` (ADR-0141, BL-920): a delay holds the answer its `ms` with the idle clock paused, a
 drop aborts the connection with no answer and nothing published. A reply that does not fit, or another

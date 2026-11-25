@@ -11,6 +11,8 @@
   [ADR-0135](ADR-0135-how-the-ssh-and-smb-servers-answer-a-chosen-error.md) (the same question for other
   families, whose "noted and not applied" rule this one follows).
 - **Acted on by:** BL-797.
+- **Amended:** decision 1's `PUBLISH` path is the bus's topic, a `--topic-map` alias applied (BL-1705),
+  see [ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)'s BL-1705 amendment.
 
 ## Context
 

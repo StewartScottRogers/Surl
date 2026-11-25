@@ -8,7 +8,8 @@
   topics and groups. That approval is his and is not reopened here; this ADR decides what each
   option means.
 - **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379); a map hides its source name's default topic from that scheme, see the
-  BL-1703 amendment at the end; the AMQP 0-9-1 server applies maps, see the BL-1704 amendment.
+  BL-1703 amendment at the end; the AMQP 0-9-1 server applies maps, see the BL-1704 amendment; so
+  does the MQTT 3.1.1 server, see the BL-1705 amendment.
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and
@@ -703,3 +704,27 @@ either scheme; the behaviour is judged by decision 3.3 and the AMQP 0-9-1 specif
    queue, which holds messages sent to it directly too, and the bus message does not say how it
    arrived, so discarding would risk losing a message a client sent to that queue; ADR-0112 already
    gives such a topic an answer that names no topic.
+
+## Amendment (BL-1705) - how the MQTT 3.1.1 server applies a map (2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1705. It
+replaces what the BL-1703 amendment's item 3 says of the `mqtt` and `mqtts` servers: they now ask
+`MessageBus.Names` for the listener's scheme, so decision 3.3 holds there, and with the BL-1704
+amendment every messaging server applies maps. No byte changes without a map. With one, only the
+topic names Surl takes and sends change; the packets' form is ADR-0014's, judged by MQTT 3.1.1 and
+decision 3.3.
+
+1. **Where a map applies.** To a `PUBLISH`'s topic name (published on the alias's target), to a
+   `SUBSCRIBE` filter that is exactly an aliased name (a wildcard filter is mapped by the default
+   rules alone), and to the topic name of each retained `PUBLISH` sent back.
+2. **A hidden topic is not sent**, to wildcard subscribers included (the BL-1703 amendment's item 2),
+   and is not counted among the retained messages the exchange log notes as delivered. Retained
+   messages keep the ordinal order of the bus's topics, whatever names they are sent under.
+3. **No will and no live delivery.** This server skips the `CONNECT`'s will and answers a
+   `SUBSCRIBE` with retained messages alone, then `DISCONNECT` (ADR-0014), so a map has no will
+   topic and no later delivery to name here. BL-1705 leaves both as they were.
+4. **What names a rule or a note sees.** `--topic-access` and the exchange log's refused-publish
+   note see the canonical topic, as access rows are written in canonical names. A fault rule's path
+   is the canonical topic at a `PUBLISH` and the filter as sent at a `SUBSCRIBE`, as the MQTT 5
+   server gives them; this amends ADR-0139 decision 1's "its topic as the path". **Why:** one fault
+   rule or access row then matches a publish whichever protocol's name the client used.
