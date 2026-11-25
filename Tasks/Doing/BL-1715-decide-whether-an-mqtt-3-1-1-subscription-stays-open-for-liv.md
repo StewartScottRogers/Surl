@@ -36,3 +36,4 @@ An ADR says whether `surl`'s MQTT 3.1.1 server keeps a `SUBSCRIBE` open and deli
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
