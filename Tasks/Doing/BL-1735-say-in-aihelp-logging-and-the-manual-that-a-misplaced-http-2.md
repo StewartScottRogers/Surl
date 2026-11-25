@@ -45,3 +45,4 @@ appearing where no request may start makes every later byte of that connection l
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
