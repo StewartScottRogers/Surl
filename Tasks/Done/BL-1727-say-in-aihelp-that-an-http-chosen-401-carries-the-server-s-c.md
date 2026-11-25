@@ -8,7 +8,7 @@ depends-on: [BL-1700]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1727 — Say in --aihelp that an HTTP chosen 401 carries the server's challenges
 
@@ -35,16 +35,30 @@ challenges.
 
 ## Acceptance criteria
 
-- [ ] The `testing` topic's `--fault` text states the three facts about an HTTP chosen `401` listed in Context.
-- [ ] A test `AiHelpTextTests.Answer_Testing_SaysAnHttpChosen401CarriesTheServersChallenges` passes.
-- [ ] RTSP and proxy behaviour is mentioned only where the code does it, and the Log says which of BL-1724 and
+- [x] The `testing` topic's `--fault` text states the three facts about an HTTP chosen `401` listed in Context.
+- [x] A test `AiHelpTextTests.Answer_Testing_SaysAnHttpChosen401CarriesTheServersChallenges` passes.
+- [x] RTSP and proxy behaviour is mentioned only where the code does it, and the Log says which of BL-1724 and
       BL-1725 were done at the time.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and the fast tests, the `--aihelp`
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and the fast tests, the `--aihelp`
       completeness tests included, are green.
 
 ## Notes
+
+- Added one paragraph after the `--fault` paragraph of the `testing` topic in `AiHelpProse.cs`, rather than
+  lengthening that paragraph.
+- Facts checked against `HttpRequestAnswerer.Faults.cs` (`WwwAuthenticateValuesForChosenError`),
+  `ConnectionBoundLogins.cs`, `Http2StreamAnswerWriter.cs`, `Http3StreamAnswerWriter.cs` and ADR-0134 Amendment 1.
+  The paragraph also says one of the rule's `times` is spent on a reset `401`, as the amendment's Consequences say.
+- RTSP and proxy behaviour is not mentioned: BL-1724 was in `Doing` and BL-1725 in `Backlog`. Whichever lands
+  later adds its own help text if its task says so.
+- `ManualText.cs` has no `--fault` text, so it is unchanged.
+- Verify: solution build with `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
+  0 failed (`Surl.Cli.UnitTests` 1962 passed).
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: BL-1724 (in Doing) and BL-1725 (in Backlog) were not done, so the help says nothing about RTSP or
+  proxy challenges.
+- 2026-11-25: Doing -> Done. surl --aihelp testing now says an HTTP chosen 401 carries the server's challenges, goes without when none are offered, and is reset over HTTP/2 and HTTP/3 when only NTLM or Negotiate
