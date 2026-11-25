@@ -1,5 +1,5 @@
 ---
-id: BL-1714
+id: BL-1718
 title: Withhold API-key headers from the exchange log of WebTransport's HTTP/3 request header blocks
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1714 — Withhold API-key headers from the exchange log of WebTransport's HTTP/3 request header blocks
+# BL-1718 — Withhold API-key headers from the exchange log of WebTransport's HTTP/3 request header blocks
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1713
+id: BL-1717
 title: Withhold API-key headers from the exchange log of HTTP/2 and gRPC request header blocks
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1713 — Withhold API-key headers from the exchange log of HTTP/2 and gRPC request header blocks
+# BL-1717 — Withhold API-key headers from the exchange log of HTTP/2 and gRPC request header blocks
 
 ## Goal
 

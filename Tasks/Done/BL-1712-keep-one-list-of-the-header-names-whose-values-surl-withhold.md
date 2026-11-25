@@ -44,7 +44,7 @@ the SigV4 canonical request both read that list.
   its rows now come from `HttpWithheldHeaderNames.All`, each as listed and in lower case.
 - No ADR: no behaviour change and no new decision.
 - The HTTP/2, HTTP/3 and SOCKS tunnel redactors name only `Authorization` and `Proxy-Authorization` themselves
-  (outside this task). The HTTP/2 and HTTP/3 ones leave gRPC and WebTransport API keys in clear: filed BL-1713, BL-1714.
+  (outside this task). The HTTP/2 and HTTP/3 ones leave gRPC and WebTransport API keys in clear: filed BL-1717, BL-1718.
 - `dotnet format --verify-no-changes` passes on the changed files; on the whole solution it reports line endings in
   `Surl.MailStore.UnitTests/MailboxStoreEventTests.cs`, whose working copy is LF and which this task did not touch.
 
