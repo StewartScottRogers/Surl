@@ -17,6 +17,11 @@
   decided by Claude under Stewart's delegation): transactions and publisher confirms are served
   (decision 6, "Transactions" and "Publisher confirms"), `publisher_confirms` is always announced
   (decision 2), and `tx` and `confirm` leave the `540` row for `406` (decision 7).
+- **Amended:** decisions 5 and 6 (2026-11-25, BL-1704): wherever they say `AmqpTopicExchangeNames`
+  maps a routing key, binding key or topic, the server now asks `MessageBus.Names` for its scheme,
+  which applies the same rules with each `--topic-map` alias on top
+  ([ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)'s
+  BL-1704 amendment).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)

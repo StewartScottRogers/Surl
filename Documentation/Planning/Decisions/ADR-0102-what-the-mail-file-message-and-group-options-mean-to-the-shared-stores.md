@@ -8,7 +8,7 @@
   topics and groups. That approval is his and is not reopened here; this ADR decides what each
   option means.
 - **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379); a map hides its source name's default topic from that scheme, see the
-  BL-1703 amendment at the end.
+  BL-1703 amendment at the end; the AMQP 0-9-1 server applies maps, see the BL-1704 amendment.
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and
@@ -675,3 +675,31 @@ a NATS subscriber to `>` receives nothing for `curl -d B mqtt://127.0.0.1:P2/ord
    of decision 3.3; BL-1704 (`amqp`) and BL-1705 (`mqtt`) are to apply the maps there.
 4. A test that wants the hidden topic on that scheme gives it another name with a second map
    (`nats:orders.created.raw=mqtt:orders/created`); `surl --aihelp messages` says so.
+
+## Amendment (BL-1704) - how the AMQP 0-9-1 server applies a map (2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1704. It
+replaces what the BL-1703 amendment's item 3 says of the `amqp` and `amqps` servers: they now ask
+`MessageBus.Names` for the listener's scheme, so decision 3.3 holds there. No upstream curl speaks
+either scheme; the behaviour is judged by decision 3.3 and the AMQP 0-9-1 specification (ADR-0083).
+
+1. **Where a map applies.** To every routing key a client publishes with, whatever the exchange (it
+   gives the bus message its canonical topic; which queues the other exchanges choose still goes by
+   the key as sent), to a binding or unbinding key on `amq.topic`, and to `reply-to`; and, outbound,
+   to the routing key and `reply-to` of a delivery built from a bus message. **Why:** a name means
+   one topic in both directions (the BL-1703 amendment's item 1), and `nats` already maps its reply
+   subject the same way.
+2. **Exact keys only.** A binding key with a `*` or `#` word is a wildcard, so the default rules map
+   it (decision 3.3). `*` is an ordinary character of a routing key, so a map may name `orders.*`:
+   that applies to the routing key `orders.*`, never to the binding key. `TopicNameLookup.ToCanonicalFilter`
+   therefore gives a filter that is a wildcard on its scheme no alias. A map's name past 255 bytes is
+   no routing key a client can be sent (a `shortstr`), so outbound its target has no 0-9-1 name.
+3. **A message published over AMQP 0-9-1 keeps its own routing key** when delivered to an AMQP 0-9-1
+   client, from its native form (ADR-0112 decision 6), unchanged by any map.
+4. **A hidden topic is delivered as any topic with no 0-9-1 name** (ADR-0112 decision 6): when a
+   wildcard binding on `amq.topic` copies it into a queue, `basic.deliver` and `get-ok` carry the
+   default exchange `""` and the queue's name, never the hidden routing key. It is not discarded,
+   unlike a live subscriber's (the BL-1703 amendment's item 2). **Why:** the delivery comes from a
+   queue, which holds messages sent to it directly too, and the bus message does not say how it
+   arrived, so discarding would risk losing a message a client sent to that queue; ADR-0112 already
+   gives such a topic an answer that names no topic.
