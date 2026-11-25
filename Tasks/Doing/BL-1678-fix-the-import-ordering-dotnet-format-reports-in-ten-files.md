@@ -37,3 +37,4 @@ On 2026-11-24 (during BL-1673) it exited 2. Besides what BL-1673 fixed, it repor
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-25: Backlog -> Doing.
