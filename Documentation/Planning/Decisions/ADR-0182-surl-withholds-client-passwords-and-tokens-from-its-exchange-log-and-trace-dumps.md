@@ -133,6 +133,7 @@ IMAP `+`, the next client line is a secret).
 ## Amendment 2 (BL-1425, decided by Claude under Stewart's delegation)
 
 - The HTTP proxy's redactor is `HttpRequestHeadBytesRedactor` on curl's connection, the one the engine logs.
+  Superseded by amendment 8; the rest of this amendment stands.
 - **Origin-side bytes are not logged.** The proxy reaches origins through `IOriginConnector`; those connections never pass
   through the exchange log, so the `Authorization` the proxy forwards is withheld there by construction, and the one in
   curl's own head is masked on curl's side.
@@ -242,3 +243,42 @@ Accepted limits:
   request, the tunnel's first byte seen is a frame's `00`, so the whole tunnel is logged byte for byte (BL-1707).
 - An over-long first `HEADERS` frame does not yet make `Http2RequestBytesRedactor` withhold the `CONTINUATION` after
   it, here or in the origin's own log (BL-1714).
+
+## Amendment 8 (BL-1713, decided by Claude under Stewart's delegation)
+
+A `CONNECT` tunnel through the HTTP proxy carrying HTTP/2 in cleartext could log its `authorization` and
+`proxy-authorization` values, because amendment 2's redactor reads header lines only.
+
+1. **Finding.** Composed `surl` never used the proxy's redactor: `ProxyRoutingProtocolServer.CreateRedactor` preferred
+   the origin HTTP server's, so a change to the proxy's alone would not have reached `surl`. The router now prefers the
+   proxy's. `ExchangeRedactionContext` does not say whether the listen URL is a proxy's, so with `--proxy` named the
+   origin `http` and `https` listen URLs use the proxy's redactor too, in place of amendment 3's. Adding `IsProxy` to
+   that contract was rejected: a contract change for no gain in what is withheld from a conforming client. This
+   supersedes amendment 2's statement that the proxy's redactor is `HttpRequestHeadBytesRedactor`.
+2. **Finding HTTP/2.** `HttpProxyConnectionBytesRedactor` redacts HTTP/1.x request heads as before until the 24-byte
+   client preface, found however the chunks split it. Bytes up to and including the preface are logged by that rule.
+   What follows depends on where the preface starts; no `101` is consulted.
+
+   | Where the preface starts | What is logged after it |
+   | --- | --- |
+   | Where a request may start: ALPN `h2` on curl's connection, prior knowledge in a `CONNECT` tunnel, after an `h2c` upgrade request | What `Surl.Http2`'s `Http2RequestBytesRedactor` writes (amendment 3's form) |
+   | Anywhere else: after the `PROXY` line of curl's `--haproxy-protocol` in a tunnel, mid-line, inside a request body | One `****` for every later byte (`HttpProxyWithheldBytesRedactor`): fail closed |
+
+3. **Raw bytes elsewhere.** The event stream and `HttpProxyUpstreamTestCaseServer` keep raw bytes (decision 4).
+
+Accepted limits:
+
+- The `DATA` frames of an HTTP/2 `CONNECT` stream are still logged as received, so a credential tunnelled there **can
+  be logged**: curl 8.21.0 `--proxy-http2 -p` sends plaintext HTTP/1.1 in them (fixture `https-proxy-h2-connect`).
+  The aim of keeping these two fields out of the proxy's log is not met for this case (BL-1715).
+- A preface where a request may start, followed by bytes that are not frames, is read as frames, so text sent after it
+  **can be logged**, on an origin listen URL too when `--proxy` is named. curl does not do this.
+- After a `101` to `Upgrade: h2c`, a client that sends anything but the exact preface and then `HEADERS` is not
+  masked, although the origin HTTP server's redactor would have masked it. Only a non-conforming client does this.
+- A preface anywhere else loses all later log detail, an upload body that holds it included, on origin listen URLs too
+  when `--proxy` is named. Saying so in the help text is BL-1717.
+- An upgrade request declaring `Content-Length: 0` leaves `HttpRequestHeadBytesRedactor` not at a request start until
+  the next byte arrives, so the preface after it withholds the rest (BL-1718).
+- FTP and mail logins in cleartext inside a `CONNECT` tunnel are still not masked, as before this amendment (BL-1716).
+- An over-long first `HEADERS` frame relies on BL-1714 to withhold the `CONTINUATION` after it, here as in the
+  origin's own log.
