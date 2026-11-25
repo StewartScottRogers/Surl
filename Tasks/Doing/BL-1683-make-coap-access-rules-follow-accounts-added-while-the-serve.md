@@ -39,3 +39,4 @@ is added while it runs, as the HTTP server does.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
