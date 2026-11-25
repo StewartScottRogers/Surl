@@ -70,3 +70,4 @@ own `407` would offer on that connection, over HTTP/1.1 and HTTP/2.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
