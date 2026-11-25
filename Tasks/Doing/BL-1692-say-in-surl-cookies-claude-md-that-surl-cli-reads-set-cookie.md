@@ -31,3 +31,4 @@ Surl keeping no cookie jar is still true and stays. Found while delivering BL-16
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
