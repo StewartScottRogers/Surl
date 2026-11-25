@@ -55,7 +55,7 @@ orders the test against the server's session.
   cause, and it would have failed the 20-run criterion's project the same way.
 - Verified 2026-11-25: 20 of 20 project runs passed (290 tests each); build 0 warnings; format check clean; fast
   tests 29022 passed, 0 failed, 3 skipped.
-- Filed BL-1713 for a separate library lateness found while reading the clock.
+- Filed BL-1716 for a separate library lateness found while reading the clock.
 
 ## Log
 

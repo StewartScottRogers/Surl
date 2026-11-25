@@ -1,5 +1,5 @@
 ---
-id: BL-1713
+id: BL-1716
 title: End a Socket.IO session on time when --head-timeout is shorter than the wait its clock is already in
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1713 — End a Socket.IO session on time when --head-timeout is shorter than the wait its clock is already in
+# BL-1716 — End a Socket.IO session on time when --head-timeout is shorter than the wait its clock is already in
 
 ## Goal
 
