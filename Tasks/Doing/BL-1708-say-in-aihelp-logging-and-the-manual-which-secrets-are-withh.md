@@ -36,3 +36,4 @@ The `logging` topic of `surl --aihelp` and the manual say that a SOCKS tunnel ca
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
