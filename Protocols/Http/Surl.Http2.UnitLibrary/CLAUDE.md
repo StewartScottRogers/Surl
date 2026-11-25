@@ -10,7 +10,8 @@ limits of ADR-0081 decision 5, and hands each request stream to a handler.
 
 Namespace `Surl.Http2`. This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Hpack.UnitLibrary` and nothing else (ADR-0086 decision 5; `ProtocolIsolationTests` holds
-the row). `Surl.Protocol.Http` references it, and gRPC will.
+the row). `Surl.Protocol.Http`, `Surl.Protocol.HttpProxy`, `Surl.Protocol.Socks`,
+`Surl.Extended.Protocol.Grpc` and `Surl.Extended.Protocol.DnsQuery` reference it.
 
 Public, what a server uses:
 
@@ -38,6 +39,8 @@ Public, what a server uses:
   fields as that stream's header block with `END_STREAM`, and `GOAWAY` naming that stream,
   `NO_ERROR`, and half-closes; a close or a malformed frame first writes nothing, and the
   caller's deadline token bounds the whole of it.
+- `Http2RequestBytesRedactor` - what the exchange log may write of a client's HTTP/2 bytes
+  (ADR-0182); its class remarks say what it withholds and how much it holds back.
 - `Http2ConnectionPreface` (tells the 24 preface bytes from an HTTP/1.x head),
   `Http2SettingsPayload` (decodes an `HTTP2-Settings` payload), `Http2Setting`,
   `Http2SettingIdentifier`, `Http2ErrorCode`, and `Http2RequestHeadMapping`; `Surl.Http3` keeps

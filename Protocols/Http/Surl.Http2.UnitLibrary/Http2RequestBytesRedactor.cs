@@ -19,11 +19,12 @@ namespace Surl.Http2;
 /// can refer to a value an earlier block put in the dynamic table, so a copy of the connection's
 /// HPACK decoder decodes the blocks, in order, to know which fields each carries. A header block is
 /// held back, frame by frame, until its <c>END_HEADERS</c>; <see cref="Flush"/> writes an unfinished
-/// one withheld. No more than 64 KiB of payload is ever held; the cap does not count the frame
-/// headers held with it, so it does not limit the number of empty frames held. A block the copy
-/// cannot decode, a block whose payloads outgrow the cap, any frame other than <c>HEADERS</c> or
-/// <c>CONTINUATION</c> inside an open block, a <c>HEADERS</c> inside an open block, a
-/// <c>CONTINUATION</c> with no open block or on another stream than its block's (RFC 9113
+/// one withheld. The frames held for an open block, each counted as its 9-byte frame header plus its
+/// payload, never total more than 64 KiB (65,536 bytes), so at most 7,281 frames are held, empty
+/// ones included. A frame whose header and declared length would take the total past that is not
+/// held. A block the copy cannot decode, a block whose frames outgrow the cap, any frame other than
+/// <c>HEADERS</c> or <c>CONTINUATION</c> inside an open block, a <c>HEADERS</c> inside an open
+/// block, a <c>CONTINUATION</c> with no open block or on another stream than its block's (RFC 9113
 /// section 6.10), and a <c>PUSH_PROMISE</c>, which a client may not send (section 8.4), each leave
 /// the copy's table unknown. The open block's held frames are then written withheld, and from then
 /// on every <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c> payload, the offending
@@ -33,7 +34,7 @@ namespace Surl.Http2;
 public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 {
     private const int FrameHeaderLength = 9;
-    private const int HeldBlockLimit = 64 * 1024;
+    private const int HeldFramesLimit = 64 * 1024;
     private const byte HeadersType = 0x1;
     private const byte PushPromiseType = 0x5;
     private const byte ContinuationType = 0x9;
@@ -60,7 +61,7 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     private PayloadMode payloadMode = PayloadMode.PassThrough;
     private byte[] heldPayload = [];
     private int heldPayloadRead;
-    private int heldBlockLength;
+    private int heldFramesLength;
     private bool decoderLost;
 
     /// <inheritdoc />
@@ -133,7 +134,8 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         {
             LoseDecoderIfBlockOpenAndStartPassThroughFrame(output);
         }
-        else if (decoderLost || !FitsHeaderBlockSequence(type) || heldBlockLength + length > HeldBlockLimit)
+        else if (decoderLost || !FitsHeaderBlockSequence(type)
+            || heldFramesLength + FrameHeaderLength + length > HeldFramesLimit)
         {
             LoseDecoderAndStartWithheldFrame(output);
         }
@@ -210,7 +212,7 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     private void CompleteHeldFrame(ArrayBufferWriter<byte> output)
     {
         heldFrames.Add((frameHeader.ToArray(), heldPayload));
-        heldBlockLength += heldPayload.Length;
+        heldFramesLength += FrameHeaderLength + heldPayload.Length;
         payloadMode = PayloadMode.PassThrough;
         payloadRemaining = 0;
         if ((frameHeader[4] & EndHeadersFlag) != 0)
@@ -236,7 +238,7 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         }
 
         heldFrames.Clear();
-        heldBlockLength = 0;
+        heldFramesLength = 0;
     }
 
     private bool TryReadBlockCarriesSecret(out bool carriesSecret)
@@ -315,6 +317,6 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         }
 
         heldFrames.Clear();
-        heldBlockLength = 0;
+        heldFramesLength = 0;
     }
 }

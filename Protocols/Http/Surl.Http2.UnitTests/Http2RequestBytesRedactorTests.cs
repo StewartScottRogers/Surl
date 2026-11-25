@@ -8,7 +8,7 @@ namespace Surl.Http2;
 /// The HTTP/2 redactor withholds the payloads of header blocks that carry <c>authorization</c> or
 /// <c>proxy-authorization</c>, every <c>PUSH_PROMISE</c> payload, and, once it can no longer follow
 /// the header blocks, every later <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c>
-/// payload (ADR-0182, BL-1423, BL-1714, BL-1728).
+/// payload (ADR-0182, BL-1423, BL-1714, BL-1728, BL-1729).
 /// </summary>
 [TestClass]
 public sealed class Http2RequestBytesRedactorTests
@@ -45,6 +45,13 @@ public sealed class Http2RequestBytesRedactorTests
     private static readonly (string, string)[] Plain = [(":method", "GET"), (":path", "/"), ("host", "h")];
 
     private static byte[] WithPayloadWithheld(byte[] frame) => Join(frame[..9], "****"u8.ToArray());
+
+    private static byte[] Repeat(byte[] frame, int count) => Join([.. Enumerable.Repeat(frame, count)]);
+
+    private static byte[] OpenEmptyHeaders => Headers([], endHeaders: false);
+
+    private static byte[] EmptyContinuation(bool endHeaders = false) =>
+        Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, [], endHeaders));
 
     [TestMethod]
     public void Redact_HuffmanCodedAuthorization_WithholdsThePayload()
@@ -310,6 +317,77 @@ public sealed class Http2RequestBytesRedactorTests
         var (_, bytes) = Redact([Join(Preface, first, second)]);
 
         Assert.AreEqual(24 + 13 + 13, bytes.Length);
+    }
+
+    [TestMethod]
+    public void Redact_EmptyContinuationsPastTheCap_WritesTheHeldFramesWithheldBeforeFlush()
+    {
+        var open = OpenEmptyHeaders;
+        var empty = EmptyContinuation();
+        var redactor = new Http2RequestBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        // 7,281 frame headers are 65,529 bytes, the most whole empty frames the 65,536 cap holds.
+        redactor.Redact(Join(Preface, open, Repeat(empty, 7280)), output);
+
+        Assert.AreEqual(24, output.WrittenCount);
+
+        redactor.Redact(empty, output);
+
+        Assert.AreEqual(94_690, output.WrittenCount);
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(open), Repeat(WithPayloadWithheld(empty), 7281)),
+            output.WrittenSpan.ToArray());
+    }
+
+    [TestMethod]
+    public void Redact_HeaderBlockFramesAfterEmptyContinuationsPassTheCap_WithholdsTheirPayloads()
+    {
+        var closing = Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, Block(new HpackEncoder(), Plain), true));
+        var later = Headers(Block(new HpackEncoder(), Plain));
+        var stream = Join(Preface, OpenEmptyHeaders, Repeat(EmptyContinuation(), 7281), closing, later);
+
+        var (_, bytes) = Redact([stream]);
+
+        Assert.AreEqual(94_716, bytes.Length);
+        CollectionAssert.AreEqual(
+            Join(WithPayloadWithheld(closing), WithPayloadWithheld(later)),
+            bytes[^26..]);
+    }
+
+    [TestMethod]
+    public void Redact_EmptyContinuationsEndingTheBlockAtTheCap_AreLoggedAsReceived()
+    {
+        // 7,281 frames in all, the most the cap holds.
+        var stream = Join(Preface, OpenEmptyHeaders, Repeat(EmptyContinuation(), 7279), EmptyContinuation(endHeaders: true));
+
+        var (_, bytes) = Redact([stream]);
+
+        Assert.AreEqual(65_553, bytes.Length);
+        CollectionAssert.AreEqual(stream, bytes);
+    }
+
+    [TestMethod]
+    public void Redact_HeadersFrameWhoseFrameHeaderTakesItPastTheCap_IsWithheldAtOnce()
+    {
+        // A 65,528-byte payload: 65,537 bytes with its frame header.
+        byte[] header = [0x00, 0xFF, 0xF8, 0x01, 0x04, 0, 0, 0, 1];
+
+        var (_, bytes) = Redact([Join(Preface, header)], flush: false);
+
+        Assert.AreEqual(37, bytes.Length);
+        CollectionAssert.AreEqual(Join(Preface, WithPayloadWithheld(header)), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_HeadersFrameThatExactlyFillsTheCap_IsHeld()
+    {
+        // A 65,527-byte payload: 65,536 bytes with its frame header.
+        byte[] header = [0x00, 0xFF, 0xF7, 0x01, 0x04, 0, 0, 0, 1];
+
+        var (_, bytes) = Redact([Join(Preface, header)], flush: false);
+
+        Assert.AreEqual(24, bytes.Length);
     }
 
     [TestMethod]
