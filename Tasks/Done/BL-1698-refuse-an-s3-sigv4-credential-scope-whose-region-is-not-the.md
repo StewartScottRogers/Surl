@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md]
+touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md, Documentation/Conformance/Extended/S3.md, Application/Surl.Cli.UnitLibrary/AiHelpProse.cs]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1698 — Refuse an S3 SigV4 credential scope whose region is not the regional endpoint's
 
@@ -52,24 +52,43 @@ regional AWS `Host` (`s3.<region>.amazonaws.com` or `<bucket>.s3.<region>.amazon
 
 ## Acceptance criteria
 
-- [ ] Regression test for this report in `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests` (in
+- [x] Regression test for this report in `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests` (in
       `S3LoginExchangeTests.cs` or `S3LoginTests.cs`): `GET /hello.txt` with `Host: photos.s3.us-east-1.amazonaws.com`
       and a valid signature over the scope `…/eu-west-1/s3/aws4_request` is answered `400` with
       `<Code>AuthorizationHeaderMalformed</Code>` and the object is not sent.
-- [ ] Named tests: the same request with scope `us-east-1` is `200`; with `Host: s3.us-east-1.amazonaws.com` and a
+- [x] Named tests: the same request with scope `us-east-1` is `200`; with `Host: s3.us-east-1.amazonaws.com` and a
       path-style target the mismatch is `400 AuthorizationHeaderMalformed`; a presigned URL whose `X-Amz-Credential`
       names `eu-west-1` on a `us-east-1` host is `400 AuthorizationHeaderMalformed`.
-- [ ] Named tests: with `Host: 127.0.0.1:<port>`, `localhost` and `s3.amazonaws.com`, a scope naming any region is
+- [x] Named tests: with `Host: 127.0.0.1:<port>`, `localhost` and `s3.amazonaws.com`, a scope naming any region is
       still accepted.
-- [ ] `Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md` has a new amendment (BL-1698) that
+- [x] `Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md` has a new amendment (BL-1698) that
       replaces "Region is never checked" with the rule above, cites the AWS document, and names this report.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary -warnaserror` is clean, the fast
       tests are green with no `TestCategory=Integration` test needed, and the S3 library stays at 100% line and
       branch coverage.
 
 ## Notes
 
+- Added to `touches` (2026-11-25): `Documentation/Conformance/Extended/S3.md`, whose rows `S3:Surl-Addressing-2`
+  and `S3:SigV4-Scope-1` this change makes false, and `Application/Surl.Cli.UnitLibrary/AiHelpProse.cs`, whose
+  `s3` paragraph must describe the new refusal in the same diff (root `CLAUDE.md`). No task in `Doing` names either.
+- Plan (protocol-architect): `S3VirtualHost.RegionOf` reads the region of a regional AWS `Host`; new
+  `S3CredentialScope.RegionOf` reads the scope's region from `Authorization` or `X-Amz-Credential`;
+  `S3Login.JudgeHeadAsync` refuses a mismatch before the session judges (no secret consulted, so no failed-login
+  delay, as Amendment 1 point 4). Anything the library cannot parse is left to the session. The region is the third
+  `/` part from the end, because the session allows `/` in an access key. No exit code changes.
+- The AWS page that states the mismatch rule is "Troubleshoot Signature Version 4 signing"
+  (`IAM/latest/UserGuide/reference_sigv-troubleshooting.html`, "Credential scope errors"); "Elements of an AWS API
+  request signature" gives only the scope's shape.
+
+- Outcome (2026-11-25): ADR-0108 Amendment 11 records the rule. Solution build `-warnaserror` and format check clean; fast
+  tests 29010 passed, 0 failed, 3 skipped (S3: 537); S3 library 100% line and 100% branch coverage. Review: no
+  findings. Conformance (pinned upstream curl 8.21.0, `--s3-plaintext`; TLS not exercised): 200 for the right region,
+  400 for a wrong one, header and presigned forms. Other `<X>4-HMAC-SHA256` schemes are not region-checked
+  (Amendment 11, point 3).
+
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. A regional AWS Host with a credential scope for another region is answered 400 AuthorizationHeaderMalformed; every other Host accepts any region
