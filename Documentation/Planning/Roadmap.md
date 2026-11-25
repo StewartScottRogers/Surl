@@ -191,8 +191,9 @@ task board in `Tasks/`, never here.
   `WinLdap_` cases, the libcurl rows and the `[OSCondition(Windows)]` cases on both non-Windows
   platforms, and the extended clients (outside Phase 7). The closing condition holds on `linux-x64`
   and `osx-arm64` in all four parts; part 4, the literal "not measurable on <platform>: <reason>"
-  line in each family file, was added by BL-1648. Still Stewart's: filing the 31 findings on
-  the port's board.
+  line in each family file, was added by BL-1648. All 31 findings are filed on the port's board
+  (BL-1658, 2026-11-24); `Port-Board-Handoff.md` names the port task ID of each entry, and entry
+  28's two cases (SSH-3) are an accepted difference by the port's side (port BL-5909).
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
   `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one

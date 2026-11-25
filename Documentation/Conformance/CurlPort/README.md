@@ -132,6 +132,7 @@ curl (ADR-0089 decision 9), and each case is judged by its protocol's specificat
 ## The handoff
 
 [`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 29 entries (31 findings) as tasks in the port's own task
-shape. Stewart files them on the port's board himself, by running the port's `/task-plan` on it in a
-session of the port's repository (ADR-0089 decision 7). No Surl session writes into the port's
-repository.
+shape, with the port task ID of each. All are filed on the port's board (BL-1658, 2026-11-24), by running
+the port's `/task-plan` on the handoff in a session of the port's repository (ADR-0089 decision 7). No
+Surl session writes into the port's repository. SSH-3 (entry 28) is an accepted difference by the port's
+side (port BL-5909); upstream curl's verdict on its two cases is unchanged.

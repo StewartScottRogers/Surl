@@ -100,6 +100,11 @@ osx-arm64 reference build `04E0E69B…EEBF` (curl 8.21.0, libssh2 1.11.1).
   a defect of the macOS libssh2 build with these two legacy ciphers, not behaviour curl documents; the port is
   listed because the comparison cannot call a working download right where upstream crashed. The cause inside the
   port is not traced.
+- **Accepted difference:** both cases, `[blowfish-cbc]` and `[cast128-cbc]`, are an accepted difference. The
+  port's side decided on 2026-11-24 to keep downloading and not copy the crash; port BL-5909 records that
+  decision ([handoff](Port-Board-Handoff.md) entry 28). That is the port's choice about its own behaviour, not
+  evidence about Surl (ADR-0003): upstream curl's verdict on these cases is unchanged (exit 139, empty output,
+  as pinned upstream curl measured), and both stay listed in the table above, which the Phase 7 test reads.
 
 ### SSH-1: the port offers only the WinCNG backend's SSH algorithms
 

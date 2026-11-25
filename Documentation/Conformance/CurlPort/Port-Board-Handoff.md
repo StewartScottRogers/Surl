@@ -1,11 +1,18 @@
 # Phase 7 handoff to the Curl port's board
 
-**How this file is filed.** No Surl session writes into the Curl port's repository
-(`Z:\repos\Curl`). Stewart files these findings himself: in a session of the port's repository he runs
-the port's `/task-plan` on this file, so he sees each finding before it becomes the port's work. The
-port's planner allocates each task's `id` and chooses its `touches`; both are left blank below
+**How this file was filed.** Every entry is filed on the Curl port's board (Surl task BL-1658,
+2026-11-24). No Surl session writes into the port's repository (`Z:\repos\Curl`): at Stewart's word, the
+port's own session ran the port's `/task-plan` on this file
 ([ADR-0089](../../Planning/Decisions/ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md)
-decision 7).
+decision 7). The port's planner allocated each task's `id` and chose its `touches`, both left blank in the
+entries below; the "Port task" column of the table under "What this file holds" names the port task for
+each entry:
+
+- Entries 1 to 23 were already filed on 2026-11-16. Entries 7, 20, 21 and 22 were covered then by port
+  tasks the port already had; the others are port BL-5279 to BL-5297. As of 2026-11-24 the BL-5279 to
+  BL-5297 tasks were Done, except BL-5292 and BL-5293 (entries 15 and 16), Deferred.
+- Entries 24 to 29 were filed on 2026-11-24 as port BL-5905 to BL-5910 (port branch `work/dark-factory`,
+  commit `a6ddaf797f`). Port BL-5907 depends on port BL-5853.
 
 **Surl does not change to make the port pass.** Upstream curl is the only oracle. Wherever the port and
 pinned upstream curl disagree against the same `surl`, upstream is right, the disagreement is the
@@ -33,37 +40,37 @@ upstream build, since upstream curl has no `webtransport` scheme).
 
 Each entry names its own Surl commit, Surl test and the findings file that holds the full record.
 
-| # | Title | Family | Cases |
-| ---: | --- | --- | ---: |
-| 1 | Offer ssh-ed25519 as a host key algorithm on an OpenSSL-backed build | HTTP/1.1 and HTTPS | 1 |
-| 2 | Disconnect an SFTP session before closing its channel, as libssh2 does | HTTP/1.1 and HTTPS | 1 |
-| 3 | Log in with SASL GSSAPI over SMTP, IMAP and POP3 | HTTP/1.1 and HTTPS | 6 |
-| 4 | Fall back to NTLM inside SPNEGO for --negotiate, as curl 8.21.0 as tagged does | HTTP/1.1 and HTTPS | 2 |
-| 5 | Offer the OpenSSL backend's SSH algorithms on an OpenSSL-backed build | SCP and SFTP | 5 |
-| 6 | Open and leave idle curl's own connection before WinLDAP's on ldap:// | LDAP | 12 |
-| 7 | Bind with NTLM, Negotiate or Digest over LDAP when --ntlm, --negotiate or --digest is given | LDAP | 6 |
-| 8 | Leave the ldaps certificate check to WinLDAP under -k | LDAP | 1 |
-| 9 | Turn the smb and smbs protocols on | SMB | 24 |
-| 10 | Answer an RTSP Digest challenge on the same connection | RTSP | 3 |
-| 11 | Offer h2 by ALPN on https by default | HTTP/2 | 9 |
-| 12 | Support --http3 and --http3-only | HTTP/3 | 12 |
-| 13 | Negotiate HTTP/2 over https when the server also advertises h3 | HTTP/3 | 1 |
-| 14 | Keep an RTSP session and read interleaved data on its connection in CURL_RTSPREQ_RECEIVE | libcurl | 1 |
-| 15 | Save a cookie whose Domain equals the host as a domain cookie | Upstream test cases | 2 |
-| 16 | Send an empty SASL EXTERNAL response as = | Upstream test cases | 3 |
-| 17 | Write --libcurl's setopt calls in upstream's order | Upstream test cases | 6 |
-| 18 | Fail the webtransport transfer when the server refuses the CONNECT | Extended clients | 1 |
-| 19 | Honour -u in the grpc client | Extended clients | 1 |
-| 20 | Fail the signalr transfer when negotiate is refused | Extended clients | 1 |
-| 21 | Map MQTT 5 CONNACK 0x86 to exit 67 in the mqtt5 client | Extended clients | 1 |
-| 22 | Publish or fail a -T upload to amqp:// | Extended clients | 1 |
-| 23 | Allow auto topic creation in the kafka client's Metadata request | Extended clients | 1 |
-| 24 | Finish an active-mode FTP listing with -P when the server answers slowly | Upstream test cases | 1 |
-| 25 | Do not reset stream 1 after a Digest 401 over HTTP/2 with prior knowledge | HTTP/2 | 1 |
-| 26 | Bind with SASL over ldap:// as OpenLDAP does on linux-x64 | LDAP | 24 |
-| 27 | Match OpenLDAP on StartTLS without a trusted certificate on linux-x64 | LDAP | 3 |
-| 28 | Settle blowfish-cbc and cast128-cbc downloads where libssh2 on macOS crashes | SCP and SFTP | 2 |
-| 29 | Exit 25 on a chunked PUT to an HTTP/1.0 server on linux-x64 and osx-arm64 | Upstream test cases | 2 |
+| # | Title | Family | Cases | Port task |
+| ---: | --- | --- | ---: | --- |
+| 1 | Offer ssh-ed25519 as a host key algorithm on an OpenSSL-backed build | HTTP/1.1 and HTTPS | 1 | BL-5279 |
+| 2 | Disconnect an SFTP session before closing its channel, as libssh2 does | HTTP/1.1 and HTTPS | 1 | BL-5280 |
+| 3 | Log in with SASL GSSAPI over SMTP, IMAP and POP3 | HTTP/1.1 and HTTPS | 6 | BL-5281 |
+| 4 | Fall back to NTLM inside SPNEGO for --negotiate, as curl 8.21.0 as tagged does | HTTP/1.1 and HTTPS | 2 | BL-5282 |
+| 5 | Offer the OpenSSL backend's SSH algorithms on an OpenSSL-backed build | SCP and SFTP | 5 | BL-5283 |
+| 6 | Open and leave idle curl's own connection before WinLDAP's on ldap:// | LDAP | 12 | BL-5284 |
+| 7 | Bind with NTLM, Negotiate or Digest over LDAP when --ntlm, --negotiate or --digest is given | LDAP | 6 | BL-4899, BL-4965, BL-4966, BL-4967, BL-4968 |
+| 8 | Leave the ldaps certificate check to WinLDAP under -k | LDAP | 1 | BL-5285 |
+| 9 | Turn the smb and smbs protocols on | SMB | 24 | BL-5286 |
+| 10 | Answer an RTSP Digest challenge on the same connection | RTSP | 3 | BL-5287 |
+| 11 | Offer h2 by ALPN on https by default | HTTP/2 | 9 | BL-5288 |
+| 12 | Support --http3 and --http3-only | HTTP/3 | 12 | BL-5289 |
+| 13 | Negotiate HTTP/2 over https when the server also advertises h3 | HTTP/3 | 1 | BL-5290 |
+| 14 | Keep an RTSP session and read interleaved data on its connection in CURL_RTSPREQ_RECEIVE | libcurl | 1 | BL-5291 |
+| 15 | Save a cookie whose Domain equals the host as a domain cookie | Upstream test cases | 2 | BL-5292 |
+| 16 | Send an empty SASL EXTERNAL response as = | Upstream test cases | 3 | BL-5293 |
+| 17 | Write --libcurl's setopt calls in upstream's order | Upstream test cases | 6 | BL-5294 |
+| 18 | Fail the webtransport transfer when the server refuses the CONNECT | Extended clients | 1 | BL-5295 |
+| 19 | Honour -u in the grpc client | Extended clients | 1 | BL-5296 |
+| 20 | Fail the signalr transfer when negotiate is refused | Extended clients | 1 | BL-5043 |
+| 21 | Map MQTT 5 CONNACK 0x86 to exit 67 in the mqtt5 client | Extended clients | 1 | BL-4941 |
+| 22 | Publish or fail a -T upload to amqp:// | Extended clients | 1 | BL-4903, BL-4956 |
+| 23 | Allow auto topic creation in the kafka client's Metadata request | Extended clients | 1 | BL-5297 |
+| 24 | Finish an active-mode FTP listing with -P when the server answers slowly | Upstream test cases | 1 | BL-5905 |
+| 25 | Do not reset stream 1 after a Digest 401 over HTTP/2 with prior knowledge | HTTP/2 | 1 | BL-5906 |
+| 26 | Bind with SASL over ldap:// as OpenLDAP does on linux-x64 | LDAP | 24 | BL-5907 |
+| 27 | Match OpenLDAP on StartTLS without a trusted certificate on linux-x64 | LDAP | 3 | BL-5908 |
+| 28 | Settle blowfish-cbc and cast128-cbc downloads where libssh2 on macOS crashes | SCP and SFTP | 2 | BL-5909 |
+| 29 | Exit 25 on a chunked PUT to an HTTP/1.0 server on linux-x64 and osx-arm64 | Upstream test cases | 2 | BL-5910 |
 
 ---
 
@@ -997,6 +1004,11 @@ the exit code and request bytes upstream curl 8.21.0 linked against OpenLDAP giv
 - **title:** Settle blowfish-cbc and cast128-cbc downloads where libssh2 on macOS crashes
 - **priority:** Low · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
   **requirement:** none · **id**, **touches:** left to the port's planner
+
+**Outcome (2026-11-24):** the port's side decided this is a known difference: the port keeps downloading
+over `blowfish-cbc` and `cast128-cbc` and does not copy the crash (exit 139); port BL-5909 records the
+ADR. Surl lists the two cases as an accepted difference
+([`Ssh.md`](Ssh.md), SSH-3). The entry below is as filed.
 
 ### Goal
 
