@@ -135,7 +135,9 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
 
     /// <summary>
     /// <c>400 AuthorizationHeaderMalformed</c>: an <c>AWS4-HMAC-SHA256</c> field that does not
-    /// parse, or whose scope is not for <c>s3</c> (ADR-0108, decision 4.3).
+    /// parse, or whose scope is not for <c>s3</c> (ADR-0108, decision 4.3), a presigned URL's
+    /// parameters refused the same way, or an <c>AWS4-HMAC-SHA256</c> credential scope naming
+    /// another region than a regional AWS <c>Host</c> names (<see cref="S3Login"/>).
     /// </summary>
     public static S3Error AuthorizationHeaderMalformed { get; } = new("AuthorizationHeaderMalformed", HttpStatus.BadRequest, "The authorization header that you provided is not valid.");
 

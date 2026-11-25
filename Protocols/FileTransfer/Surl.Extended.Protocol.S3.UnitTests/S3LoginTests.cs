@@ -36,6 +36,91 @@ public sealed class S3LoginTests
     private static string ErrorBody(string code, string message, string resource) =>
         $"<Code>{code}</Code><Message>{message}</Message><Resource>{resource}</Resource><RequestId>{{RequestId}}</RequestId>";
 
+    private const string OtherRegionNote = "Login refused: the credential scope's region is not the region the Host names.";
+
+    private const string OtherRegionMessage = "The authorization header that you provided is not valid.";
+
+    private static string AuthorizationFieldScopedTo(string region) =>
+        ExampleAuthorizationField.Replace("us-east-1", region, StringComparison.Ordinal);
+
+    [TestMethod]
+    [DataRow("eu-west-1", DisplayName = "another region")]
+    [DataRow("US-EAST-1", DisplayName = "the Host's region in another case")]
+    [DataRow("", DisplayName = "an empty region")]
+    public async Task ServeAsync_ScopeOfAnotherRegion_IsRefusedWithoutAskingTheSessionAndNoted(string region)
+    {
+        var harness = HarnessWithBucket();
+
+        var response = await harness.SendRawAsync(
+            $"GET /bucket/a.txt HTTP/1.1\r\nHost: s3.us-east-1.amazonaws.com\r\n{AuthorizationFieldScopedTo(region)}\r\nConnection: close\r\n\r\n");
+
+        Assert.AreEqual(
+            S3ServerHarness.ExpectedError(response, "400 Bad Request", ErrorBody("AuthorizationHeaderMalformed", OtherRegionMessage, "/bucket/a.txt")),
+            response);
+        Assert.IsEmpty(harness.Policy.Requests);
+        CollectionAssert.Contains(harness.Log.Notes.ToArray(), OtherRegionNote);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutExpectingContinueScopedToAnotherRegion_Is400WithNo100ContinueAndStoresNothing()
+    {
+        var harness = HarnessWithBucket();
+
+        var response = await harness.SendRawAsync(
+            $"PUT /bucket/b.txt HTTP/1.1\r\nHost: s3.us-east-1.amazonaws.com\r\n{AuthorizationFieldScopedTo("eu-west-1")}\r\n"
+            + "Content-Length: 11\r\nExpect: 100-continue\r\n\r\n");
+
+        Assert.StartsWith("HTTP/1.1 400 Bad Request\r\n", response);
+        Assert.DoesNotContain("100 Continue", response);
+        Assert.Contains("\r\nConnection: close\r\n", response);
+        Assert.Contains("<Code>AuthorizationHeaderMalformed</Code>", response);
+        Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "bucket/b.txt")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeadScopedToAnotherRegion_Is400WithNoBody()
+    {
+        var harness = HarnessWithBucket();
+
+        var response = await harness.SendRawAsync(
+            $"HEAD /bucket/a.txt HTTP/1.1\r\nHost: s3.us-east-1.amazonaws.com\r\n{AuthorizationFieldScopedTo("eu-west-1")}\r\nConnection: close\r\n\r\n");
+
+        Assert.StartsWith("HTTP/1.1 400 Bad Request\r\n", response);
+        Assert.EndsWith("\r\n\r\n", response);
+        Assert.DoesNotContain("<Error>", response);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_QuerySignatureAndAuthorizationOnARegionalHost_IsLeftToTheSession()
+    {
+        var harness = HarnessWithBucket();
+        var field = AuthorizationFieldScopedTo("eu-west-1");
+        harness.Policy.Refusals[field["Authorization: ".Length..]] = HttpAuthenticationRefusal.ConflictingCredentials;
+
+        var response = await harness.SendRawAsync(
+            "GET /bucket/a.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Feu-west-1%2Fs3%2Faws4_request "
+            + $"HTTP/1.1\r\nHost: s3.us-east-1.amazonaws.com\r\n{field}\r\nConnection: close\r\n\r\n");
+
+        Assert.Contains("<Code>InvalidArgument</Code>", response);
+        Assert.HasCount(1, harness.Policy.Requests);
+        CollectionAssert.DoesNotContain(harness.Log.Notes.ToArray(), OtherRegionNote);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RegionalListenHostNamedByTheHost_RefusesAnotherRegion()
+    {
+        var harness = new S3ServerHarness(listenHost: "s3.us-east-1.amazonaws.com");
+        harness.CreateFolder("bucket");
+        harness.WriteFile("bucket/a.txt", "hello world");
+
+        var response = await harness.SendRawAsync(
+            $"GET /bucket/a.txt HTTP/1.1\r\nHost: s3.us-east-1.amazonaws.com:9000\r\n{AuthorizationFieldScopedTo("eu-west-1")}\r\nConnection: close\r\n\r\n");
+
+        Assert.StartsWith("HTTP/1.1 400 Bad Request\r\n", response);
+        Assert.Contains("<Code>AuthorizationHeaderMalformed</Code>", response);
+        Assert.DoesNotContain("hello world", response);
+    }
+
     [TestMethod]
     public async Task ServeAsync_SignedRequest_IsJudgedAsOneForTheS3Service()
     {

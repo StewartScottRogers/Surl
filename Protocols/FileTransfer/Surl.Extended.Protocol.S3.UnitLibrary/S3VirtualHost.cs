@@ -1,10 +1,12 @@
 namespace Surl.Extended.Protocol.S3;
 
 /// <summary>
-/// Reads the bucket a virtual-hosted request names in its <c>Host</c> field ("Virtual hosting of
-/// buckets"; ADR-0108, decision 2): <c>&lt;bucket&gt;.&lt;domain&gt;</c> for the listen URL's host
-/// when it is a DNS name, <c>localhost</c>, <c>s3.amazonaws.com</c> or
-/// <c>s3.&lt;region&gt;.amazonaws.com</c>. Any other host is path style.
+/// Reads what a request's <c>Host</c> field names. The bucket of a virtual-hosted request
+/// ("Virtual hosting of buckets"; ADR-0108, decision 2): <c>&lt;bucket&gt;.&lt;domain&gt;</c> for the
+/// listen URL's host when it is a DNS name, <c>localhost</c>, <c>s3.amazonaws.com</c> or
+/// <c>s3.&lt;region&gt;.amazonaws.com</c>; any other host is path style. And the region of a regional
+/// AWS host, <c>s3.&lt;region&gt;.amazonaws.com</c> with or without a bucket before it; any other
+/// host names no region.
 /// </summary>
 internal static class S3VirtualHost
 {
@@ -35,6 +37,32 @@ internal static class S3VirtualHost
         }
 
         return RegionalAwsBucket(host);
+    }
+
+    /// <summary>
+    /// The region a regional AWS authority names: the one label <c>&lt;region&gt;</c> of
+    /// <c>s3.&lt;region&gt;.amazonaws.com</c> or <c>&lt;bucket&gt;.s3.&lt;region&gt;.amazonaws.com</c>.
+    /// </summary>
+    /// <param name="authority">The <c>Host</c> field's value, port included, or <see langword="null"/>.</param>
+    /// <returns>
+    /// The region, lower case; <see langword="null"/> for any other host, a name under the global
+    /// <c>s3.amazonaws.com</c> included.
+    /// </returns>
+    public static string? RegionOf(string? authority)
+    {
+        if (HostName(authority) is not { } host
+            || !host.EndsWith(AwsDomainSuffix, StringComparison.Ordinal)
+            || host.EndsWith($".{AwsGlobalDomain}", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        // The leading dot lets s3.<region> be found as .s3.<region> is.
+        var beforeDomain = $".{host[..^AwsDomainSuffix.Length]}";
+        var service = beforeDomain.LastIndexOf(AwsServiceLabel, StringComparison.Ordinal);
+        var region = service < 0 ? string.Empty : beforeDomain[(service + AwsServiceLabel.Length)..];
+
+        return region.Length > 0 && !region.Contains('.') ? region : null;
     }
 
     // <bucket>.s3.<region>.amazonaws.com, the region one label.
