@@ -19,6 +19,23 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
         "-K/--config is not accepted: a config file could name paths this host never checks";
 
     /// <summary>
+    /// Says which rule <paramref name="listenUrls"/> and <paramref name="words"/> break, or returns
+    /// <see langword="null"/> when they break none. An option among the listen URLs is refused: it would take as its
+    /// value a word <c>Surl.Api</c> composes after the listen URLs (a <c>--set-cookie</c>), so <c>surl</c> would read
+    /// other words than the ones checked here.
+    /// </summary>
+    /// <param name="listenUrls"><c>start_server</c>'s <c>listen_urls</c>, in order.</param>
+    /// <param name="words"><c>start_server</c>'s <c>arguments</c>, in order.</param>
+    /// <returns>The rule broken, or <see langword="null"/>.</returns>
+    public string? FindRefusal(IReadOnlyList<string> listenUrls, IReadOnlyList<string> words)
+    {
+        var option = listenUrls.FirstOrDefault(listenUrl => listenUrl.StartsWith('-'));
+        return option is null
+            ? FindRefusal([.. listenUrls, .. words])
+            : $"listen_urls holds {option}, which is an option; put options in arguments";
+    }
+
+    /// <summary>
     /// Says which rule <paramref name="words"/> break, or returns <see langword="null"/> when they break none. Words
     /// <c>surl</c> itself would refuse are left to <c>Surl.Api</c>, which refuses them with <c>surl</c>'s exit code.
     /// </summary>

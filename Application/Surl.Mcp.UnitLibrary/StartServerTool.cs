@@ -41,7 +41,9 @@ public static class StartServerTool
             "files": { "type": "object",
               "description": "In-memory content: '/'-separated relative path -> UTF-8 text" },
             "files_base64": { "type": "object",
-              "description": "In-memory content: '/'-separated relative path -> base64 bytes" }
+              "description": "In-memory content: '/'-separated relative path -> base64 bytes" },
+            "cookies": { "type": "array", "items": { "type": "string" }, "maxItems": 64,
+              "description": "surl --set-cookie values, one per cookie, e.g. session=t1;Path=/;HttpOnly" }
           },
           "required": ["listen_urls"],
           "additionalProperties": false
@@ -72,7 +74,7 @@ public static class StartServerTool
     {
         var listenUrls = ReadStrings(arguments, "listen_urls");
         var words = ReadStrings(arguments, "arguments");
-        var refusal = safetyCheck.FindRefusal([.. listenUrls, .. words]);
+        var refusal = safetyCheck.FindRefusal(listenUrls, words);
         if (refusal is not null)
         {
             return ToolResults.Refused(refusal);
@@ -88,6 +90,7 @@ public static class StartServerTool
             LogLevel = servers.Settings.LogLevel,
             TimeProvider = servers.TimeProvider,
         };
+        AddAll(options.Cookies, ReadStrings(arguments, "cookies"));
         var fileFailure = AddFiles(options, arguments);
         return fileFailure is not null
             ? McpToolResult.FromFailure(fileFailure)
@@ -102,15 +105,8 @@ public static class StartServerTool
         StartLogWriter log,
         CancellationToken cancellationToken)
     {
-        foreach (var listenUrl in listenUrls)
-        {
-            options.ListenUrls.Add(listenUrl);
-        }
-
-        foreach (var word in words)
-        {
-            options.AdditionalArguments.Add(word);
-        }
+        AddAll(options.ListenUrls, listenUrls);
+        AddAll(options.AdditionalArguments, words);
 
         try
         {
@@ -154,6 +150,14 @@ public static class StartServerTool
         arguments.TryGetProperty(name, out var array)
             ? [.. array.EnumerateArray().Select(item => item.GetString()!)]
             : [];
+
+    private static void AddAll(IList<string> list, IReadOnlyList<string> items)
+    {
+        foreach (var item in items)
+        {
+            list.Add(item);
+        }
+    }
 
     /// <summary>Adds <c>files</c> and <c>files_base64</c> to <paramref name="options"/>; returns why they are refused, or null.</summary>
     private static string? AddFiles(SurlServerOptions options, JsonElement arguments) =>

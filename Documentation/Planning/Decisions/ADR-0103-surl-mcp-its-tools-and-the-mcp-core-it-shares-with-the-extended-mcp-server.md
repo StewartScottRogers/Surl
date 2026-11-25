@@ -459,3 +459,16 @@ Decided by Claude under Stewart's delegation, 2026-11-21. Decision 3's chunk
 `{direction, encoding, data, layer, stream_id}` gains `at`, the ISO 8601 UTC time (`"O"`) the bytes crossed,
 from `ExchangeBytesEvent.At`. The reasons and the tasks (BL-1557 here, BL-1559 and BL-1558 beside it) are in
 ADR-0099's amendment of 2026-11-21, which owns the record's shape.
+
+## Amendment 3 — `listen_urls` holds no option (BL-1676)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Decision 4 checks `listen_urls` followed by `arguments`,
+but `Surl.Api` composes words between the two: `--set-cookie <value>` for each of `start_server`'s `cookies`
+(ADR-0189), and `--log-level` when the host's level is not the default. An option at the end of `listen_urls`, such
+as `--directory`, took the next composed word as its value and left the cookie as a free word the check never read,
+which got past the loopback, root and `-K` rules.
+
+**Decision.** A `listen_urls` entry starting with `-` (what `surl`'s parser reads as an option) is refused before
+anything else: `isError` `refused: listen_urls holds <entry>, which is an option; put options in arguments`. Options
+belong in `arguments`, which are composed last and so are read as checked. Every cookie is then read as the value of
+the `--set-cookie` before it.
