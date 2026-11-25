@@ -103,6 +103,13 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   of every store call (`S3LoginResult`). PutObject hashes the body with SHA-256 in `S3UploadStream`
   and asks the body check before `Content-MD5` and before committing; any other operation reads and
   discards a signed body first. Each checked login's note goes to the log.
+  - A refusal whose verdict carries `SignatureMismatch` (a configured account's wrong signature) is
+    `SignatureDoesNotMatch` carrying it (`S3Error.SignatureMismatch`, BL-1702). `Surl.Authentication`
+    refuses an `s3` signature on the head; `S3Login` carries a mismatch from a body check too, should
+    the contract's verdict hold one. `S3ErrorBody` writes `StringToSign` then `CanonicalRequest` after `Message`: line
+    feeds kept, other non-printables `?`, XML-escaped, not cut. `Surl.Authentication` has already
+    written withheld values (a signed `x-amz-security-token`) as `****`. A bad chunk or trailer
+    signature carries neither element, and a `HEAD` error has no body (ADR-0108 Amendment 12).
   - Before it asks the session, `S3Login` compares regions (BL-1698): when the `Host` names one
     (`S3VirtualHost.RegionOf`) and the credential scope names another (`S3CredentialScope.RegionOf`,
     compared exactly, case included), the answer is `400 AuthorizationHeaderMalformed`, the session
@@ -154,9 +161,10 @@ index does not key; PutObject's metadata is kept only for files the index keys.
   `S3QueryParameters`; `S3XmlElement` (one escaped element of a response body).
 - `S3ObjectAnswer`, `S3Conditions`, `S3RangeSelection` - GetObject's head, conditions and range.
 - `S3Reply`, `S3Error`, `S3ErrorBody` - every answer's `Date`, `Server` and `x-amz-request-id`
-  (16 upper-case hexadecimal digits), and the one-line XML `Error` body; `Resource`, `Key`,
-  `BucketName` and `ArgumentValue` echo the client's bytes as sent (still percent-encoded),
-  printable ASCII only, cut to 1024 characters, then XML-escaped.
+  (16 upper-case hexadecimal digits), and the XML `Error` body, one line unless it carries a
+  signature mismatch's two elements (above); `Resource`, `Key`, `BucketName` and `ArgumentValue`
+  echo the client's bytes as sent (still percent-encoded), printable ASCII only, cut to 1024
+  characters, then XML-escaped.
 
 `400 EntityTooLarge` and `400 IncompleteBody` (`S3Error.ClosesWithoutDrain`), wherever PutObject,
 UploadPart or CompleteMultipartUpload answer them, are refusals: the XML `Error` body,

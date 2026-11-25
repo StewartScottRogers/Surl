@@ -50,7 +50,7 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, Exchang
         NoteLogin(verdict);
         if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
         {
-            return S3LoginResult.Refused(ErrorOf(verdict.Refusal));
+            return S3LoginResult.Refused(RefusalOf(verdict));
         }
 
         return isWrite && verdict.AccountName is null
@@ -70,7 +70,7 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, Exchang
         var verdict = await bodyCheck.JudgeBodyAsync(bodySha256, cancellationToken);
         NoteLogin(verdict);
 
-        return verdict.Outcome == HttpAuthenticationOutcome.Proceed ? null : ErrorOf(verdict.Refusal);
+        return verdict.Outcome == HttpAuthenticationOutcome.Proceed ? null : RefusalOf(verdict);
     }
 
     /// <summary>
@@ -108,6 +108,14 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, Exchang
         HttpAuthenticationRefusal.ConflictingCredentials => S3Error.ConflictingAuthentication,
         _ => S3Error.AccessDenied,
     };
+
+    // The refusal's error, with what the session computed when the signature did not match.
+    private static S3Error RefusalOf(HttpAuthenticationVerdict verdict)
+    {
+        var error = ErrorOf(verdict.Refusal);
+
+        return verdict.SignatureMismatch is { } mismatch ? error with { SignatureMismatch = mismatch } : error;
+    }
 
     // Only a Host and a scope that both name a region can disagree.
     private static bool IsScopedToAnotherRegionThanTheHosts(HttpRequest request) =>

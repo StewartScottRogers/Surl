@@ -1,4 +1,5 @@
 using Surl.HttpMessage;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
 
@@ -76,6 +77,14 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     /// unread (<see cref="Surl.HttpServing.HttpAnswer.DrainsBeforeClose"/>; ADR-0108, decision 7).
     /// </summary>
     public bool ClosesWithoutDrain { get; init; }
+
+    /// <summary>
+    /// What the server computed for a signature that did not match, with withheld values already
+    /// written <c>****</c>, which the <c>Error</c> body shows as <c>StringToSign</c> and
+    /// <c>CanonicalRequest</c> (ADR-0108, Amendment 12); <see langword="null"/> for every other
+    /// refusal.
+    /// </summary>
+    public AwsSigV4SignatureMismatch? SignatureMismatch { get; init; }
 
     /// <summary>
     /// <c>400 InvalidArgument</c>: a key the store cannot hold on a write, or a bad query value.

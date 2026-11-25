@@ -351,6 +351,19 @@ public sealed class S3LoginTests
     }
 
     [TestMethod]
+    public async Task JudgeBodyAsync_BadSignatureWithItsMismatch_IsSignatureDoesNotMatchCarryingIt()
+    {
+        var harness = HarnessWithBucket();
+        var login = new S3Login(harness.Policy.StartHttpConnection(null), harness.Context());
+        var mismatch = new AwsSigV4SignatureMismatch("canonical request", "string to sign");
+
+        var error = await login.JudgeBodyAsync(
+            new RefusedSignatureBodyCheck(mismatch), SHA256.HashData(ReadOnlySpan<byte>.Empty), CancellationToken.None);
+
+        Assert.AreEqual(S3Error.SignatureDoesNotMatch with { SignatureMismatch = mismatch }, error);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PresignedGetObject_IsReadAsGetObjectWithItsSignatureParametersSetAside()
     {
         // The policy stands in for Surl.Authentication's presigned check, which has no Authorization to read.
@@ -364,5 +377,19 @@ public sealed class S3LoginTests
         StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
         StringAssert.EndsWith(response, "\r\n\r\nhello world");
         StringAssert.Contains(harness.Policy.Requests.Single().Target, "X-Amz-Signature=");
+    }
+
+    // A signature that binds the body, found not to match once the body is read.
+    private sealed class RefusedSignatureBodyCheck(AwsSigV4SignatureMismatch mismatch) : IHttpRequestBodyCheck
+    {
+        public ValueTask AbandonAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
+        public ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new HttpAuthenticationVerdict(
+                HttpAuthenticationOutcome.Forbidden,
+                [],
+                null,
+                Refusal: HttpAuthenticationRefusal.BadSignature,
+                SignatureMismatch: mismatch));
     }
 }

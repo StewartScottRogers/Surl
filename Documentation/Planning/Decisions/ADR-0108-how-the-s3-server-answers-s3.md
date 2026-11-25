@@ -118,9 +118,9 @@ query subresources, as the API Reference's "Request Syntax" of each page writes 
   percent-encoded, XML-escaped (`&`, `<`, `>`) and cut to 1024 bytes; it is the only client byte
   echoed. Codes that the page lists with an extra element (`Key` for `NoSuchKey`, `BucketName` for
   `NoSuchBucket`, `ArgumentName` and `ArgumentValue` for `InvalidArgument`) carry it, escaped the
-  same way; `SignatureDoesNotMatch`'s `StringToSign` and `CanonicalRequest` elements are **not**
-  sent, because they disclose how the server canonicalised the request to a peer who may be probing
-  it.
+  same way. `SignatureDoesNotMatch`'s `StringToSign` and `CanonicalRequest` elements were not sent
+  (**replaced by Amendment 12**: they are sent, so the body is then no longer one line and
+  `Resource` and the extra elements are not the only client bytes echoed).
 - A `HEAD` error has the status and `x-amz-request-id` and no body (HeadObject: "the response to a
   HEAD request has no body").
 
@@ -387,8 +387,8 @@ example.
 - **Serving ListObjects version 1 beside version 2.** Rejected (decision 1): a second paging grammar
   for a request no current client sends.
 - **Sending `StringToSign` and `CanonicalRequest` in `SignatureDoesNotMatch`,** as S3 does.
-  Rejected: a debugging aid that tells a probing peer how the request was canonicalised; the client
-  already knows what it signed.
+  Rejected at first as a debugging aid that tells a probing peer how the request was canonicalised.
+  **Reversed by Amendment 12**: both are sent.
 - **Leaving presigned URLs and `aws-chunked` out.** Rejected: AWS's SDKs and CLI send them, and the
   standing rule leaves nothing out because it is work.
 
@@ -864,3 +864,59 @@ the path-style and presigned cases beside it, and
 `ServeAsync_HostNamingNoRegion_AcceptsAScopeOfAnyRegion`), `S3LoginTests`
 (`ServeAsync_ScopeOfAnotherRegion_IsRefusedWithoutAskingTheSessionAndNoted` and its neighbours),
 `S3CredentialScopeTests` and `S3VirtualHostTests`.
+
+## Amendment 12 - `SignatureDoesNotMatch` carries `StringToSign` and `CanonicalRequest` (BL-1702, 2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-25, in
+BL-1701 and BL-1702. It answers item 4 of the Surly bug report
+`Z:\repos\Surly\Documentation\Bug-Reports\2026-11-25T1430-Surl-bug-report.md` (a wrong secret was
+answered `403 SignatureDoesNotMatch` with neither element). It reverses decision 1.1's sentence that
+the two elements are not sent, and the rejected alternative "Sending `StringToSign` and
+`CanonicalRequest`". BL-1701 carries both on the refused verdict
+(`HttpAuthenticationVerdict.SignatureMismatch`, built by `Surl.Authentication`); the S3 code that
+writes them is `S3Login`, `S3Error.SignatureMismatch` and `S3ErrorBody`.
+
+**Source.** AWS, "Troubleshoot Signature Version 4 signing", "Canonical request and signing string
+errors" (<https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-troubleshooting.html>):
+"Compare the canonical request and string to your signed request with the value in the error
+message." The page shows no error body, so the element names are the bug report's, and their order
+and escaping are this record's.
+
+1. **What is sent.** When a configured account's signature does not match, in the `Authorization`
+   form or the presigned form, the `Error` body holds `Code`, `Message`, `StringToSign`,
+   `CanonicalRequest`, `Resource`, `RequestId`: what the server computed from the request it
+   received. No option turns them off.
+2. **Why they are sent.** Both are computed only from the client's own request and the public
+   Signature Version 4 algorithm and hold no secret of the server's. A stand-in's job is to let a
+   test author see why a signature differs, which is what these elements are for.
+3. **Withheld values.** In `CanonicalRequest`, `****` replaces the value of every signed header
+   [ADR-0182](ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md)
+   withholds (`Authorization`, `Proxy-Authorization`, the API-key fields and
+   `x-amz-security-token`) and of an `X-Amz-Security-Token` query parameter, because the bytes the
+   server sends reach the `-v` log unredacted. `StringToSign` is the genuine one: its last line is
+   the SHA-256 of the request as signed, so it need not be the hash of the `CanonicalRequest` shown.
+   **Accepted limit:** whoever holds both can test guesses of a withheld value against that hash,
+   which matters only for a guessable value.
+4. **How they are written.** Line feeds are kept, so this body is not one line; every other
+   character outside printable ASCII becomes `?`, as in every value this server echoes (and so the
+   XML stays well-formed), so a header value holding such bytes does not show as it was hashed; `&`,
+   `<` and `>` are escaped. This goes beyond ADR-0006 section 3, which lets a peer be shown a path
+   it sent: the signed headers and the query go back too, only to the peer that sent them, with
+   point 3's values withheld. Neither element is cut to 1024 characters: a cut one cannot be compared, and
+   both are built from a request head `--max-request-head` bounds. That bound is not tight yet: a
+   `SignedHeaders` list repeating a name repeats its values in the canonical request, which
+   `Surl.Authentication` has built since ADR-0043 (BL-1713).
+5. **When neither element is sent:** an unknown access key (`InvalidAccessKeyId`), a request no
+   canonical request can be built from (a signed header missing), a right signature refused by a
+   `refuse-login` fault, a bad `aws-chunked` chunk or trailer signature, a fault rule's chosen
+   error, and every other code. A `HEAD` error still has no body.
+
+**Not sent:** any other element AWS's own answer may hold; no page cited here lists one.
+
+**Tests:** `S3LoginExchangeTests`
+(`ServeAsync_GetSignedWithAWrongSecret_Is403WithTheStringToSignAndCanonicalRequestTheServerComputed`,
+`ServeAsync_PresignedUrlSignedWithAWrongSecret_Is403WithTheStringToSignAndCanonicalRequestTheServerComputed`,
+`ServeAsync_HeadSignedWithAWrongSecret_Is403WithNoBody`,
+`ServeAsync_WrongSecretWithASignedSecurityToken_ShowsTheTokenWithheldInTheCanonicalRequest`),
+`S3ErrorBodyTests` and
+`S3LoginTests.JudgeBodyAsync_BadSignatureWithItsMismatch_IsSignatureDoesNotMatchCarryingIt`.
