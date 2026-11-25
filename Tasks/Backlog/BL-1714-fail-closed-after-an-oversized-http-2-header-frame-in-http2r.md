@@ -1,5 +1,5 @@
 ---
-id: BL-1712
+id: BL-1714
 title: Fail closed after an oversized HTTP/2 header frame in Http2RequestBytesRedactor
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1712 — Fail closed after an oversized HTTP/2 header frame in Http2RequestBytesRedactor
+# BL-1714 — Fail closed after an oversized HTTP/2 header frame in Http2RequestBytesRedactor
 
 ## Goal
 

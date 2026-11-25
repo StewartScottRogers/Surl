@@ -241,4 +241,4 @@ Accepted limits:
 - Amendment 6's client that sends ahead can lose more than its early bytes: if the preface travels with the SOCKS
   request, the tunnel's first byte seen is a frame's `00`, so the whole tunnel is logged byte for byte (BL-1707).
 - An over-long first `HEADERS` frame does not yet make `Http2RequestBytesRedactor` withhold the `CONTINUATION` after
-  it, here or in the origin's own log (BL-1712).
+  it, here or in the origin's own log (BL-1714).

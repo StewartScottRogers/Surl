@@ -51,8 +51,8 @@ cleartext through its tunnel, with prior knowledge or after an `h2c` upgrade.
   preface search copies each chunk (linear cost, log path only). Help text is BL-1708's.
 - `Measure-CodeQuality.ps1`: SOCKS library 100% line, 100% branch, 0 failing members. One earlier run of it stopped
   on a `dotnet test` failure whose test name was not captured; the next two test runs passed.
-- Filed BL-1711 (the same gap in the HTTP proxy) and BL-1712 (`Http2RequestBytesRedactor` after an oversized header
-  frame). `origin/factory/phase-1` already has another BL-1711, so the shift's `dedupe` will renumber this one.
+- Filed BL-1713 (the same gap in the HTTP proxy) and BL-1714 (`Http2RequestBytesRedactor` after an oversized header
+  frame). `origin/factory/phase-1` already has another BL-1713, so the shift's `dedupe` will renumber this one.
 
 ## Log
 

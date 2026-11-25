@@ -1,5 +1,5 @@
 ---
-id: BL-1711
+id: BL-1713
 title: Withhold HTTP/2 header credentials from the HTTP proxy's exchange log, tunnelled or not
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1711 — Withhold HTTP/2 header credentials from the HTTP proxy's exchange log, tunnelled or not
+# BL-1713 — Withhold HTTP/2 header credentials from the HTTP proxy's exchange log, tunnelled or not
 
 ## Goal
 
