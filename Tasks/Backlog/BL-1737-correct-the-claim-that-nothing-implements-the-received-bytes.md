@@ -1,5 +1,5 @@
 ---
-id: BL-1732
+id: BL-1737
 title: Correct the claim that nothing implements the received-bytes redaction contract
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1732 — Correct the claim that nothing implements the received-bytes redaction contract
+# BL-1737 — Correct the claim that nothing implements the received-bytes redaction contract
 
 ## Goal
 

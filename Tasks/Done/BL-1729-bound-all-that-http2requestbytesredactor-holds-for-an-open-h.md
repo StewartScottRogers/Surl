@@ -52,7 +52,7 @@ Everything `Http2RequestBytesRedactor` holds for an open header block is bounded
   0 failed, 3 skipped; `Measure-CodeQuality.ps1 -Library Surl.Http2.UnitLibrary` 0 failing members.
 - Conformance stage skipped: no option, exit code or byte sent or accepted changes.
 - `align-and-document` also brought the library's `CLAUDE.md` up to date (who references it; the redactor listed).
-- Filed BL-1732 (a false sentence in the Abstractions `CLAUDE.md`). ADR-0182 wording is already BL-1730 and BL-1731.
+- Filed BL-1737 (a false sentence in the Abstractions `CLAUDE.md`). ADR-0182 wording is already BL-1730 and BL-1731.
 
 ## Log
 
