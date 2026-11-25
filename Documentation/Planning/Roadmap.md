@@ -20,7 +20,12 @@ task board in `Tasks/`, never here.
 
 ## Milestone 1 — Phase 1
 
-- **Status:** Built, except `Surl.Cookies`, which holds no code yet (2026-09-30).
+- **Status:** Built, the cookies included (2026-11-25). As ADR-0189 decides, `Surl.Cookies`
+  reads each `--set-cookie` definition, writes the `Set-Cookie` field and reads the `Cookie`
+  header, and the HTTP server sets the configured cookies and publishes the ones a client
+  sends, over HTTP/1.x, HTTP/2, h2c and HTTP/3. Pinned upstream curl 8.21.0 has proven them
+  on Windows over `http` with HTTP/1.1 (BL-1662) and over HTTP/3 (BL-1689); FR-015 states
+  what each test runs.
 - **Delivers:** see the Phase 1 row of the product overview. `surl` serves `http` and
   `https`, `dict`, `gopher` and `gophers`, `mqtt` and `mqtts`, `telnet` and `tftp` over the
   listener seam, with `Surl.Authentication`'s logins and the curl-style command line, help,
