@@ -13,7 +13,7 @@ public sealed class CoapFlowObserversTests
 {
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(10);
 
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
 
     // RFC 7641 section 2 and RFC 7252 section 3: CON GET, Message ID 1, token 4A, Observe 0 (delta 6,
     // length 0), Uri-Path "a.txt" (delta 5, length 5).
@@ -235,6 +235,27 @@ public sealed class CoapFlowObserversTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_AccountAddedWhileObserved_Notifies401WithoutObserveAndRemovesTheObserver()
+    {
+        var hasAccounts = false;
+        await using var harness = new Harness(
+            new CoapTestStore().WithFile("a.txt", "one"), rules: new CoapAccessRules(AllowsAnonymous: false, () => hasAccounts));
+        var observer = harness.Open(Registration);
+        await observer.ReceiveAsync(1);
+
+        hasAccounts = true;
+        await harness.AdvanceWhenTimerIsPendingAsync(TimeSpan.FromSeconds(60));
+        var notification = await observer.ReceiveAsync(2);
+        observer.Flow.DeliverFromClient(new byte[] { 0x60, 0x00, 0xFF, 0xFF });
+        await observer.WaitForNoteAsync("Observation ended: token 4A, notification 4.01 Acknowledged.");
+
+        Assert.AreEqual(CoapCode.Unauthorized, notification.Code);
+        Assert.IsNull(ObserveOf(notification));
+        Assert.IsTrue(notification.Payload.IsEmpty);
+        Assert.AreEqual(0, harness.Observations.Count);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ChangesWhileANotificationIsOutstanding_AreSentOnceAsTheNewestState()
     {
         await using var harness = new Harness(new CoapTestStore(CoapTestStore.Uploads).WithFile("a.txt", "one"));
@@ -382,7 +403,7 @@ public sealed class CoapFlowObserversTests
         }
     }
 
-    private sealed class Harness(CoapTestStore store, CoapObservations? observations = null) : IAsyncDisposable
+    private sealed class Harness(CoapTestStore store, CoapObservations? observations = null, CoapAccessRules? rules = null) : IAsyncDisposable
     {
         private readonly CancellationTokenSource exchange = new();
         private readonly List<ServedFlow> flows = [];
@@ -391,7 +412,7 @@ public sealed class CoapFlowObserversTests
 
         public CoapObservations Observations { get; } = observations ?? new CoapObservations();
 
-        private CoapProtocolServer Server => field ??= new CoapProtocolServer(store.Store, Anonymous, new UnitTestCoapRandomSource(), observations: Observations);
+        private CoapProtocolServer Server => field ??= new CoapProtocolServer(store.Store, rules ?? Anonymous, new UnitTestCoapRandomSource(), observations: Observations);
 
         public ServedFlow Open(byte[] firstDatagram)
         {

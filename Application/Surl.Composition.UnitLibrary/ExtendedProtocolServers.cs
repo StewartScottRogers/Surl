@@ -245,11 +245,14 @@ public static class ExtendedProtocolServers
     /// <summary>
     /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether any
     /// account is allowed on <c>coap</c> or the <c>--user-ldap</c> directory serves it (ADR-0149, amendment 2). CoAP carries no
-    /// password, so a directory only makes the server private: no peer logs in through it.
+    /// password, so a directory only makes the server private: no peer logs in through it. The accounts are asked at each read,
+    /// so one added or removed while the server runs counts at once (ADR-0132).
     /// </summary>
-    internal static CoapAccessRules CoapAccessRulesFor(ComposedProtocolServices services) => new(
-        services.AuthenticationPolicy.Settings.AllowAnonymous,
-        services.AuthenticationPolicyFor("coap").Settings.HasAccountToLogInTo("coap"));
+    internal static CoapAccessRules CoapAccessRulesFor(ComposedProtocolServices services)
+    {
+        var settings = services.AuthenticationPolicyFor("coap").Settings;
+        return new CoapAccessRules(services.AuthenticationPolicy.Settings.AllowAnonymous, () => settings.HasAccountToLogInTo("coap"));
+    }
 
     /// <summary>
     /// Builds every extended protocol server <see cref="Registrations"/> lists, in its order.

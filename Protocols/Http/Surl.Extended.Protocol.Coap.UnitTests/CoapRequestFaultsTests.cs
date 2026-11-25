@@ -12,7 +12,7 @@ namespace Surl.Extended.Protocol.Coap;
 [TestClass]
 public sealed class CoapRequestFaultsTests
 {
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
 
     // CON GET /hello.txt, Message ID 0x7D34, token A1 A2.
     private static readonly byte[] GetHello = [0x42, 0x01, 0x7D, 0x34, 0xA1, 0xA2, 0xB9, .. "hello.txt"u8];

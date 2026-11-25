@@ -21,7 +21,28 @@ public sealed class CoapsCompositionTests
         var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
 
         Assert.AreEqual(expectedAnonymous, rules.AllowsAnonymous);
-        Assert.AreEqual(hasAccount, rules.HasAccounts);
+        Assert.AreEqual(hasAccount, rules.HasAccounts());
+    }
+
+    [TestMethod]
+    public void CoapAccessRulesFor_AccountAddedAndRemovedAfterComposing_FollowsTheBook()
+    {
+        var services = ComposeServices(false, []);
+        var book = services.AuthenticationPolicy.Settings.Accounts;
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Add(new Account("mail", "pw") { Schemes = new HashSet<string> { "smtp" } });
+
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Add(new Account("alice", "pw"));
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Remove("alice");
+
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
     }
 
     [TestMethod]
@@ -206,22 +227,27 @@ public sealed class CoapsCompositionTests
     {
         var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
             SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
+        var policy = new AuthenticationPolicy(
+            new AuthenticationSettings(new AccountBook(accounts), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted)
+            {
+                LdapAccountSource = directory,
+            },
+            [],
+            TimeProvider.System);
         return new ComposedProtocolServices(
             unserved.ContentStore,
             new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
-            new AuthenticationPolicy(
-                new AuthenticationSettings(new AccountBook(accounts), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted)
-                {
-                    LdapAccountSource = directory,
-                },
-                [],
-                TimeProvider.System),
+            policy,
             TimeProvider.System,
             unserved.SshHostKeys,
             unserved.SshAlgorithms,
             isTlsUpgradeAvailable: false,
             echoesWebSocketMessages: false,
-            advertisesHttp3: false);
+            advertisesHttp3: false)
+        {
+            // Per-scheme views, as the start composes them.
+            AuthenticationPolicyForScheme = new SchemeAuthenticationPolicies(policy, TimeProvider.System).For,
+        };
     }
 
     // CoAP carries no password, so its access rules never reach the directory.

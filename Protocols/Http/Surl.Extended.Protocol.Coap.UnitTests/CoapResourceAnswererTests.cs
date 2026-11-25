@@ -11,7 +11,7 @@ namespace Surl.Extended.Protocol.Coap;
 [TestClass]
 public sealed class CoapResourceAnswererTests
 {
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
 
     private static readonly ContentExposureOptions UploadsAndListings = new() { AllowUploads = true, ListDirectories = true };
 
@@ -83,7 +83,7 @@ public sealed class CoapResourceAnswererTests
     public async Task AnswerAsync_AccessRulesAndTheUploadSwitch_DecideReadsAndWrites(bool allowsAnonymous, bool hasAccounts, bool uploads, string read, string write)
     {
         var store = new CoapTestStore(new ContentExposureOptions { AllowUploads = uploads }).WithFile("f.txt", "x");
-        var rules = new CoapAccessRules(allowsAnonymous, hasAccounts);
+        var rules = new CoapAccessRules(allowsAnonymous, () => hasAccounts);
 
         var got = await AnswerAsync(store, CoapCode.Get, Path("f.txt"), rules);
         var put = await AnswerAsync(store, CoapCode.Put, Path("f.txt"), rules, "y");
@@ -96,7 +96,7 @@ public sealed class CoapResourceAnswererTests
     public async Task AnswerAsync_AuthenticatedPeer_MayReadAndWriteWithoutAnonymity()
     {
         var store = new CoapTestStore(CoapTestStore.Uploads).WithFile("f.txt", "x");
-        var answerer = new CoapResourceAnswerer(store.Store, new CoapAccessRules(false, true), new UnitTestCoapRandomSource());
+        var answerer = new CoapResourceAnswerer(store.Store, new CoapAccessRules(false, () => true), new UnitTestCoapRandomSource());
         var put = Request(CoapCode.Put, Path("f.txt"), "y");
 
         await using var uploads = new CoapBlock1Uploads(store.Store, new ManualTimeProvider(), CoapBlockOption.LargestSizeExponent);

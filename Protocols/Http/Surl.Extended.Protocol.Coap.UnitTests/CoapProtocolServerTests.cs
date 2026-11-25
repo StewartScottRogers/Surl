@@ -14,7 +14,24 @@ public sealed class CoapProtocolServerTests
 {
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(10);
 
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
+
+    [TestMethod]
+    public async Task ServeAsync_AccountAddedWhileTheServerRuns_GetIs205BeforeAnd401After()
+    {
+        var hasAccounts = false;
+        var store = new CoapTestStore().WithFile("hello.txt", "hi");
+        var server = new CoapProtocolServer(
+            store.Store, new CoapAccessRules(AllowsAnonymous: false, () => hasAccounts), new UnitTestCoapRandomSource());
+        byte[] get = [0x40, 0x01, 0x00, 0x01, 0xB9, .. "hello.txt"u8];
+
+        var before = await ServeAsync(server, null, 1, get);
+        hasAccounts = true;
+        var after = await ServeAsync(server, null, 1, get);
+
+        Assert.AreEqual((byte)0x45, before.Single()[1]);
+        CollectionAssert.AreEqual(new byte[] { 0x60, 0x81, 0x00, 0x01 }, after.Single());
+    }
 
     [TestMethod]
     public void Schemes_IsCoap() =>
@@ -310,9 +327,12 @@ public sealed class CoapProtocolServerTests
         clock,
         cancellationToken);
 
-    private static async Task<IReadOnlyList<byte[]>> ServeAsync(CoapTestStore store, RecordingExchangeLog? log, int expectedSends, byte[] firstDatagram, params byte[][] later)
+    private static Task<IReadOnlyList<byte[]>> ServeAsync(CoapTestStore store, RecordingExchangeLog? log, int expectedSends, byte[] firstDatagram, params byte[][] later) =>
+        ServeAsync(new CoapProtocolServer(store.Store, Anonymous, new UnitTestCoapRandomSource()), log, expectedSends, firstDatagram, later);
+
+    // One flow served by the given server, until it has sent and noted what the datagrams call for.
+    private static async Task<IReadOnlyList<byte[]>> ServeAsync(CoapProtocolServer server, RecordingExchangeLog? log, int expectedSends, byte[] firstDatagram, params byte[][] later)
     {
-        var server = new CoapProtocolServer(store.Store, Anonymous, new UnitTestCoapRandomSource());
         await using var flow = new InMemoryDatagramFlow(firstDatagram, later.Select(datagram => (ReadOnlyMemory<byte>)datagram));
         using var exchange = new CancellationTokenSource();
         log ??= new RecordingExchangeLog();

@@ -501,3 +501,17 @@ last 17 rows to tests settled:
 - **`CoapProtocolServer` implements `IDatagramRefusalWriter`** as the decision 7 table says; `SecureCoapProtocolServer` does not.
 - **`--max-message`** is the whole datagram. A CON request over it is `4.13` in an ACK with Block1 `0/0/<size>` (the largest
   SZX whose block plus 128 bytes fit, when one does) and Size1 (`--max-filesize`, when it is set); anything else over it is ignored.
+
+**Amendment 3 (2026-11-25, BL-1683; decided by Claude under Stewart's delegation).** Decision 6's "whether any
+account is configured" is asked at every read, not once:
+
+- **Found:** the answer was a `bool` taken when the server was built (`coap`) or at its first flow (`coaps`), so an
+  account added while the server ran ([ADR-0132](ADR-0132-how-the-account-book-changes-while-the-server-runs.md)) left
+  unauthenticated reads open.
+- **Rule:** `CoapAccessRules.HasAccounts` is a `Func<bool>`. An account allowed on `coap` that is added while the server
+  runs makes the next unauthenticated read `4.01`, as it makes the next HTTP request need a login.
+- **Removal:** removing the last such account serves unauthenticated reads again (unless a `--user-ldap` directory
+  serves CoAP), as ADR-0132 decides for the other servers. Writes are unchanged: they never depended on the accounts.
+- **Alternative rejected:** staying private once any account has existed. CoAP would then differ from every other
+  server after the same store change, and a test that resets the accounts would not get the starting behaviour back.
+- **`--allow-anonymous`** is still read once: it is an option, not a store.
