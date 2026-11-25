@@ -10,13 +10,19 @@ namespace Surl.Conformance;
 /// back and <c>-b</c> with <c>-j</c> drops the session cookie, each received cookie read from surl's event
 /// stream through the control endpoint's <c>cookie_received</c> events. The jar lines and the replayed order
 /// were measured from curl 8.21.0 with <c>Record-CurlExchange.ps1</c> on 2026-11-24 (ADR-0189; BL-1662).
-/// Inconclusive where no pinned build is installed.
+/// The <c>Http3Only</c> tests run <c>--http3-only</c> against <c>surl --http3</c> (BL-1689): on Windows with
+/// the static 8.21.0 build ADR-0082 decision 1 names, since the Windows reference build has no HTTP3 feature;
+/// on Linux and macOS, with the reference builds. Inconclusive where the build a test runs is not installed.
 /// </summary>
 [TestClass]
 [TestCategory("Integration")]
 public sealed class UpstreamCurlExchangesCookiesWithSurlTests
 {
     private const long MaxAgeSeconds = 3600;
+
+    // stunnel/static-curl's build of upstream curl's tag 8.21.0: the Windows build HTTP/3 is
+    // measured with (ADR-0082, decision 1).
+    private const string Http3WindowsBuildSha256 = "589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648";
 
     // The control token: 32 to 1024 visible ASCII bytes on the first line of the token file.
     private const string Token = "cookie-control-token-0123456789abcdef";
@@ -48,9 +54,7 @@ public sealed class UpstreamCurlExchangesCookiesWithSurlTests
         await WriteJarAsync(surl);
 
         var after = TimeProvider.System.GetUtcNow().ToUnixTimeSeconds();
-        var lines = (await File.ReadAllLinesAsync(Jar, TestContext.CancellationToken))
-            .Where(line => line.Length > 0 && !line.StartsWith("# ", StringComparison.Ordinal))
-            .ToArray();
+        var lines = await ReadJarCookieLinesAsync();
         Assert.HasCount(3, lines, string.Join('\n', lines));
 
         // Domain, include-subdomains, path, secure, expiry, name, value: SameSite is not stored.
@@ -97,23 +101,73 @@ public sealed class UpstreamCurlExchangesCookiesWithSurlTests
         CollectionAssert.AreEqual(new[] { "dated=d1", "sid=abc123" }, await ReadReceivedCookiesAsync(surl, 2));
     }
 
-    private async Task<SurlOnLoopback> StartAsync()
+    [TestMethod]
+    public async Task CookieJar_Http3Only_HoldsSurlsSetCookie()
+    {
+        await using var surl = await StartHttp3Async();
+
+        await RunHttp3OnlyAsync(surl, "-c", Jar);
+
+        CollectionAssert.AreEqual(
+            new[] { "#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t0\tsession\tt1" }, await ReadJarCookieLinesAsync());
+    }
+
+    [TestMethod]
+    public async Task CookieReplay_FromTheJarWithHttp3Only_PublishesTheCookieOnSurlsEventStream()
+    {
+        await using var surl = await StartHttp3Async();
+        await RunHttp3OnlyAsync(surl, "-c", Jar);
+
+        await RunHttp3OnlyAsync(surl, "-b", Jar);
+
+        CollectionAssert.AreEqual(new[] { "session=t1" }, await ReadReceivedCookiesAsync(surl, 1));
+    }
+
+    private Task<SurlOnLoopback> StartAsync()
+    {
+        var expiresText = expires.ToString("R", CultureInfo.InvariantCulture);
+
+        return StartWithControlAsync(
+            "http",
+            "--set-cookie",
+            $"sid=abc123;Domain=127.0.0.1;Path=/;Expires={expiresText};Max-Age={MaxAgeSeconds};Secure;HttpOnly;SameSite=Lax",
+            "--set-cookie", "sess=xyz;Path=/",
+            "--set-cookie", $"dated=d1;Path=/app;Expires={expiresText};SameSite=Strict");
+    }
+
+    private Task<SurlOnLoopback> StartHttp3Async() =>
+        StartWithControlAsync("https", "--self-signed", "--http3", "--set-cookie", "session=t1;Path=/;HttpOnly");
+
+    private async Task<SurlOnLoopback> StartWithControlAsync(string scheme, params string[] options)
     {
         var tokenFile = Path.Combine(temporaryDirectory, "control.token");
         await File.WriteAllTextAsync(tokenFile, Token + "\n", TestContext.CancellationToken);
-        var expiresText = expires.ToString("R", CultureInfo.InvariantCulture);
 
         return await SurlOnLoopback.StartInMemoryWithControlAsync(
-            ["http"],
-            [
-                "--set-cookie",
-                $"sid=abc123;Domain=127.0.0.1;Path=/;Expires={expiresText};Max-Age={MaxAgeSeconds};Secure;HttpOnly;SameSite=Lax",
-                "--set-cookie", "sess=xyz;Path=/",
-                "--set-cookie", $"dated=d1;Path=/app;Expires={expiresText};SameSite=Strict",
-            ],
-            tokenFile,
-            TestContext.CancellationToken);
+            [scheme], options, tokenFile, TestContext.CancellationToken);
     }
+
+    // Fetches surl's root over HTTP/3 alone with cookieOption naming the jar, and checks curl spoke HTTP/3.
+    private async Task RunHttp3OnlyAsync(SurlOnLoopback surl, params string[] cookieOption)
+    {
+        string[] arguments =
+        [
+            "-sS", "-k", "--http3-only", .. cookieOption,
+            "-o", Path.Combine(temporaryDirectory, "body"), "-w", "%{http_version}", surl.UrlOf(string.Empty),
+        ];
+
+        var result = OperatingSystem.IsWindows()
+            ? await PinnedUpstreamCurl.RunSupplementaryBuildAsync(TestContext, Http3WindowsBuildSha256, arguments)
+            : await PinnedUpstreamCurl.RunAsync(TestContext, arguments);
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        Assert.AreEqual("3", Encoding.ASCII.GetString(result.StandardOutput), result.StandardError);
+    }
+
+    // The jar's cookie lines: every line but the blank ones and the "# " comments ("#HttpOnly_" lines are cookies).
+    private async Task<string[]> ReadJarCookieLinesAsync() =>
+        [.. (await File.ReadAllLinesAsync(Jar, TestContext.CancellationToken))
+            .Where(line => line.Length > 0 && !line.StartsWith("# ", StringComparison.Ordinal))];
 
     // The first run sends no Cookie header, so it publishes no cookie_received event.
     private async Task WriteJarAsync(SurlOnLoopback surl)
