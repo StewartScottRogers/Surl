@@ -34,3 +34,4 @@ task. `.github/workflows/ci.yml` runs no format step.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
