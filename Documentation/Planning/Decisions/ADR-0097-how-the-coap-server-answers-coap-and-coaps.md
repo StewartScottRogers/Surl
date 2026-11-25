@@ -18,6 +18,8 @@
   [ADR-0087](ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md) and
   [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md) apply as
   written.
+- **Amended by:** [ADR-0149](ADR-0149-how-an-ldap-directory-serves-as-an-optional-account-source.md) amendment 2
+  (decision 6: a `--user-ldap` directory serving `coap` or `coaps` makes the server private too).
 
 ## Context
 

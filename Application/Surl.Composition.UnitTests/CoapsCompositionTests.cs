@@ -25,6 +25,32 @@ public sealed class CoapsCompositionTests
     }
 
     [TestMethod]
+    [DataRow(null, DisplayName = "a directory serving every scheme")]
+    [DataRow("coap", DisplayName = "a directory naming coap")]
+    [DataRow("coaps", DisplayName = "a directory naming coaps")]
+    public void CoapAccessRulesFor_DirectoryOnlyServingCoap_RefusesAnUnauthenticatedRead(string? protocol)
+    {
+        var services = ComposeServices(false, [], DirectoryServing(protocol));
+
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: true));
+    }
+
+    [TestMethod]
+    [DataRow(false, "smtp", DisplayName = "a directory serving neither coap nor coaps")]
+    [DataRow(true, null, DisplayName = "--allow-anonymous beside a directory")]
+    public void CoapAccessRulesFor_DirectoryNotMakingCoapPrivate_ServesAnUnauthenticatedRead(bool allowAnonymous, string? protocol)
+    {
+        var services = ComposeServices(allowAnonymous, [], DirectoryServing(protocol));
+
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+    }
+
+    [TestMethod]
     public void LookUpKey_Identity_IsTheLiveBooksPasswordOrNothing()
     {
         var book = new AccountBook([new Account("alice", "pw"), new Account("bob", "other"), new Account("mail", "x") { Schemes = new HashSet<string> { "smtp" } }]);
@@ -165,7 +191,18 @@ public sealed class CoapsCompositionTests
         }
     }
 
-    private static ComposedProtocolServices ComposeServices(bool allowAnonymous, IReadOnlyList<Account> accounts)
+    private static LdapAccountSource DirectoryServing(string? protocol)
+    {
+        Assert.IsTrue(LdapDirectoryUrl.TryParse("ldap://dir.test/dc=example,dc=com", out var url, out _));
+
+        return new LdapAccountSource(
+            new LdapAccountSourceSettings(url!) { Protocols = protocol is null ? null : [protocol] },
+            new UnreachedDirectory(),
+            TimeProvider.System);
+    }
+
+    private static ComposedProtocolServices ComposeServices(
+        bool allowAnonymous, IReadOnlyList<Account> accounts, LdapAccountSource? directory = null)
     {
         var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
             SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
@@ -173,7 +210,10 @@ public sealed class CoapsCompositionTests
             unserved.ContentStore,
             new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
             new AuthenticationPolicy(
-                new AuthenticationSettings(new AccountBook(accounts), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),
+                new AuthenticationSettings(new AccountBook(accounts), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted)
+                {
+                    LdapAccountSource = directory,
+                },
                 [],
                 TimeProvider.System),
             TimeProvider.System,
@@ -182,5 +222,12 @@ public sealed class CoapsCompositionTests
             isTlsUpgradeAvailable: false,
             echoesWebSocketMessages: false,
             advertisesHttp3: false);
+    }
+
+    // CoAP carries no password, so its access rules never reach the directory.
+    private sealed class UnreachedDirectory : ILdapDirectoryConnector
+    {
+        public ValueTask<ILdapDirectoryConnection> ConnectAsync(LdapDirectoryEndpoint endpoint, CancellationToken cancellationToken) =>
+            throw new IOException("no directory in this test");
     }
 }

@@ -6,7 +6,7 @@ namespace Surl.Extended.Protocol.Coap;
 /// account is configured. <c>--allow-uploads</c> is the content store's own switch, checked after.
 /// </summary>
 /// <param name="AllowsAnonymous">Whether <c>--allow-anonymous</c> is on.</param>
-/// <param name="HasAccounts">Whether any account is configured.</param>
+/// <param name="HasAccounts">Whether any account is configured, a <c>--user-ldap</c> directory serving <c>coap</c> counting as one.</param>
 public sealed record CoapAccessRules(bool AllowsAnonymous, bool HasAccounts)
 {
     /// <summary>

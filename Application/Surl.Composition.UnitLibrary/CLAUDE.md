@@ -172,6 +172,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   Kafka `KafkaMetadataAnswerer` (`ComposeKafkaMetadataAnswerer`, name `kafka`) and the `NatsServer` (name `nats`) draw
   their cluster ID and `server_id` from, so a seeded instance repeats them. Tests: `ServerLifeIdentifiersCompositionTests`.
 
+- CoAP access rules (ADR-0097 decision 6, ADR-0149 amendment 2, BL-1669):
+  `ExtendedProtocolServers.CoapAccessRulesFor` counts `coap` private when
+  `AuthenticationSettings.HasAccountToLogInTo("coap")` is true on the `coap` policy: an account allowed there, or a
+  `--user-ldap` directory serving `coap` or `coaps`. It is read once, when the server is built.
+
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
 
