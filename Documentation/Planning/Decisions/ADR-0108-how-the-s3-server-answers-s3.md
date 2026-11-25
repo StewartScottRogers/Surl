@@ -905,7 +905,7 @@ and escaping are this record's.
    point 3's values withheld. Neither element is cut to 1024 characters: a cut one cannot be compared, and
    both are built from a request head `--max-request-head` bounds. That bound is not tight yet: a
    `SignedHeaders` list repeating a name repeats its values in the canonical request, which
-   `Surl.Authentication` has built since ADR-0043 (BL-1713).
+   `Surl.Authentication` has built since ADR-0043 (BL-1719).
 5. **When neither element is sent:** an unknown access key (`InvalidAccessKeyId`), a request no
    canonical request can be built from (a signed header missing), a right signature refused by a
    `refuse-login` fault, a bad `aws-chunked` chunk or trailer signature, a fault rule's chosen

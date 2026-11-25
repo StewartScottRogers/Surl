@@ -1,5 +1,5 @@
 ---
-id: BL-1713
+id: BL-1719
 title: Refuse a SigV4 SignedHeaders list that repeats a header name
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1713 — Refuse a SigV4 SignedHeaders list that repeats a header name
+# BL-1719 — Refuse a SigV4 SignedHeaders list that repeats a header name
 
 ## Goal
 

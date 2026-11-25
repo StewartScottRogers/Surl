@@ -76,7 +76,7 @@ holding what the server computed, as AWS S3's does.
   is accepted, which Amendment 11 changed). No task in Doing names either.
 - ADR-0109 still cites ADR-0108's former reason for dropping `StringToSign`; it is left as the record of why Azure's
   error body was decided, which this task does not change.
-- Filed BL-1713 (High): a `SignedHeaders` list repeating a name makes the canonical request far larger than the
+- Filed BL-1719 (High): a `SignedHeaders` list repeating a name makes the canonical request far larger than the
   request head. Found by reading `Surl.Authentication`; since this task the S3 server also sends that text back to a
   caller who knows a configured access key.
 - Verify: build `-warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests of the whole solution
