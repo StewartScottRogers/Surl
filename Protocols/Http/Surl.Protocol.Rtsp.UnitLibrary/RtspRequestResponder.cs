@@ -61,8 +61,9 @@ internal sealed partial class RtspRequestResponder
     private readonly IHttpAuthenticationSession authenticationSession;
     private readonly byte[] bodyBuffer = new byte[BodyBufferBytes];
 
-    // The WWW-Authenticate values the authentication session gave for the request being
-    // answered, written on whatever response it gets; none before a request is judged.
+    // The WWW-Authenticate values written on whatever response the request being answered
+    // gets: those the authentication session's verdict gave, or, on a fault rule's chosen 401,
+    // the session's challenges; none before a request is judged.
     private IReadOnlyList<string> wwwAuthenticateValues = [];
 
     // The Content-Length of the request being answered; 0 when it has no body.
@@ -376,8 +377,8 @@ internal sealed partial class RtspRequestResponder
     }
 
     // ADR-0074 decision 1: CSeq first, copied from the request (none when it had no usable
-    // one), then Date and Server, then the authentication session's WWW-Authenticate values,
-    // then the Session the request named, when the connection holds it (decision 5).
+    // one), then Date and Server, then the request's WWW-Authenticate values, then the Session
+    // the request named, when the connection holds it (decision 5).
     private HttpResponseHead ResponseHead(HttpStatus status, string? cseq) =>
         new HttpResponseHead(HttpMessageProtocol.Rtsp10, status)
             .AddField("CSeq", cseq)

@@ -6,7 +6,8 @@ namespace Surl.Protocol.Rtsp;
 
 /// <summary>
 /// How the responder answers a request with a fault rule's chosen error (ADR-0124 decision 4,
-/// ADR-0134 decision 2).
+/// ADR-0134 decision 2 and Amendment 2). A chosen <c>401</c> sends the challenges the connection's
+/// authentication session offers; every other status sends the let-in verdict's values.
 /// </summary>
 internal sealed partial class RtspRequestResponder
 {
@@ -53,7 +54,9 @@ internal sealed partial class RtspRequestResponder
 
     // A request let in is first offered to the fault plan; a chosen error is answered as every
     // refusal that keeps the connection is, its body already read, before the content store or
-    // the session is touched. Otherwise the method is answered.
+    // the session is touched, its WWW-Authenticate fields those
+    // WwwAuthenticateValuesForChosenError gives for the chosen status. Otherwise the method is
+    // answered.
     private async Task<bool> AnswerLetInRequestAsync(HttpRequestHead head, string cseq, string? accountName)
     {
         var path = head.RequestTarget.StartsWith(AbsoluteUrlPrefix, StringComparison.OrdinalIgnoreCase)
@@ -90,7 +93,29 @@ internal sealed partial class RtspRequestResponder
 
         var status = new HttpStatus(code, reasonPhrase ?? ErrorReasonPhrases.GetValueOrDefault(code, string.Empty));
         HttpCommandFaults.PublishApplied(context, rule, head.Method, path, $"{status.Code} {status.ReasonPhrase}");
+        wwwAuthenticateValues = WwwAuthenticateValuesForChosenError(rule.Id, status.Code);
 
         return await RefuseAsync(status, cseq, head.Method, $"fault rule {rule.Id} chose the error");
+    }
+
+    // The WWW-Authenticate values a chosen error goes with. A let-in verdict's values are only login
+    // success tokens (Negotiate's final token), never challenges, so a chosen 401 always replaces them
+    // with those the session's own 401 would offer on this connection (RFC 9110 section 11.6.1). A
+    // session offering none leaves the 401 without one, and this notes that in the exchange log. Every
+    // other status keeps the verdict's values unchanged.
+    private IReadOnlyList<string> WwwAuthenticateValuesForChosenError(string faultRuleId, int statusCode)
+    {
+        if (statusCode != RtspStatus.Unauthorized.Code)
+        {
+            return wwwAuthenticateValues;
+        }
+
+        var offered = authenticationSession.CreateChallenges();
+        if (offered.Count == 0)
+        {
+            context.Log.Note($"fault rule {faultRuleId} chose 401, and the server offers no challenge on this connection");
+        }
+
+        return offered;
     }
 }

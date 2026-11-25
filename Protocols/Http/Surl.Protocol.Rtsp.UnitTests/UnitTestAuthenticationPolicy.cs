@@ -24,6 +24,9 @@ internal sealed class UnitTestAuthenticationPolicy(Func<TlsSession?, HttpAuthent
 
     public IReadOnlyList<HttpAuthenticationRequest> JudgedRequests => judgedRequests;
 
+    // What every session's CreateChallenges returns: the challenges its own 401 would offer.
+    public IReadOnlyList<string> OfferedChallenges { get; set; } = [];
+
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException("The RTSP server never checks a password login.");
 
@@ -42,5 +45,7 @@ internal sealed class UnitTestAuthenticationPolicy(Func<TlsSession?, HttpAuthent
 
             return ValueTask.FromResult(policy.Judge(tlsSession, request));
         }
+
+        public IReadOnlyList<string> CreateChallenges() => policy.OfferedChallenges;
     }
 }

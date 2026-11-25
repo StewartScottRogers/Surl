@@ -105,3 +105,30 @@ requests on one connection, then exits 0 with no third.
 `401`: a chosen `401` whose every challenge is NTLM or Negotiate is reset over HTTP/2 (`HTTP_1_1_REQUIRED`) or
 HTTP/3 (`H3_VERSION_FALLBACK`) like the server's own `401`. The client then never receives the chosen `401` or a
 `body=` text, though the `FaultAppliedEvent` is published and one of the rule's `times` is spent.
+
+## Amendment 2 (BL-1724)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Found during BL-1700: a chosen `401` on an RTSP request
+let in carried only the let-in verdict's values, so no challenge, though
+[RFC 9110 section 11.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-11.6.1) says a server generating a `401`
+must send at least one, and [RFC 2326](https://www.rfc-editor.org/rfc/rfc2326) section 1.4 applies HTTP
+authentication to RTSP. This amends the RTSP answer of decision 2 only, mirroring Amendment 1.
+
+- **D1.** A chosen status `401`, whatever its reason phrase, carries the values of the connection's
+  `IHttpAuthenticationSession.CreateChallenges()`, one `WWW-Authenticate` field per value, in order. They replace
+  the let-in verdict's values: those are only login success tokens, not challenges.
+- **D2.** When the session offers none on this connection, the `401` goes without the field and the exchange log
+  notes `fault rule <id> chose 401, and the server offers no challenge on this connection`. When
+  `Surl.Authentication`'s session offers none is as Amendment 1 D2 says.
+- **D3.** Every other chosen status is unchanged: it sends the verdict's values as before. A chosen `407` is not
+  given `Proxy-Authenticate`, since the `rtsp` server is not a proxy.
+
+The rest of the answer (`CSeq`, `Date`, `Server`, `Session`, the connection kept, no body) is unchanged. No new
+recording from pinned upstream curl was made: the field has the shape of the login `401` that the RTSP fixture
+`no-login-401` already pins.
+
+### Consequences
+
+A test seeds a chosen `401` with a `--fault` rule, or its `Surl.Api` equivalent, and sees in the response the
+challenges the server's own `401` would offer. The rule publishes the same one `FaultAppliedEvent`; no store
+changes.
