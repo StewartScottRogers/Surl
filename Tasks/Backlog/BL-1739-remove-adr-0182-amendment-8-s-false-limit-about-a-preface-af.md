@@ -1,5 +1,5 @@
 ---
-id: BL-1738
+id: BL-1739
 title: Remove ADR-0182 Amendment 8's false limit about a preface after a Content-Length: 0 head
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1738 — Remove ADR-0182 Amendment 8's false limit about a preface after a Content-Length: 0 head
+# BL-1739 — Remove ADR-0182 Amendment 8's false limit about a preface after a Content-Length: 0 head
 
 ## Goal
 

@@ -51,7 +51,7 @@ completed: 2026-11-25
   `HttpProxyConnectionBytesRedactor` and `RtspRequestBytesRedactor`: both ask the property, which is true there; no
   test was added in those projects).
 - ADR-0182 Amendment 8 still lists the non-existent bug as an accepted limit. It is outside `touches` (BL-1710, in
-  Doing, names it), so it is filed as BL-1738.
+  Doing, names it), so it is filed as BL-1739.
 - Pipeline: a test-only diff, so the plan, implement, review and conformance stages had nothing to act on and were
   not delegated.
 - Evidence: `dotnet build -warnaserror` clean (0 warnings), `dotnet format --verify-no-changes` clean, fast tests
@@ -62,4 +62,4 @@ completed: 2026-11-25
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
-- 2026-11-25: Doing -> Done. IsAtRequestStart is already true right after a Content-Length: 0 head; two regression tests pin it, no production change, ADR correction filed as BL-1738
+- 2026-11-25: Doing -> Done. IsAtRequestStart is already true right after a Content-Length: 0 head; two regression tests pin it, no production change, ADR correction filed as BL-1739
