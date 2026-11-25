@@ -8,7 +8,7 @@ depends-on: [BL-1700]
 touches: [Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary, Protocols/Http/Surl.Protocol.Rtsp.UnitTests, Documentation/Planning/Decisions/ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1724 — Send the session's challenges with a chosen RTSP 401 error
 
@@ -48,23 +48,33 @@ A fault rule that makes the RTSP server answer `401` sends the `WWW-Authenticate
 
 ## Acceptance criteria
 
-- [ ] A test in `Protocols/Http/Surl.Protocol.Rtsp.UnitTests/RtspFaultTests.cs` shows a chosen `401` on a request
+- [x] A test in `Protocols/Http/Surl.Protocol.Rtsp.UnitTests/RtspFaultTests.cs` shows a chosen `401` on a request
       let in with a success token is answered `RTSP/1.0 401 Unauthorized` with the session's challenges as
       `WWW-Authenticate` fields, in order, without the token, and the connection stays open.
-- [ ] A named test shows that a session offering no challenge gives a `401` with no `WWW-Authenticate` and the
+- [x] A named test shows that a session offering no challenge gives a `401` with no `WWW-Authenticate` and the
       exchange-log note of decision 2.
-- [ ] A named test shows a chosen status other than `401` still sends the verdict's values and none of the session's
+- [x] A named test shows a chosen status other than `401` still sends the verdict's values and none of the session's
       challenges.
-- [ ] ADR-0134 has an amendment naming this task that states decisions 1 to 3, and its row in
+- [x] ADR-0134 has an amendment naming this task that states decisions 1 to 3, and its row in
       `Documentation/Planning/Decisions/README.md` says the RTSP chosen `401` carries the challenges.
-- [ ] `Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md`'s `RtspRequestResponder.Faults.cs` bullet and that
+- [x] `Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md`'s `RtspRequestResponder.Faults.cs` bullet and that
       file's doc comments say what a chosen `401` sends.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary -warnaserror` is clean, the fast tests are green
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary -warnaserror` is clean, the fast tests are green
       with no `TestCategory=Integration` test needed, and the library stays at 100% line and branch coverage.
 
 ## Notes
+
+- Delivered in the lane session without the `/feature` subagents: the task already holds the plan (the decision and
+  the HTTP implementation to mirror), and the change is one private method in one library.
+- Tests first: the three new test methods in `RtspFaultTests` (`ChosenUnauthorized_*`,
+  `ChosenErrorOtherThanUnauthorized_*`) were run before the change; the two `401` methods failed (3 cases).
+- `RtspRequestResponder.Faults.cs`, `WwwAuthenticateValuesForChosenError`, mirrors the HTTP method of the same name.
+- Recorded as ADR-0134 Amendment 2. No new upstream curl recording, as the task's Context decides.
+- Verified 2026-11-25: solution build `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` passed, all fast
+  tests green (RTSP 250 of 250), `Measure-CodeQuality.ps1` for the RTSP library 100% line, 100% branch, 0 failing.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. A chosen RTSP 401 sends the session's WWW-Authenticate challenges, or none, noted in the exchange log, when it offers none.
