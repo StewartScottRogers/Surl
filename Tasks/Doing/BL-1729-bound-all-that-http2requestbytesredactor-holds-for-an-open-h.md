@@ -43,3 +43,4 @@ Everything `Http2RequestBytesRedactor` holds for an open header block is bounded
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
