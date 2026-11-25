@@ -33,6 +33,12 @@ What it holds now (BL-629):
   payload removes it, and a subscribe with `includeRetained` is offered the matching ones in
   ordinal order of topic. An expired message is never delivered and is dropped from the
   retained slot when read.
+- **Several filters in one step (BL-1732).** `BusConnection.SubscribeTogether` takes
+  `BusSubscribeRequest`s and subscribes them, retained messages included, under one hold of the
+  bus's lock, so no publish is accepted between them and none reaches the new subscriptions both
+  retained and live. A request naming a subscription the connection already holds keeps it and reads
+  its retained messages again; one that is not a live subscription of that connection throws, and
+  nothing is subscribed (ADR-0100 decision 3.3, "Several filters in one step").
 - **Named queues (BL-631).** `BusConnection.DeclareQueue` makes a queue with
   `BusQueueFlags` (durable, exclusive, auto-delete). Declaring it again with other flags is
   `QueueFlagsDiffer`. `BindQueue` and `UnbindQueue` bind it to canonical filters, and a topic

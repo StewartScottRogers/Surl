@@ -1,7 +1,8 @@
 namespace Surl.MessageBus;
 
 /// <summary>
-/// What <see cref="BusConnection.Subscribe"/> did.
+/// What <see cref="BusConnection.Subscribe"/> did, or what
+/// <see cref="BusConnection.SubscribeTogether"/> did for one of its requests.
 /// </summary>
 /// <param name="Outcome">Whether the subscription was made, or which refusal it met.</param>
 /// <param name="Subscription">The live subscription; <see langword="null"/> when refused.
