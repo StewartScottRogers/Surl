@@ -6,7 +6,7 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The checks <c>start_server</c> makes before it starts anything (ADR-0103 decision 4): <c>-K</c>/<c>--config</c>
-/// refused outright, every listen URL on loopback unless the host allows otherwise, and every local path an
+/// refused outright, alone or in a short bundle, every listen URL on loopback unless the host allows otherwise, and every local path an
 /// option names inside the host's root. The words are parsed as <c>surl</c> parses them, so a listen URL or a path
 /// is checked however it was spelled.
 /// </summary>
@@ -43,7 +43,12 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
     /// <returns>The rule broken, or <see langword="null"/>.</returns>
     public string? FindRefusal(IReadOnlyList<string> words)
     {
-        if (words.Any(IsConfigFileOption))
+        // Every extended scheme with a default port is accepted here; mcp+stdio: has none, so it is left
+        // unparsed to Surl.Api, which refuses it with FailedInit. The parse reads no config file but says
+        // whether it was asked to, which catches a -K inside a short bundle (-sKsurl.conf).
+        var configFiles = new ConfigFileReadRecorder();
+        var commandLine = CommandLineParser.Parse(words, ExtendedSchemeDefaultPorts.Schemes, configFiles).CommandLine;
+        if (configFiles.WasReadRequested || words.Any(IsConfigFileOption))
         {
             return ConfigFileRule;
         }
@@ -55,9 +60,6 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
                 + "use get_exchanges and get_events to see what a client sent";
         }
 
-        // Every extended scheme with a default port is accepted here; mcp+stdio: has none, so it is left
-        // unparsed to Surl.Api, which refuses it with FailedInit.
-        var commandLine = CommandLineParser.Parse(words, ExtendedSchemeDefaultPorts.Schemes).CommandLine;
         return commandLine is null ? null : FindListenHostRefusal(commandLine) ?? FindPathRefusal(commandLine);
     }
 

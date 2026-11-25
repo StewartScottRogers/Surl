@@ -250,6 +250,34 @@ public sealed class StartServerToolTests
     }
 
     [TestMethod]
+    [DataRow("""["-sKsurl.conf"]""")]
+    [DataRow("""["-sK", "surl.conf"]""")]
+    [DataRow("""["-vKsurl.conf"]""")]
+    [DataRow("""["-vK", "surl.conf"]""")]
+    public async Task Handler_AConfigFileInAShortBundle_IsRefusedBeforeSurlApiCouldReadIt(string words)
+    {
+        var starts = 0;
+        await using var servers = new RunningSurlServers(
+            new SurlMcpHostSettings(),
+            TextWriter.Null,
+            TimeProvider.System,
+            (_, _) =>
+            {
+                starts++;
+                throw new InvalidOperationException("Surl.Api, which reads config files, must not be reached.");
+            });
+
+        var result = await McpTestHost.CallAsync(
+            StartServerTool.Create(servers),
+            $$"""{"listen_urls": ["http://127.0.0.1:0"], "arguments": {{words}}}""",
+            TestContext.CancellationToken);
+
+        AssertRefused(result, StartServerSafetyCheck.ConfigFileRule);
+        Assert.AreEqual(0, starts);
+        Assert.IsEmpty(servers.List());
+    }
+
+    [TestMethod]
     [DataRow("""["--log-file", "x.log"]""", "--log-file")]
     [DataRow("""["--trace", "t"]""", "--trace")]
     [DataRow("""["--trace-ascii=t"]""", "--trace-ascii")]

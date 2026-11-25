@@ -95,7 +95,9 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
   used, later exchanges are left out and `has_more` is true, as it is when `max_exchanges` stops the list.
 - `StartServerSafetyCheck` - ADR-0103 decision 4: a `listen_urls` entry starting with `-` refused (ADR-0103
   amendment 3: it would take a `--set-cookie` `Surl.Api` composes after it as its value, so unchecked words
-  would reach `surl`); `-K`/`--config` refused outright; `--log-file`, `--trace` and
+  would reach `surl`); `-K`/`--config` refused outright, a `-K` inside a short bundle (`-sK<file>`) included, since
+  the check parses with `ConfigFileReadRecorder`, which reads no file and refuses the words when the parser asks for
+  one (BL-1687); `--log-file`, `--trace` and
   `--trace-ascii` (also `=value` forms) refused with text pointing at standard error, `get_exchanges` and
   `get_events` (BL-1457); the words parsed with
   `Surl.Cli`'s `CommandLineParser` (accepting every extended scheme, so they parse whenever `Surl.Api`'s own
