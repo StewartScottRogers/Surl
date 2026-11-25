@@ -49,3 +49,4 @@ Archived tasks under `Tasks/Done/` are final and are not edited.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
