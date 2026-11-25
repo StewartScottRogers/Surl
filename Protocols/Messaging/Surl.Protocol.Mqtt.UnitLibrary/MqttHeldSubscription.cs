@@ -24,7 +24,6 @@ internal sealed class MqttHeldSubscription : IAsyncDisposable
     public const long MaxWaitingPayloadBytes = 16 * 1024 * 1024;
 
     private readonly MessageBus.MessageBus bus;
-    private readonly string? account;
     private readonly string scheme;
     private readonly int publishCount;
     private readonly BusConnection busConnection;
@@ -49,7 +48,6 @@ internal sealed class MqttHeldSubscription : IAsyncDisposable
     public MqttHeldSubscription(MessageBus.MessageBus bus, string? account, string scheme, int publishCount, CancellationToken exchangeEnded)
     {
         this.bus = bus;
-        this.account = account;
         this.scheme = scheme;
         this.publishCount = publishCount;
         stop = CancellationTokenSource.CreateLinkedTokenSource(exchangeEnded);
@@ -68,8 +66,10 @@ internal sealed class MqttHeldSubscription : IAsyncDisposable
     public bool HasOverflowed { get; private set; }
 
     /// <summary>
-    /// Adds a <c>SUBSCRIBE</c>'s filters, each subscribed on the bus before this returns, so no
-    /// later publish is missed. A filter already held, as sent, stays subscribed once.
+    /// Adds a <c>SUBSCRIBE</c>'s filters, all subscribed on the bus in one step before this
+    /// returns, so no later publish is missed and none lands between two filters to be both a
+    /// retained message here and a waiting publish. A filter already held, as sent, stays
+    /// subscribed once, and its retained messages are read again.
     /// </summary>
     /// <param name="filters">Each filter as sent and its canonical form.</param>
     /// <returns>Whether each filter was granted, in order, with the retained messages the granted
@@ -77,21 +77,16 @@ internal sealed class MqttHeldSubscription : IAsyncDisposable
     /// refused because the connection holds as many subscriptions as the bus allows.</returns>
     public (MqttRetainedReading Reading, int PastBoundCount) Subscribe(IReadOnlyList<(string Sent, string Canonical)> filters)
     {
+        var results = SubscribeTogether(filters);
         var matching = new SortedDictionary<string, byte[]>(StringComparer.Ordinal);
-        var granted = new List<bool>(filters.Count);
-        var pastBoundCount = 0;
-        foreach (var (sent, canonical) in filters)
+        foreach (var message in results.SelectMany(result => result.RetainedMessages))
         {
-            var (outcome, retained) = SubscribeOne(sent, canonical);
-            granted.Add(outcome == MessageBusOutcome.Succeeded);
-            pastBoundCount += outcome == MessageBusOutcome.TooManySubscriptions ? 1 : 0;
-            foreach (var (topic, payload) in retained)
-            {
-                matching[topic] = payload;
-            }
+            matching[message.Topic] = message.Payload.ToArray();
         }
 
-        return (new(granted, [.. matching]), pastBoundCount);
+        return (
+            new([.. results.Select(result => result.Outcome == MessageBusOutcome.Succeeded)], [.. matching]),
+            results.Count(result => result.Outcome == MessageBusOutcome.TooManySubscriptions));
     }
 
     /// <summary>
@@ -190,22 +185,24 @@ internal sealed class MqttHeldSubscription : IAsyncDisposable
         stop.Dispose();
     }
 
-    private (MessageBusOutcome Outcome, IReadOnlyList<KeyValuePair<string, byte[]>> Retained) SubscribeOne(string sent, string canonical)
+    // One result for each filter, in order. A filter sent twice is asked of the bus once. One
+    // already held keeps its subscription, so nothing published meanwhile is missed.
+    private List<BusSubscribeResult> SubscribeTogether(IReadOnlyList<(string Sent, string Canonical)> filters)
     {
-        // Already held: the subscription goes on, so nothing published meanwhile is missed, and
-        // only the retained messages are read again.
-        if (subscriptionsByFilter.ContainsKey(sent))
+        var distinct = filters.DistinctBy(filter => filter.Sent, StringComparer.Ordinal).ToList();
+        var results = busConnection.SubscribeTogether(
+            [.. distinct.Select(filter => new BusSubscribeRequest(filter.Canonical, subscriptionsByFilter.GetValueOrDefault(filter.Sent)))],
+            MqttBusRetainedMessages.IgnoreLiveMessage);
+        var resultsBySent = distinct.Zip(results).ToDictionary(pair => pair.First.Sent, pair => pair.Second, StringComparer.Ordinal);
+        foreach (var (sent, result) in resultsBySent)
         {
-            return (MessageBusOutcome.Succeeded, MqttBusRetainedMessages.Read(bus, account, [canonical]).Matching);
+            if (result.Subscription is { } subscription)
+            {
+                subscriptionsByFilter[sent] = subscription;
+            }
         }
 
-        var subscribed = busConnection.Subscribe(canonical, MqttBusRetainedMessages.IgnoreLiveMessage, includeRetained: true);
-        if (subscribed.Subscription is { } subscription)
-        {
-            subscriptionsByFilter.Add(sent, subscription);
-        }
-
-        return (subscribed.Outcome, [.. subscribed.RetainedMessages.Select(message => KeyValuePair.Create(message.Topic, message.Payload.ToArray()))]);
+        return [.. filters.Select(filter => resultsBySent[filter.Sent])];
     }
 
     private void CloseToPublishes()

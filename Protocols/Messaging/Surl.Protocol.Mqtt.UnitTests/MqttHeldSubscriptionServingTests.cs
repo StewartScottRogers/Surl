@@ -72,6 +72,44 @@ public sealed class MqttHeldSubscriptionServingTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ARetainedPublishBetweenTwoFiltersSubscriptions_IsSentAndCountedOnce()
+    {
+        // The bus reads its clock once for each filter it subscribes: the second read is between
+        // the first filter's subscription and the second's retained messages.
+        var busClock = new HookedTimeProvider();
+        var bus = new MessageBus.MessageBus(busClock);
+        using var publisher = new PublishFromAnotherThread(
+            () => bus.Publish(new BusMessage("a/b", "hi"u8.ToArray()) { Retain = true }));
+        busClock.RunAtRead(2, publisher.StartAndWaitUntilItEndsOrIsBlocked);
+        var exchange = Start(bus, holdCount: 2);
+
+        await SubscribeAsync(exchange, ClientPackets.Subscribe(1, ("a/#", 0), ("a/b", 0)), [0x90, 0x04, 0x00, 0x01, 0x00, 0x00]);
+        publisher.WaitUntilItEnds();
+        Publish(bus, "a/c", "last");
+
+        await FinishAsync(exchange);
+        AssertPackets(exchange.Connection.UnreadServerPackets(), Live("a/b", "hi"), Live("a/c", "last"), Disconnect);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AFilterTwiceInOneSubscribe_StaysOneSubscriptionAndIsGrantedTwice()
+    {
+        var bus = TestMessageBus.New();
+        bus.Retain("t", "kept"u8);
+        var exchange = Start(bus, holdCount: 0);
+
+        await SubscribeAsync(exchange, ClientPackets.Subscribe(1, ("t", 0), ("t", 0)), [0x90, 0x04, 0x00, 0x01, 0x00, 0x00]);
+        await AssertNextPacketAsync(exchange, Retained("t", "kept"));
+        var published = Publish(bus, "t", "hi");
+
+        Assert.AreEqual(1, published.DeliveredSubscriptionCount);
+        await AssertNextPacketAsync(exchange, Live("t", "hi"));
+        exchange.Connection.CloseFromClient();
+        await FinishAsync(exchange);
+        Assert.IsEmpty(exchange.Connection.UnreadServerPackets());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ALivePublishOnAMappedTopic_IsSentUnderTheSchemesNameAndAHiddenOneIsNeitherSentNorCounted()
     {
         var bus = new MessageBus.MessageBus(TimeProvider.System, configuration: new MessageBusConfiguration

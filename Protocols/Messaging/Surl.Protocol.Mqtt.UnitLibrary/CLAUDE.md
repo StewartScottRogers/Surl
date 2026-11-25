@@ -15,7 +15,9 @@ The server keeps no retained messages of its own (BL-635). ADR-0014 records ever
 The held subscription (ADR-0014 Amendment 1, BL-1720): `MqttProtocolServer`'s optional third
 constructor value, a publish count, absent by default (`surl` gives it `--mqtt-hold-subscription`'s,
 BL-1721). With it a `SUBSCRIBE` is answered as above but stays open (`MqttHeldSubscription`,
-`MqttPacketResponder.HeldSubscription.cs`): the bus subscribe precedes `SUBACK`; each later publish
+`MqttPacketResponder.HeldSubscription.cs`): the bus subscribes all its filters in one step
+(`BusConnection.SubscribeTogether`, BL-1732), before `SUBACK`, so a retained publish made meanwhile
+is sent once, never both retained and live; each later publish
 is sent once per connection (`BusConnection.AfterMessageDelivered`) as a `PUBLISH` `0x30` while the
 client's packets go on being read; `DISCONNECT` follows the count-th `PUBLISH`, retained ones
 counted, never for count 0; a first `SUBSCRIBE` with every filter refused is ended with

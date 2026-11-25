@@ -1,7 +1,8 @@
 namespace Surl.Protocol.Mqtt;
 
 /// <summary>
-/// What <see cref="MqttBusRetainedMessages.Read"/> found for one <c>SUBSCRIBE</c>.
+/// What the bus answered one <c>SUBSCRIBE</c>, as <see cref="MqttBusRetainedMessages.Read"/> or
+/// <see cref="MqttHeldSubscription.Subscribe"/> found it.
 /// </summary>
 /// <param name="Granted">Whether each filter was granted, in the order the filters were given.</param>
 /// <param name="Matching">Every retained message a granted filter matches: each canonical topic once,
