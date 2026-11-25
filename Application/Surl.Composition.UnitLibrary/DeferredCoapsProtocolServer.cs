@@ -11,7 +11,8 @@ namespace Surl.Composition;
 /// The <c>coaps</c> server, built when its first flow arrives: the registration builds servers before
 /// server TLS has made the certificate, and <see cref="SecureCoapProtocolServer"/> takes its
 /// credentials when it is constructed (BL-476). The credentials are the served certificate (when
-/// <c>--cert</c> or <c>--self-signed</c> is given), the live account book as pre-shared keys (read per handshake, ADR-0170), and the
+/// <c>--cert</c> or <c>--self-signed</c> is given), the live account book as pre-shared keys (always offered and read per
+/// handshake, so a handshake while no account admits <c>coaps</c> ends as an unknown identity does, ADR-0170), and the
 /// <c>--cacert</c> anchors (ADR-0087 decision 3, ADR-0097 decision 6).
 /// </summary>
 internal sealed class DeferredCoapsProtocolServer(ComposedProtocolServices services) : IDatagramProtocolServer
@@ -31,9 +32,10 @@ internal sealed class DeferredCoapsProtocolServer(ComposedProtocolServices servi
         var source = services.QuicCertificate;
         var book = services.AuthenticationPolicy.Settings.Accounts;
         var certificate = source.Certificate is { } served ? CoapsDtlsCertificate.From(served) : null;
+        // The lookup is given even while no account exists: this runs once, and an account added later must find it (ADR-0170 amendment 1).
         var credentials = new CoapDtlsCredentials(
             certificate,
-            book.ForScheme(Scheme).HasAccounts ? LookUpKey(book) : null,
+            LookUpKey(book),
             source.ClientTrustAnchors.Count == 0 ? null : new X509Certificate2Collection(source.ClientTrustAnchors.ToArray()));
         return new SecureCoapProtocolServer(
             services.ContentStore, ExtendedProtocolServers.CoapAccessRulesFor(services), services.CoapObservations, credentials);

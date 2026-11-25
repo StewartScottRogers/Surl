@@ -12,7 +12,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `Create` building it from the start's `ComposedProtocolServices` (content store, mail store,
   message bus, LDAP server, policy, `TimeProvider`, SSH host keys and algorithms, the TLS-upgrade,
   `--ws-echo` and `--http3` flags, and the `--set-cookie` list, `Cookies`, which the HTTP server
-  for `http` and `https` sets and the HTTP/3 server does not (ADR-0189, BL-1673)). `https`, `imaps`, `ldaps`, `pop3s`, `smtps` and `wss` are
+  for `http` and `https` sets (ADR-0189, BL-1673), as the HTTP/3 server does: the start gives it
+  `SurlCommandLine.Cookies` too (BL-1679)). `https`, `imaps`, `ldaps`, `pop3s`, `smtps` and `wss` are
   `ProtocolServerRegistration.ImplicitTls` entries, an `ImplicitTlsSchemeServer` over the server an
   earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
   entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,
@@ -172,6 +173,15 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   Kafka `KafkaMetadataAnswerer` (`ComposeKafkaMetadataAnswerer`, name `kafka`) and the `NatsServer` (name `nats`) draw
   their cluster ID and `server_id` from, so a seeded instance repeats them. Tests: `ServerLifeIdentifiersCompositionTests`.
 
+- CoAP access rules (ADR-0097 decision 6, ADR-0149 amendment 2, BL-1669):
+  `ExtendedProtocolServers.CoapAccessRulesFor` counts `coap` private when
+  `AuthenticationSettings.HasAccountToLogInTo("coap")` is true on the `coap` policy: an account allowed there, or a
+  `--user-ldap` directory serving `coap` or `coaps`. The rules ask it at each read, so an account added or removed
+  while the server runs counts at once (ADR-0132, BL-1683).
+- `coaps` pre-shared keys (ADR-0170 and its amendment 1, BL-1688): `DeferredCoapsProtocolServer` builds the server at
+  the first flow and always gives it the live account lookup, so the PSK suites are offered while no account exists
+  (every identity then ends in `decrypt_error`) and an account added later logs in. Tests: `CoapsCompositionTests`.
+
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
 
@@ -295,7 +305,7 @@ the start compositions are also exercised through `CommandLineRunner` in
 
 - The S3 server's open multipart uploads (ADR-0167, BL-1229): when an `s3` server is composed (never with `SURL_EXTENSIONS=0`) `S3UploadStoreRegistration` joins `StoreKind.Uploads` to the order, last. Reset and restore abort every open upload through `S3ProtocolServer.AbortOpenUploadsAsync` (temporary files deleted, slots freed) and publish one `StoreChangedEvent` named `s3`; snapshot holds 0 bytes. A disk-backed content store (`ContentStore.IsControllable` false) refuses with `InvalidOperationException`. Tests: `S3UploadStoreTests`.
 
-- The Azure Storage server's staged blocks (ADR-0167, BL-1230): `AzureStagedUploadStoreRegistration` is the S3 entry's twin. Reset and restore discard every staging (uncommitted blocks and their temporary files, Data Lake appends, remembered committed block lists) through `AzureStorageProtocolServer.DiscardStagedUploadsAsync` and publish one `StoreChangedEvent` named `azure`; snapshot holds 0 bytes; a disk-backed content store refuses. `UploadStoreRegistrations.Combine` joins the S3 and Azure entries into the one `StoreKind.Uploads` registration (events in order: `s3`, then `azure`), because `ComposedStores` finds a store's control by kind. Every extended server is composed whichever listen URLs are given, so both entries exist whenever extensions are on. Tests: `AzureStagedUploadStoreTests`.
+- The Azure Storage server's staged blocks (ADR-0167, BL-1230): `AzureStagedUploadStoreRegistration` is the S3 entry's twin. Reset and restore discard every staging (uncommitted blocks and their temporary files, Data Lake appends, remembered committed block lists) through `AzureStorageProtocolServer.DiscardStagedUploadsAsync` and publish one `StoreChangedEvent` named `azure`; snapshot holds 0 bytes; a disk-backed content store refuses. `UploadStoreRegistrations.Combine` joins the S3 and Azure entries into the one `StoreKind.Uploads` registration (events in order: `s3`, then `azure`), because `ComposedStores` finds a store's control by kind. Every extended server is composed whichever listen URLs are given, so both entries exist whenever the extended servers are on. Tests: `AzureStagedUploadStoreTests`.
 
 - The Google Cloud Storage server's open uploads (ADR-0167, BL-1231): `GcsStagedUploadStoreRegistration` is the S3 and Azure entries' twin. Reset and restore abort every open resumable and XML multipart upload through `GoogleCloudStorageProtocolServer.AbortOpenUploadsAsync` (temporary files deleted, slots freed) and publish one `StoreChangedEvent` named `gcs`; snapshot holds 0 bytes; a disk-backed content store refuses. `UploadStoreRegistrations.Combine` joins it after `s3` and `azure`. Tests: `GcsStagedUploadStoreTests`.
 

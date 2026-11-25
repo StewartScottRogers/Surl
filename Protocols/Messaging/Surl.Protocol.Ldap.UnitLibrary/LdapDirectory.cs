@@ -320,4 +320,5 @@ internal sealed class LdapDirectory
     }
 
     private void Publish(StoreChange change, string name, long byteCount) =>
-        events.Publish(new StoreChangedEvent(StoreKind.Directory, change, name, byteCount, ExchangeId: null));}
+        events.Publish(new StoreChangedEvent(StoreKind.Directory, change, name, byteCount, ExchangeId: null));
+}

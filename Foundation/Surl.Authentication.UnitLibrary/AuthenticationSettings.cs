@@ -33,15 +33,49 @@ public sealed record AuthenticationSettings(
 
     /// <summary>
     /// The LDAP directory that checks a password login the accounts do not hold (ADR-0149, decision 6);
-    /// <see langword="null"/> when <c>--user-ldap</c> is not given. Only the password check
-    /// (<see cref="AuthenticationPolicy.CheckPasswordLoginAsync"/>) consults it.
+    /// <see langword="null"/> when <c>--user-ldap</c> is not given. Password checks ask it;
+    /// <see cref="HasAccountToLogInTo"/> counts it as an account without contacting it.
     /// </summary>
     public LdapAccountSource? LdapAccountSource { get; init; }
+
+    // The scheme of the ForScheme view these settings are; null on settings that are no view.
+    private string? ViewScheme { get; init; }
+
+    /// <summary>
+    /// The scheme the HTTP family and SSH password logins ask <see cref="LdapAccountSource"/> about, whose
+    /// login requests need not carry their listen URL's scheme: the scheme of the <see cref="ForScheme"/>
+    /// view these settings are, so <c>ws</c>, <c>rtsp</c>, <c>sftp</c> and <c>scp</c> servers are judged by
+    /// their own <c>protocols=</c> entry (ADR-0149, amendments 2 and 3), or
+    /// <paramref name="familyScheme"/> on settings that are no view.
+    /// </summary>
+    /// <param name="familyScheme">
+    /// <see cref="AuthenticationPolicy.HttpLoginScheme"/> or <see cref="AuthenticationPolicy.SshLoginScheme"/>.
+    /// </param>
+    /// <returns>The scheme.</returns>
+    internal string DirectorySchemeFor(string familyScheme) => ViewScheme ?? familyScheme;
+
+    /// <summary>
+    /// Whether there is an account to log in to on <paramref name="scheme"/>, which makes a server
+    /// refuse unauthenticated reads (ADR-0032, section 4): one of <see cref="Accounts"/>, or the
+    /// <see cref="LdapAccountSource"/> when it serves the scheme (ADR-0149, amendments 1 and 2).
+    /// <see cref="Accounts"/> are not filtered here, so ask the <see cref="ForScheme"/> view of a
+    /// scheme about that scheme.
+    /// </summary>
+    /// <param name="scheme">The scheme the directory is asked about.</param>
+    /// <returns><see langword="true"/> when there is an account to log in to.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="scheme"/> is <see langword="null"/>.</exception>
+    public bool HasAccountToLogInTo(string scheme)
+    {
+        ArgumentNullException.ThrowIfNull(scheme);
+
+        return Accounts.HasAccounts || LdapAccountSource?.Serves(scheme) == true;
+    }
 
     /// <summary>
     /// The settings a server answering <paramref name="scheme"/> is composed with (ADR-0102,
     /// decision 4.3): <see cref="Accounts"/> as <see cref="AccountBook.ForScheme"/> views them,
-    /// and <see cref="AuthorizedKeys"/> without the keys of the accounts that view leaves out, so
+    /// an <see cref="LdapAccountSource"/> the HTTP family and SSH password logins ask about
+    /// <paramref name="scheme"/>, and <see cref="AuthorizedKeys"/> without the keys of the accounts that view leaves out, so
     /// every login method - password, SASL, Digest, NTLM, Kerberos's account check, SSH public
     /// keys - refuses an account restricted to other schemes exactly as it refuses no such
     /// account. The view reads the same changing accounts, so an account added or removed while
@@ -59,6 +93,7 @@ public sealed record AuthenticationSettings(
         return this with
         {
             Accounts = Accounts.ForScheme(scheme),
+            ViewScheme = scheme,
             AuthorizedKeys = refused.Count == 0 ? AuthorizedKeys : AuthorizedKeys.Without(refused),
         };
     }

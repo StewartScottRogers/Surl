@@ -6,7 +6,7 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The checks <c>start_server</c> makes before it starts anything (ADR-0103 decision 4): <c>-K</c>/<c>--config</c>
-/// refused outright, every listen URL on loopback unless the host allows otherwise, and every local path an
+/// refused outright, alone or in a short bundle, every listen URL on loopback unless the host allows otherwise, and every local path an
 /// option names inside the host's root. The words are parsed as <c>surl</c> parses them, so a listen URL or a path
 /// is checked however it was spelled.
 /// </summary>
@@ -19,6 +19,23 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
         "-K/--config is not accepted: a config file could name paths this host never checks";
 
     /// <summary>
+    /// Says which rule <paramref name="listenUrls"/> and <paramref name="words"/> break, or returns
+    /// <see langword="null"/> when they break none. An option among the listen URLs is refused: it would take as its
+    /// value a word <c>Surl.Api</c> composes after the listen URLs (a <c>--set-cookie</c>), so <c>surl</c> would read
+    /// other words than the ones checked here.
+    /// </summary>
+    /// <param name="listenUrls"><c>start_server</c>'s <c>listen_urls</c>, in order.</param>
+    /// <param name="words"><c>start_server</c>'s <c>arguments</c>, in order.</param>
+    /// <returns>The rule broken, or <see langword="null"/>.</returns>
+    public string? FindRefusal(IReadOnlyList<string> listenUrls, IReadOnlyList<string> words)
+    {
+        var option = listenUrls.FirstOrDefault(listenUrl => listenUrl.StartsWith('-'));
+        return option is null
+            ? FindRefusal([.. listenUrls, .. words])
+            : $"listen_urls holds {option}, which is an option; put options in arguments";
+    }
+
+    /// <summary>
     /// Says which rule <paramref name="words"/> break, or returns <see langword="null"/> when they break none. Words
     /// <c>surl</c> itself would refuse are left to <c>Surl.Api</c>, which refuses them with <c>surl</c>'s exit code.
     /// </summary>
@@ -26,7 +43,12 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
     /// <returns>The rule broken, or <see langword="null"/>.</returns>
     public string? FindRefusal(IReadOnlyList<string> words)
     {
-        if (words.Any(IsConfigFileOption))
+        // Every extended scheme with a default port is accepted here; mcp+stdio: has none, so it is left
+        // unparsed to Surl.Api, which refuses it with FailedInit. The parse reads no config file but says
+        // whether it was asked to, which catches a -K inside a short bundle (-sKsurl.conf).
+        var configFiles = new ConfigFileReadRecorder();
+        var commandLine = CommandLineParser.Parse(words, ExtendedSchemeDefaultPorts.Schemes, configFiles).CommandLine;
+        if (configFiles.WasReadRequested || words.Any(IsConfigFileOption))
         {
             return ConfigFileRule;
         }
@@ -38,9 +60,6 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
                 + "use get_exchanges and get_events to see what a client sent";
         }
 
-        // Every extended scheme with a default port is accepted here; mcp+stdio: has none, so it is left
-        // unparsed to Surl.Api, which refuses it with FailedInit.
-        var commandLine = CommandLineParser.Parse(words, ExtendedSchemeDefaultPorts.Schemes).CommandLine;
         return commandLine is null ? null : FindListenHostRefusal(commandLine) ?? FindPathRefusal(commandLine);
     }
 

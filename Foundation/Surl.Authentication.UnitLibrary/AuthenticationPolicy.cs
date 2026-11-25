@@ -74,8 +74,9 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     public const string HttpLoginScheme = "http";
 
     /// <summary>
-    /// The scheme an SSH login (<c>scp</c>, <c>sftp</c>) is published and matched under, since its
-    /// request does not carry its listen URL's scheme.
+    /// The scheme an SSH login (<c>scp</c>, <c>sftp</c>) is published and matched under when its
+    /// request does not carry its listen URL's scheme. An LDAP account source is asked about the
+    /// <see cref="AuthenticationSettings.ForScheme"/> view's scheme instead, where there is one.
     /// </summary>
     public const string SshLoginScheme = "ssh";
 
@@ -154,7 +155,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         this.settings = settings;
         this.httpMethods = [.. implemented
-            .Select(method => AskingTheDirectory(method, settings.LdapAccountSource))
+            .Select(method => AskingTheDirectory(method, settings))
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
@@ -502,9 +503,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <summary>
     /// An SSH <c>password</c> request or <c>keyboard-interactive</c> answer (ADR-0051, section 6):
     /// <see cref="SshLoginOutcome.AcceptedUnchecked"/> under <c>--allow-anonymous</c>; otherwise
-    /// checked against the named accounts whatever <c>--allow-plaintext-auth</c> says, and a
-    /// refusal - wrong password, unknown user, no accounts - answered alike after
-    /// <see cref="RefusalDelay"/>. Either way the verdict carries the login note.
+    /// checked against the named accounts, and the <see cref="AuthenticationSettings.LdapAccountSource"/>
+    /// for a name they do not hold, asked about the <see cref="AuthenticationSettings.ForScheme"/> view's
+    /// scheme (<see cref="SshLoginScheme"/> on settings that are no view), whatever
+    /// <c>--allow-plaintext-auth</c> says, and a refusal - wrong password, unknown user, no accounts -
+    /// answered alike after <see cref="RefusalDelay"/>. Either way the verdict carries the login note.
     /// </summary>
     /// <param name="login">The login as the client sent it.</param>
     /// <param name="cancellationToken">Cancels the check and the refusal delay.</param>
@@ -522,7 +525,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         var checkStartedAt = timeProvider.GetUtcNow();
         var isAccepted = await PasswordCheck
-            .CheckAsync(SshLoginScheme, login.UserName, login.Password, cancellationToken).ConfigureAwait(false);
+            .CheckAsync(settings.DirectorySchemeFor(SshLoginScheme), login.UserName, login.Password, cancellationToken)
+            .ConfigureAwait(false);
 
         return await DecideSshLoginAsync(isAccepted, login.Method, login.UserName, login.Exchange, cancellationToken, checkStartedAt).ConfigureAwait(false);
     }
@@ -691,8 +695,10 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     }
 
     // HTTP Basic asks the directory too, so a method list that holds Basic is rebuilt around the source (ADR-0149, decision 2).
-    private static IHttpAuthenticationMethod AskingTheDirectory(IHttpAuthenticationMethod method, LdapAccountSource? directory) =>
-        directory is not null && method is BasicAuthenticationMethod basic ? basic.WithDirectory(directory) : method;
+    private static IHttpAuthenticationMethod AskingTheDirectory(IHttpAuthenticationMethod method, AuthenticationSettings settings) =>
+        settings.LdapAccountSource is { } directory && method is BasicAuthenticationMethod basic
+            ? basic.WithDirectory(directory, settings.DirectorySchemeFor(HttpLoginScheme))
+            : method;
 
     /// <summary>
     /// When a password check starts, which the refusal delay is counted from.

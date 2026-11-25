@@ -15,8 +15,11 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
   `AllowNonLoopback`, `MaxServers` (8 by default) and `LogLevel`.
 - The tools, each a static class whose `Create(RunningSurlServers)` returns an `McpTool` with its hand-written
   description and input schema:
-  - `StartServerTool` (`start_server`): `listen_urls`, `arguments` (surl's own words), `files` (UTF-8 text) and
-    `files_base64`. It checks the words with `StartServerSafetyCheck`, then starts with exchanges recorded
+  - `StartServerTool` (`start_server`): `listen_urls`, `arguments` (surl's own words), `files` (UTF-8 text),
+    `files_base64` and `cookies` (at most 64, each the text `--set-cookie` takes, passed to
+    `SurlServerOptions.Cookies`, ADR-0189; a bad entry is the start refusal below with `surl`'s
+    `option --set-cookie: ...` text). It checks the listen URLs and words with `StartServerSafetyCheck`, then
+    starts with exchanges recorded
     (100 exchanges, 256 KiB each) and a `StartLogWriter` that copies the server's log to standard error and
     keeps the lines written during the start. Result `{server_id, listen_urls, bound_urls, log_lines}`. A
     `SurlServerStartException` is `isError` with `{exit_code, exit_code_name, lines}` and the text each line
@@ -90,7 +93,11 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
   1 MiB in all are shown; a cut ends its chunk early and drops the chunks after it (`is_cut`), and in a text
   chunk backs off to the start of a UTF-8 sequence (a chunk cut to nothing is left out). Once the 1 MiB is
   used, later exchanges are left out and `has_more` is true, as it is when `max_exchanges` stops the list.
-- `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; `--log-file`, `--trace` and
+- `StartServerSafetyCheck` - ADR-0103 decision 4: a `listen_urls` entry starting with `-` refused (ADR-0103
+  amendment 3: it would take a `--set-cookie` `Surl.Api` composes after it as its value, so unchecked words
+  would reach `surl`); `-K`/`--config` refused outright, a `-K` inside a short bundle (`-sK<file>`) included, since
+  the check parses with `ConfigFileReadRecorder`, which reads no file and refuses the words when the parser asks for
+  one (BL-1687); `--log-file`, `--trace` and
   `--trace-ascii` (also `=value` forms) refused with text pointing at standard error, `get_exchanges` and
   `get_events` (BL-1457); the words parsed with
   `Surl.Cli`'s `CommandLineParser` (accepting every extended scheme, so they parse whenever `Surl.Api`'s own

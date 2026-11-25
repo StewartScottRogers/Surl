@@ -24,9 +24,10 @@ internal sealed class BoundProxyEndPoints
     }
 
     /// <summary>
-    /// Keeps <paramref name="boundListenUrl"/>'s end point when it is a proxy or SOCKS listener on
-    /// a port the system chose; any other listen URL is ignored. A host that is not an address
-    /// refuses its port on every address.
+    /// Keeps <paramref name="boundListenUrl"/>'s end point when it is a proxy or SOCKS listener with
+    /// a bound port, whether or not the system chose that port; any other listen URL is ignored. A
+    /// host that is not an address is kept as <see cref="IPAddress.Any"/>, so its port is refused on
+    /// every address.
     /// </summary>
     /// <param name="boundListenUrl">A listen URL as its listener reports it once bound.</param>
     internal void Record(ListenUrl boundListenUrl)

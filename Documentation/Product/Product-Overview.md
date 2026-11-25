@@ -661,8 +661,9 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   family file's findings table, so a finding that appears unlisted or a listed one that disappears
   fails the test.
 - **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds 29 entries (31
-  findings) as tasks in the port's own task shape. Stewart files them on the port's board himself; no
-  Surl session writes into the port's repository (ADR-0089 decision 7).
+  findings) as tasks in the port's own task shape. All are filed on the port's board (BL-1658,
+  2026-11-24), with each entry's port task ID in the file; SSH-3 is an accepted difference by the
+  port's side (port BL-5909). No Surl session writes into the port's repository (ADR-0089 decision 7).
 
 **What is not measured** (ADR-0089 Amendment 9, BL-1627: a case with no pinned upstream curl on a platform is
 recorded, not chased).

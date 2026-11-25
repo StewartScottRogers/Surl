@@ -209,6 +209,9 @@ public sealed class LdapAccountSourceTests
     [DataRow(null, "anything", true, DisplayName = "every scheme")]
     [DataRow("IMAP", "imap", true, DisplayName = "a named scheme, whatever its case")]
     [DataRow("smtp", "imap", false, DisplayName = "a scheme left out")]
+    [DataRow("imap", "imaps", true, DisplayName = "the TLS twin of a named scheme")]
+    [DataRow("HTTPS", "http", true, DisplayName = "the plain twin of a named TLS scheme")]
+    [DataRow("coaps", "coap", true, DisplayName = "coap through coaps")]
     public void Serves_FollowsTheProtocolsKey(string? protocol, string scheme, bool expected)
     {
         var settings = new LdapAccountSourceSettings(Url()) { Protocols = protocol is null ? null : [protocol] };

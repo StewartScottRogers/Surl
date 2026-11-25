@@ -72,6 +72,36 @@ public sealed class StartServerSafetyCheckTests
     }
 
     [TestMethod]
+    [DataRow("-sKsurl.conf")]
+    [DataRow("-vKsurl.conf")]
+    public void FindRefusal_AConfigFileInAShortBundle_IsRefused(string word)
+    {
+        var check = new StartServerSafetyCheck(new SurlMcpHostSettings(), new PathConfinement(null));
+
+        Assert.AreEqual(StartServerSafetyCheck.ConfigFileRule, check.FindRefusal(["http://127.0.0.1:0", word]));
+    }
+
+    [TestMethod]
+    public void FindRefusal_AConfigFileAfterAWordSurlRefuses_IsStillRefused()
+    {
+        var check = new StartServerSafetyCheck(new SurlMcpHostSettings(), new PathConfinement(null));
+
+        Assert.AreEqual(
+            StartServerSafetyCheck.ConfigFileRule,
+            check.FindRefusal(["http://127.0.0.1:0", "--no-such-option", "-Ksurl.conf"]));
+    }
+
+    [TestMethod]
+    [DataRow("-uK:secret")]
+    [DataRow("-vuK:secret")]
+    public void FindRefusal_AShortBundleWhoseArgumentHoldsK_IsNotRefusedAsAConfigFile(string word)
+    {
+        var check = new StartServerSafetyCheck(new SurlMcpHostSettings(), new PathConfinement(null));
+
+        Assert.IsNull(check.FindRefusal(["http://127.0.0.1:0", word]));
+    }
+
+    [TestMethod]
     public void FindRefusal_WordsSurlRefuses_AreLeftToSurlApi()
     {
         var check = new StartServerSafetyCheck(new SurlMcpHostSettings(), new PathConfinement(null));

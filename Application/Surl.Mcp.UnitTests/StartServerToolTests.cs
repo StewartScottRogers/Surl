@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Surl.Api;
 using Surl.McpServing;
@@ -249,6 +250,34 @@ public sealed class StartServerToolTests
     }
 
     [TestMethod]
+    [DataRow("""["-sKsurl.conf"]""")]
+    [DataRow("""["-sK", "surl.conf"]""")]
+    [DataRow("""["-vKsurl.conf"]""")]
+    [DataRow("""["-vK", "surl.conf"]""")]
+    public async Task Handler_AConfigFileInAShortBundle_IsRefusedBeforeSurlApiCouldReadIt(string words)
+    {
+        var starts = 0;
+        await using var servers = new RunningSurlServers(
+            new SurlMcpHostSettings(),
+            TextWriter.Null,
+            TimeProvider.System,
+            (_, _) =>
+            {
+                starts++;
+                throw new InvalidOperationException("Surl.Api, which reads config files, must not be reached.");
+            });
+
+        var result = await McpTestHost.CallAsync(
+            StartServerTool.Create(servers),
+            $$"""{"listen_urls": ["http://127.0.0.1:0"], "arguments": {{words}}}""",
+            TestContext.CancellationToken);
+
+        AssertRefused(result, StartServerSafetyCheck.ConfigFileRule);
+        Assert.AreEqual(0, starts);
+        Assert.IsEmpty(servers.List());
+    }
+
+    [TestMethod]
     [DataRow("""["--log-file", "x.log"]""", "--log-file")]
     [DataRow("""["--trace", "t"]""", "--trace")]
     [DataRow("""["--trace-ascii=t"]""", "--trace-ascii")]
@@ -310,6 +339,79 @@ public sealed class StartServerToolTests
 
         Assert.IsTrue(result.IsError);
         Assert.IsNull(result.StructuredContent);
+    }
+
+    [TestMethod]
+    public void InputSchema_ListsCookiesAsAtMost64Strings()
+    {
+        using var schema = JsonDocument.Parse(StartServerTool.InputSchema);
+
+        var cookies = schema.RootElement.GetProperty("properties").GetProperty("cookies");
+
+        Assert.AreEqual("array", cookies.GetProperty("type").GetString());
+        Assert.AreEqual("string", cookies.GetProperty("items").GetProperty("type").GetString());
+        Assert.AreEqual(64, cookies.GetProperty("maxItems").GetInt32());
+        StringAssert.Contains(cookies.GetProperty("description").GetString(), "--set-cookie");
+    }
+
+    [TestMethod]
+    public async Task Handler_Cookies_SetsEachOnTheServersReplyInOrder()
+    {
+        var connection = new FakeConnection(Encoding.ASCII.GetBytes(
+            $"GET /hello.txt HTTP/1.1\r\nHost: 127.0.0.1:{FakeListenerFactory.BoundPort}\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\n\r\n"));
+        await using var host = new McpTestHost(listenerFactory: new FakeListenerFactory { ConnectionToAccept = connection });
+
+        var result = await McpTestHost.CallAsync(
+            host.StartServer,
+            """
+            {"listen_urls": ["http://127.0.0.1:0"], "files": {"hello.txt": "hello"},
+             "cookies": ["session=t1;Path=/;HttpOnly", "theme=dark"]}
+            """,
+            TestContext.CancellationToken);
+
+        Assert.IsFalse(result.IsError, string.Join("\n", result.TextContent));
+        await connection.Disposed.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var reply = Encoding.ASCII.GetString(connection.WrittenToClient);
+        StringAssert.StartsWith(reply, "HTTP/1.1 200 OK\r\n");
+        StringAssert.Contains(reply, "\r\nSet-Cookie: session=t1; Path=/; HttpOnly\r\nSet-Cookie: theme=dark\r\n");
+    }
+
+    [TestMethod]
+    public async Task Handler_ABadCookie_IsAnErrorWithSurlsSetCookieTextAndStartsNothing()
+    {
+        await using var host = new McpTestHost();
+
+        var result = await McpTestHost.CallAsync(
+            host.StartServer,
+            """{"listen_urls": ["http://127.0.0.1:0"], "cookies": ["noequals"]}""",
+            TestContext.CancellationToken);
+
+        Assert.IsTrue(result.IsError);
+        var structured = result.StructuredContent!.Value;
+        Assert.AreEqual(2, structured.GetProperty("exit_code").GetInt32());
+        Assert.AreEqual("FailedInit", structured.GetProperty("exit_code_name").GetString());
+        StringAssert.StartsWith(
+            Assert.ContainsSingle(result.TextContent), "surl: option --set-cookie: the cookie needs a name=value pair");
+        Assert.IsEmpty(host.Servers.List());
+    }
+
+    // An option in listen_urls would take the --set-cookie that Surl.Api composes after it as its value, leaving
+    // the cookie as a word the safety check never read.
+    [TestMethod]
+    [DataRow("""["--directory=/outside-any-root"]""", "[]")]
+    [DataRow("""["--config=surl.conf"]""", "[]")]
+    [DataRow("""["http://0.0.0.0:0"]""", """["--max-time", "5", "--directory=."]""")]
+    public async Task Handler_AnOptionAmongListenUrlsBeforeACookie_IsRefusedAndStartsNothing(string cookies, string words)
+    {
+        await using var host = new McpTestHost();
+
+        var result = await McpTestHost.CallAsync(
+            host.StartServer,
+            $$"""{"listen_urls": ["http://127.0.0.1:0", "--directory"], "cookies": {{cookies}}, "arguments": {{words}}}""",
+            TestContext.CancellationToken);
+
+        AssertRefused(result, "listen_urls holds --directory, which is an option; put options in arguments");
+        Assert.IsEmpty(host.Servers.List());
     }
 
     [TestMethod]

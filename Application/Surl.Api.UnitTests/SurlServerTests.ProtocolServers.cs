@@ -104,7 +104,7 @@ public sealed partial class SurlServerTests
     [TestMethod]
     [DataRow("http", DisplayName = "an original scheme")]
     [DataRow("HTTPS", DisplayName = "an original implicit-TLS scheme in capitals")]
-    [DataRow("abfs", DisplayName = "an extended scheme while extensions are off")]
+    [DataRow("abfs", DisplayName = "an extended scheme while the extended servers are off")]
     public async Task StartAsync_AProtocolServerForABuiltInScheme_IsRefusedAsAddOnly(string scheme)
     {
         var options = ApiTestSeams.Options(Http);

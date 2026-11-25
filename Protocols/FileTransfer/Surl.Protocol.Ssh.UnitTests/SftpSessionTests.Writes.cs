@@ -1,5 +1,5 @@
-using Surl.Protocol.Abstractions;
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Ssh.SftpTestPackets;
 using static Surl.Protocol.Ssh.SshTestExchange;
 

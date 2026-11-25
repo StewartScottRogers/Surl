@@ -476,4 +476,5 @@ public sealed partial class SurlServerCompositionTests
         Assert.AreEqual(
             "(45) Could not bind http://localhost:80/: Permission denied",
             SurlServerComposition.FormatBindFailure(bindFailure));
-    }}
+    }
+}

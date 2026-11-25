@@ -197,5 +197,6 @@ that describes it in the same change (ADR-0034 decision 6).
 `--set-cookie <name=value[;Attribute...]>` (category `http`, ADR-0189 decision 1, BL-1661): `ConfiguredCookieReader`
 reads each by `Surl.Cookies.CookieDefinitionReader` into `SurlCommandLine.Cookies`, refusing in its words (`option
 --set-cookie: ...`, exit 2); the 65th is refused (`MaxCookies`, counted across `-K` files like `--fault`).
-`Surl.Composition` hands the list to `HttpProtocolServer`, which sets the cookies over HTTP/1.x and HTTP/2;
-`Http3ProtocolServer` is not given them. The `http` paragraph in `AiHelpProse` says so and changes with it.
+`Surl.Composition` hands the list to `HttpProtocolServer`, which sets the cookies over HTTP/1.x and HTTP/2, and
+to `Http3ProtocolServer`, which sets them over HTTP/3. The `http` paragraph in `AiHelpProse` says so and changes
+with it.

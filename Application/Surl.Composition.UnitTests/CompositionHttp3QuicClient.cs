@@ -47,6 +47,27 @@ internal sealed class CompositionHttp3QuicClient : IDisposable
         Send(0, Frame(HeadersFrameType, encoder.EncodeFieldSection(fields.Select(field => new QpackFieldLine(field.Item1, field.Item2)))), fin: true);
     }
 
+    /// <summary>
+    /// Waits for the server to end stream 0, then returns the field lines of the <c>HEADERS</c> frame its answer
+    /// opens with, <c>:status</c> first.
+    /// </summary>
+    public async Task<IReadOnlyList<QpackFieldLine>> ResponseFieldsAsync(CancellationToken cancellationToken)
+    {
+        await UntilAsync(() => ReceivedOnRequestStream().Any(frame => frame.Fin), cancellationToken);
+        var frames = ReceivedOnRequestStream().ToList();
+        var data = new byte[frames.Max(frame => (int)frame.Offset + frame.Data.Length)];
+        foreach (var frame in frames)
+        {
+            frame.Data.CopyTo(data.AsMemory((int)frame.Offset));
+        }
+
+        Assert.IsTrue(QuicVariableLengthInteger.TryRead(data, out var type, out var typeLength));
+        Assert.AreEqual(HeadersFrameType, type);
+        Assert.IsTrue(QuicVariableLengthInteger.TryRead(data.AsSpan(typeLength), out var length, out var lengthLength));
+        var decoded = new QpackDecoder(0, int.MaxValue).DecodeFieldSection(0, data.AsSpan(typeLength + lengthLength, (int)length));
+        return decoded.FieldLines;
+    }
+
     /// <summary>Opens what the server has sent until <paramref name="condition"/> holds, or the token is cancelled.</summary>
     public async Task UntilAsync(Func<bool> condition, CancellationToken cancellationToken)
     {
@@ -65,6 +86,9 @@ internal sealed class CompositionHttp3QuicClient : IDisposable
     }
 
     public void Dispose() => Quic.Dispose();
+
+    private IEnumerable<QuicStreamFrame> ReceivedOnRequestStream() =>
+        Quic.FramesReceived[QuicPacketType.OneRtt].OfType<QuicStreamFrame>().Where(frame => frame.StreamId == 0);
 
     private static byte[] Frame(ulong type, byte[] payload) =>
         [.. QuicVariableLengthInteger.Encode(type), .. QuicVariableLengthInteger.Encode((ulong)payload.Length), .. payload];

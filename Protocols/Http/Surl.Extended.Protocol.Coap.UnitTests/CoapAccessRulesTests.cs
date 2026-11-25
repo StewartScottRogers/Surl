@@ -14,9 +14,25 @@ public sealed class CoapAccessRulesTests
     [DataRow(false, true, false, false, false)]
     public void MayReadAndMayWrite_FollowTheTable(bool allowsAnonymous, bool hasAccounts, bool authenticated, bool reads, bool writes)
     {
-        var rules = new CoapAccessRules(allowsAnonymous, hasAccounts);
+        var rules = new CoapAccessRules(allowsAnonymous, () => hasAccounts);
 
         Assert.AreEqual(reads, rules.MayRead(authenticated));
         Assert.AreEqual(writes, rules.MayWrite(authenticated));
+    }
+
+    [TestMethod]
+    public void Constructor_NullHasAccounts_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => new CoapAccessRules(AllowsAnonymous: false, null!));
+
+    [TestMethod]
+    public void MayRead_AccountsChangeAfterConstruction_AsksAgain()
+    {
+        var hasAccounts = false;
+        var rules = new CoapAccessRules(AllowsAnonymous: false, () => hasAccounts);
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+
+        hasAccounts = true;
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
     }
 }

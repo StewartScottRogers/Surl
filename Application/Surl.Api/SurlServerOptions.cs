@@ -235,13 +235,13 @@ public sealed class SurlServerOptions
     public IList<string> TopicAccess { get; } = [];
 
     /// <summary>
-    /// The cookies set on HTTP/1.x and HTTP/2 replies (<c>--set-cookie</c>, once each, in order; ADR-0189), each item as
+    /// The cookies set on HTTP/1.x, HTTP/2 and HTTP/3 replies (<c>--set-cookie</c>, once each, in order; ADR-0189), each item as
     /// <c>surl</c> reads the option's value:
     /// <c>name=value[;Attribute[=value]]...[;on-path=/prefix][;on-listener=&lt;listen URL&gt;]</c>. None by default.
     /// <c>surl</c>'s limit of 64 also counts any <c>--set-cookie</c> in <see cref="ConfigFiles"/> and
     /// <see cref="AdditionalArguments"/>, and a cookie <c>surl</c> would refuse refuses the start with its text. A cookie
-    /// a client sends back over HTTP/1.x or HTTP/2 is a <see cref="SurlEventKind.CookieReceived"/> event whether or not
-    /// any is set. May not hold null.
+    /// a client sends back over HTTP/1.x, HTTP/2 or HTTP/3 is a <see cref="SurlEventKind.CookieReceived"/> event
+    /// whether or not any is set. May not hold null.
     /// </summary>
     public IList<string> Cookies { get; } = [];
 

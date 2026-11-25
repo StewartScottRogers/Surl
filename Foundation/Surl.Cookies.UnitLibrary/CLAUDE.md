@@ -11,8 +11,15 @@ The server side of curl's cookie handling, as ADR-0189 decides it. Built here (B
   bytes (measured against curl 8.21.0).
 - `CookieHeaderReader.Read`: reads a request's `Cookie` header value into `CookiePair`s.
 
-Not here yet: the `--set-cookie` option, `-K`
-and `--aihelp` (BL-1661), and any cookie jar - Surl keeps
-no per-client state. This library does not read or write curl's `-c` jar files.
+Not here:
+
+- The `--set-cookie` option: `Surl.Cli.UnitLibrary` reads it (`ConfiguredCookieReader`,
+  through `CookieDefinitionReader`) into `SurlCommandLine.Cookies`, from the command line
+  and from a `-K` file, at most 64 in all. Its `--aihelp` facts, paragraph and example are
+  in that library too (ADR-0189 decision 7).
+- Matching a cookie's `OnPath` and `OnListener`, adding its field to a reply and publishing
+  `CookieReceivedEvent`: `CookieHandler` in `Surl.Protocol.Http.UnitLibrary`.
+- Any cookie jar - Surl keeps no per-client state. This library does not read or write
+  curl's `-c` jar files.
 
 It references `Surl.Protocol.Abstractions.UnitLibrary` and no protocol server.

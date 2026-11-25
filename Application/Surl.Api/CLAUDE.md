@@ -99,7 +99,7 @@ measures it by name.
   directories are probed with the host's `CanOpenDataDirectory`.
 - Cookies (BL-1675, ADR-0189): `SurlServerOptions.Cookies` is an `IList<string>`, each item a `--set-cookie`
   value composed once per item after `--topic-access`; a null item is an `ArgumentException`, every other refusal
-  is `surl`'s. Cookies received over HTTP/1.x and HTTP/2 are `SurlEventKind.CookieReceived` events.
+  is `surl`'s. Cookies received over HTTP/1.x, HTTP/2 and HTTP/3 are `SurlEventKind.CookieReceived` events.
 - A test's own protocol servers (BL-813, ADR-0124 decision 2): `SurlServerOptions.ProtocolServers` holds
   `SurlProtocolServer(Scheme, Create)` records; `Create` takes `SurlProtocolServices` (the content store, mail
   store, message bus, `AuthenticationPolicy` and `TimeProvider` of `ComposedProtocolServices`). `CustomProtocolServers.Of`

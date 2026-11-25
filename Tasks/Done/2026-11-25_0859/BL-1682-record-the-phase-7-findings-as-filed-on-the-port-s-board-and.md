@@ -1,0 +1,70 @@
+---
+id: BL-1682
+title: Record the Phase 7 findings as filed on the port's board and accept entry 28's two cases
+priority: Normal
+assignee: Claude
+pipeline: direct
+depends-on: []
+touches: [Documentation/Conformance/CurlPort, Documentation/Planning/Roadmap.md, Documentation/Product/Product-Overview.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md]
+requirement: none
+created: 2026-11-24
+completed: 2026-11-25
+---
+# BL-1682 — Record the Phase 7 findings as filed on the port's board and accept entry 28's two cases
+
+## Goal
+
+Surl's Phase 7 documents say every finding in `Port-Board-Handoff.md` is filed on the Curl
+port's board, with each entry's port task ID, and no longer say filing is still Stewart's.
+
+## Context
+
+BL-1658 closed 2026-11-24: the port's session `curl-50` ran the port's `/task-plan` on
+`Documentation/Conformance/CurlPort/Port-Board-Handoff.md`. Its answer:
+
+- Entries 1-23: already filed 2026-11-16 as port BL-5279..BL-5297 (all Done except BL-5292
+  and BL-5293, Deferred). Entries 7, 20, 21 and 22 were covered then by port BL-4899 and
+  BL-4965..BL-4968, BL-5043, BL-4941, and BL-4903/BL-4956.
+- Entries 24-29: filed as port BL-5905..BL-5910 (port branch `work/dark-factory`, commit
+  `a6ddaf797f`): 24 → BL-5905 (FTP `-P` slow, test 251), 25 → BL-5906 (HTTP/2 RST_STREAM after
+  Digest 401), 26 → BL-5907 (OpenLDAP SASL bind, depends on port BL-5853), 27 → BL-5908
+  (OpenLDAP StartTLS), 28 → BL-5909, 29 → BL-5910 (exit 25, chunked PUT to HTTP/1.0, cases
+  1072/1073).
+- Entry 28: decided on the port's side as a known difference. The port keeps downloading over
+  `blowfish-cbc`/`cast128-cbc` and does not copy macOS libssh2's crash (exit 139); port BL-5909
+  records the ADR. Surl may list those two cases as accepted differences. This is the port's
+  choice about its own behaviour, not evidence about Surl (ADR-0003): Surl's verdict on those
+  cases still comes from pinned upstream curl.
+
+The roadmap's Milestone 7 status still ends "Still Stewart's: filing the 31 findings on the
+port's board".
+
+## Acceptance criteria
+
+- [x] `Port-Board-Handoff.md` names the port task ID beside every one of its 29 entries.
+- [x] The Phase 7 findings file holding entry 28 lists its two cases as an accepted difference,
+      citing port BL-5909, and says upstream curl's verdict is unchanged.
+- [x] `Roadmap.md` no longer says filing the findings is still Stewart's.
+- [x] `dotnet build` is clean and the fast tests pass.
+
+## Notes
+
+- The port task IDs are a "Port task" column in the handoff's summary table, one row per entry; the
+  entries themselves stay as filed. Which of BL-5279..BL-5297 (and which earlier ID) belongs to which
+  entry was read, read only, from the file names on the port's board (`Z:\repos\Curl\Tasks`), matched by
+  title. IDs only; nothing there is evidence about Surl (ADR-0003).
+- SSH-3 keeps its two table rows: `CurlPortBesideUpstreamCurlOverSshTests` reads them. "Accepted
+  difference" is a bullet under SSH-3.
+- Added to `touches`: `Product-Overview.md`, `Requirements.md` and `Glossary.md`, which also said filing
+  was pending or Stewart's. Neither other task in Doing (BL-1676, BL-1683) names them. ADR-0089 decision 7
+  is left as decided.
+- Verify, 2026-11-25: build 0 warnings; fast tests 28,911 passed, 3 skipped. `dotnet format
+  --verify-no-changes` fails on `.cs` files this task did not change; filed BL-1686, and reformatted
+  nothing here.
+
+## Log
+
+- 2026-11-24: Created.
+- 2026-11-25: Renumbered from BL-1668, which a lane used for a different task at the same time.
+- 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. Phase 7 documents record every handoff entry as filed with its port task ID, and SSH-3 as an accepted difference (port BL-5909)

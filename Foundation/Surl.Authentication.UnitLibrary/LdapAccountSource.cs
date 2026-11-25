@@ -48,15 +48,16 @@ public sealed class LdapAccountSource
     }
 
     /// <summary>
-    /// Whether a directory account may log in on <paramref name="scheme"/> (<c>protocols=</c>, ADR-0149 decision 8).
+    /// Whether a directory account may log in on <paramref name="scheme"/> (<c>protocols=</c>, ADR-0149 decision 8),
+    /// as <see cref="Account.MayLogInOn"/> decides for an account restricted to the same schemes.
     /// </summary>
     /// <param name="scheme">The scheme, compared without regard to case.</param>
-    /// <returns><see langword="true"/> when every scheme is served or the scheme is named.</returns>
+    /// <returns><see langword="true"/> when every scheme is served, or the scheme or its TLS twin is named.</returns>
     public bool Serves(string scheme)
     {
         ArgumentNullException.ThrowIfNull(scheme);
 
-        return settings.Protocols is null || settings.Protocols.Contains(scheme, StringComparer.OrdinalIgnoreCase);
+        return Account.SchemesAdmit(settings.Protocols, scheme);
     }
 
     /// <summary>

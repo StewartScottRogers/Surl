@@ -17,18 +17,24 @@ public sealed class LdapOtherPasswordLoginsTests
     private readonly ScriptedLdapDirectory directory = new();
     private readonly List<string> notes = [];
 
-    private AuthenticationPolicy Policy()
+    private AuthenticationPolicy Policy() => PolicyOver(DirectorySettings());
+
+    // Alice's account and a directory serving the schemes named, or every scheme when none is.
+    private AuthenticationSettings DirectorySettings(params string[] protocols)
     {
         Assert.IsTrue(LdapDirectoryUrl.TryParse("ldaps://dir.test/ou=people,dc=example,dc=com", out var url, out _));
-        var source = new LdapAccountSource(new LdapAccountSourceSettings(url!), directory, clock, notes.Add);
-        var settings = new AuthenticationSettings(
+        var sourceSettings = new LdapAccountSourceSettings(url!) { Protocols = protocols.Length == 0 ? null : protocols };
+        var source = new LdapAccountSource(sourceSettings, directory, clock, notes.Add);
+
+        return new AuthenticationSettings(
             PolicyFixture.AliceAndToken, false, false, AuthenticationMethods.DefaultAccepted)
         {
             LdapAccountSource = source,
         };
-
-        return new AuthenticationPolicy(settings, [new BasicAuthenticationMethod(PolicyFixture.AliceAndToken)], clock);
     }
+
+    private AuthenticationPolicy PolicyOver(AuthenticationSettings settings) =>
+        new(settings, [new BasicAuthenticationMethod(settings.Accounts)], clock);
 
     // The same logins with no directory: what an unknown account costs.
     private AuthenticationPolicy PolicyWithoutDirectory() =>
@@ -189,6 +195,36 @@ public sealed class LdapOtherPasswordLoginsTests
 
         Assert.IsFalse(await login);
         Assert.AreEqual(0, directory.ConnectCount);
+    }
+
+    [TestMethod]
+    [DataRow("sftp", "sftp", 1, DisplayName = "protocols=sftp admits the sftp view")]
+    [DataRow("sftp", "scp", 0, DisplayName = "protocols=sftp leaves the scp view out")]
+    [DataRow("scp", "scp", 1, DisplayName = "protocols=scp admits the scp view")]
+    [DataRow("scp", "sftp", 0, DisplayName = "protocols=scp leaves the sftp view out")]
+    [DataRow("ftp", "sftp", 0, DisplayName = "protocols=ftp leaves the sftp view out")]
+    [DataRow("ssh", "sftp", 0, DisplayName = "protocols=ssh names no view")]
+    public async Task SshPasswordLogin_OnASchemesView_AsksTheDirectoryOnlyWhenItServesThatScheme(
+        string protocol, string viewScheme, int connections)
+    {
+        DirectoryAnswersTo(0);
+        var login = LoginAsync(PolicyOver(DirectorySettings(protocol).ForScheme(viewScheme)), "SSH", "carol", "dirpw");
+
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+
+        Assert.AreEqual(connections == 1, await login);
+        Assert.AreEqual(connections, directory.ConnectCount);
+    }
+
+    [TestMethod]
+    public async Task SshPasswordLogin_OnSettingsThatAreNoView_AsksTheDirectoryAboutSsh()
+    {
+        DirectoryAnswersTo(0);
+
+        var login = LoginAsync(PolicyOver(DirectorySettings("ssh")), "SSH", "carol", "dirpw");
+
+        Assert.IsTrue(await login);
+        Assert.AreEqual(1, directory.ConnectCount);
     }
 
     // The directory has refused (its timeout timer is gone and the refusal noted) once only the refusal delay's timer is pending.

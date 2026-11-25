@@ -218,7 +218,7 @@ The table's source column is carried into the code's doc comment, row for row.
   server's own topic repeats the one-line "judged by its specification, not by upstream curl"
   sentence. BL-405 adds the `extended` topic; each server's task adds its own.
 - **`--version`:** the `Protocols:` line stays upstream curl's list of original schemes, unchanged.
-  While extensions are on and at least one extended server is registered, one further line,
+  While the extended servers are on and at least one is registered, one further line,
   `Extended: <scheme> <scheme> …` (ordinal order), follows it; with the switch off, or none
   registered, the line is absent. This keeps a script that parses `Protocols:` unaffected, as the
   port keeps its own extensions out of curl's line.

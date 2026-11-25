@@ -11,8 +11,8 @@ namespace Surl.Extended.Protocol.Coap;
 /// </summary>
 /// <param name="Certificate">The certificate and key from <c>--cert</c> or <c>--self-signed</c>, or none.</param>
 /// <param name="PreSharedKeys">
-/// The key of each PSK identity, built by the caller from the <c>--user</c> and <c>--user-file</c>
-/// accounts, or none when no account exists.
+/// The key of each PSK identity, built by the caller over its accounts and asked at each handshake,
+/// or none to offer no PSK suite.
 /// </param>
 /// <param name="ClientCertificateAuthorities">The <c>--cacert</c> anchors, or none when no client certificate is asked for.</param>
 public sealed record CoapDtlsCredentials(

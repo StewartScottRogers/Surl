@@ -1,9 +1,9 @@
 using Surl.Authentication;
 using Surl.Content;
-using Surl.MailStore;
-using Surl.MessageBus;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Redis;
+using Surl.MailStore;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
 

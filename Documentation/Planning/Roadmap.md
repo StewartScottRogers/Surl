@@ -20,7 +20,12 @@ task board in `Tasks/`, never here.
 
 ## Milestone 1 — Phase 1
 
-- **Status:** Built, except `Surl.Cookies`, which holds no code yet (2026-09-30).
+- **Status:** Built, the cookies included (2026-11-25). As ADR-0189 decides, `Surl.Cookies`
+  reads each `--set-cookie` definition, writes the `Set-Cookie` field and reads the `Cookie`
+  header, and the HTTP server sets the configured cookies and publishes the ones a client
+  sends, over HTTP/1.x, HTTP/2, h2c and HTTP/3. Pinned upstream curl 8.21.0 has proven them
+  on Windows over `http` with HTTP/1.1 (BL-1662) and over HTTP/3 (BL-1689); FR-015 states
+  what each test runs.
 - **Delivers:** see the Phase 1 row of the product overview. `surl` serves `http` and
   `https`, `dict`, `gopher` and `gophers`, `mqtt` and `mqtts`, `telnet` and `tftp` over the
   listener seam, with `Surl.Authentication`'s logins and the curl-style command line, help,
@@ -191,8 +196,9 @@ task board in `Tasks/`, never here.
   `WinLdap_` cases, the libcurl rows and the `[OSCondition(Windows)]` cases on both non-Windows
   platforms, and the extended clients (outside Phase 7). The closing condition holds on `linux-x64`
   and `osx-arm64` in all four parts; part 4, the literal "not measurable on <platform>: <reason>"
-  line in each family file, was added by BL-1648. Still Stewart's: filing the 31 findings on
-  the port's board.
+  line in each family file, was added by BL-1648. All 31 findings are filed on the port's board
+  (BL-1658, 2026-11-24); `Port-Board-Handoff.md` names the port task ID of each entry, and entry
+  28's two cases (SSH-3) are an accepted difference by the port's side (port BL-5909).
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
   `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one

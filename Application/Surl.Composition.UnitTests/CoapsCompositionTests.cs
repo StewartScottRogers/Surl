@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Surl.Authentication;
 using Surl.Cli;
+using Surl.Dtls;
+using Surl.Extended.Protocol.Coap;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
@@ -10,6 +12,8 @@ namespace Surl.Composition;
 [TestClass]
 public sealed class CoapsCompositionTests
 {
+    private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(30);
+
     [TestMethod]
     [DataRow(false, false, false)]
     [DataRow(true, false, true)]
@@ -21,7 +25,54 @@ public sealed class CoapsCompositionTests
         var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
 
         Assert.AreEqual(expectedAnonymous, rules.AllowsAnonymous);
-        Assert.AreEqual(hasAccount, rules.HasAccounts);
+        Assert.AreEqual(hasAccount, rules.HasAccounts());
+    }
+
+    [TestMethod]
+    public void CoapAccessRulesFor_AccountAddedAndRemovedAfterComposing_FollowsTheBook()
+    {
+        var services = ComposeServices(false, []);
+        var book = services.AuthenticationPolicy.Settings.Accounts;
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Add(new Account("mail", "pw") { Schemes = new HashSet<string> { "smtp" } });
+
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Add(new Account("alice", "pw"));
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Remove("alice");
+
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
+    }
+
+    [TestMethod]
+    [DataRow(null, DisplayName = "a directory serving every scheme")]
+    [DataRow("coap", DisplayName = "a directory naming coap")]
+    [DataRow("coaps", DisplayName = "a directory naming coaps")]
+    public void CoapAccessRulesFor_DirectoryOnlyServingCoap_RefusesAnUnauthenticatedRead(string? protocol)
+    {
+        var services = ComposeServices(false, [], DirectoryServing(protocol));
+
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: true));
+    }
+
+    [TestMethod]
+    [DataRow(false, "smtp", DisplayName = "a directory serving neither coap nor coaps")]
+    [DataRow(true, null, DisplayName = "--allow-anonymous beside a directory")]
+    public void CoapAccessRulesFor_DirectoryNotMakingCoapPrivate_ServesAnUnauthenticatedRead(bool allowAnonymous, string? protocol)
+    {
+        var services = ComposeServices(allowAnonymous, [], DirectoryServing(protocol));
+
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+
+        Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
     }
 
     [TestMethod]
@@ -64,14 +115,29 @@ public sealed class CoapsCompositionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_NeitherCertificateNorAccount_RefusesToBuild()
+    public async Task ServeAsync_AccountAddedAfterAFirstFlowWithACertificateAndNoAccount_CompletesItsPreSharedKeyHandshake()
     {
-        var server = new DeferredCoapsProtocolServer(ComposeServices(false, []));
-        using var cancelled = new CancellationTokenSource();
-        await cancelled.CancelAsync();
-        await using var flow = new InMemoryDatagramFlow(new byte[1], []);
+        var services = ComposeServices(false, []);
+        using var certificate = ThrowawayServerCertificate.Create(TimeProvider.System, ["127.0.0.1"]);
+        services.QuicCertificate.Certificate = QuicServerCertificate.From(certificate, []);
+        var server = new DeferredCoapsProtocolServer(services);
+        await AssertPreSharedKeyRefusedAsync(server);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => server.ServeAsync(flow, ContextFor(cancelled.Token)));
+        services.AuthenticationPolicy.Settings.Accounts.Add(new Account("alice", "secret"));
+
+        await AssertPreSharedKeyEstablishedAsync(server);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FirstFlowWithNeitherCertificateNorAccount_StillServesAFlowAfterAnAccountIsAdded()
+    {
+        var services = ComposeServices(false, []);
+        var server = new DeferredCoapsProtocolServer(services);
+        await AssertPreSharedKeyRefusedAsync(server);
+
+        services.AuthenticationPolicy.Settings.Accounts.Add(new Account("alice", "secret"));
+
+        await AssertPreSharedKeyEstablishedAsync(server);
     }
 
     [TestMethod]
@@ -165,22 +231,80 @@ public sealed class CoapsCompositionTests
         }
     }
 
-    private static ComposedProtocolServices ComposeServices(bool allowAnonymous, IReadOnlyList<Account> accounts)
+    // TLS_PSK_WITH_AES_128_GCM_SHA256 (RFC 5487), the one suite every platform has; the client's key is "secret".
+    private static UnitTestDtlsClient PreSharedKeyClient() => new() { CipherSuites = [0x00A8] };
+
+    // RFC 4279 section 2: an identity no account has ends in decrypt_error, as a wrong key does.
+    private static async Task AssertPreSharedKeyRefusedAsync(DeferredCoapsProtocolServer server)
+    {
+        using var patience = new CancellationTokenSource(PatienceLimit);
+        await using var flow = new UnitTestDtlsDatagramFlow(PreSharedKeyClient());
+
+        await server.ServeAsync(flow, ContextFor(patience.Token));
+
+        Assert.IsFalse(flow.IsEstablished);
+        Assert.AreEqual(new DtlsAlert(true, DtlsAlertDescription.DecryptError), flow.ReceivedAlerts.Single());
+    }
+
+    private static async Task AssertPreSharedKeyEstablishedAsync(DeferredCoapsProtocolServer server)
+    {
+        using var exchange = new CancellationTokenSource();
+        using var patience = new CancellationTokenSource(PatienceLimit);
+        await using var flow = new UnitTestDtlsDatagramFlow(PreSharedKeyClient());
+
+        var serving = server.ServeAsync(flow, ContextFor(exchange.Token));
+        while (!flow.IsEstablished && !serving.IsCompleted)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(10), patience.Token);
+        }
+
+        Assert.IsTrue(flow.IsEstablished);
+        await exchange.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+    }
+
+    private static LdapAccountSource DirectoryServing(string? protocol)
+    {
+        Assert.IsTrue(LdapDirectoryUrl.TryParse("ldap://dir.test/dc=example,dc=com", out var url, out _));
+
+        return new LdapAccountSource(
+            new LdapAccountSourceSettings(url!) { Protocols = protocol is null ? null : [protocol] },
+            new UnreachedDirectory(),
+            TimeProvider.System);
+    }
+
+    private static ComposedProtocolServices ComposeServices(
+        bool allowAnonymous, IReadOnlyList<Account> accounts, LdapAccountSource? directory = null)
     {
         var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
             SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
+        var policy = new AuthenticationPolicy(
+            new AuthenticationSettings(new AccountBook(accounts), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted)
+            {
+                LdapAccountSource = directory,
+            },
+            [],
+            TimeProvider.System);
         return new ComposedProtocolServices(
             unserved.ContentStore,
             new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
-            new AuthenticationPolicy(
-                new AuthenticationSettings(new AccountBook(accounts), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),
-                [],
-                TimeProvider.System),
+            policy,
             TimeProvider.System,
             unserved.SshHostKeys,
             unserved.SshAlgorithms,
             isTlsUpgradeAvailable: false,
             echoesWebSocketMessages: false,
-            advertisesHttp3: false);
+            advertisesHttp3: false)
+        {
+            // Per-scheme views, as the start composes them.
+            AuthenticationPolicyForScheme = new SchemeAuthenticationPolicies(policy, TimeProvider.System).For,
+        };
+    }
+
+    // CoAP carries no password, so its access rules never reach the directory.
+    private sealed class UnreachedDirectory : ILdapDirectoryConnector
+    {
+        public ValueTask<ILdapDirectoryConnection> ConnectAsync(LdapDirectoryEndpoint endpoint, CancellationToken cancellationToken) =>
+            throw new IOException("no directory in this test");
     }
 }

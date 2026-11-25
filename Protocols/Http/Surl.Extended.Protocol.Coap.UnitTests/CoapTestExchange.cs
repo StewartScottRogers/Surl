@@ -9,7 +9,7 @@ namespace Surl.Extended.Protocol.Coap;
 /// </summary>
 internal sealed class CoapTestExchange : IAsyncDisposable
 {
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
 
     private readonly CoapResourceAnswerer answerer;
 

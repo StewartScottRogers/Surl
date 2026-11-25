@@ -21,7 +21,7 @@ internal sealed class StartTestSeams
     /// <summary>The factory every start's listeners are started through.</summary>
     public FakeListenerFactory ListenerFactory { get; }
 
-    /// <summary>The seams, with extensions off and every optional seam its default but the file systems.</summary>
+    /// <summary>The seams, with the extended servers off and every optional seam its default but the file systems.</summary>
     public SurlServerCompositionSeams Seams => new(
         _ => ListenerFactory, _ => true, TakeDataDirectoryLock, TimeProvider.System, AreExtensionsTurnedOn: false)
     {

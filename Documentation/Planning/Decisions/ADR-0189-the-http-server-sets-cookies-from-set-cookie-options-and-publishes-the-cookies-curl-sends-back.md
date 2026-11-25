@@ -47,9 +47,9 @@ bytes above. Nothing here comes from the Curl port.
 ### 1. One repeatable option, `--set-cookie <spec>`, off until used
 
 `--set-cookie 'name=value[;Attribute[=value]]...[;on-path=/prefix][;on-listener=<listen URL>]'`, repeatable, at most 64
-(past it exit 2, as `--fault`'s 256). A `-K` file line `set-cookie = "..."`, `Surl.Api`'s `SurlServerOptions.Cookies` (amendment 1), `Surl.Mcp`'s
-`start_server` argument `cookies` and the control endpoint's start body field `cookies` carry the same list ("configuration
-as data"). Without one, the server sends no `Set-Cookie` and reads `Cookie` only to publish it (decision 5): nothing a
+(past it exit 2, as `--fault`'s 256). A `-K` file line `set-cookie = "..."`, `Surl.Api`'s `SurlServerOptions.Cookies` (amendment 1) and `Surl.Mcp`'s
+`start_server` argument `cookies` carry the same list ("configuration
+as data"); the control endpoint starts no server, so it has no such field (amendment 2). Without one, the server sends no `Set-Cookie` and reads `Cookie` only to publish it (decision 5): nothing a
 peer can do widens, so no warning is needed. Names and values are never generated (decision 6).
 
 ### 2. Scope: every HTTP reply, or those `on-path` and `on-listener` pick
@@ -116,3 +116,14 @@ configuration model. A null item is an `ArgumentException`; every other refusal 
 
 Also correcting decision 5's signature: the record as built (BL-1659) is
 `CookieReceivedEvent(long? ExchangeId, string Scheme, string Name, string Value)`.
+
+## Amendment 2 (2026-11-25, BL-1676): the control endpoint has no `cookies` field
+
+Decided by Claude under Stewart's delegation. Decision 1 first named a "control endpoint start body field `cookies`".
+There is no start body: `Surl.Control` drives a server that is already running (its `/v1/` routes read events and
+exchanges, change faults, stores and accounts, reset and snapshot) and starts none, and the instance it drives was
+configured by `--set-cookie`, a `-K` file, `Surl.Api` or `start_server`. So no field is added. Changing the cookies of a
+running server is not part of this decision; if it is added later it is a new route, which only grows the surface.
+
+`start_server`'s `cookies` (BL-1676) is an array of at most 64 strings, passed to `SurlServerOptions.Cookies`; a bad
+entry is refused by `surl`'s own reader, so the tool result carries exit code 2 and the `option --set-cookie: ...` line.

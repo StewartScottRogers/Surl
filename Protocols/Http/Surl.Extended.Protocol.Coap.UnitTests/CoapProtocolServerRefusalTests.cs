@@ -9,7 +9,7 @@ namespace Surl.Extended.Protocol.Coap;
 [TestClass]
 public sealed class CoapProtocolServerRefusalTests
 {
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
 
     [TestMethod]
     public async Task WriteRefusalAsync_ConRequest_IsAnAckWith503AndMaxAge5()

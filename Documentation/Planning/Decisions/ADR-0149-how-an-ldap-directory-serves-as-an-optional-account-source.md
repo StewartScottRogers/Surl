@@ -432,3 +432,47 @@ Each bound is a constant in `Surl.Authentication`, not an option, except `timeou
   `surl: warning: no local account left; logins are now checked against the directory only` instead.
   `SurlServerAccounts.HasAccounts` is unchanged: it reports the local accounts only.
 - Not changed here: other servers that decide by the account book alone (CoAPS, extended CoAP) are checked in BL-1669.
+
+## Amendment 2 (BL-1669, 2026-11-25): CoAP counts the directory, and `protocols=` admits TLS twins
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-25, in BL-1669. No
+  upstream curl behaviour is involved: upstream curl has no CoAP.
+- **Amends:** [ADR-0097](ADR-0097-how-the-coap-server-answers-coap-and-coaps.md) decision 6 ("whether any account
+  is allowed on `coap`").
+- **Found:** a `coap` or `coaps` server whose only account source was a directory served unauthenticated reads.
+- **CoAP rule:** a directory serving `coap` (or `coaps`) makes both private, as an account does: an
+  unauthenticated read is `4.01`. CoAP carries no password (decision 2's table), so no peer logs in through the
+  directory; a `coaps` peer reads with a verified `--cacert` client certificate or a `--user` pre-shared key, and
+  otherwise only under `--allow-anonymous`. `protocols=` leaving both out keeps reads open. A directory alone is
+  still no pre-shared key, so a `coaps` listen URL needs a certificate or a local account to start.
+- **Alternative rejected:** leaving CoAP open because the directory can never log a peer in. Naming an account
+  source says the server is private, and secure by default (ADR-0032) wins.
+- **TLS twins:** `protocols=` on `--user-ldap` admits each named scheme's TLS twin, as decision 8 intends ("the same
+  per-scheme views", ADR-0102 decision 4.3). Before this, `protocols=https` admitted no HTTP-family login and left
+  HTTPS reads open.
+- **The HTTP family is judged by the server's own scheme:** a server asks the directory about the scheme of its
+  per-scheme view (`ws`, `rtsp`, `dns`, ...), not about `http`. Before this, `protocols=ws` left `ws://` reads open
+  and `protocols=http` admitted directory logins on `ws` and `rtsp`. Login events still name the family `http`.
+- Implemented by `AuthenticationSettings.HasAccountToLogInTo` (which replaces amendment 1's
+  `HttpAuthenticationSession.HasAccountToLogInTo`), `AuthenticationSettings.HttpDirectoryScheme` and
+  `LdapAccountSource.Serves`.
+- Not changed here: SSH still asks about `ssh`, so `protocols=sftp` or `scp` refuses directory passwords (it fails
+  closed; filed as a follow-up).
+
+## Amendment 3 (BL-1684, 2026-11-25): SSH password logins are judged by the server's own scheme
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-25, in BL-1684. No wire
+  byte changes: an accepted or refused SSH password is answered as before.
+- **Amends:** amendment 2's last point.
+- **Found:** the `scp` and `sftp` servers asked the directory about the family name `ssh`, which `protocols=` cannot
+  name, so any `protocols=` list refused every directory password over SSH.
+- **Rule:** an SSH `password` (or `keyboard-interactive`) login asks the directory about the scheme of the server's
+  per-scheme view, as the HTTP family does: `protocols=sftp` admits directory logins on `sftp` and not on `scp`, and
+  the reverse. Settings that are no view ask about `ssh`; `surl` and `Surl.Api` compose both SSH servers over views.
+- **`protocols=ssh` stays refused at start** (`option --user-ldap: unknown scheme ssh`, `FailedInit` (2)): `ssh` is
+  no listen URL's scheme, and ADR-0101's `protocols=` lists name those.
+- **Alternative rejected:** accepting `ssh` in `protocols=` as both SSH schemes. It would give `--user-ldap` a scheme
+  name `--mailbox`, `--share` and accounts do not know, for what `protocols=scp,sftp` already says.
+- **Unchanged:** login events and fault points name the family `ssh` unless the login carries a `LoginExchange`
+  (ADR-0128, amendment 1).
+- Implemented by `AuthenticationSettings.DirectorySchemeFor`, which replaces amendment 2's `HttpDirectoryScheme`.
