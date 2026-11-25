@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11; Amendment 9 (BL-941) 2026-11-12; Amendment 10 (BL-1070) 2026-11-12
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11; Amendment 9 (BL-941) 2026-11-12; Amendment 10 (BL-1070) 2026-11-12; Amendment 11 (BL-1670) 2026-11-24
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -492,9 +492,8 @@ measured.
   ones.
 - **The allowed-origin rule** is `AllowedOriginRule.LoopbackOnly`, widened by each `--proxy-allow-origin`
   (`*` is `EveryAddress`) and narrowed by each proxy listen URL's own end point. A proxy host that is not
-  an address refuses its port on every address, the safe reading; a proxy on port 0 has no port to refuse
-  until it binds, so a request to the proxy's own ephemeral port is not refused (a test that needs the
-  loop refused gives the proxy a port). The connector is a `SocketOriginConnector` on the instance's
+  an address refuses its port on every address, the safe reading; a proxy on port 0 has its bound end
+  point refused from the moment it binds (Amendment 11). The connector is a `SocketOriginConnector` on the instance's
   `TimeProvider`, replaceable through `SurlServerCompositionSeams.CreateOriginConnector`, and rides on
   `ComposedProtocolServices.OriginConnector` for the SOCKS server (BL-560).
 - **Proxy accounts** are `-U` then `--proxy-user-file`, alone, with the default method set and the two
@@ -589,3 +588,20 @@ Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), re
   stops, per connection, when its tunnel opens.
 - **Which listener.** The HTTPS proxy is the `https` scheme with `ListenUrl.IsProxy`; the plaintext one is the
   `http-proxy` scheme with `IsImplicitTls = false`, since `http` is the origin's.
+
+## Amendment 11 - a proxy on port 0 refuses its own bound end point, settled by BL-1664 (2026-11-24)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), built by BL-1664 and recorded by
+BL-1670. The reply bytes are the ones a proxy on a fixed port already sends, so nothing was measured.
+
+- **The rule.** A proxy or SOCKS listener on port 0 refuses a request whose origin is its own bound end point as
+  `NotAllowed`, as decision 2 says of every proxy: the HTTP and HTTPS proxies answer `403` (decision 2's table),
+  and SOCKS answers as ADR-0121 says for `NotAllowed`. This replaces Amendment 6's statement that such a request
+  was not refused. `--proxy-allow-origin '*'` does not lift the refusal.
+- **How.** `AllowedOriginRule.WithLaterProxyEndPoints` takes a source of end points that `Admits` reads on every
+  check. `Surl.Composition` gives it one `BoundProxyEndPoints` per start, which `ListenerStartReporter` fills as
+  each `--proxy` or `socks*` listener binds, before any status line is written. The rule refuses every recorded end
+  point, so one proxy of an instance cannot be asked to reach another of the same instance. A listen host that is
+  not an address refuses its bound port on every address, as for a fixed port.
+- **Unchanged.** `Surl.Networking`'s `SocketOriginConnector` still applies the rule to every resolved address, and
+  nothing is static: instances side by side keep their own end points, and one does not refuse another's.
