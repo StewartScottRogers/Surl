@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Buffers.Binary;
 using Surl.Hpack;
 using Surl.Protocol.Abstractions;
 
@@ -8,8 +9,10 @@ namespace Surl.Http2;
 /// An <see cref="IReceivedBytesRedactor"/> for the bytes a client sends on one HTTP/2 connection:
 /// the connection preface, then frames. A header block that carries an <c>authorization</c> or
 /// <c>proxy-authorization</c> field is logged with each of its <c>HEADERS</c> and <c>CONTINUATION</c>
-/// payloads replaced by <c>****</c>; the 9-byte frame headers, and every other frame, are logged as
-/// received (ADR-0182, decisions 1, 6 and 7).
+/// payloads replaced by <c>****</c>. The 9-byte frame headers are always logged as received, and so
+/// is every frame of a type other than <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c>.
+/// A <c>PUSH_PROMISE</c> payload is always withheld, and once the redactor can no longer follow the
+/// header blocks, so is every later payload of those three types (ADR-0182, decisions 1, 6 and 7).
 /// </summary>
 /// <remarks>
 /// HPACK values are recoverable from a dump whether Huffman-coded or literal, and an indexed field
@@ -18,20 +21,21 @@ namespace Surl.Http2;
 /// held back, frame by frame, until its <c>END_HEADERS</c>; <see cref="Flush"/> writes an unfinished
 /// one withheld. No more than 64 KiB of payload is ever held; the cap does not count the frame
 /// headers held with it, so it does not limit the number of empty frames held. A block the copy
-/// cannot decode, a block whose payloads outgrow the cap, and a frame other than <c>HEADERS</c> or
-/// <c>CONTINUATION</c> inside an open block leave the copy's table unknown, so from then on every
-/// <c>HEADERS</c> and <c>CONTINUATION</c> payload is withheld (fail closed). The frame sequence is
-/// not otherwise checked: a <c>CONTINUATION</c> with no open block starts one, and a <c>HEADERS</c>
-/// inside an open block, or a <c>CONTINUATION</c> for another stream, is appended to it; none of
-/// these by itself loses the copy or withholds anything. Frames other than <c>HEADERS</c> and
-/// <c>CONTINUATION</c> stream through as they arrive and are never decoded, <c>PUSH_PROMISE</c> and
-/// the header block fragment it carries included.
+/// cannot decode, a block whose payloads outgrow the cap, any frame other than <c>HEADERS</c> or
+/// <c>CONTINUATION</c> inside an open block, a <c>HEADERS</c> inside an open block, a
+/// <c>CONTINUATION</c> with no open block or on another stream than its block's (RFC 9113
+/// section 6.10), and a <c>PUSH_PROMISE</c>, which a client may not send (section 8.4), each leave
+/// the copy's table unknown. The open block's held frames are then written withheld, and from then
+/// on every <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c> payload, the offending
+/// frame's included if it is one of these, is withheld (fail closed). Frames of other types, one
+/// that interrupts an open block included, stream through as they arrive and are never decoded.
 /// </remarks>
 public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 {
     private const int FrameHeaderLength = 9;
     private const int HeldBlockLimit = 64 * 1024;
     private const byte HeadersType = 0x1;
+    private const byte PushPromiseType = 0x5;
     private const byte ContinuationType = 0x9;
     private const byte EndHeadersFlag = 0x4;
     private const byte PaddedFlag = 0x8;
@@ -125,31 +129,52 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     private void StartFrame(byte type, int length, ArrayBufferWriter<byte> output)
     {
         payloadRemaining = length;
-        var isHeaderBlockFrame = type is HeadersType or ContinuationType;
-        if (!isHeaderBlockFrame)
+        if (type is not (HeadersType or PushPromiseType or ContinuationType))
         {
-            // Anything else ends an open block early; the block's table effects are unknown.
-            if (heldFrames.Count > 0)
-            {
-                LoseDecoderAndWriteHeldFramesWithheld(output);
-            }
-
-            payloadMode = PayloadMode.PassThrough;
-            output.Write(frameHeader);
-
-            return;
+            LoseDecoderIfBlockOpenAndStartPassThroughFrame(output);
         }
+        else if (decoderLost || !FitsHeaderBlockSequence(type) || heldBlockLength + length > HeldBlockLimit)
+        {
+            LoseDecoderAndStartWithheldFrame(output);
+        }
+        else
+        {
+            StartHeldFrame(length, output);
+        }
+    }
 
-        if (decoderLost || heldBlockLength + length > HeldBlockLimit)
+    private bool FitsHeaderBlockSequence(byte type) => type switch
+    {
+        HeadersType => heldFrames.Count == 0,
+        ContinuationType => heldFrames.Count > 0 && StreamIdOf(heldFrames[0].Header) == StreamIdOf(frameHeader),
+        _ => false, // PUSH_PROMISE: a client may not send one.
+    };
+
+    private static uint StreamIdOf(byte[] header) =>
+        BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(5)) & 0x7FFF_FFFF;
+
+    private void LoseDecoderIfBlockOpenAndStartPassThroughFrame(ArrayBufferWriter<byte> output)
+    {
+        // A frame of any other type ends an open block early; the block's table effects are unknown.
+        if (heldFrames.Count > 0)
         {
             LoseDecoderAndWriteHeldFramesWithheld(output);
-            payloadMode = PayloadMode.Discard;
-            output.Write(frameHeader);
-            output.Write(Withheld);
-
-            return;
         }
 
+        payloadMode = PayloadMode.PassThrough;
+        output.Write(frameHeader);
+    }
+
+    private void LoseDecoderAndStartWithheldFrame(ArrayBufferWriter<byte> output)
+    {
+        LoseDecoderAndWriteHeldFramesWithheld(output);
+        payloadMode = PayloadMode.Discard;
+        output.Write(frameHeader);
+        output.Write(Withheld);
+    }
+
+    private void StartHeldFrame(int length, ArrayBufferWriter<byte> output)
+    {
         payloadMode = PayloadMode.Hold;
         heldPayload = new byte[length];
         heldPayloadRead = 0;

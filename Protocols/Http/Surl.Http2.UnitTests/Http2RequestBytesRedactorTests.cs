@@ -6,7 +6,9 @@ namespace Surl.Http2;
 
 /// <summary>
 /// The HTTP/2 redactor withholds the payloads of header blocks that carry <c>authorization</c> or
-/// <c>proxy-authorization</c> and logs every other byte as received (ADR-0182, BL-1423).
+/// <c>proxy-authorization</c>, every <c>PUSH_PROMISE</c> payload, and, once it can no longer follow
+/// the header blocks, every later <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c>
+/// payload (ADR-0182, BL-1423, BL-1714, BL-1728).
 /// </summary>
 [TestClass]
 public sealed class Http2RequestBytesRedactorTests
@@ -41,6 +43,8 @@ public sealed class Http2RequestBytesRedactorTests
     private static byte[] Join(params byte[][] parts) => parts.SelectMany(part => part).ToArray();
 
     private static readonly (string, string)[] Plain = [(":method", "GET"), (":path", "/"), ("host", "h")];
+
+    private static byte[] WithPayloadWithheld(byte[] frame) => Join(frame[..9], "****"u8.ToArray());
 
     [TestMethod]
     public void Redact_HuffmanCodedAuthorization_WithholdsThePayload()
@@ -175,12 +179,97 @@ public sealed class Http2RequestBytesRedactorTests
     {
         var block = Block(new HpackEncoder(), Plain);
         var open = Http2FrameEncoder.Encode(new Http2HeadersFrame(1, block, true, false));
-        var ping = Http2FrameEncoder.Encode(new Http2DataFrame(1, [1], false));
+        var data = Http2FrameEncoder.Encode(new Http2DataFrame(1, [1], false));
         var later = Headers(Block(new HpackEncoder(), Plain));
 
-        var (_, bytes) = Redact([Join(Preface, open, ping, later)]);
+        var (_, bytes) = Redact([Join(Preface, open, data, later)]);
 
-        Assert.AreEqual(24 + 13 + ping.Length + 13, bytes.Length);
+        Assert.AreEqual(24 + 13 + data.Length + 13, bytes.Length);
+    }
+
+    [TestMethod]
+    public void Redact_ContinuationWithNoOpenBlock_WithholdsItAndEveryLaterBlock()
+    {
+        var continuation = Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, Block(new HpackEncoder(), Plain), true));
+        var later = Headers(Block(new HpackEncoder(), Plain));
+
+        var (_, bytes) = Redact([Join(Preface, continuation, later)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(continuation), WithPayloadWithheld(later)),
+            bytes);
+    }
+
+    [TestMethod]
+    public void Redact_HeadersInsideAnOpenBlock_WithholdsTheBlockAndEveryLaterBlock()
+    {
+        var block = Block(new HpackEncoder(), Plain);
+        var open = Headers(block[..3], endHeaders: false);
+        var inside = Headers(block[3..]);
+        var later = Headers(Block(new HpackEncoder(), Plain));
+
+        var (_, bytes) = Redact([Join(Preface, open, inside, later)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(open), WithPayloadWithheld(inside), WithPayloadWithheld(later)),
+            bytes);
+    }
+
+    [TestMethod]
+    public void Redact_ContinuationOnAnotherStream_WithholdsTheBlockAndEveryLaterBlock()
+    {
+        var block = Block(new HpackEncoder(), Plain);
+        var open = Headers(block[..3], endHeaders: false);
+        var otherStream = Http2FrameEncoder.Encode(new Http2ContinuationFrame(3, block[3..], true));
+        var later = Headers(Block(new HpackEncoder(), Plain));
+
+        var (_, bytes) = Redact([Join(Preface, open, otherStream, later)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(open), WithPayloadWithheld(otherStream), WithPayloadWithheld(later)),
+            bytes);
+    }
+
+    [TestMethod]
+    public void Redact_PushPromise_WithholdsItAndEveryLaterBlock()
+    {
+        var promise = Http2FrameEncoder.Encode(new Http2PushPromiseFrame(1, 2, Block(new HpackEncoder(), Plain), false));
+        var continuation = Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, Block(new HpackEncoder(), Plain), true));
+        var later = Headers(Block(new HpackEncoder(), Plain));
+
+        var (_, bytes) = Redact([Join(Preface, promise, continuation, later)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(promise), WithPayloadWithheld(continuation), WithPayloadWithheld(later)),
+            bytes);
+    }
+
+    [TestMethod]
+    public void Redact_PushPromiseInsideAnOpenBlock_WithholdsTheHeldFramesToo()
+    {
+        var open = Headers(Block(new HpackEncoder(), Plain), endHeaders: false);
+        var promise = Http2FrameEncoder.Encode(new Http2PushPromiseFrame(1, 2, Block(new HpackEncoder(), Plain), true));
+        var later = Headers(Block(new HpackEncoder(), Plain));
+
+        var (_, bytes) = Redact([Join(Preface, open, promise, later)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(open), WithPayloadWithheld(promise), WithPayloadWithheld(later)),
+            bytes);
+    }
+
+    [TestMethod]
+    public void Redact_ContinuationDifferingOnlyInTheReservedStreamBit_ContinuesTheBlock()
+    {
+        var block = Block(new HpackEncoder(), Plain);
+        var head = Headers(block[..3], endHeaders: false);
+        var tail = Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, block[3..], true));
+        tail[5] |= 0x80;
+        var stream = Join(Preface, head, tail);
+
+        var (_, bytes) = Redact([stream]);
+
+        CollectionAssert.AreEqual(stream, bytes);
     }
 
     [TestMethod]
