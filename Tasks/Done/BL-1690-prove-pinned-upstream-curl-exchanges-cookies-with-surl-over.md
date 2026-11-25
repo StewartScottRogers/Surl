@@ -39,7 +39,7 @@ FR-015, ADR-0189. `UpstreamCurlExchangesCookiesWithSurlTests` covers `http` with
 - 2026-11-25, Windows: all 8 tests of the class pass; `dotnet build -warnaserror` has 0 warnings; every
   fast test project passes. Only this class of the `Integration` tests was run.
 - `dotnet format --verify-no-changes` passes for the changed `.cs` file and fails on files this task did
-  not touch; filed as BL-1692. No production code changed, so no ADR.
+  not touch; filed as BL-1694. No production code changed, so no ADR.
 
 ## Log
 
