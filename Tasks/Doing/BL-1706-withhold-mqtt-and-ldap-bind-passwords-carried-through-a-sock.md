@@ -42,3 +42,4 @@ An MQTT 3.1.1 or 5 `CONNECT` password and an LDAP simple bind password carried t
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
