@@ -4,7 +4,7 @@ title: Withhold MQTT and LDAP bind passwords carried through a SOCKS tunnel from
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1705]
+depends-on: [BL-1710]
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25

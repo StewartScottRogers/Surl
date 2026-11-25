@@ -1,16 +1,16 @@
 ---
-id: BL-1705
+id: BL-1710
 title: Withhold SASL and IMAP LOGIN credentials carried through a SOCKS tunnel from the exchange log
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1704]
+depends-on: [BL-1709]
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1705 — Withhold SASL and IMAP LOGIN credentials carried through a SOCKS tunnel from the exchange log
+# BL-1710 — Withhold SASL and IMAP LOGIN credentials carried through a SOCKS tunnel from the exchange log
 
 ## Goal
 

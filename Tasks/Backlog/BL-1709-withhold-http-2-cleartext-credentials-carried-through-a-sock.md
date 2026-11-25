@@ -1,5 +1,5 @@
 ---
-id: BL-1704
+id: BL-1709
 title: Withhold HTTP/2 cleartext credentials carried through a SOCKS tunnel from the exchange log
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1704 — Withhold HTTP/2 cleartext credentials carried through a SOCKS tunnel from the exchange log
+# BL-1709 — Withhold HTTP/2 cleartext credentials carried through a SOCKS tunnel from the exchange log
 
 ## Goal
 

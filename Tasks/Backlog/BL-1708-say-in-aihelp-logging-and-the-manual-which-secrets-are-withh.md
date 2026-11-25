@@ -21,7 +21,7 @@ The `logging` topic of `surl --aihelp` and the manual say that a SOCKS tunnel ca
 
 - BL-1697 added the masking (ADR-0182 Amendment 6). The withheld list in `AiHelpProse.cs` (`logging` topic) and in
   `ManualText.cs` still names only "the SOCKS5 RFC 1929 password" for SOCKS.
-- Write what the code does when this task runs: BL-1704 to BL-1707 may have narrowed the amendment's limits.
+- Write what the code does when this task runs: BL-1709 to BL-1707 may have narrowed the amendment's limits.
 
 ## Acceptance criteria
 
