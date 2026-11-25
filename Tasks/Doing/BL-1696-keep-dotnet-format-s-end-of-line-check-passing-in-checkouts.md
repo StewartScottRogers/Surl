@@ -37,3 +37,4 @@ with them the line breaks inside C# raw and verbatim string literals there, so i
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
