@@ -1,5 +1,5 @@
 ---
-id: BL-1704
+id: BL-1711
 title: Stop the Socket.IO heartbeat ping test failing after 10 seconds on a loaded machine
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1704 — Stop the Socket.IO heartbeat ping test failing after 10 seconds on a loaded machine
+# BL-1711 — Stop the Socket.IO heartbeat ping test failing after 10 seconds on a loaded machine
 
 ## Goal
 

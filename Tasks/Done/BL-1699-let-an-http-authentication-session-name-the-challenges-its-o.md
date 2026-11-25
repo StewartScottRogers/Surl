@@ -76,4 +76,4 @@ still send a challenge.
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
-- 2026-11-25: Doing -> Done. IHttpAuthenticationSession.CreateChallenges() returns the WWW-Authenticate values the connection's own 401 offers, empty by default; filed BL-1704 for an intermittent Socket.IO test
+- 2026-11-25: Doing -> Done. IHttpAuthenticationSession.CreateChallenges() returns the WWW-Authenticate values the connection's own 401 offers, empty by default; filed BL-1711 for an intermittent Socket.IO test
