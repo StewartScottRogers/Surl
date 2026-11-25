@@ -5,10 +5,10 @@ priority: Low
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1699]
-touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Documentation/Planning/Decisions/ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md]
+touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Documentation/Planning/Decisions/ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1700 — Send the session's challenges with a chosen HTTP 401 error
 
@@ -42,23 +42,43 @@ requires.
 
 ## Acceptance criteria
 
-- [ ] Regression test for this report in `Protocols/Http/Surl.Protocol.Http.UnitTests/HttpRequestAnswererTests.Faults.cs`:
+- [x] Regression test for this report in `Protocols/Http/Surl.Protocol.Http.UnitTests/HttpRequestAnswererTests.Faults.cs`:
       a chosen-error rule with reply `401` on a request let in by a valid Bearer login is answered
       `401 Unauthorized` with the session's challenge values as `WWW-Authenticate` fields, in order.
-- [ ] Named tests: a session offering no challenge gives a `401` with no `WWW-Authenticate` and the exchange-log note
+- [x] Named tests: a session offering no challenge gives a `401` with no `WWW-Authenticate` and the exchange-log note
       of decision 2; a chosen `403` carries no `WWW-Authenticate`; a chosen `401` on a request with an unread body
       still closes the connection with the challenges.
-- [ ] `Documentation/Planning/Decisions/ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md`
+- [x] `Documentation/Planning/Decisions/ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md`
       has an amendment (BL-1700) stating decisions 1 to 3 and citing RFC 9110 section 11.6.1 and this report.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, the fast tests are green
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, the fast tests are green
       with no `TestCategory=Integration` test needed, and the library stays at 100% line and branch coverage.
 
 ## Notes
 
 - RTSP's chosen error (`RtspRequestResponder`, ADR-0134 decision 2) has the same shape; if a chosen RTSP `401`
   also goes without a challenge, the lane files a follow-up task for it rather than widening this one.
+  It does: filed as BL-1712.
+- Plan: `HttpRequestAnswerer.Faults.cs` (`WwwAuthenticateValuesForChosenError`) asks the session's
+  `CreateChallenges()` for a chosen `401`; no exit-code or public-surface change.
+- Decision 1 refined after review (ADR-0134 Amendment 1, D1): a let-in verdict's `WWW-Authenticate` values are
+  only login success tokens (Negotiate's final token), never challenges, so a chosen `401` always sends the
+  session's challenges in their place, rather than only "when the verdict carried no challenge".
+- Decision 2's "(no account, ...)" is not what the code does: the session offers the methods `--auth` accepts
+  whatever the accounts, so with no account a chosen `401` still carries the Digest challenges. The amendment
+  states the code's behaviour.
+- `ConnectionBoundLogins` compares the status code, not the whole `HttpStatus`, so `401 token expired` offering
+  only NTLM or Negotiate is reset over HTTP/2 and HTTP/3 like the server's own `401`.
+- Pinned curl 8.21.0 handled canned replies modelled on the answer cleanly (`--oauth2-bearer`: 1 request, exit 0;
+  with `--fail` 22; `-u --anyauth`: 2 requests, exit 0). No fixtures added.
+- Added `Documentation/Planning/Decisions/README.md` to `touches` to keep ADR-0134's index row true; no task in
+  Doing named it.
+- Gates on 2026-11-25: build 0 warnings, format clean, fast tests 28996 passed, 0 failed, 3 skipped;
+  `Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` 0 failing members. One earlier full run had
+  one failure in the MQTT 5 tests, which this change does not reach: filed as BL-1714. Other follow-ups:
+  BL-1713 (proxy `407`), BL-1715 (`--aihelp`).
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. A chosen HTTP 401 now carries the challenges the connection's own 401 would offer, over HTTP/1.x, HTTP/2 and HTTP/3.
