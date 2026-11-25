@@ -40,3 +40,4 @@ SMTP, IMAP and POP3 `AUTH`, IMAP `AUTHENTICATE` and `LOGIN` credentials carried 
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
