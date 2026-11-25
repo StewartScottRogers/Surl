@@ -197,6 +197,21 @@ public sealed class Http2RequestBytesRedactorTests
     }
 
     [TestMethod]
+    public void Redact_ContinuationAfterAnOverTheCapHeadersFrame_WithholdsItsPayload()
+    {
+        var big = new byte[70 * 1024];
+        var header = new byte[] { 0x01, 0x18, 0x00, 0x1, 0x0, 0, 0, 0, 1 };
+        var block = Block(new HpackEncoder(stringCoding: HpackStringCoding.Raw), Plain);
+        var continuation = Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, block, true));
+
+        var (_, bytes) = Redact([Join(Preface, header, big, continuation)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, header, "****"u8.ToArray(), continuation[..9], "****"u8.ToArray()),
+            bytes);
+    }
+
+    [TestMethod]
     public void Redact_ContinuationsPastTheCap_WithholdTheHeldFramesToo()
     {
         var fragment = new byte[40 * 1024];

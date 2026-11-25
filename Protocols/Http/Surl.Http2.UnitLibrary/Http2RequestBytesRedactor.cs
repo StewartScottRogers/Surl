@@ -13,12 +13,19 @@ namespace Surl.Http2;
 /// </summary>
 /// <remarks>
 /// HPACK values are recoverable from a dump whether Huffman-coded or literal, and an indexed field
-/// refers to a value an earlier block put in the dynamic table, so a copy of the connection's HPACK
-/// decoder sees every block, in order, to know which fields a block carries. A header block is held
-/// back, frame by frame, until its <c>END_HEADERS</c>; no more than 64 KiB is ever held. A block the
-/// copy cannot decode, a block that outgrows the cap and a frame that breaks the block's sequence
-/// leave the copy's table unknown, so from then on every header-block payload is withheld (fail
-/// closed). Frames other than <c>HEADERS</c> and <c>CONTINUATION</c> stream through as they arrive.
+/// can refer to a value an earlier block put in the dynamic table, so a copy of the connection's
+/// HPACK decoder decodes the blocks, in order, to know which fields each carries. A header block is
+/// held back, frame by frame, until its <c>END_HEADERS</c>; <see cref="Flush"/> writes an unfinished
+/// one withheld. No more than 64 KiB of payload is ever held; the cap does not count the frame
+/// headers held with it, so it does not limit the number of empty frames held. A block the copy
+/// cannot decode, a block whose payloads outgrow the cap, and a frame other than <c>HEADERS</c> or
+/// <c>CONTINUATION</c> inside an open block leave the copy's table unknown, so from then on every
+/// <c>HEADERS</c> and <c>CONTINUATION</c> payload is withheld (fail closed). The frame sequence is
+/// not otherwise checked: a <c>CONTINUATION</c> with no open block starts one, and a <c>HEADERS</c>
+/// inside an open block, or a <c>CONTINUATION</c> for another stream, is appended to it; none of
+/// these by itself loses the copy or withholds anything. Frames other than <c>HEADERS</c> and
+/// <c>CONTINUATION</c> stream through as they arrive and are never decoded, <c>PUSH_PROMISE</c> and
+/// the header block fragment it carries included.
 /// </remarks>
 public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 {
@@ -122,7 +129,11 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         if (!isHeaderBlockFrame)
         {
             // Anything else ends an open block early; the block's table effects are unknown.
-            LoseDecoderAndWriteHeldFrames(output);
+            if (heldFrames.Count > 0)
+            {
+                LoseDecoderAndWriteHeldFramesWithheld(output);
+            }
+
             payloadMode = PayloadMode.PassThrough;
             output.Write(frameHeader);
 
@@ -131,7 +142,7 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 
         if (decoderLost || heldBlockLength + length > HeldBlockLimit)
         {
-            LoseDecoderAndWriteHeldFrames(output);
+            LoseDecoderAndWriteHeldFramesWithheld(output);
             payloadMode = PayloadMode.Discard;
             output.Write(frameHeader);
             output.Write(Withheld);
@@ -185,8 +196,8 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 
     private void CompleteBlock(ArrayBufferWriter<byte> output)
     {
-        var secret = !TryReadBlockCarriesSecret(out var carriesSecret) || carriesSecret;
-        if (secret)
+        var mustWithhold = !TryReadBlockCarriesSecret(out var carriesSecret) || carriesSecret;
+        if (mustWithhold)
         {
             WriteHeldFramesWithheld(output);
         }
@@ -264,13 +275,8 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         name.Equals("authorization", StringComparison.OrdinalIgnoreCase)
         || name.Equals("proxy-authorization", StringComparison.OrdinalIgnoreCase);
 
-    private void LoseDecoderAndWriteHeldFrames(ArrayBufferWriter<byte> output)
+    private void LoseDecoderAndWriteHeldFramesWithheld(ArrayBufferWriter<byte> output)
     {
-        if (heldFrames.Count == 0)
-        {
-            return;
-        }
-
         decoderLost = true;
         WriteHeldFramesWithheld(output);
     }
