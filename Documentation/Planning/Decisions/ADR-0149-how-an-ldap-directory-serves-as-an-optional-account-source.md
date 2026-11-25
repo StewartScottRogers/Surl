@@ -458,3 +458,21 @@ Each bound is a constant in `Surl.Authentication`, not an option, except `timeou
   `LdapAccountSource.Serves`.
 - Not changed here: SSH still asks about `ssh`, so `protocols=sftp` or `scp` refuses directory passwords (it fails
   closed; filed as a follow-up).
+
+## Amendment 3 (BL-1684, 2026-11-25): SSH password logins are judged by the server's own scheme
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-25, in BL-1684. No wire
+  byte changes: an accepted or refused SSH password is answered as before.
+- **Amends:** amendment 2's last point.
+- **Found:** the `scp` and `sftp` servers asked the directory about the family name `ssh`, which `protocols=` cannot
+  name, so any `protocols=` list refused every directory password over SSH.
+- **Rule:** an SSH `password` (or `keyboard-interactive`) login asks the directory about the scheme of the server's
+  per-scheme view, as the HTTP family does: `protocols=sftp` admits directory logins on `sftp` and not on `scp`, and
+  the reverse. Settings that are no view ask about `ssh`; `surl` and `Surl.Api` compose both SSH servers over views.
+- **`protocols=ssh` stays refused at start** (`option --user-ldap: unknown scheme ssh`, `FailedInit` (2)): `ssh` is
+  no listen URL's scheme, and ADR-0101's `protocols=` lists name those.
+- **Alternative rejected:** accepting `ssh` in `protocols=` as both SSH schemes. It would give `--user-ldap` a scheme
+  name `--mailbox`, `--share` and accounts do not know, for what `protocols=scp,sftp` already says.
+- **Unchanged:** login events and fault points name the family `ssh` unless the login carries a `LoginExchange`
+  (ADR-0128, amendment 1).
+- Implemented by `AuthenticationSettings.DirectorySchemeFor`, which replaces amendment 2's `HttpDirectoryScheme`.

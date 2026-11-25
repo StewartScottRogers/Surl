@@ -533,6 +533,7 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `AuthenticationSettings.HasAccountToLogInTo(scheme)` is the one answer to "is there an account to log in to":
   the book's accounts, or a directory serving the scheme (ADR-0149 amendments 1 and 2). HTTP reads and the
   CoAP access rules ask it (BL-1669).
-- The HTTP family (reads and Basic logins) asks the directory about the scheme of its policy's
-  `AuthenticationSettings.ForScheme` view (`ws`, `rtsp`, ...), and about `http` when the settings are no view.
-  Login events and fault points still name the family `http`.
+- The HTTP family (reads and Basic logins) and SSH password logins ask the directory about the scheme of their
+  policy's `AuthenticationSettings.ForScheme` view (`ws`, `rtsp`, `sftp`, `scp`, ...), and about `http` or `ssh`
+  when the settings are no view (`DirectorySchemeFor`; ADR-0149 amendments 2 and 3). Login events and fault
+  points still name the family `http` or `ssh` unless the login carries a `LoginExchange`.

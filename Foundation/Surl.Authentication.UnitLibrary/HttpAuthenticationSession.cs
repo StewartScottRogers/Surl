@@ -177,7 +177,9 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             return new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], connectionAccountName);
         }
 
-        return policy.Settings.HasAccountToLogInTo(policy.Settings.HttpDirectoryScheme) || request.IsWrite
+        var scheme = policy.Settings.DirectorySchemeFor(AuthenticationPolicy.HttpLoginScheme);
+
+        return policy.Settings.HasAccountToLogInTo(scheme) || request.IsWrite
             ? Challenge()
             : ProceedAnonymously;
     }

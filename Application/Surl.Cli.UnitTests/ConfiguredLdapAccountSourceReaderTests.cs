@@ -98,6 +98,11 @@ public sealed class ConfiguredLdapAccountSourceReaderTests
     public void Parse_UserLdapNamingAnUnservedScheme_IsRefused() =>
         AssertRefused(["--user-ldap", Directory + ";protocols=coap", Url], "option --user-ldap: unknown scheme coap");
 
+    // ssh is the family name of SSH logins, not a scheme a listen URL has: scp and sftp are named (ADR-0149, amendment 3).
+    [TestMethod]
+    public void Parse_UserLdapNamingSsh_IsRefusedAtStart() =>
+        AssertRefused(["--user-ldap", Directory + ";protocols=ssh", Url], "option --user-ldap: unknown scheme ssh");
+
     [TestMethod]
     public void Parse_UserLdapNamingAnExtendedScheme_IsServedWhenItsServerIsRegistered()
     {

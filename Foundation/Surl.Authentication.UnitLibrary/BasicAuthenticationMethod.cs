@@ -45,7 +45,7 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
     /// (ADR-0149, decision 2).
     /// </summary>
     /// <param name="directory">The LDAP account source.</param>
-    /// <param name="scheme">The scheme the directory is asked about (<see cref="AuthenticationSettings.HttpDirectoryScheme"/>).</param>
+    /// <param name="scheme">The scheme the directory is asked about (<see cref="AuthenticationSettings.DirectorySchemeFor"/>).</param>
     /// <returns>The method checking against the book and the directory.</returns>
     internal BasicAuthenticationMethod WithDirectory(LdapAccountSource directory, string scheme) =>
         new(passwordCheck.Accounts, directory, scheme);
