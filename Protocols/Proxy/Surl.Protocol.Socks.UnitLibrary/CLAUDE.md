@@ -33,7 +33,9 @@ What exists:
   `SocksRelay` - the two-way byte relay with half-closes.
 
 Passwords are judged only by the policy, which refuses a clear password without
-`--allow-plaintext-auth` and delays a wrong one; the log never holds a password, and the RFC 1929 `PLEN` byte is written as 4 before `****` (an empty password too), so it never shows the password's length either (ADR-0182 decision 1).
+`--allow-plaintext-auth` and delays a wrong one; the log never holds an RFC 1929 password, and its `PLEN` byte is written as 4 before `****` (an empty password too), so it never shows the password's length either (ADR-0182 decision 1).
+
+The exchange log's redactor (`SocksExchangeBytesRedactor`, ADR-0182 amendment 6) starts as `Socks5PasswordRedactor` and, once the server sent a success reply, becomes `SocksTunnelBytesRedactor`: a tunnel whose first byte is an ASCII letter is redacted line by line (`SocksTunnelLineRedactionRule`: `PASS`/`ACCT` arguments, `Authorization`/`Proxy-Authorization` credentials); any other tunnel is logged byte for byte, so a binary protocol's login inside it is not masked. Nor are HTTP/2 cleartext HPACK fields, SASL logins or IMAP `LOGIN` (the amendment's accepted limits). The event stream and `SocksUpstreamTestCaseServer` keep raw bytes.
 
 `Protocols/Proxy/Surl.Protocol.Socks.UnitTests/Fixtures` holds exchanges recorded from pinned
 upstream curl 8.21.0 with the recorder playing the proxy; its README says how each was recorded.

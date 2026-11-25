@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Text;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Socks;
@@ -170,5 +171,254 @@ public sealed class SocksExchangeLogRedactionTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Redact([1], null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Flush(null!));
+    }
+
+    [TestMethod]
+    public void NullOutput_InATunnel_IsRefused()
+    {
+        var redactor = NewRedactor();
+        redactor.ObserveSent(SocksTestKit.Socks5Succeeded);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Redact([1], null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Flush(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SocksTunnelLineRedactionRule().Redact([1], null!));
+    }
+
+    private const string SecretLines = "PASS s3cret-pw\r\nAuthorization: Basic YXBwOnMzY3JldC1wdw==\r\n";
+    private const string MaskedLines = "PASS ****\r\nAuthorization: Basic ****\r\n";
+
+    private static readonly byte[] ConnectRequest = SocksTestKit.Socks5DomainRequest("localhost", 18021);
+
+    private static IReceivedBytesRedactor GrantedSocks5Tunnel(bool withLogin, ArrayBufferWriter<byte> output)
+    {
+        var redactor = NewRedactor();
+        redactor.Redact(withLogin ? Greeting : [5, 1, 0], output);
+        redactor.ObserveSent(withLogin ? PasswordMethod : [5, 0]);
+        if (withLogin)
+        {
+            redactor.Redact(Login, output);
+            redactor.ObserveSent([1, 0]);
+        }
+
+        redactor.Redact(ConnectRequest, output);
+        redactor.ObserveSent(SocksTestKit.Socks5Succeeded);
+        output.Clear();
+
+        return redactor;
+    }
+
+    private static IReceivedBytesRedactor GrantedSocks4Tunnel(ArrayBufferWriter<byte> output)
+    {
+        var redactor = NewRedactor();
+        redactor.Redact(SocksTestKit.Socks4Request(1, 80, [127, 0, 0, 1], "app"), output);
+        redactor.ObserveSent(SocksTestKit.Granted);
+        output.Clear();
+
+        return redactor;
+    }
+
+    private static string LoggedTunnel(params byte[][] chunks)
+    {
+        var output = new ArrayBufferWriter<byte>();
+        var redactor = GrantedSocks5Tunnel(withLogin: false, output);
+        foreach (var chunk in chunks)
+        {
+            redactor.Redact(chunk, output);
+        }
+
+        redactor.Flush(output);
+
+        return Encoding.Latin1.GetString(output.WrittenSpan);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Socks5Tunnel_PassAndAuthorization_AreLoggedMasked(bool withLogin)
+    {
+        var output = new ArrayBufferWriter<byte>();
+        var redactor = GrantedSocks5Tunnel(withLogin, output);
+
+        redactor.Redact(SocksTestKit.Latin1Bytes(SecretLines), output);
+        redactor.Flush(output);
+
+        Assert.AreEqual(MaskedLines, Encoding.Latin1.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Socks5Tunnel_SplitAtEveryByte_IsLoggedMasked(bool withLogin)
+    {
+        var tunnelled = SocksTestKit.Latin1Bytes(SecretLines);
+        for (var split = 1; split < tunnelled.Length; split++)
+        {
+            var output = new ArrayBufferWriter<byte>();
+            var redactor = GrantedSocks5Tunnel(withLogin, output);
+            redactor.Redact(tunnelled.AsSpan(0, split), output);
+            redactor.ObserveSent("331 Password required\r\n"u8);
+            redactor.Redact(tunnelled.AsSpan(split), output);
+            redactor.Flush(output);
+
+            Assert.AreEqual(MaskedLines, Encoding.Latin1.GetString(output.WrittenSpan), $"split {split}");
+        }
+    }
+
+    [TestMethod]
+    public void Socks5Tunnel_OneByteAtATimeWithEmptyReads_IsLoggedMasked()
+    {
+        var chunks = SocksTestKit.Latin1Bytes(SecretLines).SelectMany(value => new byte[][] { [], [value] });
+
+        Assert.AreEqual(MaskedLines, LoggedTunnel([.. chunks]));
+    }
+
+    [TestMethod]
+    public void Socks4Tunnel_PassAndAuthorization_AreLoggedMasked()
+    {
+        var output = new ArrayBufferWriter<byte>();
+        var redactor = GrantedSocks4Tunnel(output);
+
+        redactor.Redact(SocksTestKit.Latin1Bytes(SecretLines), output);
+        redactor.Flush(output);
+
+        Assert.AreEqual(MaskedLines, Encoding.Latin1.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
+    [DataRow("ACCT s3cret-pw\r\n", "ACCT ****\r\n")]
+    [DataRow("acct s3cret-pw\r\n", "acct ****\r\n")]
+    [DataRow("pass two words\r\n", "pass ****\r\n")]
+    [DataRow("Proxy-Authorization: Basic c2VjcmV0\r\n", "Proxy-Authorization: Basic ****\r\n")]
+    [DataRow("proxy-authorization:Bearer  c2VjcmV0\r\n", "proxy-authorization:Bearer  ****\r\n")]
+    [DataRow("AUTHORIZATION : c2VjcmV0\r\n", "AUTHORIZATION : ****\r\n")]
+    [DataRow("Authorization: c2VjcmV0 \r\n", "Authorization: ****\r\n")]
+    public void Tunnel_EachSecretLine_IsLoggedMasked(string sent, string logged) =>
+        Assert.AreEqual("GET / HTTP/1.1\r\n" + logged, LoggedTunnel(SocksTestKit.Latin1Bytes("GET / HTTP/1.1\r\n" + sent)));
+
+    [TestMethod]
+    [DataRow("USER app\r\n")]
+    [DataRow("GET /hello.txt HTTP/1.1\r\n")]
+    [DataRow("GET http://localhost:18080/hello.txt HTTP/1.1\r\n")]
+    [DataRow("Host: localhost:18080\r\n")]
+    [DataRow("PASS\r\n")]
+    [DataRow("PASS \r\n")]
+    [DataRow("PASSIVE s3cret\r\n")]
+    [DataRow("Authorization:\r\n")]
+    [DataRow("Authorization: \r\n")]
+    [DataRow("X-Authorization: value\r\n")]
+    [DataRow("Accept: */*\r\n continued\r\n\r\n")]
+    [DataRow("USER app")]
+    public void Tunnel_ALineWithNoSecret_IsLoggedAsReceived(string sent) =>
+        Assert.AreEqual(sent, LoggedTunnel(SocksTestKit.Latin1Bytes(sent)));
+
+    [TestMethod]
+    public void Tunnel_FoldedAuthorization_HasEveryContinuationMasked()
+    {
+        var sent = "GET / HTTP/1.1\r\nAuthorization:\r\n Basic\r\n\tc2VjcmV0\r\n\r\n continued\r\n";
+
+        Assert.AreEqual(
+            "GET / HTTP/1.1\r\nAuthorization:\r\n ****\r\n\t****\r\n\r\n continued\r\n",
+            LoggedTunnel(SocksTestKit.Latin1Bytes(sent)));
+    }
+
+    [TestMethod]
+    public void Tunnel_LinesEndedByABareLineFeed_AreEachJudged()
+    {
+        var logged = LoggedTunnel(SocksTestKit.Latin1Bytes("USER app\nPASS s3cret-pw\nQUIT\n"));
+
+        Assert.AreEqual("USER app\nPASS ****\nQUIT\n", logged);
+    }
+
+    [TestMethod]
+    public void Tunnel_AnUnfinishedPassLine_IsMaskedAtTheEnd() =>
+        Assert.AreEqual("PASS ****", LoggedTunnel("PASS s3cret-pw"u8.ToArray()));
+
+    [TestMethod]
+    [DataRow((byte)0x16)]
+    [DataRow((byte)0x10)]
+    [DataRow((byte)0x30)]
+    [DataRow((byte)0xFF)]
+    public void Tunnel_WhoseFirstByteIsNotALetter_IsLoggedByteForByteAndNeverHeld(byte first)
+    {
+        byte[] opening = [first, 3, 1, 0, 5];
+        var later = SocksTestKit.Latin1Bytes(SecretLines + "no line end");
+        var output = new ArrayBufferWriter<byte>();
+        var redactor = GrantedSocks5Tunnel(withLogin: false, output);
+
+        redactor.Redact(opening, output);
+        redactor.ObserveSent("220 ready\r\n"u8);
+        redactor.Redact(later, output);
+        CollectionAssert.AreEqual((byte[])[.. opening, .. later], output.WrittenSpan.ToArray());
+
+        redactor.Flush(output);
+        CollectionAssert.AreEqual((byte[])[.. opening, .. later], output.WrittenSpan.ToArray());
+    }
+
+    [TestMethod]
+    public void Tunnel_AnOriginSendingWhatLooksLikeASuccessReply_DoesNotRestartTheTunnel()
+    {
+        var output = new ArrayBufferWriter<byte>();
+        var redactor = GrantedSocks5Tunnel(withLogin: false, output);
+
+        redactor.Redact("PASS s3c"u8, output);
+        redactor.ObserveSent(SocksTestKit.Granted);
+        redactor.Redact("ret-pw\r\n"u8, output);
+
+        Assert.AreEqual("PASS ****\r\n", Encoding.Latin1.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
+    public void RefusedRequest_LeavesTheNextBytesUnchanged()
+    {
+        var logged = Logged([(SocksTestKit.Rejected, []), (SocksTestKit.Socks5Failure(5), [SocksTestKit.Latin1Bytes(SecretLines)])]);
+
+        Assert.AreEqual(SecretLines, Encoding.Latin1.GetString(logged));
+    }
+
+    [TestMethod]
+    public async Task BugReport20261125_FtpAndHttpThroughSocks5h_LogNoPassword()
+    {
+        var ftp = await LoggedSocks5ExchangeAsync(18021, "220 ready\r\n", "USER app\r\n", "PASS s3cret-pw\r\n", "QUIT\r\n");
+        var http = await LoggedSocks5ExchangeAsync(
+            18080,
+            "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+            "GET /hello.txt HTTP/1.1\r\nHost: localhost:18080\r\nAuthorization: Basic YXBwOnMzY3JldC1wdw==\r\n\r\n");
+
+        StringAssert.Contains(ftp, "USER app\r\nPASS ****\r\nQUIT\r\n");
+        StringAssert.Contains(http, "GET /hello.txt HTTP/1.1\r\nHost: localhost:18080\r\nAuthorization: Basic ****\r\n\r\n");
+        foreach (var logged in new[] { ftp, http })
+        {
+            Assert.IsFalse(logged.Contains("s3cret-pw", StringComparison.Ordinal), logged);
+            Assert.IsFalse(logged.Contains("YXBwOnMzY3JldC1wdw==", StringComparison.Ordinal), logged);
+        }
+    }
+
+    // Serves the report's SOCKS5 login and CONNECT, then the tunnelled lines, and returns the text the
+    // levelled log was given: the connection's bytes through the server's redactor, as the engine does it.
+    private static async Task<string> LoggedSocks5ExchangeAsync(int port, string originSends, params string[] tunnelled)
+    {
+        var log = new RecordingExchangeLog();
+        var server = new SocksProtocolServer(
+            new InMemoryOriginConnector().ScriptConnection(
+                "localhost",
+                port,
+                SocksTestKit.ConnectionOf(SocksTestKit.Latin1Bytes(originSends))),
+            new ScriptedProxyAccounts(refused: PasswordLoginVerdict.Accepted));
+        byte[][] chunks =
+        [
+            Greeting,
+            [1, 3, .. "app"u8, 9, .. "s3cret-pw"u8],
+            SocksTestKit.Socks5DomainRequest("localhost", port),
+            .. tunnelled.Select(SocksTestKit.Latin1Bytes),
+        ];
+        var redactor = server.CreateRedactor(new ExchangeRedactionContext(1, "socks5h"));
+        var client = new RedactingLogConnection(SocksTestKit.ConnectionOf(chunks), redactor, log);
+
+        await server.ServeAsync(client, SocksTestKit.Context(log, scheme: "socks5h"));
+        client.FlushLog();
+
+        return Encoding.Latin1.GetString([.. log.Entries
+            .Where(entry => entry.Kind == ExchangeLogEntryKind.BytesReceived)
+            .SelectMany(entry => entry.Bytes.ToArray())]);
     }
 }

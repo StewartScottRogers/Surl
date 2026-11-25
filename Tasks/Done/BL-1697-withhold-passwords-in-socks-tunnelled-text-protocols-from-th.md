@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1697 — Withhold passwords in SOCKS-tunnelled text protocols from the exchange log
 
@@ -54,19 +54,19 @@ With `-v`, `--trace`, `--trace-ascii` or `--log-file`, a SOCKS4, SOCKS4a or SOCK
 
 ## Acceptance criteria
 
-- [ ] Named fast tests in `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` (in `SocksExchangeLogRedactionTests.cs`)
+- [x] Named fast tests in `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` (in `SocksExchangeLogRedactionTests.cs`)
       show, for a SOCKS5 tunnel with no authentication and one with RFC 1929, that the tunnelled lines
       `PASS s3cret-pw\r\n` and `Authorization: Basic YXBwOnMzY3JldC1wdw==\r\n` are logged as `PASS ****\r\n` and
       `Authorization: Basic ****\r\n`, also when split across reads at every byte.
-- [ ] A named test shows the same for a SOCKS4 tunnel, and one shows `ACCT` and `Proxy-Authorization` masked.
-- [ ] Named tests show a tunnel whose first client byte is `0x16` or `0x10` logged byte for byte unchanged, and a
+- [x] A named test shows the same for a SOCKS4 tunnel, and one shows `ACCT` and `Proxy-Authorization` masked.
+- [x] Named tests show a tunnel whose first client byte is `0x16` or `0x10` logged byte for byte unchanged, and a
       non-secret tunnelled line (`USER app\r\n`, `GET /hello.txt HTTP/1.1\r\n`) logged as received.
-- [ ] Regression test for this report: a test named for the repro drives the report's FTP and HTTP exchanges
+- [x] Regression test for this report: a test named for the repro drives the report's FTP and HTTP exchanges
       through `SocksProtocolServer` with a recording log and asserts no `s3cret-pw` and no `YXBwOnMzY3JldC1wdw==`
       in the logged text.
-- [ ] `Documentation/Planning/Decisions/ADR-0182-…md` has an "Amendment 6 (BL-1697)" stating decisions 1 to 5
+- [x] `Documentation/Planning/Decisions/ADR-0182-…md` has an "Amendment 6 (BL-1697)" stating decisions 1 to 5
       above, and the doc comment of the SOCKS redactor no longer says the tunnel is logged unchanged.
-- [ ] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean, the fast tests are green
+- [x] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean, the fast tests are green
       (no `TestCategory=Integration` needed), and the SOCKS library stays at 100% line and branch coverage.
 
 ## Notes
@@ -74,8 +74,22 @@ With `-v`, `--trace`, `--trace-ascii` or `--log-file`, a SOCKS4, SOCKS4a or SOCK
 - Out of scope, to be filed by the lane as follow-up tasks if it confirms the gap: SASL logins (SMTP/IMAP/POP3
   `AUTH`, IMAP `LOGIN`) and binary logins (MQTT `CONNECT`, LDAP simple bind) carried through a SOCKS tunnel, and a
   sentence in `surl --aihelp security` (`Application/Surl.Cli.UnitLibrary/AiHelpProse.cs`) naming the SOCKS tunnel.
+- Delivered in session from the task's decided design: `SocksExchangeBytesRedactor` (handshake, then tunnel),
+  `SocksTunnelBytesRedactor` (text or binary by the first byte) and `SocksTunnelLineRedactionRule`.
+- Defaults taken beyond decisions 1 to 5, to keep a secret out of the log: a folded continuation of a credential
+  header is masked (as the origin's rule does), and a bare `LF` inside a held line ends a line. Both are in Amendment 6.
+- A success reply is `00 5A`, or `05 00` longer than two bytes, so the method selection `05 00` starts no tunnel.
+- Review (code-reviewer): no defect in the design. HTTP/2 cleartext in a tunnel is not masked: recorded as a limit in
+  Amendment 6 and filed as BL-1704. The test double now shows the redactor a write after it is sent, as the engine does.
+- No wire byte changed, so no upstream curl measurement was needed. No live run of `surl` with curl was made; the
+  report's exchanges are the fast regression test.
+- Filed: BL-1704 (HTTP/2), BL-1705 (SASL, IMAP LOGIN), BL-1706 (MQTT, LDAP), BL-1707 (clients that send ahead),
+  BL-1708 (`--aihelp logging` and manual text; `Surl.Cli` is outside this task's `touches`).
+- Verified: build `-warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests green (28981 passed,
+  3 skipped), SOCKS library 100% line and branch coverage.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. SOCKS4 and SOCKS5 tunnels carrying a text protocol log PASS, ACCT, Authorization and Proxy-Authorization secrets as ****.

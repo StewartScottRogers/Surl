@@ -4,13 +4,14 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Socks;
 
 /// <summary>
-/// The <see cref="IReceivedBytesRedactor"/> of one SOCKS exchange: it logs everything curl sent as it
+/// The <see cref="IReceivedBytesRedactor"/> of one SOCKS handshake: it logs everything curl sent as it
 /// arrived except the <c>PASSWD</c> of the RFC 1929 username/password subnegotiation
 /// (<c>VER ULEN UNAME PLEN PASSWD</c>), which is written as <c>****</c> with its <c>PLEN</c> byte written as 4,
 /// even for an empty password, so the log never reveals the password's length (ADR-0182 decision 1). It follows the SOCKS5
 /// greeting, waits to see the server select method <c>0x02</c>, then masks that one field, byte by byte,
-/// so a split across reads at any byte changes nothing. SOCKS4 requests, other methods and every byte
-/// after the subnegotiation (the tunnel included) are logged unchanged.
+/// so a split across reads at any byte changes nothing. SOCKS4 requests, other methods and the SOCKS
+/// request after the subnegotiation are logged unchanged. The tunnel that follows a granted request is
+/// not this class's: <see cref="SocksExchangeBytesRedactor"/> hands it to <see cref="SocksTunnelBytesRedactor"/>.
 /// </summary>
 internal sealed class Socks5PasswordRedactor : IReceivedBytesRedactor
 {

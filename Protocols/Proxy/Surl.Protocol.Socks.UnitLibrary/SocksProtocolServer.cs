@@ -44,7 +44,8 @@ namespace Surl.Protocol.Socks;
 /// <c>0.0.0.0</c>, <c>::</c> or port 0, and for an <see cref="OriginConnectionFailure"/>
 /// <c>02</c> NotAllowed, <c>03</c> Unreachable, <c>04</c> HostNotFound, <c>05</c> Refused,
 /// <c>06</c> TimedOut, <c>01</c> anything else. A request or login whose version is wrong, or that
-/// curl ends early, closes the connection without a reply. The log never holds a password.
+/// curl ends early, closes the connection without a reply. The log never holds an RFC 1929 password,
+/// and masks the secrets <see cref="CreateRedactor"/> names in a tunnel carrying a text protocol.
 /// </para>
 /// <para>
 /// After success, bytes are relayed both ways unread until both sides close, with any bytes curl
@@ -111,12 +112,14 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer, IExchangeBy
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["socks4", "socks4a", "socks5", "socks5h"]);
 
     /// <summary>
-    /// Creates the redactor that masks the RFC 1929 <c>PASSWD</c> as <c>****</c> in the exchange log
-    /// and logs everything else as it arrived (ADR-0182).
+    /// Creates the redactor that writes secrets as <c>****</c> in the exchange log: the RFC 1929
+    /// <c>PASSWD</c> and, in a granted tunnel carrying a text protocol, the argument of <c>PASS</c> and
+    /// <c>ACCT</c> and the credentials of <c>Authorization</c> and <c>Proxy-Authorization</c>.
+    /// Everything else is logged as it arrived (ADR-0182, amendment 6).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for the connection, used by that exchange alone.</returns>
-    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Socks5PasswordRedactor();
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new SocksExchangeBytesRedactor();
 
     /// <summary>
     /// Answers the request on <paramref name="connection"/> and relays until both sides close, or

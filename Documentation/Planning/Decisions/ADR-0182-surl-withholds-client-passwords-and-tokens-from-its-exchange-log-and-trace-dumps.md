@@ -172,3 +172,38 @@ IMAP `+`, the next client line is a secret).
   `LDAPMessage` lengths are logged as received (as HTTP/2, Amendment 3), because rewriting them would break the log's
   framing of the message; they still encode the password's length indirectly, which is the accepted limit. An empty
   password has nothing to withhold and is still logged as received (`80 00`).
+
+## Amendment 6 (BL-1697, decided by Claude under Stewart's delegation)
+
+A SOCKS tunnel carrying a text protocol logged its `PASS` and `Authorization` in clear, while the origin's own exchange
+masked them (Surly bug report 2026-11-25, item 1). Amendment 2's rule for the HTTP proxy now holds for SOCKS too.
+
+1. **Where the tunnel starts.** After the server sent a success reply (SOCKS5 `05 00 …`, longer than the two-byte method
+   selection; SOCKS4 `00 5A …`), seen through `IReceivedBytesRedactor.ObserveSent`, the client's tunnelled bytes are
+   redacted by a tunnel phase (`SocksTunnelBytesRedactor`). Before it, `Socks5PasswordRedactor` redacts the handshake.
+2. **Text or binary.** SOCKS does not say what the tunnel carries, so the first tunnelled client byte decides: an ASCII
+   letter (`A`-`Z`, `a`-`z`) starts a text protocol's command or request line, and the rest of the tunnel goes through
+   `LineBytesRedactor` with the SOCKS library's `SocksTunnelLineRedactionRule`; any other first byte (TLS `0x16`, MQTT,
+   LDAP BER and other binary protocols) passes through unchanged, so ciphertext and binary frames are never held or
+   mangled.
+3. **What is masked.** Without regard to case: the argument of a `PASS ` or `ACCT ` command line (`PASS ****`), and the
+   credentials of an `Authorization:` or `Proxy-Authorization:` header line, keeping the scheme word
+   (`Authorization: Basic ****`), as decision 1 says. A folded continuation of such a header is masked too, and a bare
+   line feed inside a held line ends a line, so a client sending `LF` alone has each line judged. Every other line is
+   written as received. A body line that happens to match is masked too: that loses log detail and never reveals a
+   secret.
+4. **Its own rule class.** The SOCKS library may not reference `Surl.HttpMessage` (protocol servers reference only
+   ADR-0002 decision 3's table), so the rule is a small class of its own, not `HttpRequestHeadLineRule`.
+5. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4); `SocksUpstreamTestCaseServer` keeps raw bytes.
+
+Accepted limits:
+
+- A binary protocol whose first byte is a letter (AMQP's `AMQP` header, SSH's banner) goes through the line redactor: its
+  later bytes are held until a `CR LF`, and past 64 KiB written as `****` (decision 6). So is TLS started inside a text
+  tunnel (`STARTTLS`). That loses log detail only.
+- Logins other than the two forms above are not masked inside a tunnel: SASL and IMAP `LOGIN`, and binary logins (MQTT
+  `CONNECT`, LDAP simple bind).
+- HTTP/2 in cleartext (`--http2-prior-knowledge`, or the frames after an `h2c` upgrade) carries `authorization` as an
+  HPACK field, not a header line, so it is not masked inside a tunnel as the origin masks it (amendment 3).
+- A client that sends ahead of the server's replies (greeting and login together, or tunnelled bytes with the request),
+  which curl does not do, has those early bytes logged as the handshake redactor writes them.
