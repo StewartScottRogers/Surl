@@ -1,5 +1,5 @@
 ---
-id: BL-1690
+id: BL-1693
 title: Fix the import ordering, final newline and whitespace errors dotnet format reports
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1690 — Fix the import ordering, final newline and whitespace errors dotnet format reports
+# BL-1693 — Fix the import ordering, final newline and whitespace errors dotnet format reports
 
 ## Goal
 

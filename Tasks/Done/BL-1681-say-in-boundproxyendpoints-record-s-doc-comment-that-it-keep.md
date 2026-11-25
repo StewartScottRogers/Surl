@@ -30,7 +30,7 @@ Found by BL-1670. `Application/Surl.Composition.UnitLibrary/BoundProxyEndPoints.
   `AllowedOriginRule.IsProxyEndPoint` matches against every address. The class summary was already true and is unchanged.
 - Made in the session, without delegating to `align-and-document`: one doc comment.
 - 2026-11-25 verify: build clean (0 warnings), fast tests green. `dotnet format --verify-no-changes` passes for the edited
-  file; across the solution it fails on files this task does not touch (filed as BL-1690 for the errors that are not
+  file; across the solution it fails on files this task does not touch (filed as BL-1693 for the errors that are not
   `ENDOFLINE`).
 
 ## Log
