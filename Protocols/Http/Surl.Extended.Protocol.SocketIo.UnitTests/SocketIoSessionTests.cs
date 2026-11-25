@@ -272,6 +272,7 @@ public sealed partial class SocketIoSessionTests
         var client = await SocketIoClient.ConnectNamespaceAsync(harness, "/", TokenPayload);
         await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(25));
         await client.WaitForMessagesAsync(3);
+        await WaitForPongDeadlineTimerAsync(harness);
         client.SendText("3");
 
         client.SendText("41");
@@ -321,17 +322,21 @@ public sealed partial class SocketIoSessionTests
     {
         var harness = new SocketIoServerHarness();
         var client = await SocketIoClient.ConnectNamespaceAsync(harness, "/", TokenPayload);
-        client.SendText("3");
 
-        await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(25));
+        // A pong before any ping is ignored; the echo shows it was read before the first ping is sent.
+        client.SendText("3");
+        client.SendText("42[\"early\"]");
         await client.WaitForMessagesAsync(3);
+        await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(25));
+        await client.WaitForMessagesAsync(4);
+        await WaitForPongDeadlineTimerAsync(harness);
         client.SendText("3");
         client.SendText("42[\"sync\"]");
-        await client.WaitForMessagesAsync(4);
+        await client.WaitForMessagesAsync(5);
         await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromSeconds(20));
         await harness.Clock.AdvanceWhenWaitingAsync(FiveSeconds);
 
-        CollectionAssert.AreEqual(new[] { "2", "42[\"sync\"]", "2" }, (await client.WaitForMessagesAsync(5))[2..]);
+        CollectionAssert.AreEqual(new[] { "42[\"early\"]", "2", "42[\"sync\"]", "2" }, (await client.WaitForMessagesAsync(6))[2..]);
         await client.EndAsync();
     }
 
@@ -634,6 +639,11 @@ public sealed partial class SocketIoSessionTests
 
         Assert.AreEqual(written, client.Connection.WrittenBytes.Length);
     }
+
+    // Waits, right after a ping, until the session's clock waits on the pong deadline. A pong sent
+    // sooner can be read before the clock chooses its next timer, which is then the next ping's.
+    private static Task WaitForPongDeadlineTimerAsync(SocketIoServerHarness harness) =>
+        harness.Clock.WaitForTimerDueAtAsync(harness.Clock.GetUtcNow() + SocketIoSession.PingTimeout);
 
     // Waits, in real time, for the server to log a note containing the text.
     private static async Task WaitForNoteAsync(SocketIoServerHarness harness, string text)
