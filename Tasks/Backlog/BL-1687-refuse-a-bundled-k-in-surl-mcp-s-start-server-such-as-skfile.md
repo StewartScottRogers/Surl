@@ -1,5 +1,5 @@
 ---
-id: BL-1685
+id: BL-1687
 title: Refuse a bundled -K in Surl.Mcp's start_server, such as -sKfile
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1685 — Refuse a bundled -K in Surl.Mcp's start_server, such as -sKfile
+# BL-1687 — Refuse a bundled -K in Surl.Mcp's start_server, such as -sKfile
 
 ## Goal
 
