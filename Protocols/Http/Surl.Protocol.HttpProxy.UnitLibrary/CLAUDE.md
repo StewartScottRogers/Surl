@@ -2,7 +2,9 @@
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
 ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4. Built by BL-552, BL-554 (the
-HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the upstream cases' server half (BL-556) is built, but the command line and composition (BL-555) are still to come, so `surl` composes nothing of it yet.
+HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the upstream cases' server half
+(BL-556) is built too. `surl` composes the proxy for its `--proxy` listen URLs (`Surl.Composition`'s
+`ProxyComposition`, BL-1003).
 
 **The upstream test cases' proxy half** (ADR-0080 decision 2; BL-556) is a test seam the shipped `surl` never
 composes: `Surl.Conformance.UnitTests` composes `HttpProxyUpstreamTestCaseServer` with one case's
@@ -26,7 +28,7 @@ Every request and `CONNECT` is judged after the `Host` check and before anything
 
 **The HTTPS proxy** is this same server on a connection the serving engine secured before
 `ServeAsync` (an `https` listen URL with `ListenUrl.IsProxy`, whose listener offers ALPN
-`http/1.1` only). `HttpProxyExchange` notes the TLS once before the first request; a session that
+`h2` then `http/1.1`, ADR-0088 Amendment 9). `HttpProxyExchange` notes the TLS once before the first request; a session that
 agreed any ALPN but `h2` or `http/1.1` is closed unwritten (Amendment 2). `HttpProxyProtocolServerTlsTests`
 drive it with an `InMemoryConnection` given an initial `TlsSession`.
 
@@ -38,7 +40,7 @@ timeout). Each stream is judged by the connection's proxy login first; a `CONNEC
 any other `:scheme http` stream is forwarded to its origin over HTTP/1.1 on its own origin
 connection and the response relayed back on the stream (a `101` from the origin is `502`; another
 scheme is `501`). `AlreadyReadBytesConnection` hands `Http2ConnectionServer` the bytes read past the
-connection preface. The listener does not offer `h2` to a proxy yet; `HttpProxyProtocolServerHttp2Tests` drive it
+connection preface. `HttpProxyProtocolServerHttp2Tests` drive it
 with a `TlsSession` whose `ApplicationProtocol` is `h2`, replaying bytes recorded from pinned
 upstream curl in `Fixtures/https-proxy-h2-*`.
 
@@ -46,9 +48,16 @@ upstream curl in `Fixtures/https-proxy-h2-*`.
 
 What exists:
 
-- `HttpProxyProtocolServer` - the `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`503`). Takes the `IOriginConnector` every origin is reached through; it never decides an
-  address itself (the connector applies the allowed-origin rule). Its remarks state every answer.
+- `HttpProxyProtocolServer` - the `IConnectionProtocolServer`, `IConnectionRefusalWriter`
+  (`503`) and `IExchangeBytesRedactingServer`. Takes the `IOriginConnector` every origin is reached
+  through; it never decides an address itself (the connector applies the allowed-origin rule). Its
+  remarks state every answer.
+- `HttpProxyConnectionBytesRedactor` - the exchange-log redactor `CreateRedactor` returns
+  (ADR-0182 Amendment 8): HTTP/1.x request heads are masked until the client's HTTP/2 preface; a
+  preface where a request may start hands the rest to `Surl.Http2`'s `Http2RequestBytesRedactor`,
+  which logs `DATA` frames, a `CONNECT` stream's included, as received.
+- `HttpProxyWithheldBytesRedactor` - takes over when the preface starts anywhere else: one `****`
+  for every later byte.
 - `HttpProxyExchange` - one curl connection: reads request heads with `Surl.HttpMessage`'s
   `HttpConnectionReader`, keeps one `OriginLink` between requests. `HttpProxyExchange.Forwarding.cs`
   forwards absolute-form `http://` requests (origin-form, `Host` from the authority, bodies,

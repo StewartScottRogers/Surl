@@ -1,6 +1,9 @@
 using System.Buffers;
 using System.Text;
+using Surl.Hpack;
+using Surl.Http2;
 using Surl.Protocol.Abstractions;
+using static Surl.Protocol.HttpProxy.HttpProxyRedactionTestBytes;
 using static Surl.Protocol.HttpProxy.ProxyTestKit;
 
 namespace Surl.Protocol.HttpProxy;
@@ -8,10 +11,27 @@ namespace Surl.Protocol.HttpProxy;
 [TestClass]
 public sealed class HttpProxyExchangeLogRedactionTests
 {
+    private const string Established = "HTTP/1.1 200 Connection established\r\n\r\n";
+    private const string Connect = "CONNECT origin.test:80 HTTP/1.1\r\nHost: origin.test:80\r\n\r\n";
+
+    // Where the one HEADERS frame of proxy-http2-prior-knowledge-connect/request-2.bin lies: after
+    // the preface (24 bytes), SETTINGS (27) and WINDOW_UPDATE (13); its payload is 49 bytes.
+    private const int PriorKnowledgeHeadersStart = 64;
+
+    // The same frame in proxy-haproxy-http2-connect/request-2.bin, behind curl's 44-byte PROXY line.
+    private const int HaProxyHeadersStart = 108;
+
+    private const int FrameHeaderLength = 9;
+    private const int CurlsHeaderBlockLength = 49;
+    private const string CurlsAuthorization = "Basic YTpzM2NyZXQ=";
+
+    private static IReceivedBytesRedactor ProxyRedactor() =>
+        new HttpProxyProtocolServer(new InMemoryOriginConnector())
+            .CreateRedactor(new ExchangeRedactionContext(1, "http"));
+
     private static string Logged(params string[] chunks)
     {
-        var redactor = new HttpProxyProtocolServer(new InMemoryOriginConnector())
-            .CreateRedactor(new ExchangeRedactionContext(1, "http"));
+        var redactor = ProxyRedactor();
         var output = new ArrayBufferWriter<byte>();
         foreach (var chunk in chunks)
         {
@@ -21,6 +41,67 @@ public sealed class HttpProxyExchangeLogRedactionTests
         redactor.Flush(output);
 
         return Encoding.Latin1.GetString(output.WrittenSpan);
+    }
+
+    [TestMethod]
+    public void H2ProxyConnection_HpackProxyAuthorization_IsAbsentFromTheLog()
+    {
+        var headers = RawHeaders("proxy-authorization", Credential);
+        var start = Http2TestClient.Start();
+
+        var logged = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [start, headers], string.Empty, []);
+
+        Assert.DoesNotContain(Token, Latin1(logged));
+        CollectionAssert.AreEqual((byte[])[.. start, .. Withheld(headers)], logged);
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_HpackAuthorizationAfterThePreface_IsAbsentFromTheLog()
+    {
+        var headers = RawHeaders("authorization", Credential);
+        var start = Http2TestClient.Start();
+
+        var logged = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [Bytes(Connect).ToArray()], Established, [start, headers]);
+
+        Assert.DoesNotContain(Token, Latin1(logged));
+        CollectionAssert.AreEqual((byte[])[.. Bytes(Connect).Span, .. start, .. Withheld(headers)], logged);
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_CurlsPriorKnowledgeRequest_WithholdsTheHeaderBlock()
+    {
+        var connect = Fixture("proxy-http2-prior-knowledge-connect", "request-1.bin");
+        var tunnelled = Fixture("proxy-http2-prior-knowledge-connect", "request-2.bin");
+        var blockEnd = AssertCarriesCurlsAuthorization(tunnelled, PriorKnowledgeHeadersStart);
+
+        var logged = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [connect], Established, [tunnelled]);
+
+        var maskedConnect = Latin1(connect).Replace("Basic cDpwdw==", "Basic ****", StringComparison.Ordinal);
+        Assert.Contains("Proxy-Authorization: Basic ****\r\n", maskedConnect);
+        CollectionAssert.AreEqual(
+            (byte[])
+            [
+                .. Bytes(maskedConnect).Span,
+                .. tunnelled[..(PriorKnowledgeHeadersStart + FrameHeaderLength)],
+                .. "****"u8,
+                .. tunnelled[blockEnd..],
+            ],
+            logged,
+            Latin1(logged));
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_CurlsProxyProtocolLineBeforeThePreface_WithholdsEveryLaterByte()
+    {
+        var connect = Fixture("proxy-haproxy-http2-connect", "request-1.bin");
+        var tunnelled = Fixture("proxy-haproxy-http2-connect", "request-2.bin");
+        _ = AssertCarriesCurlsAuthorization(tunnelled, HaProxyHeadersStart);
+        var prefaceEnd = tunnelled.AsSpan().IndexOf(Http2ConnectionPreface.Preface) + Http2ConnectionPreface.Preface.Length;
+        StringAssert.StartsWith(Latin1(tunnelled), "PROXY TCP4 ");
+
+        var logged = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [connect], Established, [tunnelled]);
+
+        CollectionAssert.AreEqual((byte[])[.. connect, .. tunnelled[..prefaceEnd], .. "****"u8], logged, Latin1(logged));
     }
 
     [TestMethod]
@@ -52,5 +133,20 @@ public sealed class HttpProxyExchangeLogRedactionTests
 
         StringAssert.Contains(Latin1(origin.WrittenBytes), "Authorization: Bearer tok3n");
         Assert.AreEqual(new OriginConnectionRequest("origin.test", 80, ExchangeLimits.Default.HeadTimeout), origins.Requests.Single());
+    }
+
+    // Proves a recording holds the credential, Huffman-coded, in the HEADERS frame at headersStart,
+    // and returns where that frame's header block ends.
+    private static int AssertCarriesCurlsAuthorization(byte[] recorded, int headersStart)
+    {
+        var blockStart = headersStart + FrameHeaderLength;
+        var blockEnd = blockStart + CurlsHeaderBlockLength;
+        CollectionAssert.AreEqual(
+            new byte[] { 0, 0, CurlsHeaderBlockLength, 0x1, 0x5, 0, 0, 0, 1 },
+            recorded[headersStart..blockStart]);
+        var decoded = new HpackDecoder(HpackDecoder.DefaultMaximumTableSize, int.MaxValue).Decode(recorded.AsSpan(blockStart..blockEnd));
+        Assert.AreEqual(CurlsAuthorization, decoded.Fields.Single(field => field.Name == "authorization").Value);
+
+        return blockEnd;
     }
 }

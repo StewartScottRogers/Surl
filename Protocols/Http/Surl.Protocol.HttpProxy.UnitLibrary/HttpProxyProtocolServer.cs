@@ -105,15 +105,21 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["http", "https"]);
 
     /// <summary>
-    /// Creates the redactor that writes the credentials of the client's <c>Proxy-Authorization</c> and
-    /// <c>Authorization</c> fields as <c>****</c> in the exchange log (ADR-0182, decision 7 and
-    /// amendment 2). The log holds curl's side of the connection only; bytes the proxy sends to an
-    /// origin are not logged.
+    /// Creates the redactor of the exchange log for curl's connection, which withholds the
+    /// credentials of the client's <c>Proxy-Authorization</c> and <c>Authorization</c> fields where
+    /// it reads them (ADR-0182, amendment 8). In HTTP/1.x request heads, those inside an HTTP/1.1
+    /// <c>CONNECT</c> tunnel included, the credentials are written as <c>****</c>. From an HTTP/2
+    /// connection preface that starts where a request may start (on curl's connection to the proxy
+    /// or inside such a tunnel), a header block carrying either field is logged as its frame headers,
+    /// each followed by <c>****</c> in place of its payload. The <c>DATA</c> frames of an HTTP/2
+    /// <c>CONNECT</c> stream are logged as received, so a credential tunnelled in them is not
+    /// withheld. After a preface anywhere else, every later byte is withheld. The log holds curl's
+    /// side of the connection only; bytes the proxy sends to an origin are not logged.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
-    /// <returns>An HTTP request head redactor for curl's connection, used by that exchange alone.</returns>
+    /// <returns>A redactor for curl's connection, used by that exchange alone.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
-        new HttpRequestHeadBytesRedactor();
+        new HttpProxyConnectionBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until curl closes it or an answer
