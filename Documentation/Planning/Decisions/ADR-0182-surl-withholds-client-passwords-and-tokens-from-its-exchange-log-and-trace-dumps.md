@@ -204,6 +204,41 @@ Accepted limits:
 - Logins other than the two forms above are not masked inside a tunnel: SASL and IMAP `LOGIN`, and binary logins (MQTT
   `CONNECT`, LDAP simple bind).
 - HTTP/2 in cleartext (`--http2-prior-knowledge`, or the frames after an `h2c` upgrade) carries `authorization` as an
-  HPACK field, not a header line, so it is not masked inside a tunnel as the origin masks it (amendment 3).
+  HPACK field, not a header line, so the line rule does not see it. Closed by amendment 7.
 - A client that sends ahead of the server's replies (greeting and login together, or tunnelled bytes with the request),
   which curl does not do, has those early bytes logged as the handshake redactor writes them.
+
+## Amendment 7 (BL-1709, decided by Claude under Stewart's delegation)
+
+A SOCKS tunnel carrying HTTP/2 in cleartext logged its `authorization` and `proxy-authorization` values, because HPACK
+carries them as fields no line rule sees.
+
+1. **Finding HTTP/2.** A text tunnel (amendment 6, point 2) is redacted by `SocksTextTunnelBytesRedactor`, which looks
+   for the 24-byte client preface (`PRI * HTTP/2.0 … SM …`) anywhere in the client's bytes, however they are split. It
+   need not start a line: after an `h2c` upgrade it follows the upgrade request's body. Bytes up to and including the
+   preface are logged by the line rule as before.
+2. **Frames are read** when the preface is the tunnel's first bytes (prior knowledge), or the origin had sent bytes
+   starting `HTTP/1.1 101` (the `h2c` upgrade). Everything after the preface then goes through `Surl.Http2`'s
+   `Http2RequestBytesRedactor`, so the tunnel logs what the origin's own exchange logs (amendment 3): a header block
+   with a credential has each frame's payload written as `****`, and every other frame as received.
+3. **Otherwise every later byte is withheld**, written as one `****`. A preface that arrives late with no `101` seen
+   (HTTP/2 with prior knowledge inside a `CONNECT` tunnel carried by the SOCKS tunnel, a `101` split across the
+   origin's chunks, or a body that happens to hold the preface) is not proof that the following bytes are frames, and
+   reading text as frames would log its secrets. This branch fails closed: it loses log detail and never reveals a
+   secret.
+4. **The reference.** `Surl.Protocol.Socks.UnitLibrary` now references `Surl.Http2.UnitLibrary`, one of ADR-0002
+   decision 3's horizontal libraries any protocol server may reference, which adds to the references ADR-0121 lists
+   for it. Amendment 6's point 4 was wrong to say the table bars `Surl.HttpMessage`; it lists it. The SOCKS line rule
+   stays its own class because it also masks `PASS` and `ACCT`, which an HTTP head rule does not.
+5. **Not decided here.** The event stream and `SocksUpstreamTestCaseServer` keep raw bytes (decision 4). A tunnel whose
+   first byte is not a letter is still logged byte for byte, even if a preface appears in it.
+
+Accepted limits:
+
+- In a tunnel where the origin has sent bytes starting `HTTP/1.1 101`, whatever it upgraded to, a body that holds the
+  preface is followed by bytes read as frames, so a credential in a later text request on that tunnel **can be logged**.
+  curl sends nothing but HTTP/2 after a `101` to `Upgrade: h2c`, and does not send the preface after any other.
+- Amendment 6's client that sends ahead can lose more than its early bytes: if the preface travels with the SOCKS
+  request, the tunnel's first byte seen is a frame's `00`, so the whole tunnel is logged byte for byte (BL-1707).
+- An over-long first `HEADERS` frame does not yet make `Http2RequestBytesRedactor` withhold the `CONTINUATION` after
+  it, here or in the origin's own log (BL-1712).

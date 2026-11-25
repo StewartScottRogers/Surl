@@ -35,14 +35,15 @@ What exists:
 Passwords are judged only by the policy, which refuses a clear password without
 `--allow-plaintext-auth` and delays a wrong one; the log never holds an RFC 1929 password, and its `PLEN` byte is written as 4 before `****` (an empty password too), so it never shows the password's length either (ADR-0182 decision 1).
 
-The exchange log's redactor (`SocksExchangeBytesRedactor`, ADR-0182 amendment 6) starts as `Socks5PasswordRedactor` and, once the server sent a success reply, becomes `SocksTunnelBytesRedactor`: a tunnel whose first byte is an ASCII letter is redacted line by line (`SocksTunnelLineRedactionRule`: `PASS`/`ACCT` arguments, `Authorization`/`Proxy-Authorization` credentials); any other tunnel is logged byte for byte, so a binary protocol's login inside it is not masked. Nor are HTTP/2 cleartext HPACK fields, SASL logins or IMAP `LOGIN` (the amendment's accepted limits). The event stream and `SocksUpstreamTestCaseServer` keep raw bytes.
+The exchange log's redactor (`SocksExchangeBytesRedactor`, ADR-0182 amendment 6) starts as `Socks5PasswordRedactor` and, once the server sent a success reply, becomes `SocksTunnelBytesRedactor`: a tunnel whose first byte is an ASCII letter (`SocksTextTunnelBytesRedactor`) is redacted line by line (`SocksTunnelLineRedactionRule`: `PASS`/`ACCT` arguments, `Authorization`/`Proxy-Authorization` credentials) until the client sends the HTTP/2 preface (`SocksHttp2PrefaceFinder`; amendment 7). After a preface that opened the tunnel or followed an origin's `HTTP/1.1 101`, `Surl.Http2`'s `Http2RequestBytesRedactor` reads the frames; after any other preface every later byte is withheld (`SocksWithheldBytesRedactor`). Any other tunnel is logged byte for byte, so a binary protocol's login inside it is not masked. Nor are SASL logins or IMAP `LOGIN` (amendment 6's accepted limits). The event stream and `SocksUpstreamTestCaseServer` keep raw bytes.
 
 `Protocols/Proxy/Surl.Protocol.Socks.UnitTests/Fixtures` holds exchanges recorded from pinned
 upstream curl 8.21.0 with the recorder playing the proxy; its README says how each was recorded.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` only, as ADR-0121 decision 1's
-row allows. Referencing another protocol server is a build break, and
-`Surl.Protocol.Abstractions.UnitTests` fails if one appears.
+This library references `Surl.Protocol.Abstractions.UnitLibrary` (ADR-0121 decision 1),
+`Surl.Kerberos.UnitLibrary` (ADR-0121 amendment 2) and `Surl.Http2.UnitLibrary` (ADR-0182
+amendment 7), each allowed by ADR-0002 decision 3. Referencing another protocol server is a
+build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here: curl's
 connection comes from the listener seam and every origin connection from `IOriginConnector`, so the
