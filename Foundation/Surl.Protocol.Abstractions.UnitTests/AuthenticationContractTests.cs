@@ -54,6 +54,21 @@ public sealed class AuthenticationContractTests
     }
 
     [TestMethod]
+    public void HttpAuthenticationVerdict_WithSignatureMismatch_KeepsWhatTheServerComputed()
+    {
+        var verdict = new HttpAuthenticationVerdict(
+            HttpAuthenticationOutcome.Forbidden,
+            [],
+            null,
+            SignatureMismatch: new AwsSigV4SignatureMismatch("GET\n/", "AWS4-HMAC-SHA256\n20130524T000000Z"));
+
+        Assert.AreEqual("GET\n/", verdict.SignatureMismatch?.CanonicalRequest);
+        Assert.AreEqual("AWS4-HMAC-SHA256\n20130524T000000Z", verdict.SignatureMismatch?.StringToSign);
+        Assert.AreEqual(new AwsSigV4SignatureMismatch("GET\n/", "AWS4-HMAC-SHA256\n20130524T000000Z"), verdict.SignatureMismatch);
+        Assert.IsNull(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Forbidden, [], null).SignatureMismatch);
+    }
+
+    [TestMethod]
     public void HttpAuthenticationVerdict_SameValues_AreEqual()
     {
         string[] values = ["Basic realm=\"surl\""];

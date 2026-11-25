@@ -21,17 +21,27 @@ internal static class AwsSigV4Calculation
     /// <param name="secret">The secret access key's bytes.</param>
     /// <returns>The signature's 32 bytes.</returns>
     public static byte[] ComputeSignature(
-        AwsSigV4Authorization authorization, string requestTime, string canonicalRequest, byte[] secret)
-    {
-        var stringToSign = string.Join(
+        AwsSigV4Authorization authorization, string requestTime, string canonicalRequest, byte[] secret) =>
+        HMACSHA256.HashData(
+            DeriveSigningKey(authorization, secret),
+            Encoding.Latin1.GetBytes(BuildStringToSign(authorization, requestTime, canonicalRequest)));
+
+    /// <summary>
+    /// The string to sign: the algorithm, the request time, the scope and the lower-case hex
+    /// SHA-256 of <paramref name="canonicalRequest"/>, one per line.
+    /// </summary>
+    /// <param name="authorization">The credentials, for the provider and the scope.</param>
+    /// <param name="requestTime">The request's date field as sent, <c>yyyyMMddTHHmmssZ</c>.</param>
+    /// <param name="canonicalRequest">The canonical request.</param>
+    /// <returns>The string to sign.</returns>
+    public static string BuildStringToSign(
+        AwsSigV4Authorization authorization, string requestTime, string canonicalRequest) =>
+        string.Join(
             '\n',
             AwsSigV4Provider.AlgorithmOf(authorization.Provider),
             requestTime,
             authorization.Scope,
             Convert.ToHexStringLower(SHA256.HashData(Encoding.Latin1.GetBytes(canonicalRequest))));
-
-        return HMACSHA256.HashData(DeriveSigningKey(authorization, secret), Encoding.Latin1.GetBytes(stringToSign));
-    }
 
     /// <summary>
     /// The signing key: an HMAC-SHA256 chain from the provider's prefix and the secret through the

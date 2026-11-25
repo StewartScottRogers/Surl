@@ -69,6 +69,9 @@ What it holds:
   and shared access signatures its only methods (the Azure Storage server's, ADR-0109 decision 3;
   BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`; BL-711 added
   `ExpiryOutOfRange` and `ConflictingCredentials` for presigned URLs, which also use `SignatureExpired`),
+  a `BadSignature` Signature Version 4 verdict's `SignatureMismatch`, an `AwsSigV4SignatureMismatch`
+  holding the canonical request (with `****` for each value ADR-0182 withholds from the log) and the
+  string to sign the server computed (BL-1701),
   an accepted verdict's `ChunkSignatures`, the `IHttpChunkSignatureChain` an `aws-chunked`
   `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` body's chunks are checked against (ADR-0108 decision 4.5), and `CheckedLogin`, the
   credentials checked and the answer, whose `Note` a server writes to the verbose log

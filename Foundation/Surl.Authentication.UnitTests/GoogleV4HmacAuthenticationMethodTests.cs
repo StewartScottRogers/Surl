@@ -154,6 +154,7 @@ public sealed class GoogleV4HmacAuthenticationMethodTests
         Assert.AreEqual(HttpAuthenticationOutcome.Forbidden, verdict.Outcome);
         Assert.AreEqual(refusal, verdict.Refusal);
         Assert.IsNull(verdict.AccountName);
+        Assert.AreEqual(refusal == HttpAuthenticationRefusal.BadSignature, verdict.SignatureMismatch is not null);
     }
 
     [TestMethod]

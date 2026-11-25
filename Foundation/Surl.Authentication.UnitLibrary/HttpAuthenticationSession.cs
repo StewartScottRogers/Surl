@@ -278,7 +278,12 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 
         var refusal = isServiceSignature ? Forbidden : Challenge();
 
-        return refusal with { CheckedLogin = LoginChecked(method, check, false), Refusal = check.Refusal };
+        return refusal with
+        {
+            CheckedLogin = LoginChecked(method, check, false),
+            Refusal = check.Refusal,
+            SignatureMismatch = check.SignatureMismatch,
+        };
     }
 
     private static CheckedLogin LoginChecked(AuthenticationMethod method, HttpCredentialCheck check, bool isAccepted) =>

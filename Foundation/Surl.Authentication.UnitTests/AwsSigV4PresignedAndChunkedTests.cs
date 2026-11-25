@@ -99,6 +99,7 @@ public sealed class AwsSigV4PresignedAndChunkedTests
         Assert.AreEqual(HttpAuthenticationOutcome.Forbidden, verdict.Outcome);
         Assert.AreEqual(refusal, verdict.Refusal);
         Assert.IsNull(verdict.AccountName);
+        Assert.AreEqual(refusal == HttpAuthenticationRefusal.BadSignature, verdict.SignatureMismatch is not null);
     }
 
     private static byte[] Sha256OfAs(int count) => SHA256.HashData(Enumerable.Repeat((byte)'a', count).ToArray());
@@ -167,6 +168,101 @@ public sealed class AwsSigV4PresignedAndChunkedTests
         var verdict = await JudgeAsync(CreatePolicy(), PresignedGet(PresignedTarget(credential: "AKIAUNKNOWN%2F20130524%2Fus-east-1%2Fs3%2Faws4_request")));
 
         AssertForbidden(verdict, HttpAuthenticationRefusal.UnknownAccount);
+        Assert.IsNull(verdict.SignatureMismatch);
+    }
+
+    // The presigned example's canonical request and string to sign, as the page gives them.
+    [TestMethod]
+    public async Task PresignedWorkedExample_SignedWithAWrongSecret_CarriesTheCanonicalRequestAndStringToSign()
+    {
+        var verdict = await JudgeAsync(CreatePolicy(), PresignedGet(PresignedTarget(signature: new string('0', 64))));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.BadSignature);
+        Assert.AreEqual(
+            string.Join(
+                '\n',
+                "GET",
+                "/test.txt",
+                "X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
+                + "&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host",
+                "host:examplebucket.s3.amazonaws.com",
+                string.Empty,
+                "host",
+                "UNSIGNED-PAYLOAD"),
+            verdict.SignatureMismatch?.CanonicalRequest);
+        Assert.AreEqual(
+            string.Join(
+                '\n',
+                "AWS4-HMAC-SHA256",
+                "20130524T000000Z",
+                "20130524/us-east-1/s3/aws4_request",
+                "3bfa292879f6447bbcda7001decf97f4a54dc650c8942174ae0a9121cf58ad04"),
+            verdict.SignatureMismatch?.StringToSign);
+    }
+
+    // The GET Object example sent with a body and no content hash, so its signature covers the
+    // body's hash and is checked only once the body is read.
+    [TestMethod]
+    public async Task BodyBoundSignature_RefusedAtTheBodyCheck_CarriesTheCanonicalRequestAndStringToSign()
+    {
+        var request = new HttpAuthenticationRequest(
+            "PUT",
+            "/test.txt",
+            true,
+            [
+                new("Host", "examplebucket.s3.amazonaws.com"),
+                new("x-amz-date", "20130524T000000Z"),
+                new("Content-Length", "5"),
+                new(
+                    "Authorization",
+                    "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,"
+                    + $"SignedHeaders=host;x-amz-date,Signature={new string('0', 64)}"),
+            ]);
+        clock.Advance(ExampleDate - clock.GetUtcNow());
+        var policy = PolicyFixture.Create(Accounts, clock, httpMethods: [new AwsSigV4AuthenticationMethod(Accounts, clock)]);
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(request, CancellationToken.None);
+        Assert.IsNull(verdict.SignatureMismatch);
+
+        var judgement = verdict.BodyCheck!.JudgeBodyAsync(SHA256.HashData("hello"u8), CancellationToken.None).AsTask();
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+        var bodyVerdict = await judgement;
+
+        var canonicalRequest = string.Join(
+            '\n',
+            "PUT",
+            "/test.txt",
+            string.Empty,
+            "host:examplebucket.s3.amazonaws.com",
+            "x-amz-date:20130524T000000Z",
+            string.Empty,
+            "host;x-amz-date",
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+        Assert.AreEqual(HttpAuthenticationRefusal.BadSignature, bodyVerdict.Refusal);
+        Assert.AreEqual(canonicalRequest, bodyVerdict.SignatureMismatch?.CanonicalRequest);
+        Assert.AreEqual(
+            string.Join(
+                '\n',
+                "AWS4-HMAC-SHA256",
+                "20130524T000000Z",
+                "20130524/us-east-1/s3/aws4_request",
+                Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonicalRequest)))),
+            bodyVerdict.SignatureMismatch?.StringToSign);
+    }
+
+    [TestMethod]
+    public async Task BodyNotHashingToTheContentHash_HasNoMismatch()
+    {
+        // The signature over the sent hash matches; only the body differs.
+        var request = Signed(ChunkedPut(ChunkedAuthorization(), Convert.ToHexStringLower(SHA256.HashData("hello"u8))));
+        var verdict = await JudgeAsync(CreatePolicy(), request);
+
+        var judgement = verdict.BodyCheck!.JudgeBodyAsync(SHA256.HashData("hellO"u8), CancellationToken.None).AsTask();
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+        var bodyVerdict = await judgement;
+
+        Assert.IsNull(verdict.SignatureMismatch);
+        Assert.AreEqual(HttpAuthenticationRefusal.PayloadHashMismatch, bodyVerdict.Refusal);
+        Assert.IsNull(bodyVerdict.SignatureMismatch);
     }
 
     [TestMethod]

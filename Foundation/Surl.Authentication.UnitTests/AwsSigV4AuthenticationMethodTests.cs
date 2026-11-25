@@ -504,6 +504,228 @@ public sealed class AwsSigV4AuthenticationMethodTests
         Assert.AreEqual("Login refused: AWS4-HMAC-SHA256 AKIDEXAMPLE", verdict.CheckedLogin?.Note);
     }
 
+    // AWS's documented SigV4 "GET Object" example (Amazon S3 API Reference, "Signature
+    // Calculations for the Authorization Header: Transferring Payload in a Single Chunk").
+    private const string ExampleAccessKeyId = "AKIAIOSFODNN7EXAMPLE";
+
+    private const string ExampleSecretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+
+    private const string ExampleSignature = "f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
+
+    private static readonly string ExampleCanonicalRequest = string.Join(
+        '\n',
+        "GET",
+        "/test.txt",
+        string.Empty,
+        "host:examplebucket.s3.amazonaws.com",
+        "range:bytes=0-9",
+        "x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "x-amz-date:20130524T000000Z",
+        string.Empty,
+        "host;range;x-amz-content-sha256;x-amz-date",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+    private static readonly string ExampleStringToSign = string.Join(
+        '\n',
+        "AWS4-HMAC-SHA256",
+        "20130524T000000Z",
+        "20130524/us-east-1/s3/aws4_request",
+        "7344ae5b7ee6c3e7e6b0fe0640412a37625d1fbfff95c48bbb2dc43964946972");
+
+    private static HttpAuthenticationRequest ExampleGetObject(
+        string signature, string? service = "s3", string accessKeyId = ExampleAccessKeyId) =>
+        new(
+            "GET",
+            "/test.txt",
+            false,
+            [
+                new("Host", "examplebucket.s3.amazonaws.com"),
+                new(
+                    "Authorization",
+                    $"AWS4-HMAC-SHA256 Credential={accessKeyId}/20130524/us-east-1/s3/aws4_request,"
+                    + $"SignedHeaders=host;range;x-amz-content-sha256;x-amz-date,Signature={signature}"),
+                new("Range", "bytes=0-9"),
+                new("x-amz-content-sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+                new("x-amz-date", "20130524T000000Z"),
+            ],
+            service);
+
+    // The signature a client holding the wrong secret sends over the example's string to sign.
+    private static string SignatureUnderAWrongSecret()
+    {
+        byte[] key = System.Text.Encoding.UTF8.GetBytes("AWS4wrong");
+        foreach (var part in new[] { "20130524", "us-east-1", "s3", "aws4_request" })
+        {
+            key = HMACSHA256.HashData(key, System.Text.Encoding.UTF8.GetBytes(part));
+        }
+
+        return Convert.ToHexStringLower(HMACSHA256.HashData(key, System.Text.Encoding.UTF8.GetBytes(ExampleStringToSign)));
+    }
+
+    // Judged by a policy holding the example's account, letting the refusal delay pass.
+    private async Task<HttpAuthenticationVerdict> JudgeExampleAsync(HttpAuthenticationRequest request)
+    {
+        var accounts = new AccountBook([new Account(ExampleAccessKeyId, ExampleSecretAccessKey)]);
+        clock.Advance(new DateTimeOffset(2013, 5, 24, 0, 0, 0, TimeSpan.Zero) - clock.GetUtcNow());
+        var policy = PolicyFixture.Create(accounts, clock, httpMethods: [new AwsSigV4AuthenticationMethod(accounts, clock)]);
+
+        var judgement = policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(request, CancellationToken.None).AsTask();
+        if (!judgement.IsCompleted)
+        {
+            clock.Advance(AuthenticationPolicy.RefusalDelay);
+        }
+
+        return await judgement;
+    }
+
+    [TestMethod]
+    [DataRow("s3", DisplayName = "the S3 server's request")]
+    [DataRow(null, DisplayName = "an HTTP request with no other method to challenge with")]
+    public async Task Policy_ExampleGetObjectSignedWithAWrongSecret_CarriesTheCanonicalRequestAndStringToSign(string? service)
+    {
+        var verdict = await JudgeExampleAsync(ExampleGetObject(SignatureUnderAWrongSecret(), service));
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Forbidden, verdict.Outcome);
+        Assert.AreEqual(HttpAuthenticationRefusal.BadSignature, verdict.Refusal);
+        Assert.AreEqual(ExampleCanonicalRequest, verdict.SignatureMismatch?.CanonicalRequest);
+        Assert.AreEqual(ExampleStringToSign, verdict.SignatureMismatch?.StringToSign);
+    }
+
+    [TestMethod]
+    public async Task Policy_HttpRequestChallengedAsABadSignature_CarriesTheMismatch()
+    {
+        var request = RecordedFixture.ReadRequest("aws-sigv4-refused");
+        SetClockTo(request);
+        var judgement = CreatePolicy().StartHttpConnection(PolicyFixture.Tls).JudgeAsync(request, CancellationToken.None).AsTask();
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+
+        var verdict = await judgement;
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+        Assert.AreEqual(HttpAuthenticationRefusal.BadSignature, verdict.Refusal);
+        Assert.IsNotNull(verdict.SignatureMismatch);
+    }
+
+    [TestMethod]
+    public async Task Policy_ExampleGetObjectRightlySigned_IsAcceptedWithNoMismatch()
+    {
+        var verdict = await JudgeExampleAsync(ExampleGetObject(ExampleSignature));
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+        Assert.IsNull(verdict.SignatureMismatch);
+    }
+
+    [TestMethod]
+    public async Task Policy_UnknownAccessKey_HasNoMismatch()
+    {
+        var verdict = await JudgeExampleAsync(ExampleGetObject(ExampleSignature, accessKeyId: "AKIAUNKNOWNEXAMPLE00"));
+
+        Assert.AreEqual(HttpAuthenticationRefusal.UnknownAccount, verdict.Refusal);
+        Assert.IsNull(verdict.SignatureMismatch);
+    }
+
+    [TestMethod]
+    [DataRow("Range", null, HttpAuthenticationRefusal.BadSignature, DisplayName = "a bad signature with no canonical request to build")]
+    [DataRow("x-amz-date", "20130524T010000Z", HttpAuthenticationRefusal.ClockSkew, DisplayName = "clock skew")]
+    [DataRow("x-amz-content-sha256", null, HttpAuthenticationRefusal.MissingPayloadHash, DisplayName = "no content hash")]
+    public async Task Policy_ARefusalWithNothingCompared_HasNoMismatch(string name, string? value, HttpAuthenticationRefusal refusal)
+    {
+        var verdict = await JudgeExampleAsync(WithField(ExampleGetObject(ExampleSignature), name, value));
+
+        Assert.AreEqual(refusal, verdict.Refusal);
+        Assert.IsNull(verdict.SignatureMismatch);
+    }
+
+    [TestMethod]
+    public async Task Policy_RefuseLoginFaultOnARightSignature_IsABadSignatureWithNoMismatch()
+    {
+        var accounts = new AccountBook([new Account(ExampleAccessKeyId, ExampleSecretAccessKey)]);
+        clock.Advance(new DateTimeOffset(2013, 5, 24, 0, 0, 0, TimeSpan.Zero) - clock.GetUtcNow());
+        var policy = PolicyFixture.CreateObserved(
+            accounts,
+            clock,
+            new RecordingSurlEventPublisher(),
+            new SpendingFaultPlan(new FaultRule("refuse", FaultKind.RefuseLogin)),
+            httpMethods: [new AwsSigV4AuthenticationMethod(accounts, clock)]);
+
+        var judgement = policy.StartHttpConnection(null).JudgeAsync(ExampleGetObject(ExampleSignature), CancellationToken.None).AsTask();
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+        var verdict = await judgement;
+
+        Assert.AreEqual(HttpAuthenticationRefusal.BadSignature, verdict.Refusal);
+        Assert.IsNull(verdict.SignatureMismatch);
+    }
+
+    [TestMethod]
+    public async Task Policy_SignedSecurityToken_IsWithheldFromTheCanonicalRequestButNotFromItsHash()
+    {
+        var request = TokenRequest(
+            "/test.txt?X-Amz-Security-Token=query%2Ftoken&a=1",
+            ("host", "examplebucket.s3.amazonaws.com"),
+            ("x-amz-content-sha256", "UNSIGNED-PAYLOAD"),
+            ("x-amz-date", "20130524T000000Z"),
+            ("x-amz-security-token", "header-token"));
+
+        var verdict = await JudgeExampleAsync(request);
+
+        var real = string.Join(
+            '\n',
+            "GET",
+            "/test.txt",
+            "X-Amz-Security-Token=query%2Ftoken&a=1",
+            "host:examplebucket.s3.amazonaws.com",
+            "x-amz-content-sha256:UNSIGNED-PAYLOAD",
+            "x-amz-date:20130524T000000Z",
+            "x-amz-security-token:header-token",
+            string.Empty,
+            "host;x-amz-content-sha256;x-amz-date;x-amz-security-token",
+            "UNSIGNED-PAYLOAD");
+        Assert.AreEqual(
+            real.Replace("query%2Ftoken", "****", StringComparison.Ordinal).Replace("header-token", "****", StringComparison.Ordinal),
+            verdict.SignatureMismatch?.CanonicalRequest);
+        StringAssert.Contains(verdict.SignatureMismatch!.CanonicalRequest, "\nx-amz-security-token:****\n");
+        Assert.AreEqual(
+            Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(real))),
+            verdict.SignatureMismatch.StringToSign.Split('\n')[^1]);
+    }
+
+    [TestMethod]
+    [DataRow("authorization")]
+    [DataRow("proxy-authorization")]
+    [DataRow("x-api-key")]
+    [DataRow("api-key")]
+    [DataRow("x-goog-api-key")]
+    [DataRow("ocp-apim-subscription-key")]
+    [DataRow("X-Amz-Security-Token")]
+    public async Task Policy_ASignedHeaderTheExchangeLogWithholds_IsWithheldFromTheCanonicalRequest(string name)
+    {
+        var request = TokenRequest(
+            "/test.txt",
+            ("host", "examplebucket.s3.amazonaws.com"),
+            (name, "kept-from-the-log"),
+            ("x-amz-content-sha256", "UNSIGNED-PAYLOAD"),
+            ("x-amz-date", "20130524T000000Z"));
+
+        var verdict = await JudgeExampleAsync(request);
+
+        var canonicalRequest = verdict.SignatureMismatch!.CanonicalRequest;
+        StringAssert.Contains(canonicalRequest, $"\n{name}:****\n");
+        Assert.IsFalse(canonicalRequest.Contains("kept-from-the-log", StringComparison.Ordinal));
+        Assert.IsFalse(canonicalRequest.Contains(new string('0', 64), StringComparison.Ordinal));
+    }
+
+    // A GET signing every field given, in order, with a signature that does not match.
+    private static HttpAuthenticationRequest TokenRequest(string target, params (string Name, string Value)[] fields)
+    {
+        var signedHeaders = string.Join(';', fields.Select(field => field.Name));
+        var authorization = $"AWS4-HMAC-SHA256 Credential={ExampleAccessKeyId}/20130524/us-east-1/s3/aws4_request,"
+            + $"SignedHeaders={signedHeaders},Signature={new string('0', 64)}";
+        var sent = fields.Select(field => new KeyValuePair<string, string>(field.Name, field.Value));
+
+        // The credentials come first, so a signed field that is itself an Authorization is not read as them.
+        return new("GET", target, false, [new("Authorization", authorization), .. sent], "s3");
+    }
+
     [TestMethod]
     public async Task Policy_OnlySignatureVersion4Accepted_NoCredentials_IsForbidden()
     {

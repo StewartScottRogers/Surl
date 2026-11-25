@@ -30,6 +30,11 @@ namespace Surl.Authentication;
 /// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c>, the chain each <c>aws-chunked</c> chunk's signature
 /// is checked against (ADR-0108 decision 4.5); otherwise <see langword="null"/>.
 /// </param>
+/// <param name="SignatureMismatch">
+/// For a Signature Version 4 signature refused because it does not match
+/// (<see cref="HttpAuthenticationRefusal.BadSignature"/>), the canonical request and string to sign
+/// computed; <see langword="null"/> otherwise, and when no canonical request could be built.
+/// </param>
 public sealed record HttpCredentialCheck(
     HttpCredentialOutcome Outcome,
     string? AccountName,
@@ -37,4 +42,5 @@ public sealed record HttpCredentialCheck(
     string? UserAsSent = null,
     Func<ReadOnlyMemory<byte>, HttpCredentialCheck>? CheckBody = null,
     HttpAuthenticationRefusal? Refusal = null,
-    IHttpChunkSignatureChain? ChunkSignatures = null);
+    IHttpChunkSignatureChain? ChunkSignatures = null,
+    AwsSigV4SignatureMismatch? SignatureMismatch = null);

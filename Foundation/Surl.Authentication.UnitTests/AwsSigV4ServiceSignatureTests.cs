@@ -87,6 +87,7 @@ public sealed class AwsSigV4ServiceSignatureTests
         Assert.AreEqual(refusal, verdict.Refusal);
         Assert.IsNull(verdict.AccountName);
         Assert.IsEmpty(verdict.WwwAuthenticateValues);
+        Assert.AreEqual(refusal == HttpAuthenticationRefusal.BadSignature, verdict.SignatureMismatch is not null);
     }
 
     [TestMethod]
