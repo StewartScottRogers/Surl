@@ -47,7 +47,7 @@ bytes above. Nothing here comes from the Curl port.
 ### 1. One repeatable option, `--set-cookie <spec>`, off until used
 
 `--set-cookie 'name=value[;Attribute[=value]]...[;on-path=/prefix][;on-listener=<listen URL>]'`, repeatable, at most 64
-(past it exit 2, as `--fault`'s 256). A `-K` file line `set-cookie = "..."`, `Surl.Api`'s `HttpServerOptions.Cookies`, `Surl.Mcp`'s
+(past it exit 2, as `--fault`'s 256). A `-K` file line `set-cookie = "..."`, `Surl.Api`'s `SurlServerOptions.Cookies` (amendment 1), `Surl.Mcp`'s
 `start_server` argument `cookies` and the control endpoint's start body field `cookies` carry the same list ("configuration
 as data"). Without one, the server sends no `Set-Cookie` and reads `Cookie` only to publish it (decision 5): nothing a
 peer can do widens, so no warning is needed. Names and values are never generated (decision 6).
@@ -105,3 +105,14 @@ in the measurement above (`-c`, `-b`, and `-j` against a session cookie, the las
 
 FR-015 cites this ADR. A test seeds a session cookie with `--set-cookie 'session=t1;Path=/;HttpOnly'` and later asserts
 `WaitForEvent(CookieReceived, name: "session")`. The Curl port is not involved.
+
+## Amendment 1 (2026-11-24, BL-1675): the `Surl.Api` property is `SurlServerOptions.Cookies`
+
+Decided by Claude under Stewart's delegation. Decision 1 first named the property `HttpServerOptions.Cookies`;
+`Surl.Api` has no `HttpServerOptions` class. Its one options class is `SurlServerOptions`, so the property is
+`SurlServerOptions.Cookies`: an `IList<string>`, empty by default, each item the text `--set-cookie` takes, composed as
+that option once per item, as `Shares` and `Topics` are. A per-protocol options class would be a second way to spell one
+configuration model. A null item is an `ArgumentException`; every other refusal is `surl`'s.
+
+Also correcting decision 5's signature: the record as built (BL-1659) is
+`CookieReceivedEvent(long? ExchangeId, string Scheme, string Name, string Value)`.

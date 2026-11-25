@@ -65,7 +65,7 @@ internal static class SurlServerArguments
         if (ItemLists(options).Any(items => items.Contains(null!)))
         {
             throw new ArgumentException(
-                "Groups, the mail, share, bucket, topic and queue item lists, and ConfigFiles may not hold null.", nameof(options));
+                "Groups, the mail, share, bucket, topic and queue item lists, Cookies, and ConfigFiles may not hold null.", nameof(options));
         }
 
         if (options.ConfigFiles.Contains("-"))
@@ -78,7 +78,7 @@ internal static class SurlServerArguments
     [
         options.Groups, options.MailDomains, options.Mailboxes, options.MailboxFiles, options.MailAliases,
         options.MailCatchAlls, options.SharedFolders, options.Shares, options.ShareAccess, options.Buckets,
-        options.Topics, options.Queues, options.TopicMaps, options.TopicAccess, options.ConfigFiles,
+        options.Topics, options.Queues, options.TopicMaps, options.TopicAccess, options.Cookies, options.ConfigFiles,
     ];
 
     private static void ThrowIfRecordBoundNotPositive(SurlServerOptions options)
@@ -183,6 +183,7 @@ internal static class SurlServerArguments
         AddItems(arguments, "--queue", options.Queues);
         AddItems(arguments, "--topic-map", options.TopicMaps);
         AddItems(arguments, "--topic-access", options.TopicAccess);
+        AddItems(arguments, "--set-cookie", options.Cookies);
         if (options.LogLevel != LogLevel.Info)
         {
             arguments.AddRange(["--log-level", options.LogLevel.ToString().ToLowerInvariant()]);
