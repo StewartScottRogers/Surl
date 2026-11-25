@@ -8,7 +8,7 @@ namespace Surl.Protocol.Mqtt;
 /// Answers the packets of one MQTT connection, one at a time, and says after each whether
 /// the connection stays open. <see cref="MqttProtocolServer"/> documents the answers.
 /// </summary>
-internal sealed partial class MqttPacketResponder
+internal sealed partial class MqttPacketResponder : IAsyncDisposable
 {
     private const int QualityOfServiceMask = 0x06;
     private const int DuplicateFlag = 0x08;
@@ -20,6 +20,7 @@ internal sealed partial class MqttPacketResponder
     private readonly ExchangeContext context;
     private readonly MessageBus.MessageBus bus;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly int? holdSubscriptionCount;
     private bool connected;
 
     // The account the bus checks every publish and subscribe against (ADR-0102, decision 3.4):
@@ -34,17 +35,27 @@ internal sealed partial class MqttPacketResponder
     /// <param name="context">The exchange's context: its log and cancellation token.</param>
     /// <param name="bus">The message bus publishes go to and subscribes read retained messages from.</param>
     /// <param name="authenticationPolicy">Judges the user name and password of the <c>CONNECT</c>.</param>
+    /// <param name="holdSubscriptionCount">How many <c>PUBLISH</c> packets end a held
+    /// subscription, 0 for no count; <see langword="null"/> holds none.</param>
     public MqttPacketResponder(
         IConnection connection,
         ExchangeContext context,
         MessageBus.MessageBus bus,
-        IAuthenticationPolicy authenticationPolicy)
+        IAuthenticationPolicy authenticationPolicy,
+        int? holdSubscriptionCount)
     {
         this.connection = connection;
         this.context = context;
         this.bus = bus;
         this.authenticationPolicy = authenticationPolicy;
+        this.holdSubscriptionCount = holdSubscriptionCount;
     }
+
+    /// <summary>
+    /// Ends the held subscription, if there is one.
+    /// </summary>
+    /// <returns>A task that completes when it is gone.</returns>
+    public ValueTask DisposeAsync() => held?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     /// <summary>
     /// Answers <paramref name="packet"/>.
@@ -131,7 +142,7 @@ internal sealed partial class MqttPacketResponder
     private static bool TryReadSubscription(MqttBodyReader reader, out string filter) =>
         reader.TryReadString(out filter) && reader.TryReadByte(out var requestedQualityOfService) && requestedQualityOfService <= 2;
 
-    private static bool TryReadUnsubscribeFilters(MqttBodyReader reader)
+    private static bool TryReadUnsubscribeFilters(MqttBodyReader reader, List<string> filters)
     {
         do
         {
@@ -139,6 +150,8 @@ internal sealed partial class MqttPacketResponder
             {
                 return false;
             }
+
+            filters.Add(filter);
         }
         while (!reader.IsAtEnd);
 
@@ -168,7 +181,8 @@ internal sealed partial class MqttPacketResponder
         var named = new List<(string TopicName, byte[] Payload)>(messages.Count);
         foreach (var (topic, payload) in messages)
         {
-            if (bus.Names.FromCanonicalTopic(context.Scheme, topic) is { IsMapped: true } mapping)
+            var mapping = bus.Names.FromCanonicalTopic(context.Scheme, topic);
+            if (mapping.IsMapped)
             {
                 named.Add((mapping.Name, payload));
             }
@@ -364,11 +378,11 @@ internal sealed partial class MqttPacketResponder
 
         var filters = new List<string?>();
         return TryReadSubscriptions(reader, filters)
-            ? DeliverRetainedAsync(packetIdentifier, filters)
+            ? AnswerFiltersAsync(packetIdentifier, filters)
             : CloseForViolation("SUBSCRIBE was malformed");
     }
 
-    private async ValueTask<bool> DeliverRetainedAsync(ushort packetIdentifier, List<string?> filters)
+    private async ValueTask<bool> AnswerFiltersAsync(ushort packetIdentifier, List<string?> filters)
     {
         await RefuseChosenFiltersAsync(filters);
         if (isDroppedByAFault)
@@ -376,6 +390,13 @@ internal sealed partial class MqttPacketResponder
             return false;
         }
 
+        return holdSubscriptionCount is { } publishCount
+            ? await HoldSubscriptionAsync(packetIdentifier, filters, publishCount)
+            : await DeliverRetainedAndDisconnectAsync(packetIdentifier, filters);
+    }
+
+    private async ValueTask<bool> DeliverRetainedAndDisconnectAsync(ushort packetIdentifier, List<string?> filters)
+    {
         var reading = MqttBusRetainedMessages.Read(bus, account, CanonicalFiltersOf(filters));
         await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, ReturnCodesFor(filters, reading.Granted)));
         var deliverable = NamedForThisScheme(reading.Matching);
@@ -402,9 +423,16 @@ internal sealed partial class MqttPacketResponder
     private ValueTask<bool> AnswerUnsubscribeAsync(MqttPacket packet)
     {
         var reader = new MqttBodyReader(packet.Body);
-        return TryReadNonZeroPacketIdentifier(reader, out var packetIdentifier) && !reader.IsAtEnd && TryReadUnsubscribeFilters(reader)
-            ? SendAndStayOpenAsync(MqttPacketEncoder.PacketIdentifierAcknowledgement(MqttPacketType.UnsubscribeAcknowledgement, packetIdentifier))
+        var filters = new List<string>();
+        return TryReadNonZeroPacketIdentifier(reader, out var packetIdentifier) && !reader.IsAtEnd && TryReadUnsubscribeFilters(reader, filters)
+            ? UnsubscribeAndAcknowledgeAsync(packetIdentifier, filters)
             : CloseForViolation("UNSUBSCRIBE was malformed");
+    }
+
+    private ValueTask<bool> UnsubscribeAndAcknowledgeAsync(ushort packetIdentifier, List<string> filters)
+    {
+        held?.Unsubscribe(filters);
+        return SendAndStayOpenAsync(MqttPacketEncoder.PacketIdentifierAcknowledgement(MqttPacketType.UnsubscribeAcknowledgement, packetIdentifier));
     }
 
     private async ValueTask<bool> SendAndStayOpenAsync(byte[] packet)
@@ -425,5 +453,6 @@ internal sealed partial class MqttPacketResponder
         return ValueTask.FromResult(false);
     }
 
-    private ValueTask WriteAsync(byte[] packet) => connection.WriteAsync(packet, context.CancellationToken);
+    // A held subscription's backlog passing its bounds cancels a write the client is not reading.
+    private ValueTask WriteAsync(byte[] packet) => connection.WriteAsync(packet, held?.Stopped ?? context.CancellationToken);
 }

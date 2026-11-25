@@ -12,6 +12,17 @@ filters match (`MqttBusRetainedMessages`, which subscribes to each filter only f
 it reads them), then `DISCONNECT`, sent because upstream curl 8.21.0 exits 56 on a bare close.
 The server keeps no retained messages of its own (BL-635). ADR-0014 records every answer.
 
+The held subscription (ADR-0014 Amendment 1, BL-1720): `MqttProtocolServer`'s optional third
+constructor value, a publish count, absent by default (`surl` gives none until BL-1721 adds the
+option). With it a `SUBSCRIBE` is answered as above but stays open (`MqttHeldSubscription`,
+`MqttPacketResponder.HeldSubscription.cs`): the bus subscribe precedes `SUBACK`; each later publish
+is sent once per connection (`BusConnection.AfterMessageDelivered`) as a `PUBLISH` `0x30` while the
+client's packets go on being read; `DISCONNECT` follows the count-th `PUBLISH`, retained ones
+counted, never for count 0; a first `SUBSCRIBE` with every filter refused is ended with
+`DISCONNECT`; more than 1000 publishes or 16 MiB waiting closes with no bytes and a log note. Keep
+Alive is not enforced: curl sends no `PINGREQ` while publishes keep arriving. Only the connection's
+own loop writes, so no two writes run at once, and one read runs beside them.
+
 Topic names and filters are mapped with the bus's `TopicNameLookup` (`MessageBus.Names`) for the
 exchange's scheme: MQTT's names are the bus's as they stand (`MqttTopicNames`, BL-630, which also
 checks each filter), with each `--topic-map` alias naming `mqtt` or `mqtts` on its left applied
@@ -29,7 +40,8 @@ constructor takes the policy, so no server is made without one; tests pass
 Every publish and subscribe goes to the bus with the connection's account - the `CONNECT`'s
 user name when the policy answered `Accepted`, otherwise anonymous (a login `AcceptedUnchecked`
 proves no account) - so the bus's `--topic-access` grants decide it (ADR-0102 decision 3.4,
-BL-665). A refused filter is `SUBACK` return code `0x80`, then the usual `DISCONNECT`; a refused
+BL-665). A refused filter is `SUBACK` return code `0x80`, then the usual `DISCONNECT` (with a hold
+count, below, `DISCONNECT` follows only when every filter of the first `SUBSCRIBE` is refused); a refused
 publish is dropped (nothing retained or delivered), noted, and acknowledged as any other at its
 QoS, since MQTT 3.1.1 has no negative acknowledgement, and the connection goes on.
 

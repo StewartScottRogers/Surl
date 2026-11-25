@@ -5,12 +5,13 @@ namespace Surl.Protocol.Mqtt;
 /// <summary>
 /// The MQTT 3.1.1 server: accepts the <c>CONNECT</c> upstream curl sends, keeps the message
 /// of a <c>PUBLISH</c> with <c>RETAIN</c> set (or on a <c>--topic ...;retain</c> topic) as its topic's retained message, and answers a
-/// <c>SUBSCRIBE</c> (curl's plain fetch) with the retained messages its filters match.
+/// <c>SUBSCRIBE</c> (curl's plain fetch) with the retained messages its filters match; given a
+/// hold count, it then keeps the subscription open and sends later publishes.
 /// ADR-0014 records the answers, ADR-0176 the retention rule.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>What a subscriber receives.</b> A <c>PUBLISH</c> with <c>RETAIN</c> 1 is kept, per
+/// <b>What is retained and what a subscriber receives.</b> A <c>PUBLISH</c> with <c>RETAIN</c> 1 is kept, per
 /// topic, replaces the topic's retained message, and with an empty payload removes it; one with
 /// <c>RETAIN</c> 0 (all upstream curl 8.21.0 sends, fixed header <c>0x30</c>) is delivered to live bus
 /// subscribers but is not kept and neither replaces nor removes a retained message (MQTT 3.1.1
@@ -21,9 +22,30 @@ namespace Surl.Protocol.Mqtt;
 /// messaging server on the bus shares them (ADR-0100, decision 3). A <c>SUBSCRIBE</c> is answered <c>SUBACK</c>,
 /// granting QoS 0 to each valid topic filter and failure (<c>0x80</c>) to each invalid one;
 /// then one QoS 0 <c>PUBLISH</c>, <c>RETAIN</c> set, for every kept message a valid filter
-/// matches, in ordinal order of the bus's topic; then <c>DISCONNECT</c>, and the connection is closed.
+/// matches, in ordinal order of the bus's topic; then, without a hold count, <c>DISCONNECT</c>, and
+/// the connection is closed, so a subscriber is not kept waiting for a future publish.
 /// The <c>DISCONNECT</c> (server to client, which section 3.14 does not define) is sent because upstream
-/// curl 8.21.0 ends its fetch and exits 0 on it and exits 56 on a bare close (ADR-0014, ADR-0176). A subscriber is never kept waiting for a future publish.
+/// curl 8.21.0 ends its fetch and exits 0 on it and exits 56 on a bare close (ADR-0014, ADR-0176).
+/// </para>
+/// <para>
+/// <b>Held subscription</b> (ADR-0014 Amendment 1), only when the server is given a hold count.
+/// The server subscribes on the bus before it writes <c>SUBACK</c>, sends the retained messages,
+/// and keeps the connection open. Each later publish a filter matches, from any protocol on the
+/// bus and the subscriber's own included, is sent once per connection however many filters
+/// match: QoS 0, <c>RETAIN</c> and <c>DUP</c> clear, under the name the scheme gives its topic; one
+/// the scheme cannot name, or one already expired, is neither sent nor counted. Right after the
+/// count-th <c>PUBLISH</c> sent on the connection, retained and live alike, the server sends
+/// <c>DISCONNECT</c> and closes; a count of 0 never ends the subscription this way. While it is
+/// held, the client's packets go on being read: <c>PINGREQ</c> gets <c>PINGRESP</c>, another
+/// <c>SUBSCRIBE</c> adds filters (the same filter again stays one subscription) and sends their
+/// retained messages against the same count, <c>UNSUBSCRIBE</c> removes filters and the connection
+/// stays open, <c>PUBLISH</c> is handled as ever, and the client's <c>DISCONNECT</c> or close ends
+/// it. A first <c>SUBSCRIBE</c> whose every filter is refused is answered <c>SUBACK</c> and
+/// <c>DISCONNECT</c>. At most 1000 publishes and 16 MiB of payload wait to be sent; one more
+/// closes the connection with no bytes and a log note (a command-stage delay rule's hold ends
+/// first). The MQTT Keep Alive is not enforced; the
+/// exchange ends otherwise only when its cancellation token does (the idle timeout, the maximum
+/// exchange duration, or the server stopping).
 /// </para>
 /// <para>
 /// <b>Topic names.</b> Every topic name and filter goes through the bus's
@@ -55,7 +77,7 @@ namespace Surl.Protocol.Mqtt;
 /// <para>
 /// <b>Other packets.</b> A QoS 1 publish is answered <c>PUBACK</c>, a QoS 2 publish
 /// <c>PUBREC</c>, and <c>PUBREL</c> <c>PUBCOMP</c>; the message is handled on arrival, whatever
-/// its QoS. <c>UNSUBSCRIBE</c> is answered <c>UNSUBACK</c>, <c>PINGREQ</c> <c>PINGRESP</c>,
+/// its QoS. <c>UNSUBSCRIBE</c> (which ends a held subscription's filters) is answered <c>UNSUBACK</c>, <c>PINGREQ</c> <c>PINGRESP</c>,
 /// and <c>DISCONNECT</c> by closing the connection.
 /// </para>
 /// <para>
@@ -87,22 +109,32 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer, IExchangeByt
 {
     private readonly MessageBus.MessageBus bus;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly int? holdSubscriptionCount;
 
     /// <summary>
-    /// Creates an MQTT server that publishes every message to <paramref name="bus"/> as its
-    /// topic's retained message, answers a subscribe with the bus's retained messages, and asks
+    /// Creates an MQTT server that publishes every message to <paramref name="bus"/>, answers a
+    /// subscribe with the bus's retained messages, and asks
     /// <paramref name="authenticationPolicy"/> whether to accept each <c>CONNECT</c>'s user name
     /// and password (ADR-0032, decision 5).
     /// </summary>
     /// <param name="bus">The process's one message bus, shared with every other messaging server.</param>
     /// <param name="authenticationPolicy">Judges the login of every <c>CONNECT</c>.</param>
-    public MqttProtocolServer(MessageBus.MessageBus bus, IAuthenticationPolicy authenticationPolicy)
+    /// <param name="holdSubscriptionCount">
+    /// <see langword="null"/>, the default, ends every subscribe with <c>DISCONNECT</c> after the
+    /// retained messages. A number holds each subscription open and sends later publishes, ending
+    /// it with <c>DISCONNECT</c> after that many <c>PUBLISH</c> packets; 0 sets no count
+    /// (ADR-0014 Amendment 1).
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="holdSubscriptionCount"/> is negative.</exception>
+    public MqttProtocolServer(MessageBus.MessageBus bus, IAuthenticationPolicy authenticationPolicy, int? holdSubscriptionCount = null)
     {
         ArgumentNullException.ThrowIfNull(bus);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
+        ArgumentOutOfRangeException.ThrowIfNegative(holdSubscriptionCount.GetValueOrDefault(), nameof(holdSubscriptionCount));
 
         this.bus = bus;
         this.authenticationPolicy = authenticationPolicy;
+        this.holdSubscriptionCount = holdSubscriptionCount;
     }
 
     /// <summary>
@@ -122,7 +154,8 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer, IExchangeByt
 
     /// <summary>
     /// Answers every packet on <paramref name="connection"/> until the client disconnects or
-    /// closes it, a subscribe has been answered, or a packet is refused.
+    /// closes it, a packet is refused, or a subscribe ends: once answered without a hold count,
+    /// and with one at its publish count or past its backlog bounds.
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>
@@ -133,15 +166,32 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer, IExchangeByt
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes);
-        var responder = new MqttPacketResponder(connection, context, bus, authenticationPolicy);
+        await using var responder = new MqttPacketResponder(connection, context, bus, authenticationPolicy, holdSubscriptionCount);
 
-        var result = await ReadFirstPacketAsync(reader, context);
-        while (result.Packet is { } packet && await responder.AnswerAsync(packet))
+        try
         {
-            result = await reader.ReadPacketAsync(context.CancellationToken);
+            await AnswerPacketsAsync(reader, responder, context);
+        }
+        catch (OperationCanceledException) when (responder.HasHeldBacklogOverflowed && !context.CancellationToken.IsCancellationRequested)
+        {
+            context.Log.Note(
+                $"More than {MqttHeldSubscription.MaxWaitingPublishes} publishes or {MqttHeldSubscription.MaxWaitingPayloadBytes} payload bytes waited for the held subscription; closed with no reply.");
+        }
+    }
+
+    private static async Task AnswerPacketsAsync(MqttPacketReader reader, MqttPacketResponder responder, ExchangeContext context)
+    {
+        MqttPacketReadResult? result = await ReadFirstPacketAsync(reader, context);
+        while (result?.Packet is { } packet && await responder.AnswerAsync(packet))
+        {
+            result = await responder.ReadNextPacketAsync(reader);
         }
 
-        NoteNoPacket(context, result.Outcome);
+        // No result: a held subscription reached its count, and has noted it.
+        if (result is not null)
+        {
+            NoteNoPacket(context, result.Outcome);
+        }
     }
 
     // The head timeout runs from here until the first packet is complete; later packets are
