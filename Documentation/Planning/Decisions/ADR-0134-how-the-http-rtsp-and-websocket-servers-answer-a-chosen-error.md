@@ -66,3 +66,42 @@ them; the recordings are the `fault-*` fixtures of the three test projects.
 A test can make one HTTP, RTSP or WebSocket request fail on purpose and see it on the event stream, with the
 connection behaving as curl expects after it. No store changes. The command-stage delay and drop, and a
 reply check in `Surl.Cli` that refuses the reserved WebSocket close codes, are follow-up tasks.
+
+## Amendment 1 (BL-1700)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. From item 3 of the Surly bug report
+`2026-11-25T1430-Surl-bug-report.md`: a chosen `401` on a request let in carried no `WWW-Authenticate`, though
+[RFC 9110 section 11.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-11.6.1) says a server generating a
+`401` must send at least one challenge. This amends the HTTP answer of decision 1 only. Decision 1's
+`Content-Length: 0` no longer describes that answer's body: see
+[ADR-0186](ADR-0186-the-http-servers-own-4xx-and-5xx-refusals-carry-a-short-fixed-text-body.md).
+
+- **D1.** A chosen status `401`, whatever its reason phrase, over HTTP/1.x, HTTP/2 and HTTP/3 alike, carries the
+  values of the connection's `IHttpAuthenticationSession.CreateChallenges()`, one `WWW-Authenticate` field per
+  value, in order. They replace the let-in verdict's values: those are only login success tokens (Negotiate's
+  final token), not challenges, so they are not sent on a chosen `401`.
+- **D2.** When the session offers none on this connection, the `401` goes without one, knowingly, as the server has
+  no challenge a client could answer, and the exchange log notes
+  `fault rule <id> chose 401, and the server offers no challenge on this connection`. `Surl.Authentication`'s
+  session offers the challenges of the HTTP methods `--auth` accepts, less `basic` and `bearer` on a connection
+  without TLS and without `--allow-plaintext-auth`; `aws-sigv4` has no challenge. So it offers none only when no
+  accepted method is left with a challenge. The accounts and `--allow-anonymous` do not change the list: with no
+  account and the default `--auth`, a chosen `401` still carries the Digest challenges. A session that keeps the
+  contract's default `CreateChallenges`, as `AnonymousAuthenticationPolicy`'s does, offers none too. Where
+  `Surl.Authentication`'s session has to refuse and has no challenge to offer, it answers `403`, so with that
+  session only a fault rule produces a `401` without a challenge.
+- **D3.** No other chosen status gains a challenge: each sends the verdict's values as before. A chosen `407` is
+  not given `Proxy-Authenticate`, since the `http` server is not a proxy.
+
+Measured by the conformance audit with pinned upstream [curl](https://curl.se/docs/manpage.html) 8.21.0 (win-x64,
+SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) against canned replies modelled on
+this answer (a `401` with Bearer and Basic challenges; no fixtures added): `--oauth2-bearer tok` makes one request
+and exits 0; with `--fail` it exits 22; `-u u:p --anyauth`, given the same reply to every request, makes two
+requests on one connection, then exits 0 with no third.
+
+### Consequences
+
+`ConnectionBoundLogins` now compares the status code, so a `401` with a reason phrase of its own counts as a
+`401`: a chosen `401` whose every challenge is NTLM or Negotiate is reset over HTTP/2 (`HTTP_1_1_REQUIRED`) or
+HTTP/3 (`H3_VERSION_FALLBACK`) like the server's own `401`. The client then never receives the chosen `401` or a
+`body=` text, though the `FaultAppliedEvent` is published and one of the rule's `times` is spent.

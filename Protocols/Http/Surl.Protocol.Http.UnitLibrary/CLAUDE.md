@@ -53,6 +53,11 @@ A fault rule's chosen error (ADR-0134 decision 1) is answered by `HttpRequestAns
 plan is asked through `Surl.HttpMessage`'s `HttpCommandFaults` once a request is let in (a body-bound
 `PUT` once its body check accepts), before the upload limit and the content store; the answer is the
 empty answer a `404` is with the reply's status, or a refusal when a body was announced and not read.
+A chosen `401` sends the session's `CreateChallenges` values as `WWW-Authenticate` fields, in
+order (RFC 9110 section 11.6.1; ADR-0134 Amendment 1), in place of the let-in verdict's values,
+which are at most a login success token (Negotiate's final token), never a challenge; when the
+session offers none, it goes without one and the exchange log notes that. Every other chosen status,
+`407` included, gains no challenge and keeps the verdict's values unchanged.
 
 The HTTP/2 frames, streams, flow control and connection (RFC 9113; ADR-0081 decisions 4 to 7;
 ADR-0090) live in `Surl.Http2.UnitLibrary` (ADR-0086 decision 1, moved by BL-409); its `CLAUDE.md`

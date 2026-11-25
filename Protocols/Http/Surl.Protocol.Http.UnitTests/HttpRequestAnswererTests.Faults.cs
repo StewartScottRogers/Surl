@@ -16,6 +16,10 @@ public sealed partial class HttpRequestAnswererTests
 {
     private const string BasicAlice = "Basic YWxpY2U6c2VjcmV0";
 
+    private const string BearerChallenge = "Bearer realm=\"surl\"";
+
+    private const string NegotiateSuccessToken = "Negotiate c3VybA==";
+
     [TestMethod]
     public async Task ServeAsync_RecordedGetOfAThenB_WithA503RuleOnA_Sends503ThenServesB()
     {
@@ -238,7 +242,109 @@ public sealed partial class HttpRequestAnswererTests
         Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(Path.Join(UploadRoot, "up.bin")));
     }
 
-    private HttpRequestAnswerer FaultAnswerer(ScriptedFaultPlan plan, RecordingSurlEventPublisher? events = null, RecordingExchangeLog? log = null)
+    [TestMethod]
+    public async Task ServeAsync_Chosen401ForARequestABearerLoginLetIn_SendsTheSessionsChallengesInOrder()
+    {
+        var rule = new FaultRule("f1", FaultKind.Error) { Path = "/file.txt", Reply = "401" };
+        var policy = LetInOffering([BearerChallenge, BasicChallenge]);
+        var request = Ascii("GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nAuthorization: Bearer tok\r\nConnection: close\r\n\r\n");
+
+        var (connection, _, _, _) = await ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule), policy);
+
+        var written = Latin1(connection.WrittenBytes);
+        Assert.StartsWith("HTTP/1.1 401 Unauthorized\r\n", written);
+        Assert.Contains($"\r\nWWW-Authenticate: {BearerChallenge}\r\nWWW-Authenticate: {BasicChallenge}\r\n", written);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_Chosen401WhenTheSessionOffersNoChallenge_SendsNoneAndNotesIt()
+    {
+        var log = new RecordingExchangeLog();
+        var answerer = FaultAnswerer(new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "401" }), log: log);
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.AreEqual(401, answer.Status.Code);
+        Assert.IsEmpty(WwwAuthenticateValuesOf(answer));
+        Assert.Contains("fault rule f1 chose 401, and the server offers no challenge on this connection", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_Chosen403_CarriesNoChallenge()
+    {
+        var log = new RecordingExchangeLog();
+        var answerer = FaultAnswerer(
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "403" }), log: log, policy: LetInOffering([BearerChallenge, BasicChallenge]));
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.AreEqual(403, answer.Status.Code);
+        Assert.IsEmpty(WwwAuthenticateValuesOf(answer));
+        Assert.DoesNotContain(note => note.Contains("offers no challenge", StringComparison.Ordinal), log.Notes);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_Chosen401ForARequestWithAnUnreadBody_IsARefusalCarryingTheChallenges()
+    {
+        var answerer = FaultAnswerer(
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "401" }), policy: LetInOffering([BearerChallenge, BasicChallenge]));
+
+        var answer = await answerer.AnswerAsync(Request("POST", "/file.txt", new UnitTestRequestBody(isReadable: true, isAnnounced: true)), TestContext.CancellationToken);
+
+        Assert.AreEqual(401, answer.Status.Code);
+        Assert.IsTrue(answer.IsRefusal);
+        CollectionAssert.AreEqual(new[] { BearerChallenge, BasicChallenge }, WwwAuthenticateValuesOf(answer));
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_Chosen401ForALoginWhoseVerdictCarriedASuccessToken_SendsTheSessionsChallengesInstead()
+    {
+        var log = new RecordingExchangeLog();
+        var answerer = FaultAnswerer(
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "401" }), log: log, policy: LetInOffering([BearerChallenge, BasicChallenge], NegotiateSuccessToken));
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.AreEqual(401, answer.Status.Code);
+        CollectionAssert.AreEqual(new[] { BearerChallenge, BasicChallenge }, WwwAuthenticateValuesOf(answer));
+        Assert.DoesNotContain(note => note.Contains("offers no challenge", StringComparison.Ordinal), log.Notes);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_Chosen503ForALoginWhoseVerdictCarriedASuccessToken_KeepsTheToken()
+    {
+        var answerer = FaultAnswerer(
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "503" }), policy: LetInOffering([BearerChallenge, BasicChallenge], NegotiateSuccessToken));
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.AreEqual(503, answer.Status.Code);
+        CollectionAssert.AreEqual(new[] { NegotiateSuccessToken }, WwwAuthenticateValuesOf(answer));
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_Chosen401WithItsOwnReasonPhraseOfferingOnlyNtlmAndNegotiate_IsJudgedToOfferOnlyConnectionBoundLogins()
+    {
+        var answerer = FaultAnswerer(
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "401 token expired" }), policy: LetInOffering(["NTLM", "Negotiate"]));
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.AreEqual("token expired", answer.Status.ReasonPhrase);
+        CollectionAssert.AreEqual(new[] { "NTLM", "Negotiate" }, WwwAuthenticateValuesOf(answer));
+        Assert.IsTrue(ConnectionBoundLogins.AreTheOnlyLoginsOfferedBy(answer));
+    }
+
+    // Every request is let in as alice, the verdict carrying the given login success tokens, which are
+    // not challenges; the session offers the given challenges.
+    private static UnitTestAuthenticationPolicy LetInOffering(IReadOnlyList<string> offered, params string[] successTokens) =>
+        new(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, successTokens, "alice")) { OfferedChallenges = offered };
+
+    // The answer's WWW-Authenticate values, in order: challenges, or a let-in verdict's success token.
+    private static string[] WwwAuthenticateValuesOf(HttpAnswer answer) =>
+        answer.Fields.Where(field => field.Key == "WWW-Authenticate").Select(field => field.Value).ToArray();
+
+    private HttpRequestAnswerer FaultAnswerer(ScriptedFaultPlan plan, RecordingSurlEventPublisher? events = null, RecordingExchangeLog? log = null, IAuthenticationPolicy? policy = null)
     {
         var contentStore = new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
         var context = Context(log ?? new RecordingExchangeLog(), new FixedTimeProvider(Now), TestContext.CancellationToken) with
@@ -247,7 +353,7 @@ public sealed partial class HttpRequestAnswererTests
             Events = events ?? new RecordingSurlEventPublisher(),
         };
 
-        return new HttpRequestAnswerer(context, contentStore, new AnonymousAuthenticationPolicy().StartHttpConnection(null));
+        return new HttpRequestAnswerer(context, contentStore, (policy ?? new AnonymousAuthenticationPolicy()).StartHttpConnection(null));
     }
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log, RecordingSurlEventPublisher Events, ScriptedFaultPlan Plan)> ServeWithFaultsAsync(
