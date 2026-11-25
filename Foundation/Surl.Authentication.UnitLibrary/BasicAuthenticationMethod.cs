@@ -21,21 +21,23 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
     private static readonly HttpCredentialCheck Refused = new(HttpCredentialOutcome.Refused, null, []);
 
     private readonly AccountBookAndDirectoryPasswordCheck passwordCheck;
+    private readonly string directoryScheme;
 
     /// <summary>
     /// Checks Basic credentials against <paramref name="accounts"/>.
     /// </summary>
     /// <param name="accounts">The configured accounts.</param>
     public BasicAuthenticationMethod(AccountBook accounts)
-        : this(accounts, null)
+        : this(accounts, null, AuthenticationPolicy.HttpLoginScheme)
     {
     }
 
-    private BasicAuthenticationMethod(AccountBook accounts, LdapAccountSource? directory)
+    private BasicAuthenticationMethod(AccountBook accounts, LdapAccountSource? directory, string directoryScheme)
     {
         ArgumentNullException.ThrowIfNull(accounts);
 
         passwordCheck = new AccountBookAndDirectoryPasswordCheck(accounts, directory);
+        this.directoryScheme = directoryScheme;
     }
 
     /// <summary>
@@ -43,8 +45,10 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
     /// (ADR-0149, decision 2).
     /// </summary>
     /// <param name="directory">The LDAP account source.</param>
+    /// <param name="scheme">The scheme the directory is asked about (<see cref="AuthenticationSettings.HttpDirectoryScheme"/>).</param>
     /// <returns>The method checking against the book and the directory.</returns>
-    internal BasicAuthenticationMethod WithDirectory(LdapAccountSource directory) => new(passwordCheck.Accounts, directory);
+    internal BasicAuthenticationMethod WithDirectory(LdapAccountSource directory, string scheme) =>
+        new(passwordCheck.Accounts, directory, scheme);
 
     /// <inheritdoc/>
     public AuthenticationMethod Method => AuthenticationMethod.Basic;
@@ -89,7 +93,7 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
 
         var password = userPass[(colon + 1)..].ToArray();
         var isAccepted = await passwordCheck
-            .CheckAsync(AuthenticationPolicy.HttpLoginScheme, userId, password, cancellationToken).ConfigureAwait(false);
+            .CheckAsync(directoryScheme, userId, password, cancellationToken).ConfigureAwait(false);
 
         return isAccepted
             ? new HttpCredentialCheck(HttpCredentialOutcome.Accepted, userId, [], userId)

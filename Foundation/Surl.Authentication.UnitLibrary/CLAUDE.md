@@ -528,5 +528,11 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - Every failure is one refusal to the peer; `LdapLoginResult.Reason` (and the `note` callback's line,
   `Login refused: password <user> (directory: <reason>)`) is for the operator and never holds a password, the
   bind password, a DN or the URL. The refusal delay counts from the check's start.
-- Only `CheckPasswordLoginAsync` consults it so far; HTTP Basic, SASL `PLAIN`/`LOGIN` and SSH `password` do
-  not yet (a follow-up task).
+- `CheckPasswordLoginAsync`, HTTP Basic, SASL `PLAIN`/`LOGIN` and SSH `password` consult it.
+- `LdapAccountSource.Serves` admits a scheme `protocols=` names or its TLS twin, as `Account.MayLogInOn` does.
+  `AuthenticationSettings.HasAccountToLogInTo(scheme)` is the one answer to "is there an account to log in to":
+  the book's accounts, or a directory serving the scheme (ADR-0149 amendments 1 and 2). HTTP reads and the
+  CoAP access rules ask it (BL-1669).
+- The HTTP family (reads and Basic logins) asks the directory about the scheme of its policy's
+  `AuthenticationSettings.ForScheme` view (`ws`, `rtsp`, ...), and about `http` when the settings are no view.
+  Login events and fault points still name the family `http`.

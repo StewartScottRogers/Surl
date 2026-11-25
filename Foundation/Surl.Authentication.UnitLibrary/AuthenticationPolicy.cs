@@ -154,7 +154,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         this.settings = settings;
         this.httpMethods = [.. implemented
-            .Select(method => AskingTheDirectory(method, settings.LdapAccountSource))
+            .Select(method => AskingTheDirectory(method, settings))
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
@@ -691,8 +691,10 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     }
 
     // HTTP Basic asks the directory too, so a method list that holds Basic is rebuilt around the source (ADR-0149, decision 2).
-    private static IHttpAuthenticationMethod AskingTheDirectory(IHttpAuthenticationMethod method, LdapAccountSource? directory) =>
-        directory is not null && method is BasicAuthenticationMethod basic ? basic.WithDirectory(directory) : method;
+    private static IHttpAuthenticationMethod AskingTheDirectory(IHttpAuthenticationMethod method, AuthenticationSettings settings) =>
+        settings.LdapAccountSource is { } directory && method is BasicAuthenticationMethod basic
+            ? basic.WithDirectory(directory, settings.HttpDirectoryScheme)
+            : method;
 
     /// <summary>
     /// When a password check starts, which the refusal delay is counted from.
