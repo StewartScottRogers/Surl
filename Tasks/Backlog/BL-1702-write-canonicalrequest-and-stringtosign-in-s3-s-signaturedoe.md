@@ -58,6 +58,10 @@ holding what the server computed, as AWS S3's does.
 
 - AWS's responses carry more elements (`AWSAccessKeyId`, `SignatureProvided`, `StringToSignBytes`,
   `CanonicalRequestBytes`). They are out of scope; if the lane finds them in AWS's documentation it files a follow-up.
+- From BL-1701, for the ADR-0108 amendment (its Notes say why): `****` is written for every signed header ADR-0182
+  withholds (`Authorization`, `Proxy-Authorization`, the API-key fields and `x-amz-security-token`), not the security
+  token alone; and the accepted limit that the string to sign's hash lets whoever holds both test guesses of a
+  withheld value, which matters only for a guessable one.
 
 ## Log
 

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1701 — Carry the SigV4 canonical request and string to sign on a BadSignature verdict
 
@@ -46,16 +46,16 @@ string to sign the server computed, so the S3 server can write them into its `Si
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Foundation/Surl.Authentication.UnitTests/AwsSigV4AuthenticationMethodTests.cs`: a request
+- [x] Named tests in `Foundation/Surl.Authentication.UnitTests/AwsSigV4AuthenticationMethodTests.cs`: a request
       signed with a wrong secret is refused `BadSignature` and its verdict's `SignatureMismatch` holds the canonical
       request and string to sign of AWS's documented SigV4 "GET Object" example (`examplebucket`,
       `AKIAIOSFODNN7EXAMPLE`; the vectors `AwsSigV4ServiceSignatureTests.cs` already uses), byte for byte.
-- [ ] Named tests in `AwsSigV4PresignedAndChunkedTests.cs`: the same for a presigned URL, and for a body-bound
+- [x] Named tests in `AwsSigV4PresignedAndChunkedTests.cs`: the same for a presigned URL, and for a body-bound
       signature refused at the body check.
-- [ ] Named test: a signed `x-amz-security-token` appears as `x-amz-security-token:****` in the carried canonical
+- [x] Named test: a signed `x-amz-security-token` appears as `x-amz-security-token:****` in the carried canonical
       request, and the string to sign's last line is the SHA-256 of the real canonical request.
-- [ ] Named tests: every other refusal, and every accepted verdict, has `SignatureMismatch` null.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` and
+- [x] Named tests: every other refusal, and every accepted verdict, has `SignatureMismatch` null.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` and
       `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` are clean, the fast tests of the
       whole solution are green, and both libraries stay at 100% line and branch coverage.
 
@@ -63,8 +63,24 @@ string to sign the server computed, so the S3 server can write them into its `Si
 
 - Four projects because the contract addition is a record and one optional parameter; the writing of the elements
   is BL-1702.
+- Pipeline: the task text was already the plan, so plan, tests (20 failing first), implementation and docs were done
+  in-session; review was delegated to `code-reviewer` (no Must fix). Conformance skipped: no bytes sent change until
+  BL-1702. Verify: build with `-warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests of the whole
+  solution green (Authentication 1518, Abstractions 635), both libraries 100% line and branch.
+- Decided by Claude under Stewart's delegation (BL-1702 records it in ADR-0108): `****` is written for every signed
+  header ADR-0182 withholds (`Authorization`, `Proxy-Authorization`, `X-Api-Key`, `Api-Key`, `X-Goog-Api-Key`,
+  `Ocp-Apim-Subscription-Key`, `X-Amz-Security-Token`), not the security token alone, because upstream curl signs
+  headers given with `-H`, so an API key could otherwise reach the `-v` log in the sent error.
+- Accepted limit: the string to sign hashes the real canonical request, so a guessable withheld value can be tested
+  against it. The task requires the real hash.
+- Cloud Storage's `GOOG4-HMAC-SHA256` shares `SignatureV4Check.VerifySignature`, so its bad signatures carry the
+  mismatch too: it is Signature Version 4 and holds no server secret.
+- `null` as well: an unknown access key, a `BadSignature` with no canonical request to build (a signed header missing,
+  a target with no path) and a right signature refused by a `refuse-login` fault (nothing mismatched).
+- Filed BL-1712 (one shared list of withheld header names).
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. A BadSignature Signature Version 4 verdict carries the canonical request (withheld values as ****) and string to sign
