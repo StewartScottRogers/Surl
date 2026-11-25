@@ -1,5 +1,5 @@
 ---
-id: BL-1716
+id: BL-1728
 title: Withhold header-block payloads after a sequence-breaking frame or PUSH_PROMISE in Http2RequestBytesRedactor
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1716 — Withhold header-block payloads after a sequence-breaking frame or PUSH_PROMISE in Http2RequestBytesRedactor
+# BL-1728 — Withhold header-block payloads after a sequence-breaking frame or PUSH_PROMISE in Http2RequestBytesRedactor
 
 ## Goal
 

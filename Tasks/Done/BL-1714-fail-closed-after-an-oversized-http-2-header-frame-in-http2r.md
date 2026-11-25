@@ -43,8 +43,8 @@ later header-block payload on the connection.
   `Measure-CodeQuality.ps1 -Library Surl.Http2.UnitLibrary` 100% line and branch, 0 failing members.
 - Conformance stage skipped: only the exchange log changes, no option, exit code or wire byte.
 - ADR-0182 amendment 7's last accepted limit names this task as open and is now false. It is not edited here: BL-1713,
-  in `Doing`, touches that file, and no acceptance criterion needs it. Filed as BL-1718. No new decision, so no ADR.
-- Follow-ups: BL-1716 (sequence-breaking frames and `PUSH_PROMISE`), BL-1717 (bound the held empty frames), BL-1718.
+  in `Doing`, touches that file, and no acceptance criterion needs it. Filed as BL-1730. No new decision, so no ADR.
+- Follow-ups: BL-1728 (sequence-breaking frames and `PUSH_PROMISE`), BL-1729 (bound the held empty frames), BL-1730.
 
 ## Log
 

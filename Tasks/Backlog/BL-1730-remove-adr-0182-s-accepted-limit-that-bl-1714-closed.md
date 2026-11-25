@@ -1,5 +1,5 @@
 ---
-id: BL-1718
+id: BL-1730
 title: Remove ADR-0182's accepted limit that BL-1714 closed
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1718 — Remove ADR-0182's accepted limit that BL-1714 closed
+# BL-1730 — Remove ADR-0182's accepted limit that BL-1714 closed
 
 ## Goal
 

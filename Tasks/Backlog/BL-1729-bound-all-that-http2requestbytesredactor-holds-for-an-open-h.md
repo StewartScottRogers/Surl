@@ -1,5 +1,5 @@
 ---
-id: BL-1717
+id: BL-1729
 title: Bound all that Http2RequestBytesRedactor holds for an open header block
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1717 — Bound all that Http2RequestBytesRedactor holds for an open header block
+# BL-1729 — Bound all that Http2RequestBytesRedactor holds for an open header block
 
 ## Goal
 
