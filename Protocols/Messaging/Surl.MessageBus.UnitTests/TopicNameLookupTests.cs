@@ -50,6 +50,17 @@ public sealed class TopicNameLookupTests
     }
 
     [TestMethod]
+    public void FromCanonicalTopic_ASourceNamesDefaultTopic_IsUnreachableOnThatSchemeAndItsTlsTwinOnly()
+    {
+        var lookup = new TopicNameLookup([new TopicMap("nats", "orders.created", "mqtt", "shop/orders/new")]);
+
+        Assert.AreEqual(TopicNameMappingOutcome.Unreachable, lookup.FromCanonicalTopic("nats", "orders/created").Outcome);
+        Assert.AreEqual(TopicNameMappingOutcome.Unreachable, lookup.FromCanonicalTopic("natss", "orders/created").Outcome);
+        Assert.AreEqual(TopicNameMapping.Of("orders.created"), lookup.FromCanonicalTopic("nats", "shop/orders/new"));
+        Assert.AreEqual(TopicNameMapping.Of("orders/created"), lookup.FromCanonicalTopic("mqtt", "orders/created"));
+    }
+
+    [TestMethod]
     public void DefaultMapping_EverySchemeFamily_MapsByItsOwnRules()
     {
         var lookup = new TopicNameLookup([]);
