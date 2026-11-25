@@ -1,5 +1,5 @@
 ---
-id: BL-1668
+id: BL-1682
 title: Record the Phase 7 findings as filed on the port's board and accept entry 28's two cases
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-24
 completed:
 ---
-# BL-1668 — Record the Phase 7 findings as filed on the port's board and accept entry 28's two cases
+# BL-1682 — Record the Phase 7 findings as filed on the port's board and accept entry 28's two cases
 
 ## Goal
 
@@ -52,3 +52,4 @@ port's board".
 ## Log
 
 - 2026-11-24: Created.
+- 2026-11-25: Renumbered from BL-1668, which a lane used for a different task at the same time.
