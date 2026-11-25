@@ -1,5 +1,5 @@
 ---
-id: BL-1723
+id: BL-1732
 title: Send a retained publish once when it lands between two filters of a held MQTT SUBSCRIBE
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1723 — Send a retained publish once when it lands between two filters of a held MQTT SUBSCRIBE
+# BL-1732 — Send a retained publish once when it lands between two filters of a held MQTT SUBSCRIBE
 
 ## Goal
 

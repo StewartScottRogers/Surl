@@ -47,7 +47,7 @@ completed: 2026-11-25
 - At the count-th `PUBLISH` queuing stops before it is written, so a backlog cannot cancel the `DISCONNECT` (found in
   review; reproduced by a failing test first).
 - `touches` widened to ADR-0014: its "Not yet built: BL-1720" became false. No task in Doing names that file.
-- Follow-up filed: BL-1723 (a retained publish landing between two filters of one `SUBSCRIBE` is sent twice).
+- Follow-up filed: BL-1732 (a retained publish landing between two filters of one `SUBSCRIBE` is sent twice).
 - Verified: build 0 warnings, format clean, fast tests 29171 passed, 0 failed, 3 skipped; library 100% line and
   branch, 0 failing members; the Conformance project's 47 MQTT `Integration` tests pass. Pinned-curl proof of the
   held mode is BL-1722.
