@@ -1,16 +1,16 @@
 ---
-id: BL-1719
+id: BL-1722
 title: Prove a held MQTT subscription with pinned upstream curl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1718]
+depends-on: [BL-1721]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1719 — Prove a held MQTT subscription with pinned upstream curl
+# BL-1722 — Prove a held MQTT subscription with pinned upstream curl
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-- ADR-0014 Amendment 1 (BL-1715) says how a test seeds, observes and ends a held subscription; BL-1718 adds the option.
+- ADR-0014 Amendment 1 (BL-1715) says how a test seeds, observes and ends a held subscription; BL-1721 adds the option.
 - Beside `Conformance/Surl.Conformance.UnitTests/UpstreamCurlSharesTopicsAcrossSurlListenersTests.cs`.
 - A test learns the subscription is live from the `SUBACK` in the exchange's sent bytes, never from a sleep.
 

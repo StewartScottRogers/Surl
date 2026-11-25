@@ -1,5 +1,5 @@
 ---
-id: BL-1717
+id: BL-1720
 title: Hold an MQTT 3.1.1 subscription open for live publishes in the MQTT server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1717 — Hold an MQTT 3.1.1 subscription open for live publishes in the MQTT server
+# BL-1720 — Hold an MQTT 3.1.1 subscription open for live publishes in the MQTT server
 
 ## Goal
 

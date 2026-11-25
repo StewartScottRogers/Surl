@@ -39,7 +39,7 @@ An ADR says whether `surl`'s MQTT 3.1.1 server keeps a `SUBSCRIBE` open and deli
 - Measured with `Record-CurlExchange.ps1 -Raw` (table in the amendment). A reply is sent only after curl pauses for
   `-RawIdleMilliseconds`, so holding a connection open is done with a short idle time and many empty replies; the
   script needed no change.
-- Filed BL-1717 (server), BL-1718 (option, help, composition), BL-1719 (pinned curl `Integration` tests).
+- Filed BL-1720 (server), BL-1721 (option, help, composition), BL-1722 (pinned curl `Integration` tests).
 - Written in the lane's own session rather than by `align-and-document`: the work was the measurement and the
   decision. No `.cs` or project file changed, so no build or test run.
 - Added `Documentation/Planning/Decisions/README.md` to `touches` for the ADR-0014 index row; no task in Doing names it.
@@ -48,4 +48,4 @@ An ADR says whether `surl`'s MQTT 3.1.1 server keeps a `SUBSCRIBE` open and deli
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
-- 2026-11-25: Doing -> Done. ADR-0014 Amendment 1 decides --mqtt-hold-subscription <count> from pinned curl 8.21.0 measurements; build filed as BL-1717 to BL-1719
+- 2026-11-25: Doing -> Done. ADR-0014 Amendment 1 decides --mqtt-hold-subscription <count> from pinned curl 8.21.0 measurements; build filed as BL-1720 to BL-1722

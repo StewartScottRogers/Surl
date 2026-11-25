@@ -1,16 +1,16 @@
 ---
-id: BL-1718
+id: BL-1721
 title: Add --mqtt-hold-subscription to surl and give its count to the MQTT server
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1717]
+depends-on: [BL-1720]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Mcp.UnitLibrary]
 requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1718 — Add --mqtt-hold-subscription to surl and give its count to the MQTT server
+# BL-1721 — Add --mqtt-hold-subscription to surl and give its count to the MQTT server
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-- ADR-0014 Amendment 1 (BL-1715) decides the option's name, values and meaning; BL-1717 gives the server the count.
+- ADR-0014 Amendment 1 (BL-1715) decides the option's name, values and meaning; BL-1720 gives the server the count.
 - Follow how `--mqtt5-disconnect-after-retained` is wired: `CommandLineOptions.cs`, `SurlCommandLine.cs`,
   `ManualText.cs`, `AiHelpProse.cs` (`mqtt` topic), `ComposedProtocolServices.cs`, `SurlServerComposition.Start.cs`,
   `CommandLinePathMembers.cs`.
