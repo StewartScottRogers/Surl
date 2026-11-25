@@ -648,5 +648,6 @@ public static partial class SurlServerComposition
             quicCertificate.Chain,
             quicCertificate.Key,
             ComposeConnectionLimits(commandLine).IdleTimeout,
-            clientTrustAnchors.Count == 0 ? null : new QuicClientCertificateTrust(clientTrustAnchors, timeProvider).Trusts);
+            clientTrustAnchors.Count == 0 ? null : new QuicClientCertificateTrust(clientTrustAnchors, timeProvider).Trusts,
+            commandLine.Cookies);
 }

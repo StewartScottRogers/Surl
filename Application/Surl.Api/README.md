@@ -110,7 +110,7 @@ extensions off, `UnsupportedProtocol`, as `surl` does). Listen on `mcp://127.0.0
 
 ## Cookies
 
-Each `Cookies` item is a `--set-cookie` value; over HTTP/1.x and HTTP/2 the server writes it as a
+Each `Cookies` item is a `--set-cookie` value; over HTTP/1.x, HTTP/2 and HTTP/3 the server writes it as a
 `Set-Cookie` header on every reply it matches (ADR-0189). No cookie is set unless one is given, here or
 as `--set-cookie` in `ConfigFiles` or `AdditionalArguments`; the limit of 64 counts all three. With
 `RecordExchanges` on, a test waits for the client to send it back:
