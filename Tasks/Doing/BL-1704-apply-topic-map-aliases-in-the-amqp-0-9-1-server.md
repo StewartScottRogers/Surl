@@ -46,3 +46,4 @@ ways, as ADR-0102 decision 3.3 says.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
