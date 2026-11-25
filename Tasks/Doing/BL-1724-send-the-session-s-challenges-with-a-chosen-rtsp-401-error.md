@@ -67,3 +67,4 @@ A fault rule that makes the RTSP server answer `401` sends the `WWW-Authenticate
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
