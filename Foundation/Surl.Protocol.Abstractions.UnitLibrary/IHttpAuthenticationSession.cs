@@ -17,4 +17,13 @@ public interface IHttpAuthenticationSession
     /// <returns>The outcome, the <c>WWW-Authenticate</c> values to send and the account logged in.</returns>
     ValueTask<HttpAuthenticationVerdict> JudgeAsync(
         HttpAuthenticationRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The <c>WWW-Authenticate</c> values a <c>401</c> on this connection would offer now, for a
+    /// server answering a <c>401</c> that did not come from <see cref="JudgeAsync"/>, since
+    /// RFC 9110 section 11.6.1 requires one challenge at least. It judges no request, logs no one
+    /// in and changes no login. The default offers none.
+    /// </summary>
+    /// <returns>The values in the order to send them; empty when the session offers no method on this connection.</returns>
+    IReadOnlyList<string> CreateChallenges() => [];
 }

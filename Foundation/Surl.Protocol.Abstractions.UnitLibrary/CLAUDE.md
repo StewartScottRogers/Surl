@@ -54,7 +54,9 @@ What it holds:
   `null` at once when the client half-closes, and otherwise after `wait` on its `peekClock`.
 - The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
   login, `PasswordLogin` judged as a `PasswordLoginVerdict`, one
-  `IHttpAuthenticationSession` per HTTP connection, and `NamesAccount`, a default interface member
+  `IHttpAuthenticationSession` per HTTP connection, whose `CreateChallenges`, a default interface member
+  returning an empty list, gives the `WWW-Authenticate` values the connection's own `401` would offer,
+  judging no request (BL-1699), and `NamesAccount`, a default interface member
   matching nothing, which says whether a name is a named account's so the Azure Storage server can
   read a path-style target, ADR-0109 decision 2, BL-725), `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
