@@ -78,3 +78,4 @@ With `-v`, `--trace`, `--trace-ascii` or `--log-file`, a SOCKS4, SOCKS4a or SOCK
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
