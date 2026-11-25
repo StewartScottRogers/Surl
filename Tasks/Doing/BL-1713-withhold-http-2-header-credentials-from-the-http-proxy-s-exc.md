@@ -43,3 +43,4 @@ The HTTP and HTTPS proxy's levelled log never holds an `authorization` or `proxy
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
