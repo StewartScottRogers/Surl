@@ -215,7 +215,7 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   (`AwsSigV4Calculation.BuildStringToSign`) of the real canonical request, and a copy of that request
   built with `withholdsSecrets`, which writes `****` for a signed `Authorization`,
   `Proxy-Authorization`, API-key or `x-amz-security-token` header and for an `X-Amz-Security-Token`
-  query parameter (ADR-0182). It is `null` for every other refusal and every accepted verdict, a
+  query parameter (ADR-0182; the header names are Abstractions' `HttpWithheldHeaderNames.All`). It is `null` for every other refusal and every accepted verdict, a
   fault-refused login and a request no canonical request can be built from included; chunk and
   trailer signature failures carry none.
 - A request with `HttpAuthenticationRequest.AwsSigV4Service` set (the S3 server's `s3`) is judged

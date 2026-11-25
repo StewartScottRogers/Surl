@@ -18,19 +18,6 @@ internal static class AwsSigV4CanonicalRequest
 
     private const string SecurityTokenParameter = "X-Amz-Security-Token";
 
-    // The header fields whose values the exchange log withholds (ADR-0182 decision 1 and its
-    // HTTP API-key and session-token fields).
-    private static readonly HashSet<string> WithheldHeaderNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Authorization",
-        "Proxy-Authorization",
-        "X-Api-Key",
-        "Api-Key",
-        "X-Goog-Api-Key",
-        SecurityTokenParameter,
-        "Ocp-Apim-Subscription-Key",
-    };
-
     /// <summary>
     /// Builds the canonical request, or <see langword="null"/> when a signed header is missing
     /// from the request or its target has no path.
@@ -125,7 +112,7 @@ internal static class AwsSigV4CanonicalRequest
                 return null;
             }
 
-            var isWithheld = withholdsSecrets && WithheldHeaderNames.Contains(name);
+            var isWithheld = withholdsSecrets && HttpWithheldHeaderNames.All.Contains(name, StringComparer.OrdinalIgnoreCase);
             lines.Append(name).Append(':').Append(isWithheld ? WithheldValue : string.Join(',', values)).Append('\n');
         }
 

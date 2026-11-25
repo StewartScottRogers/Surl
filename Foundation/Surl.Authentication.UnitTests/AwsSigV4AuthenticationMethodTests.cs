@@ -689,14 +689,14 @@ public sealed class AwsSigV4AuthenticationMethodTests
             verdict.SignatureMismatch.StringToSign.Split('\n')[^1]);
     }
 
+    // Each name of the shared list as it reads there and in lower case, as a client signs it.
+    private static IEnumerable<object[]> WithheldHeaderNames =>
+        HttpWithheldHeaderNames.All
+            .SelectMany(name => new[] { name, name.ToLowerInvariant() })
+            .Select(name => new object[] { name });
+
     [TestMethod]
-    [DataRow("authorization")]
-    [DataRow("proxy-authorization")]
-    [DataRow("x-api-key")]
-    [DataRow("api-key")]
-    [DataRow("x-goog-api-key")]
-    [DataRow("ocp-apim-subscription-key")]
-    [DataRow("X-Amz-Security-Token")]
+    [DynamicData(nameof(WithheldHeaderNames))]
     public async Task Policy_ASignedHeaderTheExchangeLogWithholds_IsWithheldFromTheCanonicalRequest(string name)
     {
         var request = TokenRequest(

@@ -13,10 +13,9 @@ public static class HttpExchangeRedaction
 {
     /// <summary>
     /// The API-key and session-token fields besides <c>Authorization</c> and <c>Proxy-Authorization</c>
-    /// whose whole value is masked.
+    /// whose whole value is masked: <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/>.
     /// </summary>
-    public static IReadOnlyList<string> ApiKeyFieldNames { get; } = Array.AsReadOnly(
-        ["X-Api-Key", "Api-Key", "X-Goog-Api-Key", "X-Amz-Security-Token", "Ocp-Apim-Subscription-Key"]);
+    public static IReadOnlyList<string> ApiKeyFieldNames => HttpWithheldHeaderNames.ApiKeysAndSessionTokens;
 
     /// <summary>
     /// Creates a redactor for one connection's HTTP/1.x request heads.

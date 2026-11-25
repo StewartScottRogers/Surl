@@ -192,6 +192,11 @@ and the protocols fan out after.
   (`Text`, `Number`, `Flag`, `Choice`, `Bytes`, named by property name). `SurlEventMemberTests` fails when a record leaves
   a public property unwritten or shadows a fact instead of overriding it.
 
+- `HttpWithheldHeaderNames` (BL-1712): the one list of the HTTP header fields whose values surl withholds
+  (ADR-0182): `Credentials` (`Authorization`, `Proxy-Authorization`), `ApiKeysAndSessionTokens` (five) and
+  `All`. `Surl.HttpMessage`'s request head redactor, `Surl.HttpServing`'s `HttpExchangeRedaction` and
+  `Surl.Authentication`'s withheld Signature Version 4 canonical request read it; the HTTP/2, HTTP/3 and
+  SOCKS tunnel redactors still name `Authorization` and `Proxy-Authorization` themselves.
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
   returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
   `ILineRedactionRule`, holding at most 64 KiB. Nothing implements them yet.

@@ -11,8 +11,6 @@ namespace Surl.HttpMessage;
 /// </summary>
 internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
 {
-    private static readonly string[] CredentialFieldNames = ["Authorization", "Proxy-Authorization"];
-
     private readonly HashSet<string> secretFieldNames;
     private readonly List<HttpRequestField> framingFields = [];
     private int lineCount;
@@ -20,12 +18,12 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     private int minorVersion = 1;
 
     /// <summary>
-    /// Creates a rule for <see cref="CredentialFieldNames"/> and any further fields.
+    /// Creates a rule for <see cref="HttpWithheldHeaderNames.Credentials"/> and any further fields.
     /// </summary>
     /// <param name="additionalSecretFieldNames">Fields whose whole value is a secret, such as an API key header.</param>
     public HttpRequestHeadLineRule(IEnumerable<string> additionalSecretFieldNames)
     {
-        secretFieldNames = new HashSet<string>(CredentialFieldNames, StringComparer.OrdinalIgnoreCase);
+        secretFieldNames = new HashSet<string>(HttpWithheldHeaderNames.Credentials, StringComparer.OrdinalIgnoreCase);
         secretFieldNames.UnionWith(additionalSecretFieldNames);
     }
 
@@ -134,7 +132,7 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     private static void WriteMaskedValue(string name, ReadOnlySpan<byte> value, ArrayBufferWriter<byte> output)
     {
         int space = value.IndexOf((byte)' ');
-        bool isCredentialField = Array.Exists(CredentialFieldNames, field => field.Equals(name, StringComparison.OrdinalIgnoreCase));
+        bool isCredentialField = HttpWithheldHeaderNames.Credentials.Contains(name, StringComparer.OrdinalIgnoreCase);
         if (isCredentialField && space > 0)
         {
             output.Write(value[..(space + 1)]);
