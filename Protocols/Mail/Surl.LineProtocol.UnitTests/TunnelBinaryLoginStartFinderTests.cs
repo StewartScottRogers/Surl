@@ -29,7 +29,7 @@ public sealed class TunnelBinaryLoginStartFinderTests
 
         Assert.IsTrue(finder.TryFind(Bytes(lines + "\u0010("), out var loginStart, out var redactor));
         Assert.AreEqual(lines.Length, loginStart);
-        Assert.IsInstanceOfType<TunnelMqttConnectRedactor>(redactor);
+        Assert.IsInstanceOfType<TunnelMqttLoginRedactor>(redactor);
     }
 
     [TestMethod]

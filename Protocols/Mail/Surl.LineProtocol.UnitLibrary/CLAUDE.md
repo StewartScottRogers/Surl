@@ -43,11 +43,13 @@ and for binary logins (amendments 23 and 25):
   then `****`, and a `HELLO` line up to the byte after its `AUTH` word, then `****`), and logs what
   the one withholding from earliest in the line writes.
 - `TunnelBinaryLoginRedactors` (BL-1765, ADR-0182 amendment 23) - the redactor by the byte where a
-  tunnel's login may start, else none: `0x10` gives `TunnelMqttConnectRedactor` (the MQTT 3.1.1 or 5 `CONNECT`
-  password as `00 04 ****`, the Remaining Length rewritten to match; over
-  `TunnelMqttConnectPasswordFinder`) and `0x30` gives `TunnelLdapBindRedactor` (every bind's
-  authentication as its tag, `04`, `****`; over `TunnelBerHeader`). Neither holds more than 64 KiB
-  (amendment 10).
+  tunnel's login may start, else none: `0x10` gives `TunnelMqttLoginRedactor` (BL-1744, amendment 28:
+  the MQTT 3.1.1 or 5 `CONNECT` password and every MQTT 5 Authentication Data value, in a `CONNECT` or
+  `AUTH` packet, as `00 04 ****`, the Property Length and Remaining Length rewritten to match; it frames
+  every packet, holds only `CONNECT` and `AUTH` whole, and masks one it cannot walk; over
+  `TunnelMqttLoginBodyMasker`, `TunnelMqttPropertiesMasker` and `TunnelMqttFields`) and `0x30` gives
+  `TunnelLdapBindRedactor` (every bind's authentication as its tag, `04`, `****`; over
+  `TunnelBerHeader`). Neither holds more than 64 KiB (amendment 10).
 - `TunnelBinaryLoginStartFinder` (BL-1780, ADR-0182 amendment 25) - where a tunnel's binary login
   starts, for both servers: at its first byte, or at the byte after a first line starting `PROXY `
   (curl's `--haproxy-protocol`), several such lines in a row each followed. It gives the redactor

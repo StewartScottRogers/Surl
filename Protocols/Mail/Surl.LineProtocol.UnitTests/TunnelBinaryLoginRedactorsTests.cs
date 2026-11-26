@@ -8,7 +8,7 @@ public sealed class TunnelBinaryLoginRedactorsTests
     {
         var first = TunnelBinaryLoginRedactors.ForFirstByte(0x10);
 
-        Assert.IsInstanceOfType<TunnelMqttConnectRedactor>(first);
+        Assert.IsInstanceOfType<TunnelMqttLoginRedactor>(first);
         Assert.AreNotSame(first, TunnelBinaryLoginRedactors.ForFirstByte(0x10));
     }
 

@@ -1,9 +1,9 @@
 namespace Surl.Protocol.Socks;
 
 /// <summary>
-/// MQTT <c>CONNECT</c> passwords through a granted SOCKS tunnel, as the exchange log shows them
-/// (ADR-0182, amendments 10 and 25). <c>Surl.LineProtocol</c>'s <c>TunnelMqttConnectRedactorTests</c>
-/// cover every form of the packet.
+/// MQTT <c>CONNECT</c> passwords and MQTT 5 Authentication Data through a granted SOCKS tunnel, as the
+/// exchange log shows them (ADR-0182, amendments 10, 25 and 28). <c>Surl.LineProtocol</c>'s
+/// <c>TunnelMqttLoginRedactorTests</c> cover every form of the packets.
 /// </summary>
 [TestClass]
 public sealed class SocksTunnelMqttRedactionTests
@@ -51,6 +51,35 @@ public sealed class SocksTunnelMqttRedactionTests
         CollectionAssert.AreEqual(
             (byte[])[0x10, 14, .. CurlConnect[2..12], .. "****"u8],
             SocksTunnelRedactionTestKit.Logged(CurlConnect[..^3]));
+
+    // MQTT 5.0 section 3.1; pinned upstream curl speaks 3.1.1 only, so the bytes are the specification's.
+    [TestMethod]
+    public void Mqtt5Connect_WithAuthenticationData_IsLoggedWithItMaskedHoweverSplit() =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            Mqtt5Connect([23, .. Method, 0x16, .. Text("****")]),
+            Mqtt5Connect([28, .. Method, 0x16, .. Text("client-fi")]));
+
+    // MQTT 5.0 section 3.15: reason code 0x18, then the properties.
+    [TestMethod]
+    public void Mqtt5Auth_AfterTheConnect_IsLoggedWithTheAuthenticationDataMaskedHoweverSplit()
+    {
+        var connect = Mqtt5Connect([16, .. Method]);
+        byte[] auth = [0xF0, 33, 0x18, 31, .. Method, 0x16, .. Text("client-final")];
+        byte[] masked = [0xF0, 25, 0x18, 23, .. Method, 0x16, .. Text("****")];
+
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit([.. connect, .. masked], [.. connect, .. auth]);
+    }
+
+    // Authentication Method SCRAM-SHA-256.
+    private static byte[] Method => [0x15, .. Text("SCRAM-SHA-256")];
+
+    // A level 5 CONNECT with clean start, these properties and client identifier "cid".
+    private static byte[] Mqtt5Connect(byte[] properties)
+    {
+        byte[] body = [.. Text("MQTT"), 0x05, 0x02, 0x00, 0x3C, .. properties, .. Text("cid")];
+
+        return [0x10, (byte)body.Length, .. body];
+    }
 
     // Two length bytes and the text, as MQTT writes a string.
     private static byte[] Text(string text) => [(byte)(text.Length >> 8), (byte)text.Length, .. SocksTestKit.Latin1Bytes(text)];

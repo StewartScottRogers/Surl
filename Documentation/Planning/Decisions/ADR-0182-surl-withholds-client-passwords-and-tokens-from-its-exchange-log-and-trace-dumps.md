@@ -361,9 +361,11 @@ An MQTT `CONNECT` password and an LDAP simple bind password carried through a SO
 
 Accepted limits:
 
-- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1744).
+- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1744). Closed by
+  amendment 28.
 - A packet or message declaring a length that ends before its secret leaves the rest logged as received, and so does
-  a `CONNECT` whose protocol name length runs past the packet. Only a non-conforming client does this.
+  a `CONNECT` whose protocol name length runs past the packet. Only a non-conforming client does this. This holds for
+  Authentication Data as for a password; amendment 28 says what it masks of an MQTT packet that cannot be walked.
 - An LDAP message length written in five or more octets, legal BER that curl does not send, leaves the tunnel logged
   as received from there on, as in the LDAP server's own log.
 - The LDAP lengths enclosing a bind still encode the password's length indirectly, as in amendment 5.
@@ -960,3 +962,41 @@ Accepted limit:
 - As amendment 24 has it for every user of the head redactor, what a head declares as its body is logged as received.
   The server refuses an upgrade that declares one and closes the connection, so only a client crafting its own bytes
   puts a login there.
+
+## Amendment 28 (BL-1744, decided by Claude under Stewart's delegation)
+
+MQTT 5 Authentication Data sent through a SOCKS tunnel or an HTTP proxy `CONNECT` tunnel, a `CONNECT` property or in an
+`AUTH` packet, was logged in clear (amendment 10's first accepted limit).
+
+1. **Every packet of the tunnel is framed.** `TunnelMqttLoginRedactor` (with `TunnelMqttLoginBodyMasker`,
+   `TunnelMqttPropertiesMasker` and `TunnelMqttFields`) replaces amendment 23's `TunnelMqttConnectRedactor` and
+   `TunnelMqttConnectPasswordFinder`. It holds each `CONNECT` and `AUTH` packet until it is whole. Of every other packet
+   only the fixed header is held until whole, and its bytes are logged as they arrive, however long it is. This replaces
+   amendment 10, point 2's "later packets are logged as they arrive" for those two packet types.
+2. **What is masked.** The password as before. Every Authentication Data value is logged as `00 04 ****`, with the
+   Property Length and the Remaining Length rewritten to count what is logged, in the `CONNECT` properties, in an
+   `AUTH` packet's, and among the Will properties, where the specification does not allow it. A packet with no secret
+   is logged as received. The protocol level is not consulted for `AUTH`: MQTT 3.1.1 reserves its packet type.
+3. **Fail closed.** A `CONNECT` that announces a password, or is level 5 or higher, whose fields do not lead exactly to
+   its end has everything after its keep alive logged as `****`. So has one with a property identifier the
+   specification's table 2-4 does not define, because nothing after it can be told apart. An `AUTH` packet whose
+   properties do not end exactly where it does is logged with `****` as its whole body. A cut-off packet is judged the
+   same way.
+4. **64 KiB.** A `CONNECT` or `AUTH` packet declaring more is one `****` and its bytes are dropped, and the packets
+   after it are framed as before. No more than 64 KiB is ever held (amendment 10).
+5. **Rejected:** framing later packets only after a level 5 `CONNECT`, which a `CONNECT` too long to be read would
+   switch off; and sharing the MQTT 5 server's `Mqtt5ClientSecretBytesRedactor`, which `Surl.LineProtocol` may not
+   reference (ADR-0002 decision 3).
+
+Evidence: pinned upstream curl speaks MQTT 3.1.1 only, so the test bytes are written from the MQTT 5.0 specification,
+sections 2.2.2, 3.1 and 3.15. The redaction is reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- As amendment 10 has them: a packet declaring a length that ends before its secret, a `CONNECT` whose protocol name
+  length runs past the packet, and everything after a Remaining Length past four bytes are logged as received. Only a
+  non-conforming client does these.
+- In another binary protocol starting `0x10`, any later run of bytes may now be read as a `CONNECT` or `AUTH` packet,
+  held (never more than 64 KiB) and lose log detail to `****`. That never reveals a secret.
+- `--aihelp logging` and the manual still name MQTT 5 Authentication Data as logged in a tunnel, until BL-1764 rewrites
+  them.
