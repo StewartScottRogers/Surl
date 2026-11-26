@@ -479,6 +479,17 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Logging_SaysAMisplacedHttp2PrefaceWithholdsEveryLaterByte()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "Challenge responses and proofs (Digest, NTLM, Negotiate, CRAM-MD5, SCRAM, APOP, SigV4) are not secrets in clear and are logged as received, and so are data bodies, with two exceptions: a line sent through a SOCKS or HTTP proxy tunnel that reads as one carrying a secret has that secret withheld, and an HTTP/2 connection preface can make surl withhold the rest of a connection, as the next paragraphs say.");
+        StringAssert.Contains(page, "On a `--proxy` listen URL, and on the `http` and `https` listen URLs of a start that names `--proxy`, while a connection is read as HTTP/1.x, an HTTP/2 connection preface that does not start where a request may start (one inside an upload body, partway through a line or after a HAProxy `PROXY` line sent into a tunnel) withholds every later byte the client sends on that connection, later requests included, behind one `****`.");
+        StringAssert.Contains(page, "A preface that starts where a request may start (ALPN `h2`, prior knowledge in a `CONNECT` tunnel, or after an `h2c` upgrade request) is not that case: what follows is read as HTTP/2, and its `DATA` frames, those of a `CONNECT` stream and any credential tunnelled in them included, are logged as received.");
+        Assert.DoesNotContain("data bodies are not secrets in clear", page);
+    }
+
+    [TestMethod]
     public void Answer_Testing_SaysAnHttpChosen401CarriesTheServersChallenges()
     {
         var page = AiHelpText.Answer("testing").Output;
