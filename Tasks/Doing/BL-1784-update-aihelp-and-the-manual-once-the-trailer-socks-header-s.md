@@ -36,3 +36,4 @@ The `logging` topic of `surl --aihelp` and the manual no longer name as logged a
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
