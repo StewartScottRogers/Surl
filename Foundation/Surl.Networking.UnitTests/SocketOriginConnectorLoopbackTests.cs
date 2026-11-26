@@ -17,6 +17,11 @@ public sealed class SocketOriginConnectorLoopbackTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
+    // For a connect that must succeed. Windows takes about 2 s to refuse [::1], which localhost
+    // resolves to ahead of 127.0.0.1, and far longer on a loaded machine (BL-1746), so no connect
+    // timeout is set; the operating system still bounds each attempt.
+    private static readonly TimeSpan NoConnectTimeout = System.Threading.Timeout.InfiniteTimeSpan;
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -30,7 +35,7 @@ public sealed class SocketOriginConnectorLoopbackTests
         var connector = new SocketOriginConnector(AllowedOriginRule.LoopbackOnly);
 
         var accept = origin.AcceptTcpClientAsync(TestContext.CancellationToken).AsTask();
-        await using var connection = await connector.ConnectAsync(host, port, Timeout, TestContext.CancellationToken);
+        await using var connection = await connector.ConnectAsync(host, port, NoConnectTimeout, TestContext.CancellationToken);
         using var originEnd = await accept;
         await connection.WriteAsync(Encoding.ASCII.GetBytes("ping"), TestContext.CancellationToken);
         var received = new byte[4];
