@@ -8,7 +8,7 @@ depends-on: [BL-1717]
 touches: [Protocols/Http/Surl.Http2.UnitLibrary, Protocols/Http/Surl.Http2.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1758 — Withhold every byte the HTTP/2 redactor receives that does not open with the client preface
 
@@ -39,21 +39,36 @@ with none of its credentials, API keys or session tokens.
 
 ## Acceptance criteria
 
-- [ ] `Http2RequestBytesRedactorTests.Redact_Http1RequestInPlaceOfThePreface_WritesOnlyAMask` is seen to fail before the
+- [x] `Http2RequestBytesRedactorTests.Redact_Http1RequestInPlaceOfThePreface_WritesOnlyAMask` is seen to fail before the
       fix and passes after it: a redactor made with `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, given a `GET`
       request carrying `Authorization` and `x-api-key`, writes `****` and nothing else.
-- [ ] `Http2RequestBytesRedactorTests.Redact_BytesThatLeaveThePrefacePartWay_WritesTheMatchingBytesThenOneMask` passes
+- [x] `Http2RequestBytesRedactorTests.Redact_BytesThatLeaveThePrefacePartWay_WritesTheMatchingBytesThenOneMask` passes
       for a `PUT` request delivered whole and one byte at a time: `P`, then `****`, and nothing for later bytes or from
       `Flush`.
-- [ ] The tests that `Http2RequestBytesRedactorTests` held before this task pass with their expected output unchanged.
-- [ ] The class remarks of `Http2RequestBytesRedactor` and a new ADR-0182 amendment (the next free number) say what is
+- [x] The tests that `Http2RequestBytesRedactorTests` held before this task pass with their expected output unchanged.
+- [x] The class remarks of `Http2RequestBytesRedactor` and a new ADR-0182 amendment (the next free number) say what is
       logged when the bytes do not open with the preface.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green (the http, gRPC, DNS, HTTP proxy and SOCKS tests
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green (the http, gRPC, DNS, HTTP proxy and SOCKS tests
       unchanged), and `Surl.Http2.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
+
+- Failing first: before the fix the new tests failed, the `GET` and `PUT` requests logged as received (4 failures of 50).
+- Fix: `Http2RequestBytesRedactor.ReadPreface` compares each preface byte; the first that differs writes one `****`
+  and stops all output. Recorded as ADR-0182 amendment 17 (decided by Claude under Stewart's delegation). No upstream
+  curl measurement: no byte Surl sends or expects changes, only what its log writes.
+- Verified: build `-warnaserror` clean, format clean, 29558 fast tests passed in 83 test projects, `Surl.Http2` 100%
+  line and branch, 0 failing members. No test project but `Surl.Http2.UnitTests` changed.
+- Help text: the last paragraph of the `logging` topic (`AiHelpProse.cs`) and of the manual (`ManualText.cs`) still
+  says bytes sent in place of the preface are logged as received. That sentence is now false and is left to BL-1764,
+  which depends on this task and owns it (`Surl.Cli` is outside this task's `touches`). This task closes the whole
+  sentence, both the `grpc` and the `101` cases.
+- Review: `code-reviewer` found no code defect; its two ADR wording fixes and one summary qualification are applied.
+  Its suggested consumer tests (gRPC `CreateRedactor`, the `101` path) were not filed: both consumers pass bytes
+  straight to the redactor, whose tests cover the rule.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. Bytes that do not open with the HTTP/2 preface are logged as the matching bytes then one ****, so HTTP/1.1 secrets sent to grpc or after an h2c 101 stay out of the log
