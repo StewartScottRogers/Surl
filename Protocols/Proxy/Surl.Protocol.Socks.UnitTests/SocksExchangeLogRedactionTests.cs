@@ -289,7 +289,9 @@ public sealed class SocksExchangeLogRedactionTests
     [DataRow("Host: localhost:18080\r\n")]
     [DataRow("PASS\r\n")]
     [DataRow("PASS \r\n")]
+    [DataRow("PASS\t\r\n")]
     [DataRow("PASSIVE s3cret\r\n")]
+    [DataRow("PASSIVE\ts3cret\r\n")]
     [DataRow("Authorization:\r\n")]
     [DataRow("Authorization: \r\n")]
     [DataRow("X-Authorization: value\r\n")]
@@ -345,6 +347,20 @@ public sealed class SocksExchangeLogRedactionTests
 
         Assert.AreEqual("USER app\nPASS ****\nQUIT\n", logged);
     }
+
+    [TestMethod]
+    public void Tunnel_PassSeparatedByATab_IsMaskedKeepingTheTab() =>
+        CollectionAssert.AreEqual(
+            SocksTestKit.Latin1Bytes("USER app\r\nPASS\t****\r\npass\t****\nQUIT\r\n"),
+            SocksTunnelRedactionTestKit.Logged(
+                SocksTestKit.Latin1Bytes("USER app\r\nPASS\ts3cret-pw\r\npass\t\ts3cret pw\nQUIT\r\n")));
+
+    [TestMethod]
+    public void Tunnel_AcctSeparatedByATab_IsMaskedKeepingTheTab() =>
+        CollectionAssert.AreEqual(
+            SocksTestKit.Latin1Bytes("USER app\r\nACCT\t****\r\nacct\t****\nQUIT\r\n"),
+            SocksTunnelRedactionTestKit.Logged(
+                SocksTestKit.Latin1Bytes("USER app\r\nACCT\ts3cret-account\r\nacct\t s3cret account\nQUIT\r\n")));
 
     [TestMethod]
     public void Tunnel_AnUnfinishedPassLine_IsMaskedAtTheEnd() =>

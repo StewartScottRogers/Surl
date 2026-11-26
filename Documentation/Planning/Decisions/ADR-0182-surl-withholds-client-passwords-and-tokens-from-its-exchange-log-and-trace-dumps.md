@@ -1022,3 +1022,22 @@ Accepted limits:
   That loses log detail only.
 - A line where `LOGIN` is neither the first nor the second word is logged as received.
 - Which tunnels are read as text is unchanged (amendment 9, point 1): a tunnel whose first byte is a space is not.
+
+## Amendment 30 (BL-1753, decided by Claude under Stewart's delegation)
+
+A `PASS<tab><password>` or `ACCT<tab><account>` line was logged in clear in a SOCKS tunnel and in an HTTP proxy
+`CONNECT` tunnel, because the shared rule asked for a space after the command word.
+
+1. **A space or a tab ends the command word.** `TunnelPasswordAndCredentialHeaderLineRule` reads `PASS` or `ACCT`,
+   without regard to case, followed by a space or a tab. This replaces the `PASS ` and `ACCT ` of amendment 6, point 3.
+2. **What is logged.** The command word and that one byte as received, then `****` for everything after it, further
+   spaces and tabs included. A line with nothing after that byte is logged as received. This matches what the FTP
+   server's own log does with a tab.
+
+Evidence: pinned upstream curl separates the two with a single space, so no byte it sends is logged differently. The
+redaction is reproduced by unit tests, not recorded on the wire.
+
+Accepted limit:
+
+- A `PASS` or `ACCT` line with spaces or tabs before the command word is still logged as received, unless it continues
+  a withheld header, until BL-1783.

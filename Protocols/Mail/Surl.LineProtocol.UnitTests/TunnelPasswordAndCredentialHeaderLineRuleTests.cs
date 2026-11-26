@@ -28,6 +28,10 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
     [DataRow("pass s3cret pw", "pass ****")]
     [DataRow("ACCT s3cret-account", "ACCT ****")]
     [DataRow("acct s3cret-account", "acct ****")]
+    [DataRow("PASS\ts3cret-pw", "PASS\t****")]
+    [DataRow("pass\t\ts3cret pw", "pass\t****")]
+    [DataRow("ACCT\ts3cret-account", "ACCT\t****")]
+    [DataRow("acct\t s3cret-account", "acct\t****")]
     public void Redact_PassOrAcctArgument_IsMasked(string line, string logged) =>
         Assert.AreEqual(logged, Redact(line)[0]);
 
@@ -50,6 +54,9 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
     [DataRow("")]
     [DataRow("PASS ")]
     [DataRow("PASS")]
+    [DataRow("PASS\t")]
+    [DataRow("PASSIVE\ts3cret")]
+    [DataRow("USER\tapp")]
     [DataRow("USER app")]
     [DataRow("Host: example.com")]
     [DataRow("Authorization:")]

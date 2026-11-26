@@ -6,8 +6,9 @@ namespace Surl.LineProtocol;
 
 /// <summary>
 /// The <see cref="ILineRedactionRule"/> for a password command or a credential header in a tunnel: it
-/// writes the argument of a <c>PASS</c> or <c>ACCT</c> command as
-/// <see cref="LineBytesRedactor.SecretMask"/>, the credentials of a header named in
+/// writes the argument of a <c>PASS</c> or <c>ACCT</c> command, its command word ended by a space or a
+/// tab that is logged as received, as <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendment
+/// 30), the credentials of a header named in
 /// <see cref="HttpWithheldHeaderNames.Credentials"/> as <see cref="LineBytesRedactor.SecretMask"/>
 /// after the scheme word, and the whole value of a header named in
 /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> as
@@ -66,10 +67,12 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRu
         return IsHeaderNamedIn(line, HttpWithheldHeaderNames.Credentials) ? FindCredentialsStart(line) : line.Length;
     }
 
+    // "PASS" or "ACCT" and the space or tab that ends the command word.
     private static bool IsPasswordCommand(ReadOnlySpan<byte> line) =>
         line.Length >= CommandPrefixLength
-        && (Ascii.EqualsIgnoreCase(line[..CommandPrefixLength], "PASS "u8)
-            || Ascii.EqualsIgnoreCase(line[..CommandPrefixLength], "ACCT "u8));
+        && Blanks.Contains(line[CommandPrefixLength - 1])
+        && (Ascii.EqualsIgnoreCase(line[..(CommandPrefixLength - 1)], "PASS"u8)
+            || Ascii.EqualsIgnoreCase(line[..(CommandPrefixLength - 1)], "ACCT"u8));
 
     private static bool IsHeaderNamedIn(ReadOnlySpan<byte> line, IReadOnlyList<string> names)
     {
