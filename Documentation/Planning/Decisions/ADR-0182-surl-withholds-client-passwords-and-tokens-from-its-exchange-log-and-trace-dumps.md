@@ -129,6 +129,7 @@ IMAP `+`, the next client line is a secret).
   rewrite file content that happens to look like a command. They still count in `ExchangeEndedEvent` and reach the event stream.
 - **Decrypted-bytes notes** (QUIC, DTLS) are redacted per reported chunk by a fresh redactor from the same server, not by the
   exchange's wire redactor, because the wire bytes of those transports are ciphertext. Only received chunks are redacted. Events stay raw.
+  Amendment 21 replaces "per reported chunk" for a stream's bytes when the redactor follows streams.
 
 ## Amendment 2 (BL-1425, decided by Claude under Stewart's delegation)
 
@@ -165,7 +166,8 @@ IMAP `+`, the next client line is a secret).
   `name: value` lines and those two values are written as `****`.
 - **Fail closed, with one limit.** A `HEADERS` payload that does not decode or runs past its chunk is withheld. A chunk is read as
   frames from its first byte because the redactor is not told its stream; a body chunk starting mid-frame that happens to read as
-  an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret.
+  an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret. Amendment 21 tells the
+  redactor the stream and replaces this for a stream's bytes.
 
 ## Amendment 5 (BL-1610, decided by Claude under Stewart's delegation)
 
@@ -474,7 +476,7 @@ HTTP-carried extended servers withhold them: `Http3RequestBytesRedactor` named o
    would make their HTTP/3 log differ from their HTTP/1.x and HTTP/2 ones.
 4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
 
-Accepted limit, until BL-1762 closes it:
+Accepted limit, closed by amendment 21:
 
 - Each chunk is redacted on its own (amendment 1), so when QUIC splits a `HEADERS` frame, the chunks after the first are
   logged as received unless they happen to read as a `HEADERS` frame, and a secret in them **can be logged**. This
@@ -709,3 +711,42 @@ Accepted limits:
 
 - A line neither reading takes for `LOGIN` is logged as received, one with no tag included (BL-1750).
 - The limits amendments 9, 16, 18 and 19 give for these rules hold for both servers alike.
+
+## Amendment 21 (BL-1762, decided by Claude under Stewart's delegation)
+
+QUIC reports each in-order piece of a stream as its own chunk, and each chunk was redacted on its own, so the later
+chunks of a split HTTP/3 `HEADERS` frame were logged as received, a secret included (amendment 14's accepted limit,
+read from the code, not recorded).
+
+1. **The redactor follows the stream.** `Surl.Protocol.Abstractions` gains `IStreamReceivedBytesRedactor`, an
+   `IReceivedBytesRedactor` with `RedactStream(streamId, received, output)`, which holds nothing back. When the
+   server's redactor is one, the engine keeps one instance per exchange and gives it every received `Decrypted` chunk
+   that has a stream ID, one call at a time. DTLS plaintext, QUIC datagrams and `Decoded` text have no stream bytes to
+   follow and are redacted alone, each by a fresh redactor, as amendment 1 says; so are the chunks of a server whose
+   redactor does not follow streams.
+2. **A frame payload is not the stream's next bytes.** HTTP/3 reports a `DATA` payload a second time, as `Decrypted`
+   bytes of the same stream (ADR-0169 decision 1). `IDecryptedBytesSink` gains `ReceivedFramePayload`, whose default
+   calls `Received`; `Surl.Http3` reports `DATA` payloads through it, and the engine redacts each alone, as before. The
+   published event is unchanged.
+3. **HTTP/3 form.** A client's bidirectional stream is read as frames from its first byte, however it is split. A frame
+   header is logged as received as its bytes arrive. A `HEADERS` payload is logged as received only when it is whole in
+   the chunk that completes its frame header, decodes and carries no secret field; otherwise it is `****` once, and every
+   further byte of it is left out. Every other frame's payload is logged as received, so a `DATA` payload is no longer
+   mistaken for a frame. A unidirectional stream carries no request, and each of its chunks is redacted alone.
+4. **Nothing is held back.** Holding a split payload until it is whole could show a non-secret one, but needs a buffer of
+   up to 64 KiB per stream and a flush when the stream ends, which nothing reports. Rejected: a split `HEADERS` payload
+   is withheld whether or not it carries a secret, as its first chunk already was (amendment 4).
+5. **Bounded memory.** Only streams part-way through a frame are remembered, at most 4,096. When one more would be, the
+   redactor has lost a stream's place, and every later bidirectional stream chunk is `****` (fail closed, as amendment
+   11, point 4).
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
+
+Accepted limits:
+
+- A WebTransport bidirectional stream (signal `0x41`, session ID, then data) is read as frames too, so data that reads
+  as a `HEADERS` frame is withheld, now possibly across several chunks. That loses log detail only (BL-1774).
+- A stream reset or finished part-way through a frame stays remembered until the connection ends, and counts towards the
+  4,096 (BL-1774).
+- `Decoded` header text is still redacted only when it starts with `:` and line by line, so a malformed request whose
+  first field is a regular one, or whose secret value holds CR LF, **can be logged** in that note. This amendment changes
+  nothing there (BL-1773).
