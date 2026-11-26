@@ -39,7 +39,7 @@ The POP3 exchange log writes the password as `****` on a `PASS<tab><password>` l
 - Verified 2026-11-25: `dotnet build -warnaserror` 0 warnings; fast tests no failures (243 in Pop3);
   `Measure-CodeQuality.ps1 -Library Surl.Protocol.Pop3.UnitLibrary` 100% line, 100% branch, 0 failing members;
   `dotnet format --verify-no-changes` on both projects clean.
-- Set aside, filed as BL-1755: a `PASS` line that starts with spaces or tabs is still logged with the password.
+- Set aside, filed as BL-1756: a `PASS` line that starts with spaces or tabs is still logged with the password.
 
 ## Log
 

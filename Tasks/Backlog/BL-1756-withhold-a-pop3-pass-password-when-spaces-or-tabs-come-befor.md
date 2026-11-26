@@ -1,5 +1,5 @@
 ---
-id: BL-1755
+id: BL-1756
 title: Withhold a POP3 PASS password when spaces or tabs come before the command word
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1755 — Withhold a POP3 PASS password when spaces or tabs come before the command word
+# BL-1756 — Withhold a POP3 PASS password when spaces or tabs come before the command word
 
 ## Goal
 
