@@ -1,5 +1,5 @@
 ---
-id: BL-1756
+id: BL-1757
 title: Withhold a NATS CONNECT secret on a line that follows a bare line feed
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1756 — Withhold a NATS CONNECT secret on a line that follows a bare line feed
+# BL-1757 — Withhold a NATS CONNECT secret on a line that follows a bare line feed
 
 ## Goal
 

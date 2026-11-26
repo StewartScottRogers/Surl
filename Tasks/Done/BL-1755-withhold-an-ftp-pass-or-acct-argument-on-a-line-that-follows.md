@@ -47,7 +47,7 @@ line feed.
   (ADR-0182 decision 6). That loses log detail and reveals no secret.
 - Verified: `dotnet build -warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests green,
   `Measure-CodeQuality.ps1` on the FTP tests' coverage reports 0 failing members in `Surl.Protocol.Ftp.UnitLibrary`.
-- Filed BL-1756: the NATS redaction rule has the same bare-LF gap (read from the code).
+- Filed BL-1757: the NATS redaction rule has the same bare-LF gap (read from the code).
 
 ## Log
 
