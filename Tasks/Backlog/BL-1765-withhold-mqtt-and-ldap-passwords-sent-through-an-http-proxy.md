@@ -4,8 +4,8 @@ title: Withhold MQTT and LDAP passwords sent through an HTTP proxy CONNECT tunne
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1734]
-touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
+depends-on: [BL-1734, BL-1767]
+touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests, Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
 completed:
@@ -41,3 +41,4 @@ An MQTT `CONNECT` password and an LDAP simple bind password sent through an HTTP
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Now depends on BL-1767 (Stewart: 'prioritise 1767'): fix this in the shared tunnel line rules BL-1767 moves into Surl.LineProtocol, not in a per-server copy.

@@ -4,8 +4,8 @@ title: Withhold MQTT 5 Authentication Data carried through a SOCKS tunnel from t
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1706]
-touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
+depends-on: [BL-1706, BL-1767]
+touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests, Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
 completed:
@@ -41,3 +41,4 @@ An MQTT 5 Authentication Data value carried through a SOCKS tunnel, in a `CONNEC
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Now depends on BL-1767 (Stewart: 'prioritise 1767'): fix this in the shared tunnel line rules BL-1767 moves into Surl.LineProtocol, not in a per-server copy.

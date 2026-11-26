@@ -1,7 +1,7 @@
 ---
 id: BL-1767
 title: Move the tunnel line redaction rules the SOCKS server and the HTTP proxy each hold into a shared library
-priority: Low
+priority: High
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1734]
@@ -43,3 +43,4 @@ One copy of the tunnel line redaction rules, in a library both the SOCKS server 
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Priority Low -> High and made the tunnel redaction follow-ups depend on it (Stewart: 'prioritise 1767').
