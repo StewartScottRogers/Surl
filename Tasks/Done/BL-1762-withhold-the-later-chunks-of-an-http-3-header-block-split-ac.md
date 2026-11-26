@@ -46,8 +46,8 @@ No byte of an HTTP/3 request `HEADERS` payload carrying a secret field is logged
   The tests were written first but not run before the implementation; they name members that did not exist yet.
   `code-reviewer` reviewed it. No conformance stage: no byte a client receives changes.
 - Review findings left open, filed: BL-1773 (High; pre-existing leak in the `Decoded` note for a malformed request) and
-  BL-1774 (Low; WebTransport stream data read as frames, and abandoned streams stay remembered). Both lose or leak
-  nothing new on the split-`HEADERS` path this task covers; BL-1774's log loss can now span chunks.
+  BL-1775 (Low; WebTransport stream data read as frames, and abandoned streams stay remembered). Both lose or leak
+  nothing new on the split-`HEADERS` path this task covers; BL-1775's log loss can now span chunks.
 
 ## Log
 

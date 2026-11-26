@@ -1,5 +1,5 @@
 ---
-id: BL-1774
+id: BL-1775
 title: Log WebTransport stream data as received and forget abandoned HTTP/3 streams in the exchange log redactor
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1774 — Log WebTransport stream data as received and forget abandoned HTTP/3 streams in the exchange log redactor
+# BL-1775 — Log WebTransport stream data as received and forget abandoned HTTP/3 streams in the exchange log redactor
 
 ## Goal
 

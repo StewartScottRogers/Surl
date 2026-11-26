@@ -744,9 +744,9 @@ read from the code, not recorded).
 Accepted limits:
 
 - A WebTransport bidirectional stream (signal `0x41`, session ID, then data) is read as frames too, so data that reads
-  as a `HEADERS` frame is withheld, now possibly across several chunks. That loses log detail only (BL-1774).
+  as a `HEADERS` frame is withheld, now possibly across several chunks. That loses log detail only (BL-1775).
 - A stream reset or finished part-way through a frame stays remembered until the connection ends, and counts towards the
-  4,096 (BL-1774).
+  4,096 (BL-1775).
 - `Decoded` header text is still redacted only when it starts with `:` and line by line, so a malformed request whose
   first field is a regular one, or whose secret value holds CR LF, **can be logged** in that note. This amendment changes
   nothing there (BL-1773).
