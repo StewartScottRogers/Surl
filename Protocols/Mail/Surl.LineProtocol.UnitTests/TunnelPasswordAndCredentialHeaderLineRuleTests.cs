@@ -36,6 +36,20 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
         Assert.AreEqual(logged, Redact(line)[0]);
 
     [TestMethod]
+    [DataRow(" PASS s3cret-pw", " PASS ****")]
+    [DataRow("\t \tpass  two s3cret words", "\t \tpass ****")]
+    [DataRow("\tACCT\ts3cret-account", "\tACCT\t****")]
+    [DataRow("  acct s3cret-account", "  acct ****")]
+    public void Redact_PassOrAcctAfterBlanks_HasItsArgumentMasked(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(line)[0]);
+
+    [TestMethod]
+    public void Redact_IndentedPassAfterAWithheldHeader_IsMaskedWholeAsItsContinuation() =>
+        CollectionAssert.AreEqual(
+            new[] { "X-Api-Key: ****", " ****" },
+            Redact("X-Api-Key: s3cret", " PASS s3cret-pw"));
+
+    [TestMethod]
     [DataRow("Authorization: Basic YXBwOnMzY3JldA==", "Authorization: Basic ****")]
     [DataRow("proxy-authorization:\tBearer  s3cret", "proxy-authorization:\tBearer  ****")]
     [DataRow("Authorization : s3cret", "Authorization : ****")]
@@ -56,6 +70,11 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
     [DataRow("PASS")]
     [DataRow("PASS\t")]
     [DataRow("PASSIVE\ts3cret")]
+    [DataRow(" ")]
+    [DataRow(" \tPASS ")]
+    [DataRow(" PASS")]
+    [DataRow(" PASSIVE s3cret")]
+    [DataRow("USER PASS s3cret")]
     [DataRow("USER\tapp")]
     [DataRow("USER app")]
     [DataRow("Host: example.com")]

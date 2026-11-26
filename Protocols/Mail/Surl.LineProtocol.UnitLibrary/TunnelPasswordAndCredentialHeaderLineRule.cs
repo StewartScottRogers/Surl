@@ -6,9 +6,10 @@ namespace Surl.LineProtocol;
 
 /// <summary>
 /// The <see cref="ILineRedactionRule"/> for a password command or a credential header in a tunnel: it
-/// writes the argument of a <c>PASS</c> or <c>ACCT</c> command, its command word ended by a space or a
-/// tab that is logged as received, as <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendment
-/// 30), the credentials of a header named in
+/// writes the argument of a <c>PASS</c> or <c>ACCT</c> command, with or without spaces or tabs before
+/// its command word and that word ended by a space or a tab, all of them logged as received, as
+/// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 30 and 34), the credentials of a
+/// header named in
 /// <see cref="HttpWithheldHeaderNames.Credentials"/> as <see cref="LineBytesRedactor.SecretMask"/>
 /// after the scheme word, and the whole value of a header named in
 /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> as
@@ -20,7 +21,8 @@ namespace Surl.LineProtocol;
 /// A header is read at the start of the line and after every bare carriage return in it, with or
 /// without spaces or tabs before its name. The first withheld header so read is masked as above, and
 /// everything after the place its secret begins is dropped with it, later carriage returns included.
-/// A command is read at the start of the line only.
+/// A command is read at the start of the line only, any spaces or tabs there skipped, and never after a
+/// bare carriage return.
 /// </para>
 /// <para>
 /// A line that begins with a space or a tab and follows a line holding a header named in
@@ -64,9 +66,10 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRu
     // Where the secret begins in the line; the line's length when it holds none.
     private static int FindSecretStart(ReadOnlySpan<byte> line, int headerStart)
     {
-        if (IsPasswordCommand(line))
+        var commandStart = SkipBlanks(line, 0);
+        if (IsPasswordCommand(line[commandStart..]))
         {
-            return CommandPrefixLength;
+            return commandStart + CommandPrefixLength;
         }
 
         return headerStart < 0 ? line.Length : headerStart + FindHeaderSecretStart(line[headerStart..]);
@@ -100,12 +103,12 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRu
         return carriageReturn < 0 ? bytes : bytes[..carriageReturn];
     }
 
-    // "PASS" or "ACCT" and the space or tab that ends the command word.
-    private static bool IsPasswordCommand(ReadOnlySpan<byte> line) =>
-        line.Length >= CommandPrefixLength
-        && Blanks.Contains(line[CommandPrefixLength - 1])
-        && (Ascii.EqualsIgnoreCase(line[..(CommandPrefixLength - 1)], "PASS"u8)
-            || Ascii.EqualsIgnoreCase(line[..(CommandPrefixLength - 1)], "ACCT"u8));
+    // Whether the bytes begin with "PASS" or "ACCT" and the space or tab that ends the command word.
+    private static bool IsPasswordCommand(ReadOnlySpan<byte> fromCommand) =>
+        fromCommand.Length >= CommandPrefixLength
+        && Blanks.Contains(fromCommand[CommandPrefixLength - 1])
+        && (Ascii.EqualsIgnoreCase(fromCommand[..(CommandPrefixLength - 1)], "PASS"u8)
+            || Ascii.EqualsIgnoreCase(fromCommand[..(CommandPrefixLength - 1)], "ACCT"u8));
 
     private static bool IsHeaderNamedIn(ReadOnlySpan<byte> line, IReadOnlyList<string> names)
     {

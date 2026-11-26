@@ -1038,7 +1038,7 @@ redaction is reproduced by unit tests, not recorded on the wire.
 Accepted limit:
 
 - A `PASS` or `ACCT` line with spaces or tabs before the command word is still logged as received, unless it continues
-  a withheld header, until BL-1783.
+  a withheld header, until BL-1783. Closed by amendment 34.
 
 ## Amendment 31 (BL-1761, decided by Claude under Stewart's delegation)
 
@@ -1127,3 +1127,28 @@ Accepted limits:
   its value masked. That loses log detail only.
 - A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785.
 - A folded line following a header line longer than 64 KiB is still logged as received (amendment 19's first shape).
+
+## Amendment 34 (BL-1783, decided by Claude under Stewart's delegation)
+
+A `PASS <password>` or `ACCT <account>` line that started with spaces or tabs was logged in clear in a SOCKS tunnel
+and in an HTTP proxy `CONNECT` tunnel (amendment 30's accepted limit).
+
+1. **Blanks before a command word are skipped.** `TunnelPasswordAndCredentialHeaderLineRule` skips every space and tab
+   at the start of the line, then reads `PASS` or `ACCT` as in amendment 30. This matches what amendment 33 does before
+   a header name, and what the POP3 server's own log does (BL-1756).
+2. **What is logged.** The blanks, the command word and the one byte ending it as received, then `****`. A line with
+   nothing after that byte is logged as received.
+3. **A continuation comes first.** A line starting with a space or a tab that continues a withheld header is still
+   masked from its first other byte (amendment 19), so the command word is masked with the rest.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire. Pinned upstream curl sends no blank
+before a command word.
+
+Accepted limits:
+
+- A line of another protocol, or a body line, whose first word after blanks is `PASS` or `ACCT` has the rest masked.
+  That loses log detail only.
+- Which tunnels are read as text is unchanged (amendment 9, point 1): a line that starts with a space or a tab and is
+  the first thing a tunnel carries does not make it one.
+- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785.

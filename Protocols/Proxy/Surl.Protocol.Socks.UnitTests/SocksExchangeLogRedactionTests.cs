@@ -385,6 +385,18 @@ public sealed class SocksExchangeLogRedactionTests
                 SocksTestKit.Latin1Bytes("USER app\r\nACCT\ts3cret-account\r\nacct\t s3cret account\nQUIT\r\n")));
 
     [TestMethod]
+    public void Tunnel_PassAfterASpace_IsLoggedMasked() =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes("USER app\r\n PASS ****\r\nQUIT\r\n"),
+            SocksTestKit.Latin1Bytes("USER app\r\n PASS s3cret-pw\r\nQUIT\r\n"));
+
+    [TestMethod]
+    public void Tunnel_AcctAfterATabAndSeparatedByATab_IsLoggedMasked() =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes("USER app\r\n\tACCT\t****\r\nQUIT\r\n"),
+            SocksTestKit.Latin1Bytes("USER app\r\n\tACCT\ts3cret-account\r\nQUIT\r\n"));
+
+    [TestMethod]
     public void Tunnel_AnUnfinishedPassLine_IsMaskedAtTheEnd() =>
         Assert.AreEqual("PASS ****", LoggedTunnel("PASS s3cret-pw"u8.ToArray()));
 
