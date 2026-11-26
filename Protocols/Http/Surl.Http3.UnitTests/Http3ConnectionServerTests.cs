@@ -199,6 +199,7 @@ public sealed class Http3ConnectionServerTests
         var received = entries.Single(entry => entry is { IsReceived: true, Layer: ExchangeBytesLayer.Decrypted });
         Assert.AreEqual("hello", Encoding.ASCII.GetString(received.Bytes));
         Assert.AreEqual(0L, received.StreamId);
+        Assert.IsTrue(received.IsFramePayload, "a DATA payload is not the stream's next bytes");
         var sent = entries.Single(entry => entry is { IsReceived: false, Layer: ExchangeBytesLayer.Decrypted });
         Assert.AreEqual("world", Encoding.ASCII.GetString(sent.Bytes));
         Assert.AreEqual(0L, sent.StreamId);

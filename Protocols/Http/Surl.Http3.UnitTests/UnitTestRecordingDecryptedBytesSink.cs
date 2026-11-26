@@ -20,15 +20,18 @@ internal sealed class UnitTestRecordingDecryptedBytesSink : IDecryptedBytesSink
 
     public void Received(ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes) => Add(true, layer, streamId, bytes);
 
+    public void ReceivedFramePayload(ExchangeBytesLayer layer, long streamId, ReadOnlySpan<byte> bytes) =>
+        Add(true, layer, streamId, bytes, isFramePayload: true);
+
     public void Sent(ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes) => Add(false, layer, streamId, bytes);
 
-    private void Add(bool isReceived, ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes)
+    private void Add(bool isReceived, ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes, bool isFramePayload = false)
     {
         lock (entries)
         {
-            entries.Add(new Entry(isReceived, layer, streamId, bytes.ToArray()));
+            entries.Add(new Entry(isReceived, layer, streamId, bytes.ToArray(), isFramePayload));
         }
     }
 
-    internal sealed record Entry(bool IsReceived, ExchangeBytesLayer Layer, long? StreamId, byte[] Bytes);
+    internal sealed record Entry(bool IsReceived, ExchangeBytesLayer Layer, long? StreamId, byte[] Bytes, bool IsFramePayload);
 }

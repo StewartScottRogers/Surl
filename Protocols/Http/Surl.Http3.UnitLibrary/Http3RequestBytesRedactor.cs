@@ -2,41 +2,54 @@ using System.Buffers;
 using System.Text;
 using Surl.Protocol.Abstractions;
 using Surl.Qpack;
-using Surl.Quic;
 
 namespace Surl.Http3;
 
 /// <summary>
-/// An <see cref="IReceivedBytesRedactor"/> for the plaintext notes of an HTTP/3 connection
-/// (ADR-0182, decisions 1, 6 and 7, and its BL-1424 amendment). Every reported chunk is redacted by a
-/// fresh instance, so each <see cref="Redact"/> call treats its bytes as a whole unit:
+/// An <see cref="IStreamReceivedBytesRedactor"/> for the plaintext notes of an HTTP/3 connection
+/// (ADR-0182, decisions 1, 6 and 7, and amendments 4, 14 and 21).
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
-/// <item>A chunk that starts with <c>:</c> is the decoded header text of a request
-/// (<c>name: value</c> lines, ADR-0169 decision 1): the value of a secret field's line is written as
+/// <item><see cref="RedactStream"/> takes a QUIC stream's bytes. A client's bidirectional stream is read
+/// as HTTP/3 frames from the stream's first byte, however it is split into chunks: each frame header is
+/// logged as received, a <c>HEADERS</c> payload is logged as received only when it is whole in the chunk that completes its frame header,
+/// decodes and carries no secret field, and is otherwise written as <c>****</c> once with every further
+/// byte of it left out; every other frame's payload is logged as received. A unidirectional stream carries
+/// no request, so each of its chunks is judged alone, as <see cref="Redact"/> does. At most
+/// <see cref="MaxStreamsPartWayThroughAFrame"/> streams are remembered part-way through a frame; past that
+/// the redactor has lost a stream's place, and every later bidirectional stream chunk is written as
 /// <c>****</c>.</item>
-/// <item>Any other chunk is read as HTTP/3 frames from its first byte: each frame header is logged as
-/// received, a <c>HEADERS</c> payload is logged as received unless its QPACK field section carries a
-/// secret field, cannot be decoded, or runs past the chunk, in which case the payload (or the rest of
-/// it) is written as <c>****</c>; every other frame's payload is logged as received. A QPACK value is
-/// recoverable from the bytes whether Huffman-coded or literal, which is why the whole payload goes, as
-/// the HTTP/2 redactor does with a header block.</item>
+/// <item><see cref="Redact"/> treats its bytes as a whole unit. A chunk that starts with <c>:</c> is the
+/// decoded header text of a request (<c>name: value</c> lines, ADR-0169 decision 1): the value of a secret
+/// field's line is written as <c>****</c>. Any other chunk is read as HTTP/3 frames from its first byte,
+/// by the same rules, and a <c>HEADERS</c> payload that runs past it is written as <c>****</c>.</item>
 /// </list>
 /// A secret field is one of <see cref="HttpWithheldHeaderNames.Credentials"/>, or one the redactor was
-/// made to withhold as well (ADR-0182, amendment 14), matched without regard to case.
-/// Surl advertises a QPACK dynamic table capacity of 0 (ADR-0082 decision 8), so every field section is
-/// self-contained and a fresh decoder reads it. A chunk that begins in the middle of a frame (a large body
-/// split across QUIC packets) is not told apart from a frame start; its bytes are logged as received unless
-/// they happen to read as a <c>HEADERS</c> frame that does not decode, which is withheld, failing closed.
+/// made to withhold as well, matched without regard to case. A QPACK value is recoverable from the bytes
+/// whether Huffman-coded or literal, which is why the whole payload goes, as the HTTP/2 redactor does with a
+/// header block. Surl advertises a QPACK dynamic table capacity of 0 (ADR-0082 decision 8), so every field
+/// section is self-contained and a fresh decoder reads it.
 /// </remarks>
-public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
+public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor
 {
+    /// <summary>
+    /// The most streams <see cref="RedactStream"/> remembers part-way through a frame before it withholds
+    /// every later bidirectional stream chunk.
+    /// </summary>
+    public const int MaxStreamsPartWayThroughAFrame = 4096;
+
+    // The second bit of a QUIC stream ID marks a unidirectional stream (RFC 9000 section 2.1).
+    private const long UnidirectionalStreamBit = 0x2;
+
     private static readonly byte[] Withheld = "****"u8.ToArray();
     private static readonly byte[] LineEnd = "\r\n"u8.ToArray();
 
     private readonly HashSet<string> secretFieldNames =
         new(HttpWithheldHeaderNames.Credentials, StringComparer.OrdinalIgnoreCase);
+
+    private readonly Dictionary<long, Http3StreamFrameRedaction> streamsPartWayThroughAFrame = [];
+    private bool hasLostAStreamsPlace;
 
     /// <summary>
     /// Creates a redactor that withholds the values of
@@ -72,7 +85,25 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
             return;
         }
 
-        RedactFrames(received, output);
+        NewFrameRedaction().Redact(received, output);
+    }
+
+    /// <inheritdoc />
+    public void RedactStream(long streamId, ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        if ((streamId & UnidirectionalStreamBit) != 0)
+        {
+            Redact(received, output);
+        }
+        else if (hasLostAStreamsPlace)
+        {
+            output.Write(Withheld);
+        }
+        else
+        {
+            FollowStream(streamId, received, output);
+        }
     }
 
     /// <inheritdoc />
@@ -83,48 +114,32 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
     /// <inheritdoc />
     public void Flush(ArrayBufferWriter<byte> output) => ArgumentNullException.ThrowIfNull(output);
 
-    private void RedactFrames(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
+    // A stream at a frame boundary needs no memory: a new frame redaction reads its next byte the same way.
+    private void FollowStream(long streamId, ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
-        var position = 0;
-        while (position < received.Length)
+        if (!streamsPartWayThroughAFrame.Remove(streamId, out var frames))
         {
-            var rest = received[position..];
-            if (!QuicVariableLengthInteger.TryRead(rest, out var type, out var typeLength)
-                || !QuicVariableLengthInteger.TryRead(rest[typeLength..], out var length, out var lengthLength))
-            {
-                output.Write(rest);
-
-                return;
-            }
-
-            var headerLength = typeLength + lengthLength;
-            output.Write(rest[..headerLength]);
-            var available = (ulong)(rest.Length - headerLength);
-            var payload = rest.Slice(headerLength, (int)Math.Min(length, available));
-            if (type == Http3FrameType.Headers)
-            {
-                WriteHeadersPayload(payload, complete: length <= available, output);
-            }
-            else
-            {
-                output.Write(payload);
-            }
-
-            position += headerLength + payload.Length;
+            frames = NewFrameRedaction();
         }
-    }
 
-    private void WriteHeadersPayload(ReadOnlySpan<byte> payload, bool complete, ArrayBufferWriter<byte> output)
-    {
-        if (complete && !CarriesSecret(payload))
+        frames.Redact(received, output);
+        if (frames.IsAtFrameBoundary)
         {
-            output.Write(payload);
-
             return;
         }
 
-        output.Write(Withheld);
+        if (streamsPartWayThroughAFrame.Count < MaxStreamsPartWayThroughAFrame)
+        {
+            streamsPartWayThroughAFrame.Add(streamId, frames);
+        }
+        else
+        {
+            hasLostAStreamsPlace = true;
+            streamsPartWayThroughAFrame.Clear();
+        }
     }
+
+    private Http3StreamFrameRedaction NewFrameRedaction() => new(CarriesSecret);
 
     private bool CarriesSecret(ReadOnlySpan<byte> section)
     {
