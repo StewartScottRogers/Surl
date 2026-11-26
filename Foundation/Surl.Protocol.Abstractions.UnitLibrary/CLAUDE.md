@@ -183,8 +183,10 @@ and the protocols fan out after.
 
 - The decrypted-bytes contract (ADR-0169, decisions 2 and 3; BL-1266): `ExchangeBytesLayer` (`Wire` = 0,
   `Decrypted`, `Decoded`), `ExchangeBytesEvent.Layer` (default `Wire`) and `StreamId` (default `null`), and
-  `IDecryptedBytesSink` (`Received`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
-  `DiscardingDecryptedBytesSink.Instance`. `Surl.Core`'s `ServingEngine` sets its own sink, which notes each chunk in
+  `IDecryptedBytesSink` (`Received`, `ReceivedFramePayload`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
+  `DiscardingDecryptedBytesSink.Instance`. `ReceivedFramePayload` (BL-1762; default: calls `Received`) takes a frame
+  payload read out of a stream whose bytes are also reported through `Received`, so it is not the stream's next bytes.
+  `Surl.Core`'s `ServingEngine` sets its own sink, which notes each chunk in
   the exchange log (received bytes redacted when the server redacts) and, while the publisher wants bytes, publishes
   it unredacted as an `ExchangeBytesEvent` with its layer and stream. The sink is called by `Surl.Dtls`'s
   `DtlsServerSession` (application-data plaintext), `Surl.Quic`'s `QuicServerConnection` (`DATAGRAM` payloads) and
@@ -217,3 +219,6 @@ and the protocols fan out after.
   of their own or of a shared library (gRPC's is `Surl.Http2`'s `Http2RequestBytesRedactor`), and `Surl.Composition`'s
   wrapping servers hand on a redactor too. `Surl.Core`'s `ServingEngine` writes the redacted bytes to the exchange log
   and feeds the event stream the bytes as received; a server that does not implement it is logged byte for byte.
+  `IStreamReceivedBytesRedactor` (ADR-0182, amendment 21; BL-1762) adds `RedactStream(streamId, received, output)`,
+  which holds nothing back: the engine keeps one per exchange for the decrypted bytes of its streams.
+  `Surl.Http3`'s `Http3RequestBytesRedactor` implements it.
