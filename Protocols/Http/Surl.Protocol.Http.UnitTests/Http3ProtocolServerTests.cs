@@ -28,9 +28,9 @@ public sealed class Http3ProtocolServerTests
 
         var redactor = server.CreateRedactor(new ExchangeRedactionContext(1, "https"));
         var output = new System.Buffers.ArrayBufferWriter<byte>();
-        redactor.Redact(":method: GET\r\nauthorization: Bearer tok-h3\r\n\r\n"u8, output);
+        var http3Redactor = Assert.IsInstanceOfType<Surl.Http3.Http3RequestBytesRedactor>(redactor);
+        http3Redactor.RedactDecodedText(":method: GET\r\nauthorization: Bearer tok-h3\r\n\r\n"u8, output);
 
-        Assert.IsInstanceOfType<Surl.Http3.Http3RequestBytesRedactor>(redactor);
         Assert.AreEqual(":method: GET\r\nauthorization: ****\r\n\r\n", System.Text.Encoding.UTF8.GetString(output.WrittenSpan));
     }
 

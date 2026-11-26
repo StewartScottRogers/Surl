@@ -100,6 +100,36 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Http3DecodedTextWhoseFirstFieldIsAuthorization_NotesNoByteOfItsValue()
+    {
+        var text = "authorization: Bearer tok-first\r\n:method: GET\r\n\r\n"u8.ToArray();
+
+        var (notes, published) = await ServeDecryptedReportsAsync(
+            sink => sink.Received(ExchangeBytesLayer.Decoded, 0, text));
+
+        CollectionAssert.AreEqual("authorization: ****\r\n:method: GET\r\n\r\n"u8.ToArray(), notes[0]);
+        CollectionAssert.AreEqual(text, published[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ServerWhoseRedactorHasNoDecodedTextRules_RedactsDecodedTextLikeAnyChunk()
+    {
+        var logs = new FakeExchangeLogFactory();
+        var server = new FakeRedactingConnectionServer(
+            (connection, context) =>
+            {
+                context.DecryptedBytes.Received(ExchangeBytesLayer.Decoded, 0, "pw secret\n"u8);
+                return Task.CompletedTask;
+            },
+            "http");
+
+        await ServeOneAsync(server, logs, new SurlEventStream(new ManualTimeProvider()), new InMemoryConnection([]));
+
+        var note = logs.LogOf(1).Entries.Select(entry => entry.Text).Single(text => text.Contains("bytes "));
+        StringAssert.EndsWith(note, "8 bytes: " + Convert.ToHexString("pw ****\n"u8));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ServerThatDoesNotRedactReportsAFramePayloadAndStreamlessBytes_NotesThemAsReceived()
     {
         var logs = new FakeExchangeLogFactory();
@@ -108,6 +138,7 @@ public sealed partial class ServingEngineTests
             {
                 context.DecryptedBytes.ReceivedFramePayload(ExchangeBytesLayer.Decrypted, 0, "ab"u8);
                 context.DecryptedBytes.Received(ExchangeBytesLayer.Decrypted, null, "cd"u8);
+                context.DecryptedBytes.Received(ExchangeBytesLayer.Decoded, 0, "ef"u8);
                 return Task.CompletedTask;
             },
             "http");
@@ -115,9 +146,10 @@ public sealed partial class ServingEngineTests
         await ServeOneAsync(server, logs, new SurlEventStream(new ManualTimeProvider()), new InMemoryConnection([]));
 
         var notes = logs.LogOf(1).Entries.Select(entry => entry.Text).Where(text => text.Contains("bytes ")).ToArray();
-        Assert.HasCount(2, notes);
+        Assert.HasCount(3, notes);
         StringAssert.EndsWith(notes[0], "stream 0, 2 bytes: 6162");
         StringAssert.EndsWith(notes[1], "2 bytes: 6364");
+        StringAssert.EndsWith(notes[2], "2 bytes: 6566");
     }
 
     // Serves one exchange whose server redacts with the HTTP/3 redactor and makes the given reports, and

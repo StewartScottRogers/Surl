@@ -191,12 +191,8 @@ public sealed class WebTransportProtocolServerTests
     [TestMethod]
     public void CreateRedactor_DecodedAuthorizationLine_IsLoggedAsStars()
     {
-        var redactor = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport"));
-        var output = new System.Buffers.ArrayBufferWriter<byte>();
-
-        redactor.Redact(System.Text.Encoding.ASCII.GetBytes(":method: CONNECT\r\nauthorization: Bearer sekret-token\r\n"), output);
-        redactor.Flush(output);
-        var logged = System.Text.Encoding.ASCII.GetString(output.WrittenSpan);
+        var logged = System.Text.Encoding.ASCII.GetString(
+            RedactDecodedText(System.Text.Encoding.ASCII.GetBytes(":method: CONNECT\r\nauthorization: Bearer sekret-token\r\n")));
 
         Assert.DoesNotContain("sekret", logged);
         Assert.Contains("authorization: ****", logged);
@@ -226,13 +222,22 @@ public sealed class WebTransportProtocolServerTests
             var lowerName = name.ToLowerInvariant();
             var text = $":method: CONNECT\r\n{lowerName}: sekret-key\r\nx-trace: abc\r\n\r\n";
 
-            var logged = Redact(System.Text.Encoding.ASCII.GetBytes(text));
+            var logged = RedactDecodedText(System.Text.Encoding.ASCII.GetBytes(text));
 
             Assert.AreEqual(
                 $":method: CONNECT\r\n{lowerName}: ****\r\nx-trace: abc\r\n\r\n",
                 System.Text.Encoding.ASCII.GetString(logged),
                 name);
         }
+    }
+
+    private static byte[] RedactDecodedText(byte[] decodedText)
+    {
+        var redactor = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        Assert.IsInstanceOfType<IDecodedTextReceivedBytesRedactor>(redactor).RedactDecodedText(decodedText, output);
+
+        return output.WrittenSpan.ToArray();
     }
 
     private static byte[] Redact(byte[] received)

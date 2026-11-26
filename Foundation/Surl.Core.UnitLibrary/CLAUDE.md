@@ -26,11 +26,13 @@ rules only. `FaultPlan.StageOf` is public so the override can check its answer's
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and no protocol server.
 Protocol servers receive what it provides through the contracts in Abstractions.
 
-`EventPublishingDecryptedBytesSink` (ADR-0169; ADR-0182, amendments 1 and 21) notes the decrypted bytes a server
+`EventPublishingDecryptedBytesSink` (ADR-0169; ADR-0182, amendments 1, 21 and 22) notes the decrypted bytes a server
 reports and publishes them raw. When the server redacts and its redactor is an `IStreamReceivedBytesRedactor`, one
-instance per exchange takes every received `Decrypted` chunk of a stream, under a lock; every other received chunk and
+instance per exchange takes every received `Decrypted` chunk of a stream, under a lock. Received `Decoded` text goes to a
+fresh redactor's `RedactDecodedText` when it is an `IDecodedTextReceivedBytesRedactor`. Every other received chunk and
 every frame payload (`ReceivedFramePayload`) goes through a fresh redactor flushed at the chunk's end.
-`Surl.Core.UnitTests` references `Surl.Http3` to prove with the real redactor that a split `HEADERS` frame is withheld.
+`Surl.Core.UnitTests` references `Surl.Http3` to prove with the real redactor that a split `HEADERS` frame and a secret
+field of decoded header text are withheld.
 
 The identifier sources (ADR-0124, decision 6; BL-851): `CryptographicIdentifierRandom.Instance`
 (stateless, `RandomNumberGenerator`) and `SeededIdentifierRandom(seed)`, whose `ForExchange(exchangeId)`

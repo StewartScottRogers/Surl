@@ -7,7 +7,7 @@ namespace Surl.Http3;
 
 /// <summary>
 /// An <see cref="IStreamReceivedBytesRedactor"/> for the plaintext notes of an HTTP/3 connection
-/// (ADR-0182, decisions 1, 6 and 7, and amendments 4, 14 and 21).
+/// (ADR-0182, decisions 1, 6 and 7, and amendments 4, 14, 21 and 22).
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
@@ -20,10 +20,12 @@ namespace Surl.Http3;
 /// <see cref="MaxStreamsPartWayThroughAFrame"/> streams are remembered part-way through a frame; past that
 /// the redactor has lost a stream's place, and every later bidirectional stream chunk is written as
 /// <c>****</c>.</item>
-/// <item><see cref="Redact"/> treats its bytes as a whole unit. A chunk that starts with <c>:</c> is the
-/// decoded header text of a request (<c>name: value</c> lines, ADR-0169 decision 1): the value of a secret
-/// field's line is written as <c>****</c>. Any other chunk is read as HTTP/3 frames from its first byte,
-/// by the same rules, and a <c>HEADERS</c> payload that runs past it is written as <c>****</c>.</item>
+/// <item><see cref="Redact"/> treats its bytes as a whole unit, read as HTTP/3 frames from its first byte by
+/// the same rules; a <c>HEADERS</c> payload that runs past it is written as <c>****</c>.</item>
+/// <item><see cref="RedactDecodedText"/> takes the decoded header text of a request (<c>name: value</c> lines,
+/// ADR-0169 decision 1), whatever its first field: the value of a secret field's line is written as
+/// <c>****</c>. A line ends only where the text's renderer ended a header, because it writes a CR or LF
+/// inside a name or value as <c>\r</c> or <c>\n</c>.</item>
 /// </list>
 /// A secret field is one of <see cref="HttpWithheldHeaderNames.Credentials"/>, or one the redactor was
 /// made to withhold as well, matched without regard to case. A QPACK value is recoverable from the bytes
@@ -31,7 +33,7 @@ namespace Surl.Http3;
 /// header block. Surl advertises a QPACK dynamic table capacity of 0 (ADR-0082 decision 8), so every field
 /// section is self-contained and a fresh decoder reads it.
 /// </remarks>
-public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor
+public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor, IDecodedTextReceivedBytesRedactor
 {
     /// <summary>
     /// The most streams <see cref="RedactStream"/> remembers part-way through a frame before it withholds
@@ -78,14 +80,26 @@ public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        if (received.Length > 0 && received[0] == (byte)':')
-        {
-            RedactDecodedText(received, output);
-
-            return;
-        }
-
         NewFrameRedaction().Redact(received, output);
+    }
+
+    /// <inheritdoc />
+    public void RedactDecodedText(ReadOnlySpan<byte> decodedText, ArrayBufferWriter<byte> output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        while (decodedText.Length > 0)
+        {
+            var end = decodedText.IndexOf(LineEnd);
+            var line = end < 0 ? decodedText : decodedText[..end];
+            WriteDecodedLine(line, output);
+            if (end < 0)
+            {
+                return;
+            }
+
+            output.Write(LineEnd);
+            decodedText = decodedText[(end + LineEnd.Length)..];
+        }
     }
 
     /// <inheritdoc />
@@ -146,23 +160,6 @@ public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor
         var decoded = new QpackDecoder(0, int.MaxValue).DecodeFieldSection(0, section);
 
         return !decoded.IsDecoded || decoded.FieldLines.Any(line => secretFieldNames.Contains(line.Name));
-    }
-
-    private void RedactDecodedText(ReadOnlySpan<byte> text, ArrayBufferWriter<byte> output)
-    {
-        while (text.Length > 0)
-        {
-            var end = text.IndexOf(LineEnd);
-            var line = end < 0 ? text : text[..end];
-            WriteDecodedLine(line, output);
-            if (end < 0)
-            {
-                return;
-            }
-
-            output.Write(LineEnd);
-            text = text[(end + LineEnd.Length)..];
-        }
     }
 
     // A pseudo-header's name starts with ':', so the name ends at the first colon after it; a line with

@@ -43,6 +43,17 @@ public sealed class Http3RequestBytesRedactorTests
 
     private static string Text(byte[] bytes) => Encoding.UTF8.GetString(bytes);
 
+    private static byte[] RedactDecodedText(byte[] decodedText)
+    {
+        var output = new ArrayBufferWriter<byte>();
+        new Http3RequestBytesRedactor().RedactDecodedText(decodedText, output);
+
+        return output.WrittenSpan.ToArray();
+    }
+
+    private static string RedactedHeaderList(params (string Name, string Value)[] fields) =>
+        Text(RedactDecodedText(Http3DecodedHeaderText.Bytes(fields.Select(field => new QpackFieldLine(field.Name, field.Value)))));
+
     [TestMethod]
     [DataRow(HpackStringCoding.Raw)]
     [DataRow(HpackStringCoding.Huffman)]
@@ -125,11 +136,11 @@ public sealed class Http3RequestBytesRedactorTests
     public void Redact_NoBytes_WritesNothing() => Assert.AreEqual(0, Redact([]).Length);
 
     [TestMethod]
-    public void Redact_DecodedHeaderText_StarsAuthorizationAndProxyAuthorizationValues()
+    public void RedactDecodedText_AuthorizationAndProxyAuthorizationLines_HaveTheirValuesStarred()
     {
         var text = ":method: GET\r\n:path: /x\r\nAuthorization: Bearer tok-text\r\nproxy-authorization: Basic abc\r\nx-note: a: b\r\n\r\n";
 
-        var logged = Text(Redact(Encoding.UTF8.GetBytes(text)));
+        var logged = Text(RedactDecodedText(Encoding.UTF8.GetBytes(text)));
 
         Assert.AreEqual(
             ":method: GET\r\n:path: /x\r\nAuthorization: ****\r\nproxy-authorization: ****\r\nx-note: a: b\r\n\r\n",
@@ -137,11 +148,48 @@ public sealed class Http3RequestBytesRedactorTests
     }
 
     [TestMethod]
-    public void Redact_DecodedHeaderTextWithoutALineEndOrColon_IsKept()
+    public void RedactDecodedText_WithoutALineEndOrColon_IsKept()
     {
-        Assert.AreEqual(":a: b\r\nnocolon", Text(Redact(Encoding.UTF8.GetBytes(":a: b\r\nnocolon"))));
-        Assert.AreEqual(":authorization: x", Text(Redact(Encoding.UTF8.GetBytes(":authorization: x"))));
-        Assert.AreEqual(":x", Text(Redact(Encoding.UTF8.GetBytes(":x"))));
+        Assert.AreEqual(":a: b\r\nnocolon", Text(RedactDecodedText(":a: b\r\nnocolon"u8.ToArray())));
+        Assert.AreEqual(":authorization: x", Text(RedactDecodedText(":authorization: x"u8.ToArray())));
+        Assert.AreEqual(":x", Text(RedactDecodedText(":x"u8.ToArray())));
+        Assert.AreEqual(string.Empty, Text(RedactDecodedText([])));
+    }
+
+    [TestMethod]
+    public void RedactDecodedText_AHeaderListWhoseFirstFieldIsAuthorization_ShowsNoByteOfItsValue()
+    {
+        var logged = RedactedHeaderList(("authorization", "Bearer tok-first"), (":method", "GET"));
+
+        Assert.AreEqual("authorization: ****\r\n:method: GET\r\n\r\n", logged);
+    }
+
+    [TestMethod]
+    [DataRow("Bearer\r\ntok-after-line-end")]
+    [DataRow("Bearer\r\n\r\ntok-after-line-end")]
+    [DataRow("Bearer\rtok-after-line-end")]
+    [DataRow("Bearer\ntok-after-line-end")]
+    public void RedactDecodedText_AnAuthorizationValueHoldingALineEnd_ShowsNoByteOfTheValue(string value)
+    {
+        var logged = RedactedHeaderList((":method", "GET"), ("authorization", value), ("x-trace", "abc"));
+
+        Assert.AreEqual(":method: GET\r\nauthorization: ****\r\nx-trace: abc\r\n\r\n", logged);
+    }
+
+    [TestMethod]
+    public void Bytes_ANameAndAValueHoldingCarriageReturnsAndLineFeeds_WritesEachAsABackslashEscapeOnOneLine()
+    {
+        var text = Http3DecodedHeaderText.Bytes([new QpackFieldLine("x\r\ny", "a\rb\nc\\d")]);
+
+        Assert.AreEqual("x\\r\\ny: a\\rb\\nc\\d\r\n\r\n", Text(text));
+    }
+
+    [TestMethod]
+    public void Redact_AChunkThatStartsWithAColon_IsReadAsFramesNotAsHeaderText()
+    {
+        var text = ":authorization: x\r\nauthorization: y\r\n"u8.ToArray();
+
+        CollectionAssert.AreEqual(text, Redact(text));
     }
 
     [TestMethod]
@@ -153,7 +201,7 @@ public sealed class Http3RequestBytesRedactorTests
         var text = new ArrayBufferWriter<byte>();
 
         redactor.Redact(frame, frames);
-        redactor.Redact(":method: GET\r\nx-secret: key-1\r\nauthorization: Bearer t\r\n"u8, text);
+        redactor.RedactDecodedText(":method: GET\r\nx-secret: key-1\r\nauthorization: Bearer t\r\n"u8, text);
 
         CollectionAssert.AreEqual(Join(frame[..2], Stars), frames.WrittenSpan.ToArray());
         Assert.AreEqual(":method: GET\r\nx-secret: ****\r\nauthorization: ****\r\n", Text(text.WrittenSpan.ToArray()));
@@ -166,7 +214,7 @@ public sealed class Http3RequestBytesRedactorTests
         var text = ":method: GET\r\nx-api-key: key-1\r\n"u8.ToArray();
 
         CollectionAssert.AreEqual(frame, Redact(frame));
-        CollectionAssert.AreEqual(text, Redact(text));
+        CollectionAssert.AreEqual(text, RedactDecodedText(text));
     }
 
     private static byte[] RedactStream(Http3RequestBytesRedactor redactor, long streamId, byte[] received)
@@ -343,5 +391,6 @@ public sealed class Http3RequestBytesRedactorTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Redact([], null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Flush(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.RedactDecodedText([], null!));
     }
 }

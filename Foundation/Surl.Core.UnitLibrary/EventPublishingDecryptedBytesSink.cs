@@ -9,11 +9,12 @@ namespace Surl.Core;
 /// wants bytes, and notes each chunk in the exchange's log (ADR-0169, decisions 3 and 4). It never touches
 /// the wire byte counts: those come from <see cref="EventPublishingExchangeLog"/> alone. The event carries
 /// the bytes raw, in both directions. When the server redacts, the log note carries received bytes alone
-/// redacted; the note carries sent bytes as they are (ADR-0182, decisions 4 and 6, and amendments 1 and
-/// 21). A stream's <see cref="ExchangeBytesLayer.Decrypted"/> bytes go through one
-/// <see cref="IStreamReceivedBytesRedactor"/> kept for the exchange, when the server's redactor is one;
-/// every other received chunk, and every frame payload, goes through a fresh redactor flushed at the
-/// chunk's end.
+/// redacted; the note carries sent bytes as they are (ADR-0182, decisions 4 and 6, and amendments 1, 21
+/// and 22). A stream's <see cref="ExchangeBytesLayer.Decrypted"/> bytes go through one
+/// <see cref="IStreamReceivedBytesRedactor"/> kept for the exchange, when the server's redactor is one.
+/// <see cref="ExchangeBytesLayer.Decoded"/> text goes to a fresh redactor's
+/// <see cref="IDecodedTextReceivedBytesRedactor.RedactDecodedText"/>, when the redactor is one. Every
+/// other received chunk, and every frame payload, goes through a fresh redactor flushed at the chunk's end.
 /// </summary>
 /// <param name="log">The exchange's log, which receives a note naming the layer and stream per chunk.</param>
 /// <param name="events">The instance's event stream.</param>
@@ -28,9 +29,12 @@ internal sealed class EventPublishingDecryptedBytesSink(
     /// <inheritdoc/>
     public void Received(ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes)
     {
-        var logged = layer == ExchangeBytesLayer.Decrypted && streamId is long id
-            ? RedactedAsTheStreamsNextBytes(id, bytes)
-            : RedactedAlone(bytes);
+        var logged = layer switch
+        {
+            ExchangeBytesLayer.Decrypted when streamId is long id => RedactedAsTheStreamsNextBytes(id, bytes),
+            ExchangeBytesLayer.Decoded => RedactedAsDecodedText(bytes),
+            _ => RedactedAlone(bytes),
+        };
         Report(ExchangeDirection.Received, layer, streamId, bytes, logged);
     }
 
@@ -79,6 +83,25 @@ internal sealed class EventPublishingDecryptedBytesSink(
 
             return output.WrittenSpan;
         }
+    }
+
+    private ReadOnlySpan<byte> RedactedAsDecodedText(ReadOnlySpan<byte> decodedText)
+    {
+        if (createRedactor is null)
+        {
+            return decodedText;
+        }
+
+        var redactor = createRedactor();
+        if (redactor is not IDecodedTextReceivedBytesRedactor readingDecodedText)
+        {
+            return RedactWhole(redactor, decodedText);
+        }
+
+        var output = new ArrayBufferWriter<byte>();
+        readingDecodedText.RedactDecodedText(decodedText, output);
+
+        return output.WrittenSpan;
     }
 
     private ReadOnlySpan<byte> RedactedAlone(ReadOnlySpan<byte> bytes) =>
