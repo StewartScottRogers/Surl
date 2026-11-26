@@ -51,3 +51,17 @@ Decided by Claude under Stewart's delegation, 2026-11-25. Narrows how decision 2
 1. **A run of spaces separates two tokens.** `AUTH PLAIN  <initial-response>`, with extra spaces before the mechanism,
    the response or the command word, is logged with the response as `****`; every space is logged as received. Upstream
    curl sends single spaces, but the log must withhold the password of any client, and of a line the server refuses.
+
+## Amendment 3 — IMAP LOGIN lines with no tag or with tabs (BL-1748)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens which lines amendment 1 treats as `LOGIN`. The server
+refuses all of these lines, but the client has already sent the password. SASL lines are unchanged.
+
+1. **First or second word.** A line is a `LOGIN` command when its first or second word is `LOGIN`; words are separated by
+   runs of spaces and tabs.
+2. **Both words `LOGIN`.** The first may be the tag or the second may be the user name of a line with no tag, so both
+   arguments after the second word are `****`. Losing a user name in the log is preferred to guessing which reading holds.
+3. **Tabs.** When a tab is on the line that holds the password, a tab may have split one argument in two, so nothing after
+   `****` is written, and a literal that line announces is `****` too.
+4. **A new line is a new command.** A line that is not part of a literal never continues an earlier `LOGIN`, so the line
+   after `A1 LOGIN alice` is logged as sent.
