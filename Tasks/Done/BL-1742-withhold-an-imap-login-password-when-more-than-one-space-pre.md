@@ -39,7 +39,7 @@ the password as `****`.
   `..._APasswordLiteral_IsMasked` (all three failed before the fix), and `TagFollowedOnlyBySpaces_IsLoggedAsSent`.
 - Verified 2026-11-25: build 0 warnings, `dotnet format` clean, fast tests green (IMAP 821 passed),
   `Measure-CodeQuality.ps1 -Library Surl.Protocol.Imap.UnitLibrary` 0 failing members.
-- A line that starts with a space still logs its password; filed as BL-1745.
+- A line that starts with a space still logs its password; filed as BL-1747.
 
 ## Log
 

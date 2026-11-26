@@ -1,5 +1,5 @@
 ---
-id: BL-1745
+id: BL-1747
 title: Withhold an IMAP LOGIN password when a space precedes the tag
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1745 — Withhold an IMAP LOGIN password when a space precedes the tag
+# BL-1747 — Withhold an IMAP LOGIN password when a space precedes the tag
 
 ## Goal
 
