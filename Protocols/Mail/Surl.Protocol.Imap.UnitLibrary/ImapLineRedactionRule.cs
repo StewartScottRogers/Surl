@@ -24,6 +24,10 @@ namespace Surl.Protocol.Imap;
 /// <para>
 /// The bytes after a literal, on the line that finishes it, are the rest of the same command.
 /// </para>
+/// <para>
+/// A line is a <c>LOGIN</c> command when the word after its first run of spaces is <c>LOGIN</c>,
+/// matched without regard to case.
+/// </para>
 /// </remarks>
 internal sealed class ImapLineRedactionRule : ILineRedactionRule
 {
@@ -211,10 +215,9 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
             return false;
         }
 
-        var afterTag = line[(tagEnd + 1)..];
-        var wordLength = afterTag.IndexOf(Space);
-        var word = wordLength < 0 ? afterTag : afterTag[..wordLength];
-        argumentsStart = tagEnd + 1 + word.Length;
+        var fromWord = line[tagEnd..].TrimStart(Space);
+        var word = fromWord[..AtomLength(fromWord)];
+        argumentsStart = line.Length - fromWord.Length + word.Length;
         return Ascii.EqualsIgnoreCase(word, "LOGIN"u8);
     }
 

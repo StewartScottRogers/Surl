@@ -108,6 +108,24 @@ public sealed class ImapExchangeLogRedactionTests
             Logged("A1 LOGIN alice {6}\r\n", "<A1 BAD Literal too long\r\n", "A2 LOGIN bob s3cret\r\n"));
 
     [TestMethod]
+    public void Login_WithTwoSpacesAfterTheTagAndAnAtomPassword_IsMasked() =>
+        Assert.AreEqual("A1  LOGIN alice ****\r\n", Logged("A1  LOGIN alice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithTwoSpacesAfterTheTagAndAQuotedPassword_IsMasked() =>
+        Assert.AreEqual("A1  LOGIN alice ****\r\n", Logged("A1  LOGIN alice \"s3 cret\"\r\n"));
+
+    [TestMethod]
+    public void Login_WithTwoSpacesAfterTheTagAndAPasswordLiteral_IsMasked() =>
+        Assert.AreEqual(
+            "A1  LOGIN alice {6}\r\n****\r\n",
+            Logged("A1  LOGIN alice {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void TagFollowedOnlyBySpaces_IsLoggedAsSent() =>
+        Assert.AreEqual("A1  \r\n", Logged("A1  \r\n"));
+
+    [TestMethod]
     public void Authenticate_WithAnInitialResponse_IsMasked() =>
         Assert.AreEqual("A2 AUTHENTICATE PLAIN ****\r\n", Logged("A2 AUTHENTICATE PLAIN AGFsaWNlAHMzY3JldA==\r\n"));
 
