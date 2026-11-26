@@ -221,4 +221,6 @@ and the protocols fan out after.
   and feeds the event stream the bytes as received; a server that does not implement it is logged byte for byte.
   `IStreamReceivedBytesRedactor` (ADR-0182, amendment 21; BL-1762) adds `RedactStream(streamId, received, output)`,
   which holds nothing back: the engine keeps one per exchange for the decrypted bytes of its streams.
-  `Surl.Http3`'s `Http3RequestBytesRedactor` implements it.
+  `IDecodedTextReceivedBytesRedactor` (ADR-0182, amendment 22; BL-1773) adds `RedactDecodedText(decodedText, output)`,
+  which holds nothing back: the engine calls it for received `Decoded` text, so a redactor never guesses from the first
+  bytes which it was given. `Surl.Http3`'s `Http3RequestBytesRedactor` implements both.
