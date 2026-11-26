@@ -14,13 +14,16 @@ namespace Surl.Protocol.Pop3;
 /// every maildrop command.
 /// </summary>
 /// <remarks>
-/// <c>PASS</c> is matched without regard to case; with no argument it holds no secret and is
-/// logged as it is. A <c>PASS</c> line that answers a pending continuation is masked whole by the
-/// SASL rule, which is the same bytes as a masked password.
+/// <c>PASS</c> is matched without regard to case when a space or a tab follows it, and that
+/// separator is logged as received. The server refuses a tab-separated line, but the client has
+/// already sent the password. With no argument <c>PASS</c> holds no secret and is logged as it
+/// is. A <c>PASS</c> line that answers a pending continuation is written as the command word, the
+/// separator and the mask; the continuation counts as answered.
 /// </remarks>
 internal sealed class Pop3LineRedactionRule : ILineRedactionRule
 {
     private const byte Space = (byte)' ';
+    private const byte Tab = (byte)'\t';
     private const int PassWordLength = 4;
 
     private readonly SaslLineRedactionRule saslRule = new(["AUTH"], "+ ");
@@ -46,6 +49,6 @@ internal sealed class Pop3LineRedactionRule : ILineRedactionRule
 
     private static bool IsPassWithArgument(ReadOnlySpan<byte> line) =>
         line.Length > PassWordLength + 1
-        && line[PassWordLength] == Space
+        && line[PassWordLength] is Space or Tab
         && Ascii.EqualsIgnoreCase(line[..PassWordLength], "PASS"u8);
 }

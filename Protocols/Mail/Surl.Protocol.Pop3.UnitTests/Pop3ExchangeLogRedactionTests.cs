@@ -46,8 +46,12 @@ public sealed class Pop3ExchangeLogRedactionTests
         Assert.AreEqual("pass ****\r\n", Logged("pass s3cret\r\n"));
 
     [TestMethod]
+    public void Pass_SeparatedByATab_IsMaskedKeepingTheTab() =>
+        Assert.AreEqual("PASS\t****\r\n", Logged("PASS\ts3cret\r\n"));
+
+    [TestMethod]
     public void PassWithNoArgument_IsLoggedAsSent() =>
-        Assert.AreEqual("PASS\r\nPASS \r\n", Logged("PASS\r\nPASS \r\n"));
+        Assert.AreEqual("PASS\r\nPASS \r\nPASS\t\r\n", Logged("PASS\r\nPASS \r\nPASS\t\r\n"));
 
     [TestMethod]
     public void UserApopAndMaildropCommands_AreLoggedUnchanged() =>
