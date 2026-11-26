@@ -19,8 +19,10 @@ words are separated by tabs.
 
 ## Context
 
-- Found while working BL-1748. `SocksTunnelImapLoginLineRule.TryFindLoginArguments` splits words on spaces only and
-  finds `LOGIN` only as the second word. Read from the code; no test reproduces it yet.
+- Found while working BL-1748. BL-1767 moved the rule to `Surl.LineProtocol`'s `TunnelImapLoginLineRule`, shared with
+  the HTTP proxy. It now reads tab-separated words, pinned for SOCKS by a row of
+  `SocksTunnelMailRedactionTests.Imap_EachLoginForm_IsLoggedMasked` (the second criterion). It still finds `LOGIN` only
+  as the second word.
 - `ImapLineRedactionRule` and ADR-0183 amendment 3 hold the rules the IMAP server's own log follows. Protocol libraries
   never reference each other.
 

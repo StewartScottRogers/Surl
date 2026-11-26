@@ -19,8 +19,9 @@ The SOCKS tunnel's exchange log writes the argument as `****` on a tunnelled `PA
 
 ## Context
 
-- Found while working BL-1749. `SocksTunnelPasswordAndAuthorizationLineRule` matches `"PASS "` and `"ACCT "` with a
-  space, so a tab-separated line is logged with the secret. Read from the code; no test reproduces it yet.
+- Found while working BL-1749. `Surl.LineProtocol`'s `TunnelPasswordAndCredentialHeaderLineRule` (shared by the SOCKS
+  server and the HTTP proxy since BL-1767) matches `"PASS "` and `"ACCT "` with a space, so a tab-separated line is
+  logged with the secret. Read from the code; no test reproduces it yet.
 - BL-1752 and BL-1751 are the same gap in the FTP and POP3 servers' own logs. Protocol libraries never reference each
   other.
 

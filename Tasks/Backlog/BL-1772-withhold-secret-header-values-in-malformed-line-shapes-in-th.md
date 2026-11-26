@@ -4,8 +4,8 @@ title: Withhold secret header values in malformed line shapes in the SOCKS tunne
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1760]
-touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
+depends-on: [BL-1760, BL-1767]
+touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests, Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
 completed:
@@ -20,9 +20,11 @@ follows a bare carriage return.
 ## Context
 
 - Found by the review of BL-1760 (ADR-0182 amendment 19, accepted limits). curl sends neither shape.
-- `SocksTunnelPasswordAndCredentialHeaderLineRule` trims blanks only at the end of a header name, and a line ends only
-  at a line feed (`SocksTunnelLinesRedactor`), so `" X-Api-Key: s"` with no withheld header before it, and
+- `TunnelPasswordAndCredentialHeaderLineRule` trims blanks only at the end of a header name, and a line ends only
+  at a line feed (`TunnelLinesRedactor`), so `" X-Api-Key: s"` with no withheld header before it, and
   `"X-Other: a\rX-Api-Key: s\r\n"`, are logged as received.
+- BL-1767 moved both classes into `Surl.LineProtocol`, where the HTTP proxy uses them too, so a fix there changes the
+  proxy's log as well.
 - Amendment 19's third shape, a folded line after a header line over 64 KiB, needs a change to `LineBytesRedactor`
   in the abstractions library and stays out of this task.
 - Only the levelled log and trace dumps change; the event stream keeps raw bytes (ADR-0182 decision 4).
