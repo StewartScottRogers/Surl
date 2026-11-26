@@ -1128,7 +1128,8 @@ Accepted limits:
 
 - A line of another protocol, or a body line, that looks like one of these headers after blanks or a carriage return has
   its value masked. That loses log detail only.
-- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785.
+- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785. Closed by
+  amendment 36.
 - A folded line following a header line longer than 64 KiB is still logged as received (amendment 19's first shape).
 
 ## Amendment 34 (BL-1783, decided by Claude under Stewart's delegation)
@@ -1154,7 +1155,8 @@ Accepted limits:
   That loses log detail only.
 - Which tunnels are read as text is unchanged (amendment 9, point 1): a line that starts with a space or a tab and is
   the first thing a tunnel carries does not make it one.
-- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785.
+- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785. Closed by
+  amendment 36.
 
 ## Amendment 35 (BL-1775, decided by Claude under Stewart's delegation)
 
@@ -1196,3 +1198,32 @@ Accepted limits:
 - A stream that opens with the marker is logged as received whatever it holds.
 - QUIC datagrams and `DATA` payloads are still read as frames, so one that reads as a `HEADERS` frame can be withheld.
   That loses log detail only; this amendment leaves it to a follow-up task (BL-1788).
+
+## Amendment 36 (BL-1785, decided by Claude under Stewart's delegation)
+
+A `PASS <password>` or `ACCT <account>` command that followed a bare carriage return, as in
+`NOOP<CR>PASS <password>`, was logged in clear in a SOCKS tunnel and in an HTTP proxy `CONNECT` tunnel (the second
+accepted limit of amendment 33 and the third of amendment 34).
+
+1. **A command is read after every bare carriage return too**, as well as at the start of the line, with the same
+   spaces and tabs skipped (amendment 34) and the same space or tab ending the command word (amendment 30).
+2. **What is logged.** The line as received up to and including the byte ending the first such command word, then
+   `****`, later carriage returns and anything after them included. A line with nothing after that byte is logged as
+   received.
+3. **The earlier secret wins.** On a line holding both such a command and a withheld header (amendment 33), the line is
+   masked from whichever secret begins earlier.
+4. **A header after the command still counts.** A following line that starts with a space or a tab continues it and is
+   masked (amendments 19 and 33), though the mask on the first line began at the command.
+5. **What this closes.** The limit amendments 33 and 34 left to BL-1785.
+6. **Rejected:** ending a tunnelled line at a bare carriage return, for the reason in amendment 33, point 7.
+7. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire. curl does not send the shape.
+
+Accepted limits:
+
+- A line of another protocol, or a body line, whose first word after a bare carriage return is `PASS` or `ACCT` has
+  the rest masked. That loses log detail only.
+- A `PASS` or `ACCT` word ended by a carriage return, as in `PASS<CR><password>`, is not read as a command, so what
+  follows it is logged as received unless another rule withholds it. curl does not send the shape.
+- Which tunnels are read as text is unchanged (amendment 9, point 1).
