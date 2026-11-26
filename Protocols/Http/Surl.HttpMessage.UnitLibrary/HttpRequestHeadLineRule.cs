@@ -5,9 +5,10 @@ using Surl.Protocol.Abstractions;
 namespace Surl.HttpMessage;
 
 /// <summary>
-/// The <see cref="ILineRedactionRule"/> for the lines of one HTTP/1.x or RTSP request head: it
-/// masks the credentials of the secret fields, notes the framing fields, and says when the blank
-/// line that ends the head has gone by (ADR-0182, decisions 1 and 7).
+/// The <see cref="ILineRedactionRule"/> for the lines of one HTTP/1.x or RTSP request head, and of
+/// the trailer section of its chunked body: it masks the credentials of the secret fields, notes the
+/// framing fields, and says when the blank line that ends the head or the trailer section has gone by
+/// (ADR-0182, decisions 1 and 7, and amendment 32).
 /// </summary>
 internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
 {
@@ -28,9 +29,10 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     }
 
     /// <summary>
-    /// Whether the blank line that ends the head has been seen since the last <see cref="StartNextHead"/>.
+    /// Whether the blank line that ends the head, or the trailer section, has been seen since the last
+    /// <see cref="StartNextHead"/> or <see cref="StartTrailerSection"/>.
     /// </summary>
-    public bool HeadIsComplete { get; private set; }
+    public bool FieldSectionIsComplete { get; private set; }
 
     /// <summary>
     /// Whether no line of a head has been read since the last <see cref="StartNextHead"/>.
@@ -48,11 +50,23 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     /// </summary>
     public void StartNextHead()
     {
-        HeadIsComplete = false;
+        FieldSectionIsComplete = false;
         lineCount = 0;
         previousFieldWasSecret = false;
         minorVersion = 1;
         framingFields.Clear();
+    }
+
+    /// <summary>
+    /// Reads the lines that follow as the trailer section of a chunked body (RFC 9112, section 7.1.2):
+    /// every line is a field, none is a request line, and the first empty one ends the section.
+    /// </summary>
+    public void StartTrailerSection()
+    {
+        StartNextHead();
+
+        // As though the request line had gone by.
+        lineCount = 1;
     }
 
     /// <inheritdoc />
@@ -60,7 +74,7 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     {
         if (line.IsEmpty)
         {
-            HeadIsComplete = lineCount > 0;
+            FieldSectionIsComplete = lineCount > 0;
             return;
         }
 

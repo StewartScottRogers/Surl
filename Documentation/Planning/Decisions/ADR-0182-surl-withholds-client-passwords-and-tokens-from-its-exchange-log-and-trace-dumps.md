@@ -636,7 +636,7 @@ Accepted limits:
   | --- | --- | --- |
   | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771; closed by amendment 24 |
   | A `CONNECT` head holding a secret field followed by a folded line that ends with a bare line feed | The folded line, as received | Not planned: the proxy refuses folded lines |
-  | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770 |
+  | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770; closed by amendment 32 |
 
 ## Amendment 19 (BL-1760, decided by Claude under Stewart's delegation)
 
@@ -874,7 +874,7 @@ Accepted limits:
   client that puts a value there has it logged as received, unless it is a request line that names a secret field.
 - A folded line, or one with no colon, after a line longer than 64 KiB that held a secret field is logged as received.
 - A chunked body is read as before: its chunk-size and trailer lines already ended at a line feed, and a secret field in
-  its trailers is still logged (BL-1770).
+  its trailers is still logged (BL-1770). Closed by amendment 32.
 
 ## Amendment 25 (BL-1780, decided by Claude under Stewart's delegation)
 
@@ -1061,3 +1061,36 @@ dropped.
    server reads as one.
 
 Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+## Amendment 32 (BL-1770, decided by Claude under Stewart's delegation)
+
+`HttpRequestHeadBytesRedactor` passed the trailers of a chunked request body through unchanged, so a secret field sent
+there, such as `X-Api-Key` after the last chunk, was logged in clear (the third row of amendment 18's table of shapes;
+amendment 24's last accepted limit).
+
+1. **The trailer section is judged as field lines.** After the last chunk's size line, each line is held until its line
+   feed, with or without a carriage return before it (amendment 24, points 1 and 7), and written with the line end it
+   arrived with. A secret field has its value masked as in a head, and so have its folded lines and the lines with no
+   colon after it. Which fields are secret, and whether a scheme word is kept, are as in a head.
+2. **No trailer line is a request line.** The first one is judged as a field too.
+3. **An empty line ended either way ends the section**, and the next head on the connection is redacted. A trailer
+   section changes no framing, whatever fields it holds. A line of carriage returns alone ends no section, as the HTTP
+   servers read it (before this amendment it ended one).
+4. **Everywhere the redactor is used** (amendment 24, point 3). A size line with no hexadecimal digit other than `0`
+   before any `;` or carriage return is read as the last chunk's, as before, so the lines after it are now judged as
+   trailers up to an empty one.
+5. **What this closes.** The third row of amendment 18's table of shapes, and amendment 24's last accepted limit.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- A trailer line longer than 64 KiB is `****` without the rule seeing it, and a folded line, or one with no colon, after
+  such a line that held a secret field is logged as received, as in a head (amendment 24).
+- Chunk extensions and chunk data are logged as received: they are not fields.
+- Chunk framing is read leniently, as before: other bytes of a size line that are not hexadecimal digits are skipped. So
+  a client that breaks the framing (no line end after a chunk's data, say) can have later lines counted as chunk data
+  and logged as received. The servers refuse such a body.
+- As in a head, a trailer line that starts with a space or a tab and follows no secret field, or a field that follows a
+  bare carriage return, is logged as received. curl sends neither.

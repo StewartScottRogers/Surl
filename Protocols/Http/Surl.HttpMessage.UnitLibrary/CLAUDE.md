@@ -23,9 +23,10 @@ from `Surl.Protocol.Http.UnitLibrary` by BL-293 (ADR-0070 decision 2):
 - `HttpRequestHeadBytesRedactor` - public: the `IReceivedBytesRedactor` for HTTP/1.x and RTSP request
   heads (ADR-0182, BL-1421). It masks the credentials of `Authorization` and `Proxy-Authorization`
   (plus any extra field names it is given) as `****`, keeping the scheme word, passes a
-  `Content-Length` or chunked body through unchanged and redacts the next head on the connection.
-  Its head lines end at a line feed, with or without a CR, as the reader's do (ADR-0182 Amendment 24).
-  `HttpRequestHeadLineRule` is its internal line rule.
+  `Content-Length` body and a chunked body's sizes and data through unchanged and redacts the next
+  head on the connection. A chunked body's trailer section is masked as a head's field lines are
+  (ADR-0182 Amendment 32). Its head and trailer lines end at a line feed, with or without a CR, as
+  the reader's do (Amendment 24). `HttpRequestHeadLineRule` is its internal line rule.
 - `HttpRequestHeadLineReader`, `HttpRequestLineParser`, `HttpFieldLineParser` and `HttpSyntax` -
   internal, visible to `Surl.HttpMessage.UnitTests` only.
 

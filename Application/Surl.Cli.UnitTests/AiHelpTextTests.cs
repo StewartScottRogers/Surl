@@ -514,6 +514,7 @@ public sealed partial class AiHelpTextTests
 
         StringAssert.Contains(page, "The HTTP proxy, in the requests it forwards and in its `CONNECT` tunnels, and the SOCKS server, in a tunnel it reads as text or HTTP/2, withhold those five headers too, and so do the `http` and `https` listen URLs of a start that names `--proxy`, over HTTP/1.x and HTTP/2.");
         StringAssert.Contains(page, "The `http` and `https` listen URLs of a start without `--proxy`, the HTTP/3 log of the HTTP and HTTPS servers with or without it, and the WebSocket and RTSP servers log those five headers as received.");
+        StringAssert.Contains(page, "A header surl withholds in an HTTP/1.x request head it withholds in the trailers of a chunked request body too.");
     }
 
     [TestMethod]
@@ -553,7 +554,7 @@ public sealed partial class AiHelpTextTests
         StringAssert.Contains(page, "In tunnelled text, a withheld header on a line that starts with a space or a tab and follows no withheld header, or one that follows a bare carriage return, is logged as received.");
         StringAssert.Contains(page, "so a client that crafts a `0x10` or `0x30` (the digit `0`) after a `PROXY` line can have a later login or header logged.");
         StringAssert.Contains(page, "An MQTT or LDAP login behind a PROXY protocol version 2 header, or behind other bytes, is not withheld.");
-        StringAssert.Contains(page, "A secret header sent in the trailers of a chunked HTTP/1.x request body is logged as received, except in a tunnel read as text.");
+        Assert.DoesNotContain("trailers of a chunked HTTP/1.x request body is logged", page);
         StringAssert.Contains(page, "without `--proxy`, when it does not wait for the `101`; with `--proxy`, when it does not send the exact preface first.");
         Assert.DoesNotContain("later lines end with a bare line feed", page);
         StringAssert.Contains(page, "A SASL answer sent before the origin's continuation reaches the client is judged without it and logged");

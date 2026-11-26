@@ -268,6 +268,60 @@ public sealed class HttpRequestHeadBytesRedactorTests
             Redact($"{tooLong}\nAuthorization: Bearer abc\n  def\n\n{Sample}"));
     }
 
+    private const string ChunkedHead = "POST /u HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n";
+
+    [TestMethod]
+    [DataRow("Authorization: Basic YWxpY2U6czNjcmV0\r\n\r\n", "Authorization: Basic ****\r\n\r\n")]
+    [DataRow("x-api-key: s3cret\r\n\r\n", "x-api-key: ****\r\n\r\n")]
+    [DataRow("Trailer: v\r\nProxy-Authorization: Bearer one\r\n two\r\nthree\r\nX-Api-Key: s3cret\r\nX: a\r\n b\r\n\r\n", "Trailer: v\r\nProxy-Authorization: Bearer ****\r\n ****\r\n****\r\nX-Api-Key: ****\r\nX: a\r\n b\r\n\r\n")]
+    [DataRow("X-Api-Key: s3cret\nAuthorization: Bearer a\n\n", "X-Api-Key: ****\nAuthorization: Bearer ****\n\n")]
+    public void Redact_SecretFieldInChunkedTrailers_IsMasked(string trailers, string expected)
+    {
+        string received = ChunkedHead + "2\r\nab\r\n0\r\n" + trailers;
+        string redacted = ChunkedHead + "2\r\nab\r\n0\r\n" + expected;
+
+        Assert.AreEqual(redacted, Redact(received, new HttpRequestHeadBytesRedactor(["X-Api-Key"])));
+        Assert.AreEqual(redacted, RedactOneByteAtATime(received, new HttpRequestHeadBytesRedactor(["X-Api-Key"])));
+    }
+
+    [TestMethod]
+    [DataRow("0\r\nAuthorization: Bearer a\r\n\r\n", "0\r\nAuthorization: Bearer ****\r\n\r\n")]
+    [DataRow("0\r\nContent-Length: 500\r\nTransfer-Encoding: chunked\r\n\r\n", "0\r\nContent-Length: 500\r\nTransfer-Encoding: chunked\r\n\r\n")]
+    [DataRow("0\n\n", "0\n\n")]
+    [DataRow("0\r\n\r\r\nAuthorization: Bearer a\r\n\r\n", "0\r\n\r\r\nAuthorization: Bearer ****\r\n\r\n")]
+    public void Redact_RequestAfterAChunkedBodysTrailers_IsRedacted(string body, string expectedBody)
+    {
+        string received = ChunkedHead + body + Sample;
+        string redacted = ChunkedHead + expectedBody + SampleRedacted;
+
+        Assert.AreEqual(redacted, Redact(received));
+        Assert.AreEqual(redacted, RedactOneByteAtATime(received));
+    }
+
+    [TestMethod]
+    public void IsAtRequestStart_IsFalseInChunkedTrailersUntilTheirEmptyLine()
+    {
+        var redactor = new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact(Encoding.Latin1.GetBytes(ChunkedHead + "0\r\n"), output);
+        Assert.IsFalse(redactor.IsAtRequestStart);
+
+        redactor.Redact("Authorization: Bearer a\r\n"u8, output);
+        Assert.IsFalse(redactor.IsAtRequestStart);
+
+        redactor.Redact("\r\n"u8, output);
+        Assert.IsTrue(redactor.IsAtRequestStart);
+    }
+
+    [TestMethod]
+    public void Flush_WritesAnUnfinishedTrailerLineRedacted()
+    {
+        Assert.AreEqual(
+            ChunkedHead + "0\r\nAuthorization: Bearer ****",
+            Redact(ChunkedHead + "0\r\nAuthorization: Bearer abc"));
+    }
+
     [TestMethod]
     public void Redact_AndFlush_RefuseANullOutput()
     {
