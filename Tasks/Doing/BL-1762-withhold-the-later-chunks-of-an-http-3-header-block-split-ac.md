@@ -37,3 +37,4 @@ No byte of an HTTP/3 request `HEADERS` payload carrying a secret field is logged
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
