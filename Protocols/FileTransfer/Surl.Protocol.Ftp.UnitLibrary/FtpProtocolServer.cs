@@ -148,7 +148,8 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A line redactor for the control connection, used by that exchange alone.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
-        new LineBytesRedactor(new FtpLineRedactionRule());
+        new LineBytesRedactor(new FtpLineRedactionRule(), endsLineAtBareLineFeed: true);
+
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
     /// until the client quits or closes it, or a line is too long or late.

@@ -114,6 +114,17 @@ public sealed class NatsExchangeLogRedactionTests
         Assert.AreEqual("CONNECT ****\nPING\r\n", Logged("CONNECT {\"pass\":\"s3cret\"\nPING\r\n"));
 
     [TestMethod]
+    public void Connect_EndedByABareLineFeed_IsLoggedMaskedAsItArrivesBeforeAnyCrLfOrFlush()
+    {
+        var redactor = NewRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact("CONNECT {\"pass\":\"s3cret\",\"auth_token\":\"t0ken\"}\n"u8, output);
+
+        Assert.AreEqual("CONNECT {\"pass\":\"****\",\"auth_token\":\"****\"}\n", Encoding.UTF8.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
     public void RuleObserveSent_ChangesNothing()
     {
         var redactor = NewRedactor();

@@ -1039,3 +1039,25 @@ Accepted limit:
 
 - A `PASS` or `ACCT` line with spaces or tabs before the command word is still logged as received, unless it continues
   a withheld header, until BL-1783.
+
+## Amendment 31 (BL-1761, decided by Claude under Stewart's delegation)
+
+The FTP and NATS readers end a line at a bare line feed, and `LineBytesRedactor` ended one at CR LF only. The two rules
+judged each piece on its own (BL-1755, BL-1757), so no secret was logged, but a client ending lines with a bare line
+feed had them held until a CR LF arrived or the connection closed, and past 64 KiB they were logged as `****` and
+dropped.
+
+1. **A redactor chooses its line end.** `LineBytesRedactor` takes `endsLineAtBareLineFeed`, `false` by default. When
+   `true`, a line feed ends a line with or without a carriage return before it. This widens decision 6's "one line" to
+   the line as the server reads it.
+2. **FTP and NATS pass `true`.** Each line is judged and written when its line feed arrives, followed by the line end it
+   arrived with. Their rules no longer split what they are handed.
+3. **64 KiB** now counts one such line. The rest of a longer one is dropped up to its line feed, which is written with
+   the carriage return when one came before it.
+4. **Everyone else is unchanged.** SMTP, IMAP and POP3 end a line only at CR LF (ADR-0050 decision 8), as their
+   redactors do. The HTTP head redactor (amendment 24, point 7) and the tunnels' line redactor keep their own handling.
+5. **Rejected:** a member on `ILineRedactionRule`, because where a line ends is the redactor's job, not the judgement of
+   one line; and ending every redactor's lines at a bare line feed, which would show a mail rule pieces of a line its
+   server reads as one.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.

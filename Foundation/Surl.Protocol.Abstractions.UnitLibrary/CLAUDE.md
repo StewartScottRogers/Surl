@@ -213,8 +213,10 @@ and the protocols fan out after.
   `TunnelPasswordAndCredentialHeaderLineRule`, which reads `Credentials` and `ApiKeysAndSessionTokens` from here
   (BL-1767).
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
-  returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
-  `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
+  returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves line protocols through an
+  `ILineRedactionRule`, holding at most 64 KiB. It ends a line at CR LF; created with `endsLineAtBareLineFeed` (the FTP and
+  NATS servers, whose readers do), it ends one at a bare line feed too, and writes each line end as it arrived (ADR-0182,
+  amendment 31; BL-1761). Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
   SMTP, IMAP, POP3 and NATS servers return a `LineBytesRedactor` with their own rule, others an `IReceivedBytesRedactor`
   of their own or of a shared library (gRPC's is `Surl.Http2`'s `Http2RequestBytesRedactor`), and `Surl.Composition`'s
   wrapping servers hand on a redactor too. `Surl.Core`'s `ServingEngine` writes the redacted bytes to the exchange log
