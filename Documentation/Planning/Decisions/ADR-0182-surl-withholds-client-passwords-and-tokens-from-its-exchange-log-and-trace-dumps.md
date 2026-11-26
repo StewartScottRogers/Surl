@@ -245,8 +245,9 @@ Accepted limits:
 - Amendment 6's client that sends ahead can lose more than its early bytes: if the preface travels with the SOCKS
   request, the tunnel's first byte seen is a frame's `00`, so the whole tunnel is logged byte for byte. Closed by
   amendment 12.
-- An over-long first `HEADERS` frame does not yet make `Http2RequestBytesRedactor` withhold the `CONTINUATION` after
-  it, here or in the origin's own log (BL-1714).
+- An over-long first `HEADERS` frame did not make `Http2RequestBytesRedactor` withhold the `CONTINUATION` after it,
+  here or in the origin's own log. Closed by BL-1714: after a `HEADERS` or `CONTINUATION` frame past the 64 KiB cap,
+  every later header-block payload on the connection is withheld.
 
 ## Amendment 8 (BL-1713, decided by Claude under Stewart's delegation)
 
@@ -284,8 +285,8 @@ Accepted limits:
 - An upgrade request declaring `Content-Length: 0` leaves `HttpRequestHeadBytesRedactor` not at a request start until
   the next byte arrives, so the preface after it withholds the rest (BL-1736).
 - FTP and mail logins in cleartext inside a `CONNECT` tunnel are still not masked, as before this amendment (BL-1734).
-- An over-long first `HEADERS` frame relies on BL-1714 to withhold the `CONTINUATION` after it, here as in the
-  origin's own log.
+- An over-long first `HEADERS` frame relied on BL-1714 to withhold the `CONTINUATION` after it, here as in the
+  origin's own log. Closed by BL-1714, as under amendment 7.
 
 ## Amendment 9 (BL-1710, decided by Claude under Stewart's delegation)
 
