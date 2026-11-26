@@ -909,3 +909,26 @@ Accepted limits:
 - A login behind a PROXY protocol version 2 header, or any other bytes, is not masked by these two redactors.
 - `--aihelp logging` and the manual name only the first tunnelled byte as what chooses the MQTT and LDAP redactors,
   until BL-1764 rewrites them.
+
+## Amendment 26 (BL-1781, decided by Claude under Stewart's delegation)
+
+The WebSocket redactor took an empty line before the upgrade request line for the end of the head, so every later byte,
+the `Authorization` field included, was logged in clear. The server skips such lines and accepts the request (RFC 9112,
+section 2.2).
+
+1. **The upgrade head ends at the first empty line after a non-empty one.** Empty lines before the request line, ended
+   by CR LF or a bare line feed, are written as received and end nothing. The head after them is redacted as any other
+   is, and the bytes after it pass through unchanged. This holds however the bytes are split.
+2. **A line of carriage returns alone counts as empty here.** The server refuses one before the request line that holds
+   more than the CR of its own line end, and the log still masks the head that follows it.
+3. **Rejected:** ending the WebSocket log's search where `HttpRequestHeadBytesRedactor` says a head ends, which needs
+   a new public member in `Surl.HttpMessage` for what one flag in the WebSocket redactor does.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits, until BL-1782 changes where the redactor stops:
+
+- The redactor stops at the end of the first head. A `401` keeps the connection (ADR-0032), so the `Authorization` of
+  a later upgrade request on it **is logged as received**.
+- A line of carriage returns alone after the request line still ends the redactor's search. The server refuses such a
+  head, and a field after that line **is logged as received**. Only a client crafting its own bytes does this.

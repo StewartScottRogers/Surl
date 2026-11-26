@@ -7,9 +7,10 @@ namespace Surl.Protocol.Ws;
 /// <summary>
 /// An <see cref="IReceivedBytesRedactor"/> for one WebSocket connection: it masks the credentials of
 /// the upgrade request's <c>Authorization</c> field exactly as <see cref="HttpRequestHeadBytesRedactor"/>
-/// does (ADR-0182), and stops at the blank line that ends that head. Every byte after it is
-/// WebSocket frames and is passed through unchanged, so a frame whose payload reads
-/// <c>Authorization: x</c> is logged as it was sent.
+/// does (ADR-0182), and stops at the blank line that ends that head - the first empty line after a
+/// non-empty one, so empty lines before the request line do not stop it (amendment 26). Every byte
+/// after it is taken for WebSocket frames and is passed through unchanged, so a frame whose payload
+/// reads <c>Authorization: x</c> is logged as it was sent.
 /// </summary>
 internal sealed class WebSocketUpgradeHeadBytesRedactor : IReceivedBytesRedactor
 {
@@ -18,6 +19,7 @@ internal sealed class WebSocketUpgradeHeadBytesRedactor : IReceivedBytesRedactor
 
     private readonly HttpRequestHeadBytesRedactor head = new();
     private bool headEnded;
+    private bool headHasNonEmptyLine;
     private bool lineIsEmpty = true;
 
     /// <inheritdoc />
@@ -46,7 +48,8 @@ internal sealed class WebSocketUpgradeHeadBytesRedactor : IReceivedBytesRedactor
             byte next = received[index];
             if (next == LineFeed)
             {
-                if (lineIsEmpty)
+                // Empty lines before the request line end no head: the server skips them (RFC 9112, section 2.2).
+                if (lineIsEmpty && headHasNonEmptyLine)
                 {
                     headEnded = true;
                     return index + 1;
@@ -56,6 +59,7 @@ internal sealed class WebSocketUpgradeHeadBytesRedactor : IReceivedBytesRedactor
             }
             else if (next != CarriageReturn)
             {
+                headHasNonEmptyLine = true;
                 lineIsEmpty = false;
             }
         }
