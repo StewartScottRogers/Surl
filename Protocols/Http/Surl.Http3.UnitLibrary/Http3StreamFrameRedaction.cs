@@ -9,10 +9,16 @@ namespace Surl.Http3;
 /// A <c>HEADERS</c> payload whole in the chunk that completes its frame header is written as received when the redactor allows it; one
 /// carrying a secret field, one that does not decode, and one running past that chunk are written as
 /// <c>****</c> once, and every further byte of that payload is left out. Every other frame's payload is
-/// written as received.
+/// written as received. A stream its opening shows to be a session stream carries no frames: from the chunk
+/// that completes its first integer, every chunk is written as received (amendment 35). The bytes of that
+/// integer in earlier chunks are written as the start of a frame header, so as received too.
 /// </summary>
 /// <param name="carriesSecret">Whether a whole <c>HEADERS</c> payload must be withheld.</param>
-internal sealed class Http3StreamFrameRedaction(Func<ReadOnlySpan<byte>, bool> carriesSecret)
+/// <param name="opening">
+/// The stream's opening, given the stream from its first byte; <see langword="null"/> when these bytes are
+/// not to be read as a session stream.
+/// </param>
+internal sealed class Http3StreamFrameRedaction(Func<ReadOnlySpan<byte>, bool> carriesSecret, Http3StreamOpening? opening = null)
 {
     // A frame header is two variable-length integers of at most 8 bytes each (RFC 9114 section 7.1).
     private const int LongestFrameHeader = 16;
@@ -23,7 +29,10 @@ internal sealed class Http3StreamFrameRedaction(Func<ReadOnlySpan<byte>, bool> c
     private ulong payloadRemaining;
     private bool isWithholdingPayload;
 
-    /// <summary>Whether the stream's next byte starts a frame, so nothing needs to be remembered.</summary>
+    /// <summary>
+    /// Whether the stream's next byte starts a frame, so a redactor without a session marker needs to
+    /// remember nothing of the stream. It says nothing about a session stream, which carries no frames.
+    /// </summary>
     public bool IsAtFrameBoundary => partialHeader.Length == 0 && payloadRemaining == 0;
 
     /// <summary>Takes the stream's next bytes and writes what may be logged of them.</summary>
@@ -31,6 +40,13 @@ internal sealed class Http3StreamFrameRedaction(Func<ReadOnlySpan<byte>, bool> c
     /// <param name="output">Where the loggable bytes are appended.</param>
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
+        if (opening?.TakeBytesAndCheckForSessionStream(received) == true)
+        {
+            output.Write(received);
+
+            return;
+        }
+
         while (received.Length > 0)
         {
             var taken = payloadRemaining > 0 ? TakePayload(received, output) : TakeFrameHeader(received, output);

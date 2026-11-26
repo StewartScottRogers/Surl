@@ -74,15 +74,20 @@ Public, what a server uses:
   `DATA` frame; like every write it waits while more than `QuicApplicationConnection.MaxUnsentLength`
   would wait unsent for the client's credit, BL-710), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
   `ResetResponseAsync` (`RESET_STREAM` alone, for an answer that cannot be finished).
-- Plaintext notes of received bytes are redacted by `Http3RequestBytesRedactor` (ADR-0182 Amendments 4, 14, 21 and 22,
-  BL-1424, BL-1718, BL-1762 and BL-1773): a `HEADERS` payload carrying a secret field, and that field's value in decoded
+- Plaintext notes of received bytes are redacted by `Http3RequestBytesRedactor` (ADR-0182 Amendments 4, 14, 21, 22 and
+  35, BL-1424, BL-1718, BL-1762, BL-1773 and BL-1775): a `HEADERS` payload carrying a secret field, and that field's value in decoded
   header text, are written as `****`. It is an `IDecodedTextReceivedBytesRedactor`: the engine gives decoded header text
   to `RedactDecodedText`, so it is redacted whatever field comes first, and `Redact` reads its bytes as frames only. The secret fields are `HttpWithheldHeaderNames.Credentials` plus any further names the
   redactor is made with: none from `Surl.Protocol.Http`'s `Http3ProtocolServer`, `ApiKeysAndSessionTokens` from the
   WebTransport server. It is an `IStreamReceivedBytesRedactor`: `RedactStream` follows each client bidirectional
-  stream's frames across chunks (one `Http3StreamFrameRedaction` per stream part-way through a frame, at most 4,096,
-  past which every later bidirectional chunk is `****`), withholds a `HEADERS` payload that is not whole in the chunk
-  completing its frame header, and judges each unidirectional stream chunk alone.
+  stream's frames across chunks (one `Http3StreamFrameRedaction` per remembered stream), withholds a `HEADERS` payload
+  that is not whole in the chunk completing its frame header, and judges each unidirectional stream chunk alone. The
+  exception is a session stream, one whose first integer is the marker the redactor was made with for that direction
+  (WebTransport gives `0x41` and `0x54`; the HTTP server gives none, so `0x41` stays an unknown frame type): from the
+  chunk completing that integer it is logged as received while remembered. At most 4,096 streams of each direction are
+  remembered (`Http3RememberedStreams`): bidirectional ones part-way through a frame, and every stream of a direction
+  that has a marker. One more forgets the lowest stream ID; a stream not remembered at or below the highest forgotten
+  ID is `****` if bidirectional, and judged chunk by chunk if unidirectional.
 - The decrypted-bytes sink (ADR-0169 decision 1; BL-1270): `Http3RequestStreamServer` reports each decoded
   request header list as `Decoded` received, `Http3RequestStream.WriteHeadersAsync` each response header
   list as `Decoded` sent, and each DATA payload read or written as `Decrypted`, all with the stream id,
@@ -97,8 +102,9 @@ Internal: `Http3RequestStreamServer`, `Http3StreamReader` (throws `Http3Connecti
 rule that ends the connection, `Http3StreamAbandonedException` for a stream the client reset),
 `Http3FieldSections` (QPACK with no dynamic table), `Http3ExtendedConnect` (one connection's
 registrations, open sessions and the client's `SETTINGS`), `Http3FrameWriter`, `Http3FrameType`,
-`Http3FrameHeader`, `Http3FrameLimit`, `Http3StreamFrameRedaction`, `Http3Settings`, `Http3DataStream` and
-`Http3HeadTimeoutDelay`. They are visible to `Surl.Http3.UnitTests`, to
+`Http3FrameHeader`, `Http3FrameLimit`, `Http3StreamFrameRedaction`, `Http3StreamOpening` (whether a stream's first
+integer is a session marker), `Http3RememberedStreams` (the bounded memory of one direction's streams),
+`Http3Settings`, `Http3DataStream` and `Http3HeadTimeoutDelay`. They are visible to `Surl.Http3.UnitTests`, to
 `Surl.Protocol.Http.UnitTests`, which drives the connection through the HTTP server, and to
 `Surl.Extended.Protocol.WebTransport.UnitTests`, which drives it through the WebTransport server.
 

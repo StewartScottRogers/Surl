@@ -52,12 +52,18 @@ public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatag
     /// Creates the redactor of the decrypted-bytes notes of one HTTP/3 connection: it withholds, from
     /// request header blocks and their decoded header text, the value of every field in
     /// <see cref="HttpWithheldHeaderNames.All"/> (credentials, API keys and session tokens; ADR-0182
-    /// decision 7 and amendment 14).
+    /// decision 7 and amendment 14). A WebTransport session stream - a bidirectional stream starting with
+    /// <see cref="WebTransportStreamKind.Bidirectional"/>, or a unidirectional one starting with
+    /// <see cref="WebTransportStreamKind.Unidirectional"/> - is logged as received while the redactor
+    /// remembers it (amendment 35).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for that exchange alone.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
-        new Http3RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
+        new Http3RequestBytesRedactor(
+            HttpWithheldHeaderNames.ApiKeysAndSessionTokens,
+            (ulong)WebTransportStreamKind.Bidirectional,
+            (ulong)WebTransportStreamKind.Unidirectional);
 
     /// <summary>
     /// Runs one QUIC connection on <paramref name="flow"/> and serves its WebTransport sessions until
