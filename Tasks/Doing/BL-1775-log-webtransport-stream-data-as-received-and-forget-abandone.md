@@ -37,3 +37,4 @@ The WebTransport server's exchange log shows stream data as received, and stream
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: Backlog -> Doing.
