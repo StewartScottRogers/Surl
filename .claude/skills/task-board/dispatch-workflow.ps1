@@ -15,6 +15,13 @@
       - finds the run it started and prints one line `run:<id> <workflow> <ref> <url>`.
     -DryRun runs every guard and prints what it would dispatch, without dispatching or counting.
 
+    A refusal or failure is one line on standard error and one of these exit codes:
+      2  the ref, workflow or input is refused;
+      3  the task has used its dispatches for this window;
+      4  the ref is not pushed to origin;
+      5  `gh workflow run` failed;
+      6  the workflow was dispatched but its run was not found.
+
     Waiting: the lane moves its task to Blocked with a -Reason containing `run:<id>` and no
     mention of Stewart. The coordinator (Invoke-Requeue in RunDarkFactory.ps1) polls
     `gh run view <id>` and moves the task back to Backlog when the run completes, with the
@@ -36,6 +43,13 @@ param(
     [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
+
+# Not Write-Error: under 'Stop' it throws, so the script would end with exit code 1 whatever $ExitCode says.
+function Write-FailureAndExit {
+    param([string]$Message, [int]$ExitCode)
+    [Console]::Error.WriteLine($Message)
+    exit $ExitCode
+}
 
 function Get-DispatchRefusal {
     param([string]$Workflow, [string]$Ref, [string[]]$WorkflowInput, [string]$WorkflowDir)
@@ -79,12 +93,12 @@ $mainRoot = Split-Path (Resolve-Path $common).Path -Parent
 $countFile = "$mainRoot.logs\workflow-dispatches.txt"
 
 $refusal = Get-DispatchRefusal -Workflow $Workflow -Ref $Ref -WorkflowInput $WorkflowInput -WorkflowDir (Join-Path $repo '.github\workflows')
-if ($refusal) { Write-Error $refusal; exit 2 }
+if ($refusal) { Write-FailureAndExit -ExitCode 2 -Message $refusal }
 
 $used = Get-RecentDispatchCount -CountFile $countFile -Id $Id -WindowHours $WindowHours
-if ($used -ge $MaxPerTask) { Write-Error "refused: $Id already dispatched $used workflow runs in the last $WindowHours hours (cap $MaxPerTask); read the earlier run instead"; exit 3 }
+if ($used -ge $MaxPerTask) { Write-FailureAndExit -ExitCode 3 -Message "refused: $Id already dispatched $used workflow runs in the last $WindowHours hours (cap $MaxPerTask); read the earlier run instead" }
 
-if (-not (git ls-remote --heads origin $Ref)) { Write-Error "refused: $Ref is not pushed to origin yet; the shift pushes lane commits when it integrates them, so wait for it or dispatch the branch that holds the work"; exit 4 }
+if (-not (git ls-remote --heads origin $Ref)) { Write-FailureAndExit -ExitCode 4 -Message "refused: $Ref is not pushed to origin yet; the shift pushes lane commits when it integrates them, so wait for it or dispatch the branch that holds the work" }
 
 $name = $Workflow -replace '\.ya?ml$', ''
 $ghArgs = @('workflow', 'run', $name, '--ref', $Ref)
@@ -93,7 +107,7 @@ if ($DryRun) { Write-Output "dry-run: gh $($ghArgs -join ' ') (dispatch $($used 
 
 $started = (Get-Date).ToUniversalTime()
 & gh @ghArgs
-if ($LASTEXITCODE -ne 0) { Write-Error "gh workflow run failed with exit code $LASTEXITCODE"; exit 5 }
+if ($LASTEXITCODE -ne 0) { Write-FailureAndExit -ExitCode 5 -Message "gh workflow run failed with exit code $LASTEXITCODE" }
 New-Item -ItemType Directory -Force (Split-Path $countFile) | Out-Null
 Add-Content $countFile "$($started.ToString('o'))`t$Id`t$name`t$Ref"
 
@@ -103,5 +117,4 @@ for ($try = 0; $try -lt 12; $try++) {
     $mine = Select-DispatchedRun -RunListJson $json -StartedUtc $started
     if ($mine) { Write-Output "run:$($mine.databaseId) $name $Ref $($mine.url)"; exit 0 }
 }
-Write-Error "dispatched $name on $Ref but could not find its run; read it with: gh run list --workflow $name --branch $Ref"
-exit 6
+Write-FailureAndExit -ExitCode 6 -Message "dispatched $name on $Ref but could not find its run; read it with: gh run list --workflow $name --branch $Ref"
