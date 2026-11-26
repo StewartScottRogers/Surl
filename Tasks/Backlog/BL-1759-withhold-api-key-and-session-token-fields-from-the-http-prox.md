@@ -1,5 +1,5 @@
 ---
-id: BL-1756
+id: BL-1759
 title: Withhold API-key and session-token fields from the HTTP proxy's exchange log
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1756 — Withhold API-key and session-token fields from the HTTP proxy's exchange log
+# BL-1759 — Withhold API-key and session-token fields from the HTTP proxy's exchange log
 
 ## Goal
 

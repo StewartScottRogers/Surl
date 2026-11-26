@@ -42,7 +42,7 @@ gRPC and DNS over HTTPS on HTTP/2 log a request header block that carries an API
 - Added to `touches`: `Surl.Protocol.Abstractions.UnitLibrary`'s `CLAUDE.md` and `HttpWithheldHeaderNames.cs`,
   whose text became false (documentation only). No task in Doing names that project.
 - Fast tests: 29,468 passed, 3 skipped, 0 failed. Build: 0 warnings. Format check clean.
-- Filed BL-1755 (HTTP/1.1 sent to a gRPC listen URL is logged in clear), BL-1756 and BL-1757 (API keys of
+- Filed BL-1758 (HTTP/1.1 sent to a gRPC listen URL is logged in clear), BL-1759 and BL-1760 (API keys of
   tunnelled requests in the HTTP proxy's and SOCKS logs).
 
 ## Log

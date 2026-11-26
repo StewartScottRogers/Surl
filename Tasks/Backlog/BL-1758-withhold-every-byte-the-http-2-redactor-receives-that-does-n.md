@@ -1,5 +1,5 @@
 ---
-id: BL-1755
+id: BL-1758
 title: Withhold every byte the HTTP/2 redactor receives that does not open with the client preface
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1755 — Withhold every byte the HTTP/2 redactor receives that does not open with the client preface
+# BL-1758 — Withhold every byte the HTTP/2 redactor receives that does not open with the client preface
 
 ## Goal
 

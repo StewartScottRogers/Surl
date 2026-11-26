@@ -1,5 +1,5 @@
 ---
-id: BL-1757
+id: BL-1760
 title: Withhold API-key and session-token fields from the SOCKS tunnel's exchange log
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1757 — Withhold API-key and session-token fields from the SOCKS tunnel's exchange log
+# BL-1760 — Withhold API-key and session-token fields from the SOCKS tunnel's exchange log
 
 ## Goal
 
