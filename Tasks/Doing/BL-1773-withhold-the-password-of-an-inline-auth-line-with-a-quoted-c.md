@@ -35,3 +35,4 @@ No password byte of an inline Redis `AUTH <user> <password>` line in a SOCKS or 
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
