@@ -40,3 +40,4 @@ words are separated by tabs.
 
 - 2026-11-25: Created.
 - 2026-11-25: Now depends on BL-1767 (Stewart: 'prioritise 1767'): fix this in the shared tunnel line rules BL-1767 moves into Surl.LineProtocol, not in a per-server copy.
+- 2026-11-26: Backlog -> Doing.
