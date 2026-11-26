@@ -41,7 +41,7 @@ WebTransport logs a request header block, and its decoded header text, with ever
 - Added `HttpWithheldHeaderNames.cs` and the Abstractions `CLAUDE.md` to `touches`: both said which redactors read the
   list, which this change made out of date. The only other task in `Doing` (BL-1757, NATS) names neither.
 - Found by reading the code: a `HEADERS` frame split across QUIC `STREAM` frames still logs its later chunks, because
-  each chunk gets a fresh redactor. Filed as BL-1761, and ADR-0182 amendment 14 states the limit.
+  each chunk gets a fresh redactor. Filed as BL-1762, and ADR-0182 amendment 14 states the limit.
 - The help text's withheld lists are BL-1723.
 - Verify: build `-warnaserror` 0 warnings, format check clean, fast tests 29491 passed, 3 skipped, 0 failed.
 

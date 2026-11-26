@@ -471,7 +471,7 @@ HTTP-carried extended servers withhold them: `Http3RequestBytesRedactor` named o
    would make their HTTP/3 log differ from their HTTP/1.x and HTTP/2 ones.
 4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
 
-Accepted limit, until BL-1761 closes it:
+Accepted limit, until BL-1762 closes it:
 
 - Each chunk is redacted on its own (amendment 1), so when QUIC splits a `HEADERS` frame, the chunks after the first are
   logged as received unless they happen to read as a `HEADERS` frame, and a secret in them **can be logged**. This

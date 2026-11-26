@@ -1,5 +1,5 @@
 ---
-id: BL-1761
+id: BL-1762
 title: Withhold the later chunks of an HTTP/3 header block split across QUIC STREAM frames from the exchange log
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1761 — Withhold the later chunks of an HTTP/3 header block split across QUIC STREAM frames from the exchange log
+# BL-1762 — Withhold the later chunks of an HTTP/3 header block split across QUIC STREAM frames from the exchange log
 
 ## Goal
 
