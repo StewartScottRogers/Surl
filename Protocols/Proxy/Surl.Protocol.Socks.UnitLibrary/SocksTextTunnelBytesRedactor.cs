@@ -11,7 +11,8 @@ namespace Surl.Protocol.Socks;
 /// sees (ADR-0182, amendment 7). After the preface, frames are redacted by
 /// <see cref="Http2RequestBytesRedactor"/> when the preface opened the tunnel (prior knowledge) or
 /// the origin had sent <c>HTTP/1.1 101</c> (an <c>h2c</c> upgrade); otherwise every later byte is
-/// withheld (<see cref="SocksWithheldBytesRedactor"/>).
+/// withheld (<see cref="SocksWithheldBytesRedactor"/>). The frame redactor withholds a header block
+/// carrying a field of <see cref="HttpWithheldHeaderNames.All"/> (amendment 19).
 /// </summary>
 internal sealed class SocksTextTunnelBytesRedactor : IReceivedBytesRedactor
 {
@@ -53,7 +54,7 @@ internal sealed class SocksTextTunnelBytesRedactor : IReceivedBytesRedactor
         }
 
         // The HTTP/2 redactor expects the preface first; it is already logged, so this copy is dropped.
-        var frames = new Http2RequestBytesRedactor();
+        var frames = new Http2RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
         frames.Redact(Http2ConnectionPreface.Preface, new ArrayBufferWriter<byte>());
 
         return frames;

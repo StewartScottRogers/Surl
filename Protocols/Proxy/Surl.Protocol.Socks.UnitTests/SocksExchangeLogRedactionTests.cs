@@ -310,6 +310,36 @@ public sealed class SocksExchangeLogRedactionTests
     }
 
     [TestMethod]
+    public void TunnelledHttp1Request_ApiKeyFields_AreLoggedAsMasks()
+    {
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            // Two words, so a rule that kept a scheme word would show; one line ends with a bare line feed.
+            var sent = $"GET / HTTP/1.1\r\n{name}: Key s3cret\r\n \tfolded-s3cret\r\n"
+                + $"{name.ToUpperInvariant()} :s3cret\n\tfolded-s3cret\n"
+                + $"{name.ToLowerInvariant()}:\r\n s3cret\r\n"
+                + "X-Other: shown\r\n continued\r\n\r\n";
+            var expected = $"GET / HTTP/1.1\r\n{name}: ****\r\n \t****\r\n"
+                + $"{name.ToUpperInvariant()} :****\n\t****\n"
+                + $"{name.ToLowerInvariant()}:\r\n ****\r\n"
+                + "X-Other: shown\r\n continued\r\n\r\n";
+
+            SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+                SocksTestKit.Latin1Bytes(expected),
+                SocksTestKit.Latin1Bytes(sent));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("X-Api-Key:\r\n")]
+    [DataRow("X-Api-Key-Id: shown\r\n")]
+    [DataRow("My-Api-Key: shown\r\n")]
+    public void Tunnel_AHeaderThatOnlyResemblesAnApiKeyField_IsLoggedAsReceived(string sent) =>
+        CollectionAssert.AreEqual(
+            SocksTestKit.Latin1Bytes(sent),
+            SocksTunnelRedactionTestKit.Logged(SocksTestKit.Latin1Bytes(sent)));
+
+    [TestMethod]
     public void Tunnel_LinesEndedByABareLineFeed_AreEachJudged()
     {
         var logged = LoggedTunnel(SocksTestKit.Latin1Bytes("USER app\nPASS s3cret-pw\nQUIT\n"));

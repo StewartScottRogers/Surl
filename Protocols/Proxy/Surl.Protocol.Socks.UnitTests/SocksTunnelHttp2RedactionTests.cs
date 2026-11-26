@@ -36,6 +36,21 @@ public sealed class SocksTunnelHttp2RedactionTests
     }
 
     [TestMethod]
+    public void PriorKnowledgeTunnel_ApiKeyFields_WithholdTheHeaderBlock()
+    {
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var headers = Headers(name.ToLowerInvariant(), Credential);
+            StringAssert.Contains(Encoding.Latin1.GetString(headers), Credential);
+
+            var logged = Logged(string.Empty, [], [[.. Preface, .. Settings, .. headers]]);
+
+            AssertHoldsNoCredential(logged);
+            CollectionAssert.AreEqual((byte[])[.. Preface, .. Settings, .. WithheldHeaders(headers)], logged, name);
+        }
+    }
+
+    [TestMethod]
     public void Tunnel_Http2AfterAnUpgradeAndThe101_WithholdsTheCredentialHeaderBlock()
     {
         var headers = Headers("authorization", Credential);

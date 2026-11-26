@@ -7,11 +7,12 @@ namespace Surl.Protocol.Socks;
 /// <summary>
 /// The <see cref="ILineRedactionRule"/> for the lines of a text protocol carried through a SOCKS
 /// tunnel. SOCKS does not say which protocol that is, so every line is judged by all of these, and
-/// what the one that withholds from earliest in the line writes is logged (ADR-0182, amendments 6
-/// and 9): <see cref="SocksTunnelPasswordAndAuthorizationLineRule"/> (<c>PASS</c>, <c>ACCT</c> and
-/// the credential headers), <see cref="SocksTunnelImapLoginLineRule"/> (the IMAP <c>LOGIN</c>
-/// password) and two <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c> continuation and
-/// for the <c>+ </c> continuation of IMAP and POP3. A line none of them changes is written as received.
+/// what the one that withholds from earliest in the line writes is logged (ADR-0182, amendments 6,
+/// 9 and 19): <see cref="SocksTunnelPasswordAndCredentialHeaderLineRule"/> (<c>PASS</c>, <c>ACCT</c>,
+/// the credential headers and the API-key and session-token headers),
+/// <see cref="SocksTunnelImapLoginLineRule"/> (the IMAP <c>LOGIN</c> password) and two
+/// <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c> continuation and for the <c>+ </c>
+/// continuation of IMAP and POP3. A line none of them changes is written as received.
 /// </summary>
 /// <remarks>
 /// A line may end with the line feed that ended it, when no carriage return came before it; the line
@@ -33,7 +34,7 @@ internal sealed class SocksTunnelLineRedactionRule : ILineRedactionRule
 
     public SocksTunnelLineRedactionRule() => rules =
     [
-        new SocksTunnelPasswordAndAuthorizationLineRule(),
+        new SocksTunnelPasswordAndCredentialHeaderLineRule(),
         imapLogin,
         new SaslLineRedactionRule(["AUTH"], "334 "),
         new SaslLineRedactionRule(["AUTH", "AUTHENTICATE"], "+ "),
