@@ -1,5 +1,5 @@
 ---
-id: BL-1758
+id: BL-1761
 title: Log each bare-line-feed line of an FTP or NATS client as it arrives
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1758 — Log each bare-line-feed line of an FTP or NATS client as it arrives
+# BL-1761 — Log each bare-line-feed line of an FTP or NATS client as it arrives
 
 ## Goal
 
