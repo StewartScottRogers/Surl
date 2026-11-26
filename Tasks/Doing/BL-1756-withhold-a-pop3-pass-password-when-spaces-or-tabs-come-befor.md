@@ -35,3 +35,4 @@ The POP3 exchange log writes the password as `****` on a `PASS` line that starts
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
