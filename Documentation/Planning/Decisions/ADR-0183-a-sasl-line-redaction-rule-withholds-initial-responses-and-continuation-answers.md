@@ -43,3 +43,11 @@ Decided by Claude under Stewart's delegation, 2026-11-20. Settles decision 5.
    literal, so the next client line is read as a command.
 5. **Known limit.** The line seam holds at most 64 KiB without a CR LF; a longer run inside a literal is written as `****`
    by `LineBytesRedactor` and the rule does not see it, so its literal count can then run long. Only the log is affected.
+
+## Amendment 2 — runs of spaces (BL-1738)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Narrows how decision 2 counts tokens.
+
+1. **A run of spaces separates two tokens.** `AUTH PLAIN  <initial-response>`, with extra spaces before the mechanism,
+   the response or the command word, is logged with the response as `****`; every space is logged as received. Upstream
+   curl sends single spaces, but the log must withhold the password of any client, and of a line the server refuses.

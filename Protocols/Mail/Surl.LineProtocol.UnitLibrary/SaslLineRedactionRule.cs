@@ -86,9 +86,9 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
 
     private bool TryFindInitialResponse(ReadOnlySpan<byte> line, out int start, out int end)
     {
-        // Tokens are separated by single spaces: [tag] AUTH mechanism initial-response.
+        // The tokens of [tag] AUTH mechanism initial-response, however many spaces separate them.
         Span<Range> tokens = stackalloc Range[MostTokensRead];
-        var count = SplitOnSpaces(line, tokens);
+        var count = SplitOnSpaceRuns(line, tokens);
         start = 0;
         end = 0;
         for (var commandIndex = 0; commandIndex <= 1; commandIndex++)
@@ -97,7 +97,7 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
             if (responseIndex < count && IsCommandWord(line[tokens[commandIndex]]))
             {
                 (start, end) = (tokens[responseIndex].Start.Value, tokens[responseIndex].End.Value);
-                return end > start;
+                return true;
             }
         }
 
@@ -117,7 +117,8 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         return false;
     }
 
-    private static int SplitOnSpaces(ReadOnlySpan<byte> line, Span<Range> tokens)
+    // Fills tokens with the first non-empty runs of bytes that are not spaces.
+    private static int SplitOnSpaceRuns(ReadOnlySpan<byte> line, Span<Range> tokens)
     {
         var count = 0;
         var tokenStart = 0;
@@ -125,7 +126,11 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         {
             if (index == line.Length || line[index] == Space)
             {
-                tokens[count++] = tokenStart..index;
+                if (index > tokenStart)
+                {
+                    tokens[count++] = tokenStart..index;
+                }
+
                 tokenStart = index + 1;
             }
         }
