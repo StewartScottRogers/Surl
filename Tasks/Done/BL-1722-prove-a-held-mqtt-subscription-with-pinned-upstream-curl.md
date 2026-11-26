@@ -39,9 +39,9 @@ completed: 2026-11-25
 - "Skip where absent" is the shared `PinnedUpstreamCurl` path (`Assert.Inconclusive`); not exercised here, since the
   pinned build is installed.
 - Test-only change: no production code, so the `/feature` plan and implement stages had nothing to do. Code review run;
-  its three findings applied or, for the index row, added to BL-1738.
+  its three findings applied or, for the index row, added to BL-1741.
 - Added ADR-0014 to `touches`: its "not yet built: BL-1722" line became false. No task in Doing named that file.
-  `Decisions/README.md` is named by BL-1725, so its row is BL-1738.
+  `Decisions/README.md` is named by BL-1725, so its row is BL-1741.
 - Verified 2026-11-25: build clean with `-warnaserror`, format clean, fast tests 29249 passed, 3 skipped, the new
   tests 3 passed. Of the other `Integration` tests only the MQTT-related ones were run (31 passed with the new ones).
 

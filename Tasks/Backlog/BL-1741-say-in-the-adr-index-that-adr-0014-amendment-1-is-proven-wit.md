@@ -1,5 +1,5 @@
 ---
-id: BL-1738
+id: BL-1741
 title: Say in the ADR index that ADR-0014 Amendment 1 is proven with pinned upstream curl
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1738 — Say in the ADR index that ADR-0014 Amendment 1 is proven with pinned upstream curl
+# BL-1741 — Say in the ADR index that ADR-0014 Amendment 1 is proven with pinned upstream curl
 
 ## Goal
 
