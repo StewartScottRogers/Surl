@@ -268,9 +268,9 @@ A `CONNECT` tunnel through the HTTP proxy carrying HTTP/2 in cleartext could log
 
 Accepted limits:
 
-- The `DATA` frames of an HTTP/2 `CONNECT` stream are still logged as received, so a credential tunnelled there **can
-  be logged**: curl 8.21.0 `--proxy-http2 -p` sends plaintext HTTP/1.1 in them (fixture `https-proxy-h2-connect`).
-  The aim of keeping these two fields out of the proxy's log is not met for this case (BL-1733).
+- The `DATA` frames of an HTTP/2 `CONNECT` stream were still logged as received, so a credential tunnelled there could
+  be logged: curl 8.21.0 `--proxy-http2 -p` sends plaintext HTTP/1.1 in them (fixture `https-proxy-h2-connect`).
+  Closed by amendment 11.
 - A preface where a request may start, followed by bytes that are not frames, is read as frames, so text sent after it
   **can be logged**, on an origin listen URL too when `--proxy` is named. curl does not do this.
 - After a `101` to `Upgrade: h2c`, a client that sends anything but the exact preface and then `HEADERS` is not
@@ -361,3 +361,34 @@ Accepted limits:
 - Another binary protocol starting `0x10` or `0x30` may have a packet held until whole, never more than 64 KiB, and
   lose log detail to `****`. That never reveals a secret.
 - A client that sends ahead of the server's replies keeps amendment 6's limit (BL-1707).
+
+## Amendment 11 (BL-1733, decided by Claude under Stewart's delegation)
+
+An HTTP/2 `CONNECT` stream carries another protocol's bytes in its `DATA` frames, and `Http2RequestBytesRedactor`
+logged them as received. curl 8.21.0 `--proxy-http2 -p` sends plaintext HTTP/1.1 there (fixture
+`https-proxy-h2-connect`, recorded without `-u`), so an `Authorization` field sent there would have been logged (read
+from the code, not recorded).
+
+1. **Which streams.** The redactor keeps the ID of every stream on which a header block it decoded has `:method`
+   `CONNECT`, whether the block is logged or withheld (one carrying `proxy-authorization` is withheld and still
+   counts). A stream stays one for the rest of the connection. Extended `CONNECT` (RFC 8441) counts too.
+2. **What is withheld.** A `DATA` frame on such a stream is logged as its 9-byte frame header, as received, then
+   `****`; an empty one as its header alone. The same holds for a `DATA` frame on any stream once the HPACK decoder
+   copy is lost (amendment 3, "fail closed"), because the redactor can then no longer tell which streams are tunnels.
+   A `DATA` frame that interrupts an open header block loses the copy and is withheld.
+3. **Whole payloads.** The content is not examined and no redactor is run per stream: nothing says what a tunnel
+   carries, and a rule that guesses can miss. Rejected for that reason.
+4. **Bounded memory.** At most 4,096 `CONNECT` streams are told apart one by one. A connection that opens more has
+   every later `DATA` payload withheld.
+5. **Everywhere the redactor is used.** The HTTP proxy, the origin HTTP servers, gRPC, DNS over HTTPS and the SOCKS
+   tunnel share it, so the rule holds for every `CONNECT` stream whose frames they pass to it. It replaces "every
+   other frame streams through as received" (amendment 3) and "every other frame as received" (amendment 7, point 2)
+   for these frames.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- A `DATA` frame sent on a stream before that stream's `CONNECT` header block, which a client may not do, is logged
+  as received.
+- A tunnel's payload is lost from the log even when it holds no secret (TLS ciphertext included). That loses log
+  detail only.

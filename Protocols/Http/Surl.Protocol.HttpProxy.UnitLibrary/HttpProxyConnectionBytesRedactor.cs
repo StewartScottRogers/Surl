@@ -12,8 +12,8 @@ namespace Surl.Protocol.HttpProxy;
 /// wherever it falls, because HTTP/2 carries a credential as an HPACK field no line rule sees.
 /// When the preface starts where a request may start (ALPN <c>h2</c>, prior knowledge in a tunnel,
 /// or after an <c>h2c</c> upgrade), every later byte is redacted by
-/// <see cref="Http2RequestBytesRedactor"/>, which logs <c>DATA</c> frames as received, those of an
-/// HTTP/2 <c>CONNECT</c> stream included; a preface anywhere else withholds every later byte
+/// <see cref="Http2RequestBytesRedactor"/>, which withholds the <c>DATA</c> payloads of an HTTP/2
+/// <c>CONNECT</c> stream (amendment 11); a preface anywhere else withholds every later byte
 /// (<see cref="HttpProxyWithheldBytesRedactor"/>).
 /// </summary>
 internal sealed class HttpProxyConnectionBytesRedactor : IReceivedBytesRedactor

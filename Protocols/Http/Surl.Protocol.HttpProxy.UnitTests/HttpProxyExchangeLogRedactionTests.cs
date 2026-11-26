@@ -21,6 +21,10 @@ public sealed class HttpProxyExchangeLogRedactionTests
     // The same frame in proxy-haproxy-http2-connect/request-2.bin, behind curl's 44-byte PROXY line.
     private const int HaProxyHeadersStart = 108;
 
+    // Where the one DATA frame of https-proxy-h2-connect/request.bin lies, on its CONNECT stream.
+    private const int CurlsConnectDataStart = 114;
+    private const int CurlsConnectDataLength = 81;
+
     private const int FrameHeaderLength = 9;
     private const int CurlsHeaderBlockLength = 49;
     private const string CurlsAuthorization = "Basic YTpzM2NyZXQ=";
@@ -53,6 +57,30 @@ public sealed class HttpProxyExchangeLogRedactionTests
 
         Assert.DoesNotContain(Token, Latin1(logged));
         CollectionAssert.AreEqual((byte[])[.. start, .. Withheld(headers)], logged);
+    }
+
+    [TestMethod]
+    public void H2ProxyConnection_CurlsConnectStreamData_IsWithheldFromTheLog()
+    {
+        var recorded = Fixture("https-proxy-h2-connect", "request.bin");
+        var dataEnd = CurlsConnectDataStart + FrameHeaderLength + CurlsConnectDataLength;
+        CollectionAssert.AreEqual(
+            new byte[] { 0, 0, CurlsConnectDataLength, 0x0, 0x0, 0, 0, 0, 1 },
+            recorded[CurlsConnectDataStart..(CurlsConnectDataStart + FrameHeaderLength)]);
+        StringAssert.StartsWith(Latin1(recorded[(CurlsConnectDataStart + FrameHeaderLength)..dataEnd]), "GET /a HTTP/1.1\r\n");
+
+        var logged = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [recorded], string.Empty, []);
+
+        Assert.DoesNotContain("GET /a HTTP/1.1", Latin1(logged));
+        CollectionAssert.AreEqual(
+            (byte[])
+            [
+                .. recorded[..(CurlsConnectDataStart + FrameHeaderLength)],
+                .. "****"u8,
+                .. recorded[dataEnd..],
+            ],
+            logged,
+            Latin1(logged));
     }
 
     [TestMethod]

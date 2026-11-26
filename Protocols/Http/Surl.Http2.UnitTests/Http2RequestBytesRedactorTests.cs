@@ -6,9 +6,10 @@ namespace Surl.Http2;
 
 /// <summary>
 /// The HTTP/2 redactor withholds the payloads of header blocks that carry <c>authorization</c> or
-/// <c>proxy-authorization</c>, every <c>PUSH_PROMISE</c> payload, and, once it can no longer follow
-/// the header blocks, every later <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c>
-/// payload (ADR-0182, BL-1423, BL-1714, BL-1728, BL-1729).
+/// <c>proxy-authorization</c>, every <c>PUSH_PROMISE</c> payload, the <c>DATA</c> payloads of
+/// <c>CONNECT</c> streams, and, once it can no longer follow the header blocks, every later
+/// <c>HEADERS</c>, <c>CONTINUATION</c>, <c>PUSH_PROMISE</c> and <c>DATA</c> payload (ADR-0182,
+/// BL-1423, BL-1714, BL-1728, BL-1729, BL-1733).
 /// </summary>
 [TestClass]
 public sealed class Http2RequestBytesRedactorTests
@@ -150,6 +151,131 @@ public sealed class Http2RequestBytesRedactorTests
         Assert.AreEqual(24 + 12, output.WrittenCount);
     }
 
+    private static readonly (string, string)[] Connect = [(":method", "CONNECT"), (":authority", "origin:80")];
+
+    private static byte[] HeadersOn(int streamId, byte[] block) =>
+        Http2FrameEncoder.Encode(new Http2HeadersFrame(streamId, block, false, true));
+
+    private static byte[] DataOn(int streamId, string text) =>
+        Http2FrameEncoder.Encode(new Http2DataFrame(streamId, Encoding.ASCII.GetBytes(text), false));
+
+    [TestMethod]
+    public void Redact_DataOnAConnectStream_IsWithheld()
+    {
+        var connect = HeadersOn(1, Block(new HpackEncoder(), Connect));
+        var data = DataOn(1, "Authorization: Basic YWxpY2U6czNjcmV0\r\n");
+
+        var (_, bytes) = Redact([Join(Preface, connect, data, data)]);
+
+        CollectionAssert.AreEqual(
+            Join(Preface, connect, WithPayloadWithheld(data), WithPayloadWithheld(data)),
+            bytes);
+    }
+
+    [TestMethod]
+    public void Redact_EmptyDataOnAConnectStream_WritesTheHeaderAlone()
+    {
+        var connect = HeadersOn(1, Block(new HpackEncoder(), Connect));
+        var empty = DataOn(1, string.Empty);
+
+        var (_, bytes) = Redact([Join(Preface, connect, empty)]);
+
+        CollectionAssert.AreEqual(Join(Preface, connect, empty), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataOnAnotherStreamBesideAConnect_IsLoggedAsReceived()
+    {
+        var encoder = new HpackEncoder();
+        var connect = HeadersOn(1, Block(encoder, Connect));
+        var post = HeadersOn(3, Block(encoder, (":method", "POST"), (":path", "/")));
+        var data = DataOn(3, "upload");
+
+        var (_, bytes) = Redact([Join(Preface, connect, post, data)]);
+
+        CollectionAssert.AreEqual(Join(Preface, connect, post, data), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataOnAConnectStreamDifferingOnlyInTheReservedStreamBit_IsWithheld()
+    {
+        var connect = HeadersOn(1, Block(new HpackEncoder(), Connect));
+        var data = DataOn(1, "tunnelled");
+        data[5] |= 0x80;
+
+        var (_, bytes) = Redact([Join(Preface, connect, data)]);
+
+        CollectionAssert.AreEqual(Join(Preface, connect, WithPayloadWithheld(data)), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataAfterAConnectBlockWithheldForItsCredential_IsWithheld()
+    {
+        var block = Block(
+            new HpackEncoder(stringCoding: HpackStringCoding.Raw),
+            (":method", "CONNECT"),
+            ("proxy-authorization", Secret));
+        var connect = HeadersOn(1, block);
+        var data = DataOn(1, "tunnelled");
+
+        var (_, bytes) = Redact([Join(Preface, connect, data)]);
+
+        CollectionAssert.AreEqual(Join(Preface, WithPayloadWithheld(connect), WithPayloadWithheld(data)), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataAfterAConnectSplitOverContinuation_IsWithheld()
+    {
+        var block = Block(new HpackEncoder(), Connect);
+        var head = Headers(block[..1], endHeaders: false);
+        var tail = Http2FrameEncoder.Encode(new Http2ContinuationFrame(1, block[1..], true));
+        var data = DataOn(1, "tunnelled");
+
+        var (_, bytes) = Redact([Join(Preface, head, tail, data)]);
+
+        CollectionAssert.AreEqual(Join(Preface, head, tail, WithPayloadWithheld(data)), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataOnAConnectStreamInOneByteChunks_IsWithheld()
+    {
+        var connect = HeadersOn(1, Block(new HpackEncoder(), Connect));
+        var data = DataOn(1, "tunnelled");
+        var stream = Join(Preface, connect, data);
+
+        var (_, bytes) = Redact(stream.Select(value => new[] { value }));
+
+        CollectionAssert.AreEqual(Join(Preface, connect, WithPayloadWithheld(data)), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataAfterTheDecoderIsLost_IsWithheld()
+    {
+        var bad = Headers([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F]);
+        var data = DataOn(3, "perhaps a tunnel");
+        var empty = DataOn(5, string.Empty);
+
+        var (_, bytes) = Redact([Join(Preface, bad, data, empty)]);
+
+        CollectionAssert.AreEqual(Join(Preface, WithPayloadWithheld(bad), WithPayloadWithheld(data), empty), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_DataOnAnyStreamAfterMoreConnectStreamsThanAreRemembered_IsWithheld()
+    {
+        var encoder = new HpackEncoder();
+        var connects = Enumerable.Range(0, 4097)
+            .Select(index => HeadersOn((2 * index) + 1, Block(encoder, Connect)))
+            .ToArray();
+        var data = DataOn(100_001, "upload");
+
+        var remembered = Redact([Join(Preface, Join(connects[..4096]), data)]).Bytes;
+        var overflowed = Redact([Join(Preface, Join(connects), data)]).Bytes;
+
+        CollectionAssert.AreEqual(data, remembered[^data.Length..]);
+        CollectionAssert.AreEqual(WithPayloadWithheld(data), overflowed[^13..]);
+    }
+
     [TestMethod]
     public void Redact_BlockThatDoesNotDecode_WithholdsItAndEveryLaterBlock()
     {
@@ -191,7 +317,9 @@ public sealed class Http2RequestBytesRedactorTests
 
         var (_, bytes) = Redact([Join(Preface, open, data, later)]);
 
-        Assert.AreEqual(24 + 13 + data.Length + 13, bytes.Length);
+        CollectionAssert.AreEqual(
+            Join(Preface, WithPayloadWithheld(open), WithPayloadWithheld(data), WithPayloadWithheld(later)),
+            bytes);
     }
 
     [TestMethod]

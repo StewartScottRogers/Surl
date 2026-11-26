@@ -120,10 +120,12 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
     /// <c>CONNECT</c> tunnel included, the credentials are written as <c>****</c>. From an HTTP/2
     /// connection preface that starts where a request may start (on curl's connection to the proxy
     /// or inside such a tunnel), a header block carrying either field is logged as its frame headers,
-    /// each followed by <c>****</c> in place of its payload. The <c>DATA</c> frames of an HTTP/2
-    /// <c>CONNECT</c> stream are logged as received, so a credential tunnelled in them is not
-    /// withheld. After a preface anywhere else, every later byte is withheld. The log holds curl's
-    /// side of the connection only; bytes the proxy sends to an origin are not logged.
+    /// each followed by <c>****</c> in place of its payload. A <c>DATA</c> frame on an HTTP/2
+    /// <c>CONNECT</c> stream, or on any stream once the header blocks can no longer be followed, is
+    /// logged the same way, an empty one as its frame header alone, so a credential tunnelled in it
+    /// is not logged; <c>Surl.Http2</c>'s <c>Http2RequestBytesRedactor</c> says exactly what is withheld. After a
+    /// preface anywhere else, every later byte is withheld. The log holds curl's side of the
+    /// connection only; bytes the proxy sends to an origin are not logged.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for curl's connection, used by that exchange alone.</returns>

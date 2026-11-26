@@ -63,7 +63,7 @@ What exists:
 - `HttpProxyConnectionBytesRedactor` - the exchange-log redactor `CreateRedactor` returns
   (ADR-0182 Amendment 8): HTTP/1.x request heads are masked until the client's HTTP/2 preface; a
   preface where a request may start hands the rest to `Surl.Http2`'s `Http2RequestBytesRedactor`,
-  which logs `DATA` frames, a `CONNECT` stream's included, as received.
+  which withholds the `DATA` payloads of a `CONNECT` stream (Amendment 11).
 - `HttpProxyWithheldBytesRedactor` - takes over when the preface starts anywhere else: one `****`
   for every later byte.
 - `HttpProxyExchange` - one curl connection: reads request heads with `Surl.HttpMessage`'s

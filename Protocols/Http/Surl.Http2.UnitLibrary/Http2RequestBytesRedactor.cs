@@ -9,10 +9,15 @@ namespace Surl.Http2;
 /// An <see cref="IReceivedBytesRedactor"/> for the bytes a client sends on one HTTP/2 connection:
 /// the connection preface, then frames. A header block that carries an <c>authorization</c> or
 /// <c>proxy-authorization</c> field is logged with each of its <c>HEADERS</c> and <c>CONTINUATION</c>
-/// payloads replaced by <c>****</c>. The 9-byte frame headers are always logged as received, and so
-/// is every frame of a type other than <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c>.
-/// A <c>PUSH_PROMISE</c> payload is always withheld, and once the redactor can no longer follow the
-/// header blocks, so is every later payload of those three types (ADR-0182, decisions 1, 6 and 7).
+/// payloads replaced by <c>****</c>. A <c>PUSH_PROMISE</c> payload is always withheld, and so is the
+/// payload of every <c>DATA</c> frame on a stream that carried a <c>CONNECT</c> header block,
+/// because it holds another protocol's bytes, credentials included. Once the redactor can no longer
+/// follow the header blocks, every later <c>HEADERS</c>, <c>CONTINUATION</c>, <c>PUSH_PROMISE</c>
+/// and <c>DATA</c> payload is withheld, on every stream; so is every later <c>DATA</c> payload once
+/// more than 4,096 streams have carried a <c>CONNECT</c> block. An empty <c>DATA</c> payload leaves
+/// nothing to withhold: its frame header is written alone. The 9-byte frame headers are always
+/// logged as received, and so is every frame of any other type, and every <c>DATA</c> frame none of
+/// these rules withholds (ADR-0182, decisions 1, 6 and 7, and amendment 11).
 /// </summary>
 /// <remarks>
 /// HPACK values are recoverable from a dump whether Huffman-coded or literal, and an indexed field
@@ -28,13 +33,24 @@ namespace Surl.Http2;
 /// section 6.10), and a <c>PUSH_PROMISE</c>, which a client may not send (section 8.4), each leave
 /// the copy's table unknown. The open block's held frames are then written withheld, and from then
 /// on every <c>HEADERS</c>, <c>CONTINUATION</c> and <c>PUSH_PROMISE</c> payload, the offending
-/// frame's included if it is one of these, is withheld (fail closed). Frames of other types, one
-/// that interrupts an open block included, stream through as they arrive and are never decoded.
+/// frame's included if it is one of these, is withheld (fail closed), as is every <c>DATA</c>
+/// payload from then on, an interrupting <c>DATA</c> frame's included. Frames of other types are
+/// never held or decoded: each is written as it arrives.
+/// <para>
+/// A stream carried a <c>CONNECT</c> header block when a block the copy decoded on it has
+/// <c>:method</c> <c>CONNECT</c>, whether that block was logged or withheld; it stays one for the
+/// rest of the connection. At most 4,096 such streams are told apart one by one. A connection that
+/// opens more has every later <c>DATA</c> payload withheld, and no more than 4,097 stream IDs are
+/// ever kept. A <c>DATA</c> frame sent on a stream before its header block, which a client may not do, is
+/// logged as received.
+/// </para>
 /// </remarks>
 public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 {
     private const int FrameHeaderLength = 9;
     private const int HeldFramesLimit = 64 * 1024;
+    private const int RememberedConnectStreamsLimit = 4096;
+    private const byte DataType = 0x0;
     private const byte HeadersType = 0x1;
     private const byte PushPromiseType = 0x5;
     private const byte ContinuationType = 0x9;
@@ -55,6 +71,9 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     private readonly HpackDecoder decoder = new(HpackDecoder.DefaultMaximumTableSize, int.MaxValue);
     private readonly byte[] frameHeader = new byte[FrameHeaderLength];
     private readonly List<(byte[] Header, byte[] Payload)> heldFrames = [];
+
+    // One more than the limit means more CONNECT streams were opened than can be told apart.
+    private readonly HashSet<uint> connectStreams = [];
     private int prefaceRemaining = Http2ConnectionPreface.Preface.Length;
     private int frameHeaderRead;
     private int payloadRemaining;
@@ -132,7 +151,8 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         payloadRemaining = length;
         if (type is not (HeadersType or PushPromiseType or ContinuationType))
         {
-            LoseDecoderIfBlockOpenAndStartPassThroughFrame(output);
+            LoseDecoderIfBlockOpen(output);
+            StartFrameOutsideHeaderBlocks(type, length, output);
         }
         else if (decoderLost || !FitsHeaderBlockSequence(type)
             || heldFramesLength + FrameHeaderLength + length > HeldFramesLimit)
@@ -155,17 +175,32 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     private static uint StreamIdOf(byte[] header) =>
         BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(5)) & 0x7FFF_FFFF;
 
-    private void LoseDecoderIfBlockOpenAndStartPassThroughFrame(ArrayBufferWriter<byte> output)
+    private void LoseDecoderIfBlockOpen(ArrayBufferWriter<byte> output)
     {
         // A frame of any other type ends an open block early; the block's table effects are unknown.
         if (heldFrames.Count > 0)
         {
             LoseDecoderAndWriteHeldFramesWithheld(output);
         }
-
-        payloadMode = PayloadMode.PassThrough;
-        output.Write(frameHeader);
     }
+
+    private void StartFrameOutsideHeaderBlocks(byte type, int length, ArrayBufferWriter<byte> output)
+    {
+        output.Write(frameHeader);
+        if (type == DataType && MustWithholdData(StreamIdOf(frameHeader)))
+        {
+            payloadMode = PayloadMode.Discard;
+            output.Write(length > 0 ? Withheld : []);
+        }
+        else
+        {
+            payloadMode = PayloadMode.PassThrough;
+        }
+    }
+
+    // With the decoder lost, or too many CONNECT streams to remember, any stream may be a tunnel.
+    private bool MustWithholdData(uint streamId) =>
+        decoderLost || connectStreams.Count > RememberedConnectStreamsLimit || connectStreams.Contains(streamId);
 
     private void LoseDecoderAndStartWithheldFrame(ArrayBufferWriter<byte> output)
     {
@@ -223,8 +258,13 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 
     private void CompleteBlock(ArrayBufferWriter<byte> output)
     {
-        var mustWithhold = !TryReadBlockCarriesSecret(out var carriesSecret) || carriesSecret;
-        if (mustWithhold)
+        var decoded = TryDecodeBlock(out var fields);
+        if (fields.Any(IsConnectMethod))
+        {
+            RememberConnectStream(StreamIdOf(heldFrames[0].Header));
+        }
+
+        if (!decoded || fields.Any(field => IsSecretName(field.Name)))
         {
             WriteHeldFramesWithheld(output);
         }
@@ -241,9 +281,17 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         heldFramesLength = 0;
     }
 
-    private bool TryReadBlockCarriesSecret(out bool carriesSecret)
+    private void RememberConnectStream(uint streamId)
     {
-        carriesSecret = false;
+        if (connectStreams.Count <= RememberedConnectStreamsLimit)
+        {
+            connectStreams.Add(streamId);
+        }
+    }
+
+    private bool TryDecodeBlock(out IReadOnlyList<HpackHeaderField> fields)
+    {
+        fields = [];
         var fragment = new ArrayBufferWriter<byte>();
         foreach (var (header, payload) in heldFrames)
         {
@@ -263,10 +311,13 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
             return false;
         }
 
-        carriesSecret = decoded.Fields.Any(field => IsSecretName(field.Name));
+        fields = decoded.Fields;
 
         return true;
     }
+
+    private static bool IsConnectMethod(HpackHeaderField field) =>
+        field is { Name: ":method", Value: "CONNECT" };
 
     private static bool TryAppendFragment(byte type, byte flags, byte[] payload, ArrayBufferWriter<byte> fragment)
     {

@@ -117,12 +117,13 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer, IExchangeBy
     /// <c>ACCT</c>, the credentials of <c>Authorization</c> and <c>Proxy-Authorization</c>, the IMAP
     /// <c>LOGIN</c> password, and SASL <c>AUTH</c> and <c>AUTHENTICATE</c> initial responses and the
     /// lines answering <c>334</c> or <c>+</c>. In such a tunnel, an HTTP/2 header block carrying either
-    /// credential field has its frame payloads written as <c>****</c>, and every byte after a preface
-    /// that neither opened the tunnel nor followed an <c>HTTP/1.1 101</c> is withheld. In a tunnel
-    /// opening with <c>0x10</c>, the password of the MQTT <c>CONNECT</c> is written as <c>****</c>; in
-    /// one opening with <c>0x30</c>, the non-empty authentication of every LDAP bind is. Everything else is
-    /// logged as it arrived (ADR-0182, amendments 6, 7, 9 and 10, which list the limits and what else a
-    /// malformed or oversized packet has withheld).
+    /// credential field has its frame payloads written as <c>****</c>, so has the <c>DATA</c> of an
+    /// HTTP/2 <c>CONNECT</c> stream, and every byte after a preface that neither opened the tunnel nor
+    /// followed an <c>HTTP/1.1 101</c> is withheld. In a tunnel opening with <c>0x10</c>, the password
+    /// of the MQTT <c>CONNECT</c> is written as <c>****</c>; in one opening with <c>0x30</c>, the
+    /// non-empty authentication of every LDAP bind is. Everything else is logged as it arrived
+    /// (ADR-0182, amendments 6, 7, 9, 10 and 11, which list the limits and what else a malformed or
+    /// oversized packet, or an HTTP/2 header block that cannot be followed, has withheld).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for the connection, used by that exchange alone.</returns>
