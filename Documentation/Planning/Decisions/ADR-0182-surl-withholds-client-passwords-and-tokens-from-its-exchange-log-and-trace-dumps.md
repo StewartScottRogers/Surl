@@ -569,3 +569,30 @@ Accepted limits:
 - Amendment 9's limits hold here too: the answer to a synchronizing literal is not awaited; a SASL answer sent before
   the continuation reaches the client is judged without it; and so may one from a client so fast that its answer is
   judged between the proxy's write of the continuation and its being shown to the redactor (not reproduced).
+
+## Amendment 17 (BL-1758, decided by Claude under Stewart's delegation)
+
+`Http2RequestBytesRedactor` wrote the first 24 bytes as the client preface without comparing them and read the rest as
+frames, so an HTTP/1.1 request sent to a `grpc` listen URL, or sent to an `http` listen URL after its `101` to
+`Upgrade: h2c`, was logged with its credentials, API keys and session tokens.
+
+1. **The preface is compared.** Each byte is compared with the 24-byte preface as it arrives, however the bytes are
+   split. The bytes that match are logged as received.
+2. **The first byte that differs fails closed.** One `****` is written in its place and nothing more: not that byte, no
+   later byte, and nothing from `Flush`. So an HTTP/1.1 `GET` is logged as `****`, and a `PUT`, which shares the
+   preface's `P`, as `P****`.
+3. **Everywhere the redactor is used** (amendment 11, point 5). gRPC and the http server after an `h2c` upgrade gain the
+   rule. DNS over HTTPS, the HTTP proxy and the SOCKS tunnel only ever give the redactor bytes that open with the exact
+   preface, so their logs do not change.
+4. **Rejected:** redacting such bytes as HTTP/1.x request heads in the gRPC server. It needs a new project reference
+   there, leaves the `101` case open, and keeps log detail only for a client that does not speak the listener's protocol.
+5. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- When the bytes the HTTP/2 redactor receives do not open with the preface (a `grpc` connection, or an `http` one after
+  its `101`), everything after the matching bytes is lost from the log, secret or not. That loses log detail only.
+- On an `http` listen URL, HTTP/2 bytes a client sends after its `h2c` upgrade request without waiting for the `101`,
+  which curl does not do, are still read by the HTTP/1.x redactor, which sees no HPACK field, so a secret in them
+  **can be logged**. Bytes that arrive after the redactor moves to HTTP/2 and do not start with the preface are
+  withheld.
