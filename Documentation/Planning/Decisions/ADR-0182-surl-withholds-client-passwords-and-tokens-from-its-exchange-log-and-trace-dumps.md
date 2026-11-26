@@ -541,7 +541,7 @@ judged tunnelled lines only as HTTP head lines.
    A line ended by a bare line feed is judged as soon as it ends. A `334` or `+` line split between the origin's reads,
    or sent with no space after it, is a continuation (amendment 9, points 4 and 5).
 4. **Its own classes.** The rules the SOCKS library holds are written again in the proxy library, because protocol
-   libraries never reference each other (BL-1767 moves both into a shared library). The proxy library now references
+   libraries never reference each other (amendment 20 moves both into `Surl.LineProtocol`). The proxy library now references
    `Surl.LineProtocol.UnitLibrary`, one of ADR-0002 decision 3's horizontal libraries, which adds to the references
    ADR-0088 lists for it.
 5. **Unchanged.** Forwarded requests, and HTTP or RTSP carried in a tunnel, whose lines point 1 does not give to the
@@ -673,3 +673,39 @@ Accepted limits:
   | A folded line following a header line longer than 64 KiB, which is logged as `****` without the rule seeing it | The folded line, as received |
   | A header line that starts with a space or a tab and follows no withheld header | The line, as received |
   | A header that follows a bare carriage return | The whole is judged as one line, by the first name in it |
+
+## Amendment 20 (BL-1767, decided by Claude under Stewart's delegation)
+
+The SOCKS server and the HTTP proxy each held its own copy of the tunnel line rules (amendment 16, point 4), so a fix to
+one could miss the other.
+
+1. **One copy, in `Surl.LineProtocol`.** Both already reference it (amendments 9 and 16), and it references
+   `Surl.Protocol.Abstractions`, where `HttpWithheldHeaderNames`, `LineBytesRedactor` and `ILineRedactionRule` are, so
+   no new library or reference is needed. Rejected: the abstractions library, because the combining rule needs
+   `SaslLineRedactionRule`, which is in `Surl.LineProtocol`. The four classes are public:
+
+   | Shared class | Replaces, in SOCKS and in the HTTP proxy |
+   | --- | --- |
+   | `TunnelLinesRedactor` | `SocksTunnelLinesRedactor`, `HttpProxyTunnelLinesRedactor` |
+   | `TunnelLineRedactionRule` | `SocksTunnelLineRedactionRule`, `HttpProxyTunnelLineRedactionRule` |
+   | `TunnelPasswordAndCredentialHeaderLineRule` | `SocksTunnelPasswordAndCredentialHeaderLineRule`, `HttpProxyTunnelPasswordAndCredentialHeaderLineRule` |
+   | `TunnelImapLoginLineRule` | `SocksTunnelImapLoginLineRule`, `HttpProxyTunnelImapLoginLineRule` |
+
+   Where amendments 6, 9, 16, 18 and 19 name a replaced class, the shared one is meant. This replaces amendment 6,
+   point 4, amendment 9, point 3's "the SOCKS library keeps its own rule", and amendment 16, point 4's "its own
+   classes".
+2. **`LOGIN` words are separated by spaces and tabs.** The copies differed in this: the proxy's rule did so, the SOCKS
+   one split on spaces only. A tab-separated `LOGIN` line through a SOCKS tunnel now has its password logged as `****`.
+   Splitting on tabs alone would have shown passwords the SOCKS rule masked (a tab inside or before the tag, or
+   standing as the user name), so the shared rule reads each line both ways: words separated by spaces and tabs, and by
+   spaces only. A line either reading takes for `LOGIN` is one, it is masked from the earlier password of the two, and a
+   literal it announces is withheld. Blanks after the user name are logged either way. Both servers therefore mask at
+   least the password either copy masked.
+3. **What stays apart.** Where each server starts reading a connection as tunnelled text, and what it does at an HTTP/2
+   preface, differ and stay in each server's library.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- A line neither reading takes for `LOGIN` is logged as received, one with no tag included (BL-1750).
+- The limits amendments 9, 16, 18 and 19 give for these rules hold for both servers alike.
