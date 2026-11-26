@@ -543,18 +543,19 @@ public sealed partial class AiHelpTextTests
         var page = AiHelpText.Answer("logging").Output;
 
         StringAssert.Contains(page, "surl writes as `****` the argument of a `PASS` or `ACCT` line, its command word ended by a space or a tab and with or without spaces or tabs before it, the credentials of an `Authorization` or `Proxy-Authorization` header line, the whole value of an API-key or session-token header line, the password of an IMAP `LOGIN` line, with a tag or without one and its words separated by spaces or tabs, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation.");
-        StringAssert.Contains(page, "A header is read at the start of a line and after every bare carriage return, with or without spaces or tabs before its name; from where the first withheld header's secret begins, the rest of the line is `****`.");
+        StringAssert.Contains(page, "A `PASS` or `ACCT` command and a header are each read at the start of a line and after every bare carriage return, with or without spaces or tabs before the command word or the header name; from where the first secret so read begins, a command's argument or a withheld header's, the rest of the line is `****`.");
         StringAssert.Contains(page, "has each frame payload of a header block holding `authorization`, `proxy-authorization` or an API-key or session-token header written as `****`");
         StringAssert.Contains(page, "Not withheld in a SOCKS tunnel: the NATS, STOMP, AMQP, Kafka and XMPP logins, and Redis ones other than the password of an inline `AUTH <user> <password>`, `AUTH <password>` or `HELLO <protover> AUTH <user> <password>` line (the password of an `AUTH <password>` line is logged when it is, unquoted, the name of a SASL or FTP security mechanism, such as `plain` or `tls`); and everything");
         StringAssert.Contains(page, "Inside an HTTP/1.x `CONNECT` tunnel through the HTTP proxy only some of those secrets are withheld too.");
         StringAssert.Contains(page, "makes surl judge it and every later line, and write as `****` the argument of a `PASS` or `ACCT` line, the credentials of an `Authorization` or `Proxy-Authorization` header line, the whole value of an API-key or session-token header line, the password of an IMAP `LOGIN` line, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation, bytes the client sends before the proxy's `200` included.");
         StringAssert.Contains(page, "Not withheld in a `CONNECT` tunnel: the NATS, STOMP, AMQP, Kafka and XMPP logins,");
-        StringAssert.Contains(page, "Spaces or tabs before a command or a header name, and headers after a bare carriage return, are read as in a SOCKS tunnel.");
+        StringAssert.Contains(page, "Commands and headers after a bare carriage return, and spaces or tabs before a command or a header name, are read as in a SOCKS tunnel.");
         StringAssert.Contains(page, "(with the same exception as in a SOCKS tunnel).");
         Assert.DoesNotContain("follows no withheld header", page);
         StringAssert.Contains(page, "A tunnel whose first byte is not a letter, `1` to `9` or a line feed");
         StringAssert.Contains(page, "A first tunnelled line of three words whose last starts `HTTP/` or `RTSP/`");
-        StringAssert.Contains(page, "In tunnelled text, the argument of a `PASS` or `ACCT` command that follows a bare carriage return can be logged.");
+        StringAssert.Contains(page, "In tunnelled text, what follows a `PASS` or `ACCT` word ended by a bare carriage return, not by a space or a tab, can be logged.");
+        Assert.DoesNotContain("command that follows a bare carriage return", page);
         StringAssert.Contains(page, "so a client that crafts a `0x10` or `0x30` (the digit `0`) after a `PROXY` line can have a later login or header logged.");
         StringAssert.Contains(page, "An MQTT or LDAP login behind a PROXY protocol version 2 header, or behind other bytes, is not withheld.");
         Assert.DoesNotContain("trailers of a chunked HTTP/1.x request body is logged", page);
