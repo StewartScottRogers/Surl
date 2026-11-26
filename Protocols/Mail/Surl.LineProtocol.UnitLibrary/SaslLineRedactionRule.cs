@@ -19,7 +19,12 @@ namespace Surl.LineProtocol;
 /// <para>
 /// The words of a client line are separated by runs of spaces and tabs. When a tab is on a line that
 /// holds an initial response, a tab may have split the mechanism or the response in two, so nothing
-/// after the mask is written.
+/// after the first mask is written.
+/// </para>
+/// <para>
+/// When the first word is a command word and the second is <c>AUTH</c> or <c>AUTHENTICATE</c>, the
+/// first may be the command or an IMAP tag, so the response of both readings is withheld: the third
+/// and the fourth word.
 /// </para>
 /// </remarks>
 public sealed class SaslLineRedactionRule : ILineRedactionRule
@@ -58,21 +63,12 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         if (_continuationPending)
         {
             _continuationPending = false;
-            if (!line.IsEmpty && !line.SequenceEqual("*"u8))
-            {
-                output.Write(LineBytesRedactor.SecretMask);
-                return;
-            }
+            output.Write(line.IsEmpty || line.SequenceEqual("*"u8) ? line : LineBytesRedactor.SecretMask);
         }
-        else if (TryFindInitialResponse(line, out var start, out var end))
+        else
         {
-            output.Write(line[..start]);
-            output.Write(LineBytesRedactor.SecretMask);
-            output.Write(line[end..]);
-            return;
+            RedactInitialResponse(line, output);
         }
-
-        output.Write(line);
     }
 
     /// <inheritdoc />
@@ -91,26 +87,53 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         }
     }
 
-    private bool TryFindInitialResponse(ReadOnlySpan<byte> line, out int start, out int end)
+    private void RedactInitialResponse(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         // The words of [tag] AUTH mechanism initial-response, however many spaces and tabs separate them.
         Span<Range> words = stackalloc Range[MostWordsRead];
         var count = SplitIntoWords(line, words);
-        start = 0;
-        end = 0;
+        ReadOnlySpan<Range> found = words[..count];
+        WriteWithWordsMasked(line, found[FindInitialResponseWords(line, found)], output);
+    }
+
+    // Which of the words may be an initial response: none, one, or one for each reading of the line.
+    private Range FindInitialResponseWords(ReadOnlySpan<byte> line, ReadOnlySpan<Range> words)
+    {
         for (var commandIndex = 0; commandIndex <= 1; commandIndex++)
         {
             var responseIndex = commandIndex + InitialResponseWordOffset;
-            if (responseIndex < count && IsCommandWord(line[words[commandIndex]]))
+            if (responseIndex < words.Length && IsCommandWord(line[words[commandIndex]]))
             {
-                start = words[responseIndex].Start.Value;
-                end = line.Contains(Tab) ? line.Length : words[responseIndex].End.Value;
-                return true;
+                // A second word that starts SASL too may be the command, and the first word its tag.
+                var mayBeTagged = commandIndex == 0 && IsSaslStartWord(line[words[1]]);
+                return responseIndex..(mayBeTagged ? words.Length : responseIndex + 1);
             }
         }
 
-        return false;
+        return default;
     }
+
+    private static void WriteWithWordsMasked(
+        ReadOnlySpan<byte> line, ReadOnlySpan<Range> maskedWords, ArrayBufferWriter<byte> output)
+    {
+        var written = 0;
+        foreach (var word in maskedWords)
+        {
+            output.Write(line[written..word.Start.Value]);
+            output.Write(LineBytesRedactor.SecretMask);
+            written = word.End.Value;
+            if (line.Contains(Tab))
+            {
+                return;
+            }
+        }
+
+        output.Write(line[written..]);
+    }
+
+    // Either word, whatever this rule's command words are, so that every rule reads such a line alike.
+    private static bool IsSaslStartWord(ReadOnlySpan<byte> word) =>
+        Ascii.EqualsIgnoreCase(word, "AUTH"u8) || Ascii.EqualsIgnoreCase(word, "AUTHENTICATE"u8);
 
     private bool IsCommandWord(ReadOnlySpan<byte> word)
     {

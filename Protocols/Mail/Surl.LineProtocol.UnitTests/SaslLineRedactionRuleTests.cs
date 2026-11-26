@@ -90,6 +90,29 @@ public sealed class SaslLineRedactionRuleTests
         Assert.AreEqual("AUTH\tPLAIN\t", Redact(SmtpRule(), "AUTH\tPLAIN\t"));
 
     [TestMethod]
+    [DataRow(
+        "AUTHENTICATE AUTHENTICATE PLAIN AGFsaWNlAHMzY3JldA==",
+        "AUTHENTICATE AUTHENTICATE **** ****")]
+    [DataRow(
+        "authenticate Authenticate PLAIN  AGFsaWNlAHMzY3JldA== extra",
+        "authenticate Authenticate ****  **** extra")]
+    [DataRow("AUTHENTICATE AUTHENTICATE AGFsaWNlAHMzY3JldA==", "AUTHENTICATE AUTHENTICATE ****")]
+    public void Redact_TagThatIsItselfTheCommandWord_MasksTheInitialResponseOfBothReadings(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(new SaslLineRedactionRule(["AUTHENTICATE"], "+ "), line));
+
+    [TestMethod]
+    [DataRow("AUTH AUTH PLAIN AGFsaWNlAHMzY3JldA==", "AUTH AUTH **** ****")]
+    [DataRow("AUTH AUTHENTICATE PLAIN AGFsaWNlAHMzY3JldA==", "AUTH AUTHENTICATE **** ****")]
+    [DataRow("auth authenticate PLAIN AGFsaWNlAHMzY3JldA==", "auth authenticate **** ****")]
+    public void Redact_CommandWordFollowedByEitherSaslCommandWord_MasksTheInitialResponseOfBothReadings(
+        string line, string logged) =>
+        Assert.AreEqual(logged, Redact(SmtpRule(), line));
+
+    [TestMethod]
+    public void Redact_TagThatIsItselfTheCommandWordOnALineWithATab_WritesNothingAfterTheFirstMask() =>
+        Assert.AreEqual("AUTH\tAUTH ****", Redact(SmtpRule(), "AUTH\tAUTH PLAIN AGFsaWNlAHMzY3JldA=="));
+
+    [TestMethod]
     public void Redact_SpacesBeforeTheCommandWord_StillMasksTheInitialResponse() =>
         Assert.AreEqual("  AUTH PLAIN ****", Redact(SmtpRule(), "  AUTH PLAIN AGFsaWNlAHMzY3JldA=="));
 

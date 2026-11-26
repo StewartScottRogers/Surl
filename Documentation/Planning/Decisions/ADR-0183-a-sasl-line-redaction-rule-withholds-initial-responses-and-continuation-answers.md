@@ -76,3 +76,19 @@ unchanged". No upstream curl measurement: curl sends single spaces, and only wha
    the mask is logged as received.
 2. **Nothing after the mask.** When a tab is anywhere on a line that holds an initial response, a tab may have split the
    mechanism or the response in two, so nothing after `****` is written (as amendment 3, point 3, for `LOGIN`).
+
+## Amendment 5 — a tag that is itself a SASL command word (BL-1754)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens decision 2. No upstream curl measurement: curl's IMAP
+tags are not command words, and only what the log writes changes.
+
+1. **Two readings.** When a line's first word is one of the rule's command words and its second is `AUTH` or
+   `AUTHENTICATE`, the first word may be the command (the third word is the initial response) or the tag (the fourth is).
+2. **Both withheld.** The third and the fourth word are each `****`, so `AUTHENTICATE AUTHENTICATE PLAIN <response>` is
+   logged as `AUTHENTICATE AUTHENTICATE **** ****`. Losing the mechanism in the log is preferred to guessing which
+   reading holds (as amendment 3, point 2, for `LOGIN`). With three words the third is `****`; with a tab on the line
+   nothing after the first `****` is written (amendment 4, point 2).
+3. **Either second word.** The rule treats `AUTH` and `AUTHENTICATE` alike in second place, whatever its own command
+   words are. The SOCKS tunnel's two SASL rules (ADR-0182, amendment 9) therefore write the same line for
+   `AUTH AUTHENTICATE PLAIN <response>`; had only the rule that knows both words masked the response, the tunnel's rule
+   could have logged the other's output, which holds it.
