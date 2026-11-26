@@ -483,10 +483,22 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("logging").Output;
 
-        StringAssert.Contains(page, "Challenge responses and proofs (Digest, NTLM, Negotiate, CRAM-MD5, SCRAM, APOP, SigV4) are not secrets in clear and are logged as received, and so are data bodies, with two exceptions: a line sent through a SOCKS or HTTP proxy tunnel that reads as one carrying a secret has that secret withheld, and an HTTP/2 connection preface can make surl withhold the rest of a connection, as the next paragraphs say.");
+        StringAssert.Contains(page, "Challenge responses and proofs (Digest, NTLM, Negotiate, CRAM-MD5, SCRAM, APOP, SigV4) are not secrets in clear and are logged as received, and so are data bodies, with three exceptions: a line sent through a SOCKS or HTTP proxy tunnel that reads as one carrying a secret has that secret withheld, an HTTP/2 connection preface can make surl withhold the rest of a connection, and surl withholds the payload of some HTTP/2 `DATA` frames, as the next paragraphs say.");
         StringAssert.Contains(page, "On a `--proxy` listen URL, and on the `http` and `https` listen URLs of a start that names `--proxy`, while a connection is read as HTTP/1.x, an HTTP/2 connection preface that does not start where a request may start (one inside an upload body, partway through a line or after a HAProxy `PROXY` line sent into a tunnel) withholds every later byte the client sends on that connection, later requests included, behind one `****`.");
-        StringAssert.Contains(page, "A preface that starts where a request may start (ALPN `h2`, prior knowledge in a `CONNECT` tunnel, or after an `h2c` upgrade request) is not that case: what follows is read as HTTP/2, and its `DATA` frames, those of a `CONNECT` stream and any credential tunnelled in them included, are logged as received.");
+        StringAssert.Contains(page, "A preface that starts where a request may start (ALPN `h2`, prior knowledge in a `CONNECT` tunnel, or after an `h2c` upgrade request) is not that case: what follows is read as HTTP/2.");
         Assert.DoesNotContain("data bodies are not secrets in clear", page);
+    }
+
+    [TestMethod]
+    public void Answer_Logging_SaysWhichHttp2DataPayloadsAreWithheld()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "Where the log reads a client's bytes as HTTP/2 frames (the HTTP and HTTPS servers, the HTTP proxy, gRPC, DNS over HTTPS and HTTP/2 inside a SOCKS tunnel), it withholds the payload of every `DATA` frame on a stream that carried a `CONNECT` header block, extended `CONNECT` included, because such a stream carries another protocol's bytes, credentials included.");
+        StringAssert.Contains(page, "Once surl can no longer follow a connection's header blocks, or more than 4096 of its streams have carried a `CONNECT` block, every later `DATA` payload on that connection is withheld, on every stream.");
+        StringAssert.Contains(page, "A withheld `DATA` frame is logged as its 9-byte frame header, as received, then `****`, and an empty one as its header alone.");
+        StringAssert.Contains(page, "Every other `DATA` payload is logged as received, one sent on a stream before that stream's `CONNECT` header block, which a client may not do, included. The event stream keeps the withheld bytes, so a test that needs them reads it.");
+        Assert.DoesNotContain("any credential tunnelled in them included", page);
     }
 
     [TestMethod]

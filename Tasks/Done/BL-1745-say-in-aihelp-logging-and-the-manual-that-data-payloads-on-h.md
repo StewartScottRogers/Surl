@@ -8,7 +8,7 @@ depends-on: [BL-1733]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1745 — Say in --aihelp logging and the manual that DATA payloads on HTTP/2 CONNECT streams are withheld
 
@@ -30,14 +30,25 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The `logging` topic and the manual say which `DATA` payloads are withheld, and neither says a credential
+- [x] The `logging` topic and the manual say which `DATA` payloads are withheld, and neither says a credential
       tunnelled on an HTTP/2 `CONNECT` stream is logged as received.
-- [ ] `ManualTextTests` and `AiHelpTextTests` pin the new sentences.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `ManualTextTests` and `AiHelpTextTests` pin the new sentences.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Text written from `Http2RequestBytesRedactor` and ADR-0182 amendment 11, as a paragraph of its own after the preface
+  paragraph: it holds for every server that reads a client's bytes as HTTP/2 for the log (HTTP and HTTPS, the HTTP
+  proxy, gRPC, DNS over HTTPS, the SOCKS tunnel), not only for `--proxy` listen URLs.
+- The "data bodies are logged as received, with two exceptions" sentence now counts three, since withheld `DATA`
+  payloads are data bodies.
+- New pin: `AiHelpTextTests.Answer_Logging_SaysWhichHttp2DataPayloadsAreWithheld` (seen failing before the text).
+- The SOCKS tunnel paragraph is left as it was: updating its withheld-secret lists is BL-1723.
+- Verified 2026-11-25: build `-warnaserror` 0 warnings, format check exit 0, fast tests 29421 passed, 0 failed,
+  3 skipped. Text only; no new code branches.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. --aihelp logging and the manual say which HTTP/2 DATA payloads the exchange log withholds
