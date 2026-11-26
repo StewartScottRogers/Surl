@@ -7,11 +7,13 @@ namespace Surl.Protocol.HttpProxy;
 /// <summary>
 /// What a command-stage fault rule makes the proxy do with one request (ADR-0160 decisions 3 and 4):
 /// nothing, abort the exchange without a byte, or answer a chosen status in place of the request's
-/// own answer. A delay has already been served by the time this is returned, so it is "nothing".
+/// own answer, with the proxy's challenges when it is <c>407</c> (ADR-0160 Amendment 2). A delay has
+/// already been served by the time this is returned, so it is "nothing".
 /// </summary>
 /// <param name="Drops">Whether the exchange ends with nothing sent.</param>
 /// <param name="ChosenStatus">The status to answer, or <see langword="null"/>.</param>
-internal readonly record struct ProxyCommandFault(bool Drops, HttpStatus? ChosenStatus)
+/// <param name="ChosenByRuleId">The ID of the rule that chose the status, or <see langword="null"/> when none was chosen.</param>
+internal readonly record struct ProxyCommandFault(bool Drops, HttpStatus? ChosenStatus, string? ChosenByRuleId)
 {
     private const string HttpProxyScheme = "http-proxy";
 
@@ -84,10 +86,36 @@ internal readonly record struct ProxyCommandFault(bool Drops, HttpStatus? Chosen
 
         return rule?.Kind switch
         {
-            FaultKind.Drop => new ProxyCommandFault(true, null),
+            FaultKind.Drop => new ProxyCommandFault(true, null, null),
             FaultKind.Error => ReadChosenError(context, rule, method, path),
             _ => default,
         };
+    }
+
+    /// <summary>
+    /// The <c>Proxy-Authenticate</c> values the chosen status goes with: for a <c>407</c>, whatever its
+    /// reason phrase, those the connection's proxy login session would offer in its own <c>407</c>
+    /// (RFC 9110 sections 11.7.1 and 15.5.8; ADR-0160 Amendment 2), noting in the exchange log when it
+    /// offers none; for every other status, none, and the session is not asked. Called only when
+    /// <see cref="ChosenStatus"/> is not <see langword="null"/>.
+    /// </summary>
+    /// <param name="context">The exchange.</param>
+    /// <param name="authenticationSession">The connection's proxy login session.</param>
+    /// <returns>The values in the order to send them.</returns>
+    public IReadOnlyList<string> CreateChosenStatusChallenges(ExchangeContext context, IHttpAuthenticationSession authenticationSession)
+    {
+        if (ChosenStatus!.Code != HttpProxyStatus.ProxyAuthenticationRequired.Code)
+        {
+            return [];
+        }
+
+        var offered = authenticationSession.CreateChallenges();
+        if (offered.Count == 0)
+        {
+            context.Log.Note($"fault rule {ChosenByRuleId} chose 407, and the proxy offers no challenge on this connection");
+        }
+
+        return offered;
     }
 
     private static ProxyCommandFault ReadChosenError(ExchangeContext context, FaultRule rule, string method, string path)
@@ -102,6 +130,6 @@ internal readonly record struct ProxyCommandFault(bool Drops, HttpStatus? Chosen
         var status = new HttpStatus(code, reasonPhrase ?? ErrorReasonPhrases.GetValueOrDefault(code, string.Empty));
         HttpCommandFaults.PublishApplied(context, rule, method, path, $"{status.Code} {status.ReasonPhrase}");
 
-        return new ProxyCommandFault(false, status);
+        return new ProxyCommandFault(false, status, rule.Id);
     }
 }

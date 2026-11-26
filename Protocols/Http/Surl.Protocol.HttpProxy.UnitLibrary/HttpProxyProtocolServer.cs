@@ -28,6 +28,15 @@ namespace Surl.Protocol.HttpProxy;
 /// to close or announced a body; a refusal is <c>403</c> and closes.
 /// </para>
 /// <para>
+/// <b>Fault rules</b> (ADR-0160). A request or <c>CONNECT</c> the login let in, with a well formed
+/// target, is put to the exchange's fault plan before its origin is contacted: a delay holds it, a
+/// drop ends it with nothing sent, and a chosen error is the proxy's own answer with the rule's
+/// status. A chosen <c>407</c>, whatever its reason phrase, carries one <c>Proxy-Authenticate</c>
+/// per challenge the connection's proxy login session offers, over HTTP/2 too, NTLM and Negotiate
+/// included (Amendment 2); a session offering none leaves it without the field, noted in the
+/// exchange log. No other chosen status, <c>401</c> included, gains a challenge.
+/// </para>
+/// <para>
 /// <b>Forwarding.</b> An absolute-form <c>http://</c> target is sent to its authority (port 80
 /// when absent) in origin-form, with <c>Host</c> generated from the authority, the hop-by-hop
 /// fields and <c>Proxy-Authorization</c> removed and <c>Via: 1.1 surl</c> added; the origin's

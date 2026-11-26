@@ -130,8 +130,9 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
     }
 
     // Asks the fault plan about a stream the proxy let in (ADR-0160 decisions 1, 3 and 4): a drop resets
-    // the stream with INTERNAL_ERROR and keeps the connection, a chosen error is answered on the stream.
-    // True when the stream was ended here.
+    // the stream with INTERNAL_ERROR and keeps the connection, a chosen error is answered on the stream,
+    // a chosen 407 with every challenge the login session offers, NTLM and Negotiate included
+    // (ADR-0160 Amendment 2). True when the stream was ended here.
     private async Task<bool> EndsStreamForFaultAsync(Http2RequestStream stream, ProxyTarget target, string? accountName)
     {
         var fault = await ProxyCommandFault.FindAndApplyAsync(context, stream.Head.Method, target.FaultPath, accountName);
@@ -141,10 +142,24 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
         }
         else if (fault.ChosenStatus is { } status)
         {
-            await AnswerAsync(stream, status, "a fault rule chose the error");
+            await AnswerAsync(stream, status, "a fault rule chose the error", await CreateChosenStatusChallengesAsync(fault));
         }
 
         return fault.Drops || fault.ChosenStatus is not null;
+    }
+
+    // The streams share one login session, so it is asked for challenges under the gate it judges under.
+    private async Task<IReadOnlyList<string>> CreateChosenStatusChallengesAsync(ProxyCommandFault fault)
+    {
+        await loginGate.WaitAsync(context.CancellationToken);
+        try
+        {
+            return fault.CreateChosenStatusChallenges(context, authenticationSession);
+        }
+        finally
+        {
+            loginGate.Release();
+        }
     }
 
     private async Task<OriginLink?> ConnectAsync(Http2RequestStream stream, ProxyTarget target)

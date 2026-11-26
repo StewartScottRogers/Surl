@@ -26,6 +26,14 @@ Every request and `CONNECT` is judged after the `Host` check and before anything
 `CONNECT`'s authority, an absolute-form request's path and query. A challenge is `407` with one
 `Proxy-Authenticate` per value and keeps the connection; `Forbidden` is `403` and closes.
 
+**Fault rules** (ADR-0160): `ProxyCommandFault` asks the plan once per `CONNECT`, forwarded request and
+HTTP/2 stream, after the login and before the origin connection, with scheme `http-proxy` or
+`https-proxy`; a delay holds, a drop sends nothing (HTTP/2: the stream is reset), and a chosen error is
+the proxy's own answer with the rule's status. A chosen `407`, whatever its reason phrase, carries one
+`Proxy-Authenticate` per value of the login session's `CreateChallenges()` (Amendment 2, BL-1725), on
+HTTP/2 too, NTLM and Negotiate sent whole with no stream reset; a session offering none leaves it without
+the field and the exchange log notes it. No other chosen status, `401` included, gains a challenge.
+
 **The HTTPS proxy** is this same server on a connection the serving engine secured before
 `ServeAsync` (an `https` listen URL with `ListenUrl.IsProxy`, whose listener offers ALPN
 `h2` then `http/1.1`, ADR-0088 Amendment 9). `HttpProxyExchange` notes the TLS once before the first request; a session that
