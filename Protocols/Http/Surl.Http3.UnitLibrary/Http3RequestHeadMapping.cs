@@ -17,8 +17,9 @@ namespace Surl.Http3;
 /// <c>:authority</c> or with <c>:scheme</c> or <c>:path</c>, and a <c>:protocol</c> on a request
 /// that is not a <c>CONNECT</c> with <c>:scheme</c>, <c>:authority</c> and a <c>:path</c> that is
 /// not empty (RFC 9220 section 3, RFC 8441 section 4); a field name that is empty or holds
-/// an uppercase letter, a control character, a space or a byte past 0x7E; a value holding NUL,
-/// CR or LF or starting or ending with a space or tab; a connection-specific field
+/// an uppercase letter, a control character, a space or a byte past 0x7E; a value, a
+/// pseudo-header field's included, holding NUL, CR or LF; a regular field's value starting or
+/// ending with a space or tab; a connection-specific field
 /// (<c>connection</c>, <c>keep-alive</c>, <c>proxy-connection</c>, <c>transfer-encoding</c>,
 /// <c>upgrade</c>) or a <c>te</c> other than <c>trailers</c>; and <c>content-length</c> values
 /// that are not one number of decimal digits. <c>Surl.Http2</c>'s <c>Http2RequestHeadMapping</c>
@@ -82,6 +83,11 @@ public static class Http3RequestHeadMapping
             return $"the pseudo-header field {field.Name} is not one a request may carry";
         }
 
+        if (HoldsNulCrOrLf(field.Value))
+        {
+            return $"the pseudo-header field {field.Name}'s value holds NUL, CR or LF";
+        }
+
         return pseudoHeaders.TryAdd(field.Name, field.Value) ? null : $"the pseudo-header field {field.Name} is repeated";
     }
 
@@ -106,7 +112,10 @@ public static class Http3RequestHeadMapping
 
     // RFC 9113 section 8.2.1: no NUL, CR or LF, and no space or tab at either end.
     private static bool IsAllowedValue(string value) =>
-        !value.AsSpan().ContainsAny("\0\r\n") && value.Trim(' ', '\t').Length == value.Length;
+        !HoldsNulCrOrLf(value) && value.Trim(' ', '\t').Length == value.Length;
+
+    // RFC 9114 section 10.3: a field value, a pseudo-header field's included, may hold none of these.
+    private static bool HoldsNulCrOrLf(string value) => value.AsSpan().ContainsAny("\0\r\n");
 
     private static bool IsConnectionSpecific(QpackFieldLine field) =>
         ConnectionSpecificFields.Contains(field.Name, StringComparer.Ordinal) || (field.Name == "te" && field.Value != "trailers");

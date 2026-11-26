@@ -133,6 +133,42 @@ public sealed class Http3RequestHeadMappingTests
     }
 
     [TestMethod]
+    [DataRow(":method", "\0")]
+    [DataRow(":method", "\r")]
+    [DataRow(":method", "\n")]
+    [DataRow(":scheme", "\0")]
+    [DataRow(":scheme", "\r")]
+    [DataRow(":scheme", "\n")]
+    [DataRow(":authority", "\0")]
+    [DataRow(":authority", "\r")]
+    [DataRow(":authority", "\n")]
+    [DataRow(":path", "\0")]
+    [DataRow(":path", "\r")]
+    [DataRow(":path", "\n")]
+    public void Map_PseudoHeaderValueHoldingNulCrOrLf_IsMalformed(string name, string character)
+    {
+        var fields = Fields(":method GET", ":scheme http", ":authority example", ":path /")
+            .Select(field => field.Name == name ? new QpackFieldLine(name, $"a{character}b") : field)
+            .ToArray();
+
+        var (head, malformation) = Http3RequestHeadMapping.Map(fields);
+
+        Assert.IsNull(head);
+        Assert.AreEqual($"the pseudo-header field {name}'s value holds NUL, CR or LF", malformation);
+    }
+
+    [TestMethod]
+    public void Map_ProtocolValueHoldingNulWithExtendedConnectEnabled_IsMalformed()
+    {
+        var (head, malformation) = Http3RequestHeadMapping.Map(
+            Fields(":method CONNECT", ":protocol web\0socket", ":scheme https", ":authority example:443", ":path /echo"),
+            isExtendedConnectEnabled: true);
+
+        Assert.IsNull(head);
+        Assert.AreEqual("the pseudo-header field :protocol's value holds NUL, CR or LF", malformation);
+    }
+
+    [TestMethod]
     public void Map_TeTrailersAndAnEmptyValue_AreAllowed()
     {
         var (head, _) = Http3RequestHeadMapping.Map(Fields(":method GET", ":scheme http", ":path /", "te trailers", "x "));
