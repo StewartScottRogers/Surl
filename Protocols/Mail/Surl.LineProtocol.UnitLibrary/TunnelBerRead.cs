@@ -1,7 +1,7 @@
-namespace Surl.Protocol.Socks;
+namespace Surl.LineProtocol;
 
-/// <summary>What <see cref="SocksBerHeader.TryRead"/> found.</summary>
-internal enum SocksBerRead
+/// <summary>What <see cref="TunnelBerHeader.TryRead"/> found.</summary>
+internal enum TunnelBerRead
 {
     /// <summary>The header is whole.</summary>
     Read,

@@ -3,7 +3,8 @@
 Phase 3.
 
 The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in BL-192, and the
-tunnel line redaction rules the SOCKS server and the HTTP proxy share (ADR-0182, amendment 20):
+tunnel redaction the SOCKS server and the HTTP proxy share, for text lines (ADR-0182, amendment 20)
+and for binary logins (amendment 23):
 
 - `CrlfLineReader` - one buffer over one connection. `ReadLineAsync` ends a line only at
   CRLF (a bare LF or CR is part of the line), bounded by `ExchangeLimits.MaxLineBytes` with no
@@ -41,6 +42,12 @@ tunnel line redaction rules the SOCKS server and the HTTP proxy share (ADR-0182,
   that is no SASL or FTP security mechanism name is logged up to the byte after the command word,
   then `****`, and a `HELLO` line up to the byte after its `AUTH` word, then `****`), and logs what
   the one withholding from earliest in the line writes.
+- `TunnelBinaryLoginRedactors` (BL-1765, ADR-0182 amendment 23) - the redactor for a tunnel by its
+  first byte, else none: `0x10` gives `TunnelMqttConnectRedactor` (the MQTT 3.1.1 or 5 `CONNECT`
+  password as `00 04 ****`, the Remaining Length rewritten to match; over
+  `TunnelMqttConnectPasswordFinder`) and `0x30` gives `TunnelLdapBindRedactor` (every bind's
+  authentication as its tag, `04`, `****`; over `TunnelBerHeader`). Neither holds more than 64 KiB
+  (amendment 10).
 - `MailUpstreamTestCaseReplies` (BL-875, ADR-0080 decision 2) - a test seam, never composed by
   the shipped `surl`: one upstream test case's `<reply>` parts and `<servercmd>` lines as the
   IMAP, POP3 and SMTP server halves play them, with a record of every command line read and
@@ -54,7 +61,8 @@ tunnel line redaction rules the SOCKS server and the HTTP proxy share (ADR-0182,
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing else
 (ADR-0050 decision 1, amending ADR-0002's table); protocol servers may reference it, and
 the SMTP, IMAP and POP3 servers (BL-198, BL-201, BL-205), the SOCKS server (ADR-0182
-amendment 9) and the HTTP proxy (amendment 16) do.
+amendment 9) and the HTTP proxy (amendment 16) do. It holds its own small MQTT and BER walks: it
+may not reference the MQTT or LDAP server.
 
 It reads and writes only through the `IConnection` the listener seam hands a server, with
 the exchange's cancellation token, and times with `ExchangeContext.TimeProvider`. Never

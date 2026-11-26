@@ -1,13 +1,13 @@
 using System.Buffers.Binary;
 
-namespace Surl.Protocol.Socks;
+namespace Surl.LineProtocol;
 
 /// <summary>
 /// Walks the body of an MQTT <c>CONNECT</c> (3.1.1 section 3.1; 5.0 section 3.1, which adds
-/// properties) to the bytes a log must not hold. The SOCKS library keeps its own walk: it may not
+/// properties) to the bytes a log must not hold. This library keeps its own walk: it may not
 /// reference an MQTT server (ADR-0002 decision 3).
 /// </summary>
-internal static class SocksMqttConnectPasswordFinder
+internal static class TunnelMqttConnectPasswordFinder
 {
     private const byte UserNameFlag = 0x80;
     private const byte PasswordFlag = 0x40;

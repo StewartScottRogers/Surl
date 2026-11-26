@@ -1,25 +1,22 @@
 using System.Buffers;
+using Surl.LineProtocol;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Socks;
 
 /// <summary>
 /// The <see cref="IReceivedBytesRedactor"/> for the bytes a client sends through a granted SOCKS
-/// tunnel (ADR-0182, amendments 6, 7, 9 and 10). SOCKS does not say what protocol the tunnel
+/// tunnel (ADR-0182, amendments 6, 7, 9, 10 and 23). SOCKS does not say what protocol the tunnel
 /// carries, so the first byte decides. An ASCII letter (a text protocol's command or request line, or
 /// the HTTP/2 connection preface) or a digit from 1 to 9 (a numbered IMAP tag) sends the whole tunnel
 /// through <see cref="SocksTextTunnelBytesRedactor"/>; <c>0x10</c> (an MQTT <c>CONNECT</c>) through
-/// <see cref="SocksTunnelMqttConnectRedactor"/>; <c>0x30</c> (an LDAP message) through
-/// <see cref="SocksTunnelLdapBindRedactor"/>. Any other first byte (TLS and other binary protocols)
-/// leaves the whole tunnel logged byte for byte, never held back.
+/// <see cref="TunnelMqttConnectRedactor"/>; <c>0x30</c> (an LDAP message) through
+/// <see cref="TunnelLdapBindRedactor"/>, both chosen by <see cref="TunnelBinaryLoginRedactors"/>, which
+/// the HTTP proxy shares. Any other first byte (TLS and other binary protocols) leaves the whole
+/// tunnel logged byte for byte, never held back.
 /// </summary>
 internal sealed class SocksTunnelBytesRedactor : IReceivedBytesRedactor
 {
-    private const byte MqttConnectFirstByte = 0x10;
-
-    // BER's SEQUENCE is also the digit 0, so a text tunnel starting with that digit is read as LDAP.
-    private const byte LdapMessageFirstByte = 0x30;
-
     private IReceivedBytesRedactor? tunnelled;
     private bool isDecided;
 
@@ -53,12 +50,8 @@ internal sealed class SocksTunnelBytesRedactor : IReceivedBytesRedactor
         tunnelled?.Flush(output);
     }
 
-    private static IReceivedBytesRedactor? RedactorFor(byte first) => first switch
-    {
-        MqttConnectFirstByte => new SocksTunnelMqttConnectRedactor(),
-        LdapMessageFirstByte => new SocksTunnelLdapBindRedactor(),
-        _ => StartsText(first) ? new SocksTextTunnelBytesRedactor() : null,
-    };
+    private static IReceivedBytesRedactor? RedactorFor(byte first) =>
+        StartsText(first) ? new SocksTextTunnelBytesRedactor() : TunnelBinaryLoginRedactors.ForFirstByte(first);
 
     private static bool StartsText(byte first) =>
         char.IsAsciiLetter((char)first) || first is >= (byte)'1' and <= (byte)'9';

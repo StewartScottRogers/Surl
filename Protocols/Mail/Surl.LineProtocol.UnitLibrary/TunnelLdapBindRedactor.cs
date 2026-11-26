@@ -2,15 +2,16 @@ using System.Buffers;
 using System.Runtime.InteropServices;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Socks;
+namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="IReceivedBytesRedactor"/> for a SOCKS tunnel whose first byte is <c>0x30</c>, a
-/// BER <c>SEQUENCE</c> as every <c>LDAPMessage</c> is (RFC 4511 section 4.1.1; ADR-0182, amendment
-/// 10). It frames each message and writes the authentication of every <c>BindRequest</c> (a simple
-/// password, or a whole SASL credentials field, mechanism included) as its tag, a length of 4 and
-/// <c>****</c>, an empty one as received; the enclosing lengths stay as received. Every other message is logged as it arrives,
-/// never held past its operation's tag, and so is every byte from one that does not frame as an
+/// The <see cref="IReceivedBytesRedactor"/> the SOCKS server and the HTTP proxy share for a tunnel
+/// whose first byte is <c>0x30</c>, a BER <c>SEQUENCE</c> as every <c>LDAPMessage</c> is (RFC 4511
+/// section 4.1.1; ADR-0182, amendments 10 and 23). It frames each message and writes the
+/// authentication of every <c>BindRequest</c> (a simple password, or a whole SASL credentials field,
+/// mechanism included) as its tag, a length of 4 and <c>****</c>, an empty one as received; the
+/// enclosing lengths stay as received. Every other message is logged as it arrives, never held past
+/// its operation's tag, and so is every byte from one that does not frame as an
 /// <c>LDAPMessage</c>.
 /// </summary>
 /// <remarks>
@@ -18,7 +19,7 @@ namespace Surl.Protocol.Socks;
 /// everything after its operation's tag written as <c>****</c>. A bind declaring more than
 /// <see cref="MaxHeldBytes"/> is written as one <c>****</c> and its bytes are dropped.
 /// </remarks>
-internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
+public sealed class TunnelLdapBindRedactor : IReceivedBytesRedactor
 {
     /// <summary>The most bytes a bind may be to be held: 64 KiB (ADR-0182, decision 6).</summary>
     public const int MaxHeldBytes = LineBytesRedactor.DefaultMaxHeldBytes;
@@ -27,19 +28,19 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     private const byte BindRequestTag = 0x60;
     private const int MaxMessageIdBytes = 16;
 
-    private readonly List<byte> held = [];
-    private long bytesToPass;
-    private long bytesToDrop;
-    private long bindMessageLength;
-    private int bindOperationTagEnd;
-    private bool isPassingThrough;
+    private readonly List<byte> _held = [];
+    private long _bytesToPass;
+    private long _bytesToDrop;
+    private long _bindMessageLength;
+    private int _bindOperationTagEnd;
+    private bool _isPassingThrough;
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
         var index = 0;
-        while (index < received.Length && !isPassingThrough)
+        while (index < received.Length && !_isPassingThrough)
         {
             index += TakeSome(received[index..], output);
         }
@@ -50,16 +51,16 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     /// <inheritdoc />
     public void ObserveSent(ReadOnlySpan<byte> sent)
     {
-        // Nothing the origin sends changes what a bind holds.
+        // Nothing the far end sends changes what a bind holds.
     }
 
     /// <inheritdoc />
     public void Flush(ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        if (bindOperationTagEnd > 0)
+        if (_bindOperationTagEnd > 0)
         {
-            WriteMaskedAfterOperationTag(CollectionsMarshal.AsSpan(held), output);
+            WriteMaskedAfterOperationTag(CollectionsMarshal.AsSpan(_held), output);
             ForgetMessage();
         }
         else
@@ -72,23 +73,23 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     // Passes, drops or holds the next bytes and returns how many it took, at least one.
     private int TakeSome(ReadOnlySpan<byte> rest, ArrayBufferWriter<byte> output)
     {
-        if (bytesToPass > 0)
+        if (_bytesToPass > 0)
         {
-            var passed = (int)Math.Min(bytesToPass, rest.Length);
+            var passed = (int)Math.Min(_bytesToPass, rest.Length);
             output.Write(rest[..passed]);
-            bytesToPass -= passed;
+            _bytesToPass -= passed;
             return passed;
         }
 
-        if (bytesToDrop > 0)
+        if (_bytesToDrop > 0)
         {
-            var dropped = (int)Math.Min(bytesToDrop, rest.Length);
-            bytesToDrop -= dropped;
+            var dropped = (int)Math.Min(_bytesToDrop, rest.Length);
+            _bytesToDrop -= dropped;
             return dropped;
         }
 
-        held.Add(rest[0]);
-        if (bindOperationTagEnd == 0)
+        _held.Add(rest[0]);
+        if (_bindOperationTagEnd == 0)
         {
             IdentifyMessage(output);
         }
@@ -100,27 +101,27 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     // Decides what the held start of a message is, once enough of it is held to tell.
     private void IdentifyMessage(ArrayBufferWriter<byte> output)
     {
-        var bytes = CollectionsMarshal.AsSpan(held);
-        var read = SocksBerHeader.TryRead(bytes, 0, out var message);
-        if (bytes[0] != SequenceTag || read == SocksBerRead.Unreadable)
+        var bytes = CollectionsMarshal.AsSpan(_held);
+        var read = TunnelBerHeader.TryRead(bytes, 0, out var message);
+        if (bytes[0] != SequenceTag || read == TunnelBerRead.Unreadable)
         {
             PassEverything(output);
         }
-        else if (read == SocksBerRead.Read)
+        else if (read == TunnelBerRead.Read)
         {
             IdentifyOperation(message, output);
         }
     }
 
-    private void IdentifyOperation(SocksBerHeader message, ArrayBufferWriter<byte> output)
+    private void IdentifyOperation(TunnelBerHeader message, ArrayBufferWriter<byte> output)
     {
-        var bytes = CollectionsMarshal.AsSpan(held);
-        var read = SocksBerHeader.TryRead(bytes, message.ValueStart, out var messageId);
-        if (read == SocksBerRead.Unreadable)
+        var bytes = CollectionsMarshal.AsSpan(_held);
+        var read = TunnelBerHeader.TryRead(bytes, message.ValueStart, out var messageId);
+        if (read == TunnelBerRead.Unreadable)
         {
             PassEverything(output);
         }
-        else if (read == SocksBerRead.Read && messageId.End < bytes.Length)
+        else if (read == TunnelBerRead.Read && messageId.End < bytes.Length)
         {
             BeginOperation(message.End, bytes[(int)messageId.End], output);
         }
@@ -139,31 +140,31 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     {
         if (operationTag != BindRequestTag)
         {
-            bytesToPass = messageLength - held.Count;
+            _bytesToPass = messageLength - _held.Count;
             PassHeld(output);
         }
         else if (messageLength > MaxHeldBytes)
         {
             output.Write(LineBytesRedactor.SecretMask);
-            bytesToDrop = messageLength - held.Count;
+            _bytesToDrop = messageLength - _held.Count;
             ForgetMessage();
         }
         else
         {
-            bindMessageLength = messageLength;
-            bindOperationTagEnd = held.Count;
+            _bindMessageLength = messageLength;
+            _bindOperationTagEnd = _held.Count;
         }
     }
 
     private void WriteBindWhenWhole(ArrayBufferWriter<byte> output)
     {
         // Held bytes grow one at a time, so a bind is whole exactly when the counts meet.
-        if (bindOperationTagEnd == 0 || held.Count < bindMessageLength)
+        if (_bindOperationTagEnd == 0 || _held.Count < _bindMessageLength)
         {
             return;
         }
 
-        var message = CollectionsMarshal.AsSpan(held);
+        var message = CollectionsMarshal.AsSpan(_held);
         if (!TryFindAuthentication(message, out var start, out var authentication))
         {
             WriteMaskedAfterOperationTag(message, output);
@@ -185,10 +186,10 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     }
 
     // A BindRequest is version, name and authentication (RFC 4511 section 4.2), each whole.
-    private bool TryFindAuthentication(ReadOnlySpan<byte> message, out int start, out SocksBerHeader authentication)
+    private bool TryFindAuthentication(ReadOnlySpan<byte> message, out int start, out TunnelBerHeader authentication)
     {
         start = 0;
-        if (!TryReadWhole(message, bindOperationTagEnd - 1, isEntered: true, out var next, out authentication))
+        if (!TryReadWhole(message, _bindOperationTagEnd - 1, isEntered: true, out var next, out authentication))
         {
             return false;
         }
@@ -206,10 +207,10 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
     }
 
     // Reads a value that is wholly inside the message; next is its first inner value or the one after it.
-    private static bool TryReadWhole(ReadOnlySpan<byte> message, int start, bool isEntered, out int next, out SocksBerHeader header)
+    private static bool TryReadWhole(ReadOnlySpan<byte> message, int start, bool isEntered, out int next, out TunnelBerHeader header)
     {
         next = 0;
-        if (SocksBerHeader.TryRead(message, start, out header) != SocksBerRead.Read || header.End > message.Length)
+        if (TunnelBerHeader.TryRead(message, start, out header) != TunnelBerRead.Read || header.End > message.Length)
         {
             return false;
         }
@@ -220,26 +221,26 @@ internal sealed class SocksTunnelLdapBindRedactor : IReceivedBytesRedactor
 
     private void WriteMaskedAfterOperationTag(ReadOnlySpan<byte> message, ArrayBufferWriter<byte> output)
     {
-        output.Write(message[..bindOperationTagEnd]);
+        output.Write(message[.._bindOperationTagEnd]);
         output.Write(LineBytesRedactor.SecretMask);
     }
 
     private void PassEverything(ArrayBufferWriter<byte> output)
     {
         PassHeld(output);
-        isPassingThrough = true;
+        _isPassingThrough = true;
     }
 
     private void PassHeld(ArrayBufferWriter<byte> output)
     {
-        output.Write(CollectionsMarshal.AsSpan(held));
+        output.Write(CollectionsMarshal.AsSpan(_held));
         ForgetMessage();
     }
 
     private void ForgetMessage()
     {
-        held.Clear();
-        bindMessageLength = 0;
-        bindOperationTagEnd = 0;
+        _held.Clear();
+        _bindMessageLength = 0;
+        _bindOperationTagEnd = 0;
     }
 }

@@ -2,14 +2,14 @@ using System.Buffers;
 using System.Runtime.InteropServices;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Socks;
+namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="IReceivedBytesRedactor"/> for a SOCKS tunnel whose first byte is <c>0x10</c>, an
-/// MQTT <c>CONNECT</c> (ADR-0182, amendment 10). It holds that first packet until it is whole and
-/// writes it with the password (MQTT 3.1.1 and MQTT 5) as a length of 4 and <c>****</c>, and with a
-/// Remaining Length that counts what is written, so the log never shows the password's length. Every
-/// later byte is logged as it arrived.
+/// The <see cref="IReceivedBytesRedactor"/> the SOCKS server and the HTTP proxy share for a tunnel
+/// whose first byte is <c>0x10</c>, an MQTT <c>CONNECT</c> (ADR-0182, amendments 10 and 23). It holds
+/// that first packet until it is whole and writes it with the password (MQTT 3.1.1 and MQTT 5) as a
+/// length of 4 and <c>****</c>, and with a Remaining Length that counts what is written, so the log
+/// never shows the password's length. Every later byte is logged as it arrived.
 /// </summary>
 /// <remarks>
 /// A <c>CONNECT</c> whose flags announce a password that is not the packet's last field, whole, has
@@ -17,7 +17,7 @@ namespace Surl.Protocol.Socks;
 /// <see cref="MaxHeldBytes"/> is written as one <c>****</c> and its bytes are dropped. A fixed header
 /// whose Remaining Length runs past four bytes is not MQTT, so the tunnel is logged as received.
 /// </remarks>
-internal sealed class SocksTunnelMqttConnectRedactor : IReceivedBytesRedactor
+public sealed class TunnelMqttConnectRedactor : IReceivedBytesRedactor
 {
     /// <summary>The most bytes a packet may be to be held: 64 KiB (ADR-0182, decision 6).</summary>
     public const int MaxHeldBytes = LineBytesRedactor.DefaultMaxHeldBytes;
@@ -25,44 +25,44 @@ internal sealed class SocksTunnelMqttConnectRedactor : IReceivedBytesRedactor
     // The packet type byte and the four bytes a Remaining Length may take (MQTT 3.1.1 section 2.2.3).
     private const int MaxFixedHeaderBytes = 5;
 
-    private readonly List<byte> held = [];
-    private int headerLength;
-    private int packetLength;
-    private int bytesToDrop;
-    private bool isPassingThrough;
+    private readonly List<byte> _held = [];
+    private int _headerLength;
+    private int _packetLength;
+    private int _bytesToDrop;
+    private bool _isPassingThrough;
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
         var index = 0;
-        while (index < received.Length && !isPassingThrough)
+        while (index < received.Length && !_isPassingThrough)
         {
             HoldNext(received[index++], output);
         }
 
-        var dropped = Math.Min(bytesToDrop, received.Length - index);
-        bytesToDrop -= dropped;
+        var dropped = Math.Min(_bytesToDrop, received.Length - index);
+        _bytesToDrop -= dropped;
         output.Write(received[(index + dropped)..]);
     }
 
     /// <inheritdoc />
     public void ObserveSent(ReadOnlySpan<byte> sent)
     {
-        // Nothing the origin sends changes what a CONNECT holds.
+        // Nothing the far end sends changes what a CONNECT holds.
     }
 
     /// <inheritdoc />
     public void Flush(ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        if (headerLength == 0)
+        if (_headerLength == 0)
         {
             // No field has begun, so nothing held is a password.
-            output.Write(CollectionsMarshal.AsSpan(held));
-            held.Clear();
+            output.Write(CollectionsMarshal.AsSpan(_held));
+            _held.Clear();
         }
-        else if (held.Count > 0)
+        else if (_held.Count > 0)
         {
             WriteHeldConnect(output);
         }
@@ -70,23 +70,23 @@ internal sealed class SocksTunnelMqttConnectRedactor : IReceivedBytesRedactor
 
     private void HoldNext(byte next, ArrayBufferWriter<byte> output)
     {
-        held.Add(next);
-        if (headerLength == 0 && !TryMeasurePacket(output))
+        _held.Add(next);
+        if (_headerLength == 0 && !TryMeasurePacket(output))
         {
             return;
         }
 
-        if (packetLength > MaxHeldBytes)
+        if (_packetLength > MaxHeldBytes)
         {
             output.Write(LineBytesRedactor.SecretMask);
-            bytesToDrop = packetLength - held.Count;
-            held.Clear();
-            isPassingThrough = true;
+            _bytesToDrop = _packetLength - _held.Count;
+            _held.Clear();
+            _isPassingThrough = true;
         }
-        else if (held.Count == packetLength)
+        else if (_held.Count == _packetLength)
         {
             WriteHeldConnect(output);
-            isPassingThrough = true;
+            _isPassingThrough = true;
         }
     }
 
@@ -94,18 +94,18 @@ internal sealed class SocksTunnelMqttConnectRedactor : IReceivedBytesRedactor
     private bool TryMeasurePacket(ArrayBufferWriter<byte> output)
     {
         var cursor = 1;
-        if (SocksMqttConnectPasswordFinder.TryReadVariableByteInteger(CollectionsMarshal.AsSpan(held), ref cursor, out var remaining))
+        if (TunnelMqttConnectPasswordFinder.TryReadVariableByteInteger(CollectionsMarshal.AsSpan(_held), ref cursor, out var remaining))
         {
-            headerLength = cursor;
-            packetLength = cursor + remaining;
+            _headerLength = cursor;
+            _packetLength = cursor + remaining;
             return true;
         }
 
-        if (held.Count == MaxFixedHeaderBytes)
+        if (_held.Count == MaxFixedHeaderBytes)
         {
-            output.Write(CollectionsMarshal.AsSpan(held));
-            held.Clear();
-            isPassingThrough = true;
+            output.Write(CollectionsMarshal.AsSpan(_held));
+            _held.Clear();
+            _isPassingThrough = true;
         }
 
         return false;
@@ -113,9 +113,9 @@ internal sealed class SocksTunnelMqttConnectRedactor : IReceivedBytesRedactor
 
     private void WriteHeldConnect(ArrayBufferWriter<byte> output)
     {
-        var packet = CollectionsMarshal.AsSpan(held);
-        var body = packet[headerLength..];
-        if (SocksMqttConnectPasswordFinder.TryFindSecret(body, out var secretStart, out var isPasswordField))
+        var packet = CollectionsMarshal.AsSpan(_held);
+        var body = packet[_headerLength..];
+        if (TunnelMqttConnectPasswordFinder.TryFindSecret(body, out var secretStart, out var isPasswordField))
         {
             var replacement = isPasswordField ? "\0\u0004****"u8 : LineBytesRedactor.SecretMask;
             output.Write(packet[..1]);
@@ -128,7 +128,7 @@ internal sealed class SocksTunnelMqttConnectRedactor : IReceivedBytesRedactor
             output.Write(packet);
         }
 
-        held.Clear();
+        _held.Clear();
     }
 
     private static void WriteVariableByteInteger(int value, ArrayBufferWriter<byte> output)
