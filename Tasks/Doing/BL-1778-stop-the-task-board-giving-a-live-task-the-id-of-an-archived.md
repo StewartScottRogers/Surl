@@ -33,3 +33,4 @@ The dedupe command renumbers a live task that holds the ID of an archived task.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: Backlog -> Doing.
