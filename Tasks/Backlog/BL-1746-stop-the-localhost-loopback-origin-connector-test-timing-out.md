@@ -1,5 +1,5 @@
 ---
-id: BL-1739
+id: BL-1746
 title: Stop the localhost loopback origin connector test timing out on a loaded machine
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1739 — Stop the localhost loopback origin connector test timing out on a loaded machine
+# BL-1746 — Stop the localhost loopback origin connector test timing out on a loaded machine
 
 ## Goal
 

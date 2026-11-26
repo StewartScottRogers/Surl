@@ -1,5 +1,5 @@
 ---
-id: BL-1738
+id: BL-1745
 title: Say in --aihelp logging and the manual that DATA payloads on HTTP/2 CONNECT streams are withheld
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1738 — Say in --aihelp logging and the manual that DATA payloads on HTTP/2 CONNECT streams are withheld
+# BL-1745 — Say in --aihelp logging and the manual that DATA payloads on HTTP/2 CONNECT streams are withheld
 
 ## Goal
 

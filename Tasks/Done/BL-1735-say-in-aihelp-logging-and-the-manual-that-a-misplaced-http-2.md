@@ -50,7 +50,7 @@ appearing where no request may start makes every later byte of that connection l
 - The texts name no curl option for the `PROXY` line example: the `NamesOnlyOptionsThatExist` tests refuse
   `--haproxy-protocol`, and their exception list was left as it is.
 - BL-1733 was still in Backlog, so the text says `DATA` frames of a `CONNECT` stream, tunnelled credentials included,
-  are logged as received. BL-1738 (depends on BL-1733) updates it.
+  are logged as received. BL-1745 (depends on BL-1733) updates it.
 - BL-1736 was in `Doing` on another lane: until it lands, an `h2c` upgrade request declaring `Content-Length: 0` also
   has the bytes after its preface withheld, although the text calls a preface after an `h2c` upgrade request read as
   HTTP/2. The text states the rule that task restores.
