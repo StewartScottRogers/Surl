@@ -32,3 +32,4 @@ An HTTP/3 request whose pseudo-header value holds NUL, CR or LF is reset H3_MESS
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
