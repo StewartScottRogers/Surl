@@ -14,7 +14,9 @@ namespace Surl.Protocol.Ftp;
 /// argument; the separator is logged as sent. A tab names no command to the server, but the bytes
 /// after it are still the client's secret. A <c>PASS</c> or <c>ACCT</c> with no argument
 /// holds no secret and is logged as it is. FTPS's <c>AUTH TLS</c> upgrade changes nothing: the
-/// logged control bytes are plaintext either way.
+/// logged control bytes are plaintext either way. <see cref="FtpLineReader"/> also ends a command
+/// at a bare line feed, which <see cref="LineBytesRedactor"/> does not, so each LF-separated piece
+/// of the line handed over is judged on its own and the line feeds are logged as sent.
 /// </remarks>
 internal sealed class FtpLineRedactionRule : ILineRedactionRule
 {
@@ -22,6 +24,19 @@ internal sealed class FtpLineRedactionRule : ILineRedactionRule
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
+        var rest = line;
+        for (var end = rest.IndexOf((byte)'\n'); end >= 0; end = rest.IndexOf((byte)'\n'))
+        {
+            RedactCommandLine(rest[..end], output);
+            output.Write("\n"u8);
+            rest = rest[(end + 1)..];
+        }
+
+        RedactCommandLine(rest, output);
+    }
+
+    private static void RedactCommandLine(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
+    {
         if (CarriesSecret(line))
         {
             output.Write(line[..5]);
