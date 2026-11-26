@@ -126,6 +126,28 @@ public sealed class ImapExchangeLogRedactionTests
         Assert.AreEqual("A1  \r\n", Logged("A1  \r\n"));
 
     [TestMethod]
+    public void Login_WithASpaceBeforeTheTagAndAnAtomPassword_IsMasked() =>
+        Assert.AreEqual(" A1 LOGIN alice ****\r\n", Logged(" A1 LOGIN alice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithSeveralSpacesBeforeTheTagAndAQuotedPassword_IsMasked() =>
+        Assert.AreEqual("   A1  LOGIN alice ****\r\n", Logged("   A1  LOGIN alice \"s3 cret\"\r\n"));
+
+    [TestMethod]
+    public void Login_WithASpaceBeforeTheTagAndAPasswordLiteral_IsMasked() =>
+        Assert.AreEqual(
+            " A1 LOGIN alice {6}\r\n****\r\n",
+            Logged(" A1 LOGIN alice {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithASpaceInPlaceOfTheTag_IsMasked() =>
+        Assert.AreEqual(" LOGIN login ****\r\n", Logged(" LOGIN login s3cret\r\n"));
+
+    [TestMethod]
+    public void LineOfOnlySpaces_IsLoggedAsSent() =>
+        Assert.AreEqual("   \r\n", Logged("   \r\n"));
+
+    [TestMethod]
     public void Authenticate_WithAnInitialResponse_IsMasked() =>
         Assert.AreEqual("A2 AUTHENTICATE PLAIN ****\r\n", Logged("A2 AUTHENTICATE PLAIN AGFsaWNlAHMzY3JldA==\r\n"));
 

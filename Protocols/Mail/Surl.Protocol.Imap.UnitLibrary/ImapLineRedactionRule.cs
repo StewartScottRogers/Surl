@@ -25,8 +25,10 @@ namespace Surl.Protocol.Imap;
 /// The bytes after a literal, on the line that finishes it, are the rest of the same command.
 /// </para>
 /// <para>
-/// A line is a <c>LOGIN</c> command when the word after its first run of spaces is <c>LOGIN</c>,
-/// matched without regard to case.
+/// A line is a <c>LOGIN</c> command when its second word is <c>LOGIN</c>, matched without regard to
+/// case; words are separated by runs of spaces. A line that starts with a space is also one when its
+/// first word is <c>LOGIN</c>. The server refuses a line that starts with a space, but the client has
+/// already sent the password, so it is withheld all the same.
 /// </para>
 /// </remarks>
 internal sealed class ImapLineRedactionRule : ILineRedactionRule
@@ -37,6 +39,8 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
     private const int NotInLogin = -1;
     private const int PasswordArgumentIndex = 1;
     private const int LineEndLength = 2;
+
+    private static ReadOnlySpan<byte> LoginWord => "LOGIN"u8;
 
     private readonly SaslLineRedactionRule _saslRule = new(["AUTHENTICATE"], "+ ");
     private readonly ArrayBufferWriter<byte> _saslOutput = new();
@@ -208,18 +212,17 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
 
     private static bool TryFindLoginArguments(ReadOnlySpan<byte> line, out int argumentsStart)
     {
-        argumentsStart = 0;
-        var tagEnd = line.IndexOf(Space);
-        if (tagEnd < 0)
-        {
-            return false;
-        }
-
-        var fromWord = line[tagEnd..].TrimStart(Space);
-        var word = fromWord[..AtomLength(fromWord)];
-        argumentsStart = line.Length - fromWord.Length + word.Length;
-        return Ascii.EqualsIgnoreCase(word, "LOGIN"u8);
+        var fromFirstWord = line.TrimStart(Space);
+        var isLoginWithNoTag = fromFirstWord.Length < line.Length && StartsWithLoginWord(fromFirstWord);
+        var fromWord = isLoginWithNoTag
+            ? fromFirstWord
+            : fromFirstWord[AtomLength(fromFirstWord)..].TrimStart(Space);
+        argumentsStart = line.Length - fromWord.Length + LoginWord.Length;
+        return StartsWithLoginWord(fromWord);
     }
+
+    private static bool StartsWithLoginWord(ReadOnlySpan<byte> text) =>
+        Ascii.EqualsIgnoreCase(text[..AtomLength(text)], LoginWord);
 
     private static int ArgumentLength(ReadOnlySpan<byte> text) =>
         text[0] == Quote ? QuotedLength(text) : AtomLength(text);
