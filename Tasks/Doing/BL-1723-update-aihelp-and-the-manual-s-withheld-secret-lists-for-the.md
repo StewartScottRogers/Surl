@@ -37,3 +37,4 @@ The `logging` and `security` topics of `surl --aihelp` and the manual list exact
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
