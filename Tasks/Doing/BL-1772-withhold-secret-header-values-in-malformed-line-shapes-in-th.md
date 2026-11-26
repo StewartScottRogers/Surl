@@ -42,3 +42,4 @@ follows a bare carriage return.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: Backlog -> Doing.
