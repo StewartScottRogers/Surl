@@ -227,6 +227,13 @@ public sealed class SocksTunnelMailRedactionTests
             Logged(("* OK ready\r\n", "a LOGIN app {8+}\n\n\n\nsecret\nb NOOP\n")));
 
     [TestMethod]
+    [DataRow("AUTH alice \"a b\"", "AUTH alice ****")]
+    [DataRow("AUTH alice 'a b'", "AUTH alice ****")]
+    [DataRow("AUTH \"al ice\" \"a b\"", "AUTH \"al ****")]
+    public void Redis_InlineAuthWithAQuotedArgument_HasNothingLoggedAfterTheMask(string sent, string logged) =>
+        Assert.AreEqual(logged + "\r\n", Logged(("", sent + "\r\n")));
+
+    [TestMethod]
     public void ALineEndSplitBetweenReads_IsLoggedOnce() =>
         Assert.AreEqual("NOOP\r\nQUIT\r\n", Logged(("", "NOOP\r"), ("", "\nQUIT\r\n")));
 }

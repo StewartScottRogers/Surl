@@ -101,3 +101,24 @@ command word, and only what the log writes changes.
 1. **Leading spaces and tabs.** The POP3 server's redaction rule finds `PASS` after any run of spaces and tabs at the
    start of the line, so `<tab>PASS<tab><password>` is logged as `<tab>PASS<tab>****`. Every byte before the mask is logged
    as received. The server refuses such a line, but the client has already sent the password.
+
+## Amendment 7 — SASL lines with quotes (BL-1769)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens amendment 4, point 2. No upstream curl measurement: curl
+quotes nothing on an `AUTH` or `AUTHENTICATE` line, and only what the log writes changes.
+
+1. **Nothing after the mask.** When a `"` or a `'` is anywhere on a line that holds an initial response, nothing after the
+   first `****` is written. A SOCKS or HTTP proxy tunnel may carry Redis (ADR-0182, amendment 9), whose inline commands
+   quote an argument that holds spaces, so `AUTH alice "a b"` is logged as `AUTH alice ****`.
+2. **A quoted user name.** The words are still split at spaces and tabs, so in `AUTH "al ice" "a b"` the third word is
+   part of the user name and the line is logged as `AUTH "al ****`. Losing the rest of the user name in the log is
+   preferred to reading each dialect's quoting here; in `AUTH <user> <password>` with its arguments separated by spaces
+   or tabs, the password never precedes the first mask.
+3. **Not covered**, as before. A quoted command word (`"AUTH"`) is not a command word. A vertical tab, form feed or bare
+   carriage return does not separate words here, though Redis reads each as white space, so a password after one may be
+   logged. A quoted password given alone (`AUTH "a password"`) is split as `AUTH <user> <password>` is, so its first word
+   is logged.
+
+Rejected: reading Redis's quoting and escapes to find the password's end, which copies a parser into a rule that cannot
+know the tunnel carries Redis; and a tunnel-only rule, because a quote is in no SASL mechanism name or base64 response,
+so the SMTP, IMAP and POP3 servers lose nothing a conforming client sends.

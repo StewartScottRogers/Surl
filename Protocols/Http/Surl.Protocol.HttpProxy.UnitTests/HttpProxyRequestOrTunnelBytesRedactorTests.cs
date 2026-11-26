@@ -122,6 +122,16 @@ public sealed class HttpProxyRequestOrTunnelBytesRedactorTests
     }
 
     [TestMethod]
+    [DataRow("AUTH alice \"a b\"\r\nPING\r\n", "AUTH alice ****\r\nPING\r\n")]
+    [DataRow("AUTH alice 'a b'\r\nPING\r\n", "AUTH alice ****\r\nPING\r\n")]
+    [DataRow("AUTH \"al ice\" \"a b\"\r\nPING\r\n", "AUTH \"al ****\r\nPING\r\n")]
+    public void Redact_TunnelledInlineAuthWithAQuotedArgument_LogsNothingAfterTheMask(string sent, string expected)
+    {
+        Assert.AreEqual(Connect + expected, LoggedTunnel(sent));
+        Assert.AreEqual(Connect + expected, LoggedTunnelByteByByte(sent));
+    }
+
+    [TestMethod]
     [DataRow("Authorization: Basic " + Secret, "Authorization: Basic ****")]
     [DataRow("proxy-authorization :\t" + Secret, "proxy-authorization :\t****")]
     [DataRow("Authorization: Bearer " + Secret + "\r\n " + Secret + "\r\n\t" + Secret, "Authorization: Bearer ****\r\n ****\r\n\t****")]

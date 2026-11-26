@@ -36,6 +36,11 @@ public sealed class TunnelLineRedactionRuleTests
     [DataRow("AUTH PLAIN AGFwcABzM2NyZXQtcHc=", "AUTH PLAIN ****")]
     [DataRow("a AUTHENTICATE PLAIN AGFwcABzM2NyZXQtcHc=", "a AUTHENTICATE PLAIN ****")]
     [DataRow("X-Api-Key: s3cret", "X-Api-Key: ****")]
+    [DataRow("AUTH alice \"a b\"", "AUTH alice ****")]
+    [DataRow("AUTH alice 'a b'", "AUTH alice ****")]
+    [DataRow("AUTH alice x\"a b\"", "AUTH alice ****")]
+    [DataRow("AUTH \"al ice\" \"a b\"", "AUTH \"al ****")]
+    [DataRow("AUTH \"alice\" s3cret", "AUTH \"alice\" ****")]
     public void Redact_Line_IsLoggedAsTheRuleThatWithholdsWritesIt(string line, string logged) =>
         Assert.AreEqual(logged, Redact(new TunnelLineRedactionRule(), line));
 

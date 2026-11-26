@@ -17,9 +17,10 @@ namespace Surl.LineProtocol;
 /// pending is logged unchanged. A lone <c>*</c> (the cancel line) and an empty line hold no secret
 /// and are logged as they are.
 /// <para>
-/// The words of a client line are separated by runs of spaces and tabs. When a tab is on a line that
-/// holds an initial response, a tab may have split the mechanism or the response in two, so nothing
-/// after the first mask is written.
+/// The words of a client line are separated by runs of spaces and tabs. When a tab or a quote
+/// (<c>"</c> or <c>'</c>) is on a line that holds an initial response, it may have split an argument
+/// in two (Redis's inline <c>AUTH user "a password"</c> in a tunnel), so nothing after the first mask
+/// is written (ADR-0183, amendments 4 and 7).
 /// </para>
 /// <para>
 /// When the first word is a command word and the second is <c>AUTH</c> or <c>AUTHENTICATE</c>, the
@@ -29,13 +30,15 @@ namespace Surl.LineProtocol;
 /// </remarks>
 public sealed class SaslLineRedactionRule : ILineRedactionRule
 {
-    private const byte Tab = (byte)'\t';
     private const byte CarriageReturn = 0x0D;
     private const byte LineFeed = 0x0A;
     private const int InitialResponseWordOffset = 2;
     private const int MostWordsRead = 4;
 
     private static ReadOnlySpan<byte> WordSeparators => " \t"u8;
+
+    // A tab separates words and a quote joins them, so either may leave a secret's bytes outside its word.
+    private static ReadOnlySpan<byte> ArgumentSplitters => "\t\"'"u8;
 
     private readonly byte[][] _commandWords;
     private readonly byte[] _continuationPrefix;
@@ -122,7 +125,7 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
             output.Write(line[written..word.Start.Value]);
             output.Write(LineBytesRedactor.SecretMask);
             written = word.End.Value;
-            if (line.Contains(Tab))
+            if (line.ContainsAny(ArgumentSplitters))
             {
                 return;
             }
