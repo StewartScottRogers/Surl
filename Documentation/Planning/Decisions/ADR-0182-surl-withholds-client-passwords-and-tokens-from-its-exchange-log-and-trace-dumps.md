@@ -286,7 +286,7 @@ Accepted limits:
   when `--proxy` is named. Saying so in the help text is BL-1735.
 - An upgrade request declaring `Content-Length: 0` leaves `HttpRequestHeadBytesRedactor` not at a request start until
   the next byte arrives, so the preface after it withholds the rest (BL-1736).
-- FTP and mail logins in cleartext inside a `CONNECT` tunnel are still not masked, as before this amendment (BL-1734).
+- FTP and mail logins in cleartext inside a `CONNECT` tunnel were still not masked. Closed by amendment 16.
 - An over-long first `HEADERS` frame relied on BL-1714 to withhold the `CONTINUATION` after it, here as in the
   origin's own log. Closed by BL-1714, as under amendment 7.
 
@@ -506,3 +506,66 @@ Accepted limit:
 
 - After any of the four, the connection's log loses the payload of every later header-block and `DATA` frame, secret or
   not. That loses log detail only.
+
+## Amendment 16 (BL-1734, decided by Claude under Stewart's delegation)
+
+FTP, SMTP, IMAP and POP3 logins sent through an HTTP proxy `CONNECT` tunnel were logged in clear, because the proxy
+judged tunnelled lines only as HTTP head lines.
+
+1. **Where the tunnel's text starts.** Before any HTTP/2 preface, `HttpProxyRequestOrTunnelBytesRedactor` decides on
+   these lines. Each is held until its line feed, or past 64 KiB, which makes it the tunnel's. From the first line
+   that is the tunnel's, every later byte of the connection is redacted line by line.
+
+   | Line | The tunnel's when |
+   | --- | --- |
+   | One beginning where a request may start (a `CONNECT` head, any other head or a body has just ended) with an ASCII letter, a digit from `1` to `9` (amendment 9, point 1) or a line feed | It is not a request line: three words, one space between them, the last starting `HTTP/` or `RTSP/`, ended by CR LF |
+   | A later line of a `CONNECT` head | It does not end with CR LF |
+   | The first line after a `CONNECT` head that declares a body | Always: a `CONNECT` has none |
+
+   The last two rows and the bare line feed are there because the proxy accepts a head whose lines end with a bare
+   line feed, and the head redactor does not see such a head end.
+2. **The client's bytes decide.** The proxy's `200` is not waited for, so tunnelled bytes sent with the `CONNECT` head
+   are masked too, and a `CONNECT` retried after a `407` is still read as a head. Rejected: switching when
+   `ObserveSent` shows the `200`, which would log what a client sends before it. `ObserveSent` still shows the rules
+   the continuation prompts.
+3. **What is masked.** Each line is shown to four rules, and what the one that withholds from earliest in it writes is
+   logged:
+
+   | Rule | Masks |
+   | --- | --- |
+   | `HttpProxyTunnelPasswordAndCredentialHeaderLineRule` | The argument of `PASS` and `ACCT`; the credentials of an `Authorization` or `Proxy-Authorization` header line and its folded lines, after the scheme word |
+   | `HttpProxyTunnelImapLoginLineRule` | Everything after the user name of an IMAP `LOGIN`, and the lines of its literals; words are separated by spaces and tabs |
+   | `SaslLineRedactionRule` (ADR-0183), `AUTH`, `334 ` | SMTP: the `AUTH` initial response and each line answering `334` |
+   | `SaslLineRedactionRule`, `AUTH` and `AUTHENTICATE`, `+ ` | POP3 and IMAP: the initial response and each line answering `+` |
+
+   A line ended by a bare line feed is judged as soon as it ends. A `334` or `+` line split between the origin's reads,
+   or sent with no space after it, is a continuation (amendment 9, points 4 and 5).
+4. **Its own classes.** The rules the SOCKS library holds are written again in the proxy library, because protocol
+   libraries never reference each other (BL-1764 moves both into a shared library). The proxy library now references
+   `Surl.LineProtocol.UnitLibrary`, one of ADR-0002 decision 3's horizontal libraries, which adds to the references
+   ADR-0088 lists for it.
+5. **Unchanged.** Forwarded requests, and HTTP or RTSP carried in a tunnel, whose lines point 1 does not give to the
+   tunnel, are redacted by `HttpRequestHeadBytesRedactor` as before, bodies logged as received. A tunnel starting with any other byte (TLS and
+   other binary protocols) is too. The preface handling of amendment 8 stays: tunnelled text is not a place where a
+   request may start, so a preface after it withholds every later byte. With `--proxy` named, origin `http` and `https`
+   listen URLs use this redactor (amendment 8, point 1), so all of this holds for them.
+6. **Raw bytes elsewhere.** The event stream and `HttpProxyUpstreamTestCaseServer` keep raw bytes (decision 4).
+
+Not masked inside a `CONNECT` tunnel: the MQTT `CONNECT` password and the LDAP bind (BL-1765); the logins of every
+other protocol, the extended servers' included; and, in tunnelled text, any header but the two credential fields of
+`HttpWithheldHeaderNames.Credentials` (BL-1759 adds the API-key fields to the proxy).
+
+Accepted limits:
+
+- A tunnel whose first byte is not a letter, `1`-`9` or a line feed (an IMAP tag beginning `0` or a punctuation mark,
+  a line beginning with a space) may have no login masked.
+- A first tunnelled line of three words whose last starts `HTTP/` or `RTSP/`, ended by CR LF, is read as a request
+  line, so the tunnel is read as HTTP. No FTP or mail client opens that way.
+- A request head on the proxy connection, other than a `CONNECT` head, whose later lines end with a bare line feed is
+  judged by the head redactor as before this amendment.
+- Text that only looks like these forms (a message line, an HTTP body line after a `PROXY` line sent into the tunnel,
+  a line after a request line that is not three words or is ended by a bare line feed) has a secret-shaped part masked.
+  That loses log detail only.
+- Amendment 9's limits hold here too: the answer to a synchronizing literal is not awaited; a SASL answer sent before
+  the continuation reaches the client is judged without it; and so may one from a client so fast that its answer is
+  judged between the proxy's write of the continuation and its being shown to the redactor (not reproduced).
