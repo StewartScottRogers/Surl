@@ -36,3 +36,16 @@ the method selection, the success reply (`BND` 127.0.0.1:8080), then the origin'
 | `socks5h-user-rejected` | `... -Port 18155 -RawReply '\x05\x02','\x01\x01' -CurlArgs '-sS','--socks5-hostname','127.0.0.1:18155','-U','alice:wrong','http://origin.test:8080/a'` | `05 03 00 01 02`, `01 05 "alice" 05 "wrong"` | 97, `curl: (97) User was rejected by the SOCKS5 server (1 1).` |
 | `socks5-no-acceptable-method` | `... -Port 18156 -RawReply '\x05\xFF' -CurlArgs '-sS','--socks5','127.0.0.1:18156','http://127.0.0.1:8080/a'` | `05 02 00 01` | 97, `curl: (97) No authentication method was acceptable.` |
 | `socks5-connection-refused` | `... -Port 18157 -RawReply '\x05\x00','\x05\x05\x00\x01\x00\x00\x00\x00\x00\x00' -CurlArgs '-sS','--socks5','127.0.0.1:18157','http://127.0.0.1:8080/a'` | `05 02 00 01`, `05 01 00 01 7F000001 1F90` | 97, `curl: (97) cannot complete SOCKS5 connection to 127.0.0.1. (5)` |
+
+MQTT after a PROXY protocol line (BL-1780, ADR-0182 amendment 25), recorded on 2026-11-26 with the
+same build, for the exchange log's redaction tests. The replies are the method selection, the
+success reply, nothing for the `PROXY` line, then the `CONNACK` and the `SUBACK`, one `PUBLISH` and
+a `DISCONNECT`. The client identifier and the `PROXY` line's port numbers are the recording's own.
+
+| Folder | Command line | Curl sent | Exit, stdout or stderr |
+| --- | --- | --- | --- |
+| `socks5h-haproxy-mqtt-user-and-password` | `.\Record-CurlExchange.ps1 -Port 18780 -Raw -RawIdleMilliseconds 400 -RawReply '\x05\x00','\x05\x00\x00\x01\x7F\x00\x00\x01\x07\x5B','','\x20\x02\x00\x00','\x90\x03\x00\x01\x00\x31\x05\x00\x01thi\xE0\x00' -CurlArgs '-sS','-m','8','--haproxy-protocol','--socks5-hostname','127.0.0.1:18780','-u','tester:secret','mqtt://origin.test:1883/t' -OutDirectory ...\socks5h-haproxy-mqtt-user-and-password` | `05 02 00 01`, `05 01 00 03 0B "origin.test" 075B`, `PROXY TCP4 ...` CR LF, the MQTT `CONNECT`, the `SUBSCRIBE` | 0, `00 01 74 68 69` |
+
+The same command with an `ldap://` URL and `-u alice:secret` sends the `PROXY` line and nothing
+more, then exits 38 (`curl: (38) LDAP local: bind via ldap_win_bind Unavailable`): this build's
+WinLDAP binds outside the tunnel. So no folder holds an LDAP exchange through a tunnel.

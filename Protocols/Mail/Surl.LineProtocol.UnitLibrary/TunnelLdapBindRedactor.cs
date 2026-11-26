@@ -5,9 +5,9 @@ using Surl.Protocol.Abstractions;
 namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="IReceivedBytesRedactor"/> the SOCKS server and the HTTP proxy share for a tunnel
-/// whose first byte is <c>0x30</c>, a BER <c>SEQUENCE</c> as every <c>LDAPMessage</c> is (RFC 4511
-/// section 4.1.1; ADR-0182, amendments 10 and 23). It frames each message and writes the
+/// The <see cref="IReceivedBytesRedactor"/> the SOCKS server and the HTTP proxy share for a tunnel's
+/// bytes from a <c>0x30</c> where its login starts, a BER <c>SEQUENCE</c> as every <c>LDAPMessage</c>
+/// is (RFC 4511 section 4.1.1; ADR-0182, amendments 10, 23 and 25). It frames each message and writes the
 /// authentication of every <c>BindRequest</c> (a simple password, or a whole SASL credentials field,
 /// mechanism included) as its tag, a length of 4 and <c>****</c>, an empty one as received; the
 /// enclosing lengths stay as received. Every other message is logged as it arrives, never held past

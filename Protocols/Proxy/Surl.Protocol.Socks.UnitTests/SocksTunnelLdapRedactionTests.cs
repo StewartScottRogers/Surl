@@ -2,8 +2,8 @@ namespace Surl.Protocol.Socks;
 
 /// <summary>
 /// LDAP bind secrets through a granted SOCKS tunnel, as the exchange log shows them (ADR-0182,
-/// amendment 10). <c>Surl.LineProtocol</c>'s <c>TunnelLdapBindRedactorTests</c> cover every form of
-/// the message.
+/// amendments 10 and 25). <c>Surl.LineProtocol</c>'s <c>TunnelLdapBindRedactorTests</c> cover every
+/// form of the message.
 /// </summary>
 [TestClass]
 public sealed class SocksTunnelLdapRedactionTests
@@ -25,6 +25,18 @@ public sealed class SocksTunnelLdapRedactionTests
         SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
             [.. CurlBindMasked, .. CurlUnbind],
             [.. CurlBind, .. CurlUnbind]);
+
+    [TestMethod]
+    public void SimpleBindAfterAProxyLine_IsLoggedWithThePasswordMasked()
+    {
+        // The line pinned upstream curl 8.21.0 sent through a SOCKS5 tunnel for
+        // `--haproxy-protocol ... ldap://...`; its WinLDAP binds outside the tunnel (Fixtures/README.md).
+        byte[] proxyLine = [.. "PROXY TCP4 127.0.0.1 127.0.0.1 52098 18781\r\n"u8];
+
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            [.. proxyLine, .. CurlBindMasked, .. CurlUnbind],
+            [.. proxyLine, .. CurlBind, .. CurlUnbind]);
+    }
 
     [TestMethod]
     public void Bind_CutOffInsideThePassword_IsLoggedMasked() =>

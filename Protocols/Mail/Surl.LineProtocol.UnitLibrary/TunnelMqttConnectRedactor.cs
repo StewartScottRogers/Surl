@@ -5,11 +5,11 @@ using Surl.Protocol.Abstractions;
 namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="IReceivedBytesRedactor"/> the SOCKS server and the HTTP proxy share for a tunnel
-/// whose first byte is <c>0x10</c>, an MQTT <c>CONNECT</c> (ADR-0182, amendments 10 and 23). It holds
-/// that first packet until it is whole and writes it with the password (MQTT 3.1.1 and MQTT 5) as a
-/// length of 4 and <c>****</c>, and with a Remaining Length that counts what is written, so the log
-/// never shows the password's length. Every later byte is logged as it arrived.
+/// The <see cref="IReceivedBytesRedactor"/> the SOCKS server and the HTTP proxy share for a tunnel's
+/// bytes from a <c>0x10</c>, an MQTT <c>CONNECT</c>, where its login starts (ADR-0182, amendments 10,
+/// 23 and 25). It holds that first packet until it is whole and writes it with the password (MQTT
+/// 3.1.1 and MQTT 5) as a length of 4 and <c>****</c>, and with a Remaining Length that counts what is
+/// written, so the log never shows the password's length. Every later byte is logged as it arrived.
 /// </summary>
 /// <remarks>
 /// A <c>CONNECT</c> whose flags announce a password that is not the packet's last field, whole, has

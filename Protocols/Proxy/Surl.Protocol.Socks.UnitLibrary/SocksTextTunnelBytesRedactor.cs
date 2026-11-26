@@ -13,7 +13,9 @@ namespace Surl.Protocol.Socks;
 /// <see cref="Http2RequestBytesRedactor"/> when the preface opened the tunnel (prior knowledge) or
 /// the origin had sent <c>HTTP/1.1 101</c> (an <c>h2c</c> upgrade); otherwise every later byte is
 /// withheld (<see cref="SocksWithheldBytesRedactor"/>). The frame redactor withholds a header block
-/// carrying a field of <see cref="HttpWithheldHeaderNames.All"/> (amendment 19).
+/// carrying a field of <see cref="HttpWithheldHeaderNames.All"/> (amendment 19). It reads no more of a
+/// tunnel once <see cref="SocksTunnelBytesRedactor"/> finds a binary login after a <c>PROXY</c> line,
+/// so no preface after that is looked for (amendment 25).
 /// </summary>
 internal sealed class SocksTextTunnelBytesRedactor : IReceivedBytesRedactor
 {

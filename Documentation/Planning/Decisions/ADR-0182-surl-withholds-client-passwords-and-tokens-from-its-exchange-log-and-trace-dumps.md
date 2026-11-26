@@ -831,7 +831,7 @@ Accepted limits:
 - A login that does not start at either of the two places (behind a PROXY protocol version 2 header, or other bytes) is
   not masked by these two redactors.
 - A SOCKS tunnel that starts with a `PROXY` line is read as text, so an MQTT or LDAP password after it **can be logged**
-  (BL-1780).
+  (BL-1780). Closed by amendment 25.
 
 ## Amendment 24 (BL-1771, decided by Claude under Stewart's delegation)
 
@@ -875,3 +875,37 @@ Accepted limits:
 - A folded line, or one with no colon, after a line longer than 64 KiB that held a secret field is logged as received.
 - A chunked body is read as before: its chunk-size and trailer lines already ended at a line feed, and a secret field in
   its trailers is still logged (BL-1770).
+
+## Amendment 25 (BL-1780, decided by Claude under Stewart's delegation)
+
+An MQTT `CONNECT` password and an LDAP bind sent through a SOCKS tunnel after a PROXY protocol line were logged in
+clear: a tunnel whose first byte is `P` was read as text to its end (amendment 23's last accepted limit).
+
+1. **One copy, in `Surl.LineProtocol`.** `TunnelBinaryLoginStartFinder` finds where a binary login starts: at the
+   tunnel's first byte, or at the byte after a first line starting `PROXY `, several such lines in a row each followed.
+   The logic was the HTTP proxy's own (amendment 23, point 3); both servers now call the one class, each keeping its
+   own instance per tunnel (the proxy: per `CONNECT` head). The byte is still chosen by `TunnelBinaryLoginRedactors`.
+   Rejected: a second copy in the SOCKS library, which a fix could miss.
+2. **SOCKS.** A text tunnel stays with the line rules (amendment 9) through its `PROXY` lines. When the byte after one
+   is `0x10` or `0x30`, that byte and every later one go to the MQTT or LDAP redactor (amendment 10). This holds from
+   the client's bytes alone, however they are split, and widens amendment 10, point 1's "first client byte".
+3. **Unchanged.** What the HTTP proxy writes, every other SOCKS tunnel, the redactors' limits, and the raw bytes of the
+   event stream and of `SocksUpstreamTestCaseServer` (decision 4).
+
+Evidence: pinned upstream curl 8.21.0 (`0E773709…8778`) with `--haproxy-protocol --socks5-hostname` sent the `PROXY`
+line in the granted tunnel and then the MQTT 3.1.1 `CONNECT` (fixture `socks5h-haproxy-mqtt-user-and-password`). For
+`ldap://` it sent the `PROXY` line and no bind: its WinLDAP binds outside the tunnel. The LDAP test joins that line to
+the bind curl sent straight to an LDAP server (`Surl.Protocol.Ldap.UnitTests/Fixtures/simple-bind-base-search`).
+
+Accepted limits:
+
+- As amendment 23 has it for the proxy, a SOCKS tunnel with a `0x10` or `0x30` (the digit `0`) after a first `PROXY`
+  line has no later line judged by any line rule. So a secret in such a line, an IMAP `LOGIN` tagged from `0` included,
+  which amendment 9 had masked there, **can be logged**. Only a client crafting its own bytes does this: curl's IMAP
+  tags begin with a letter.
+- No HTTP/2 preface is looked for after that byte either. So where one after the `PROXY` line had withheld every later
+  byte of the tunnel (amendment 7), a field sent behind it **can be logged**. Again only a client crafting its own
+  bytes does this: curl sends the preface straight after its `PROXY` line.
+- A login behind a PROXY protocol version 2 header, or any other bytes, is not masked by these two redactors.
+- `--aihelp logging` and the manual name only the first tunnelled byte as what chooses the MQTT and LDAP redactors,
+  until BL-1764 rewrites them.

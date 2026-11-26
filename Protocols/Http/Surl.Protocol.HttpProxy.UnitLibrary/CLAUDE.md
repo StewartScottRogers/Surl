@@ -78,9 +78,9 @@ What exists:
   `HttpWithheldHeaderNames.All`: the credential fields after the scheme word, the API-key and
   session-token fields whole (Amendment 18). When the byte after a `CONNECT` head's empty line, or
   after a first tunnel line starting `PROXY ` (curl's `--haproxy-protocol`), is `0x10` or `0x30`,
-  every later byte goes to the redactor `Surl.LineProtocol`'s `TunnelBinaryLoginRedactors` chooses,
+  every later byte goes to the redactor `Surl.LineProtocol`'s `TunnelBinaryLoginStartFinder` gives,
   which the SOCKS server shares: an MQTT `CONNECT` password and an LDAP bind's authentication are
-  logged as `****` (Amendment 23).
+  logged as `****` (Amendments 23 and 25).
 - `ConnectHeadEndFinder` - finds the empty line that ends a `CONNECT` head from the client's lines
   alone, whatever the redactor above is reading them as (Amendment 23).
 - `HttpProxyWithheldBytesRedactor` - takes over when the preface starts anywhere else: one `****`
@@ -106,7 +106,7 @@ upstream curl 8.21.0 with the recorder playing the proxy; its README says how ea
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`,
 and the horizontal `Surl.Http2.UnitLibrary`, `Surl.Hpack.UnitLibrary` (ADR-0086) and
-`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendments 16, 20 and 23) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
+`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendments 16, 20, 23 and 25) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
 through `IAuthenticationPolicy` as the HTTP server does, so it needs no reference (Amendment 3).
 Referencing another protocol server is a build break, and
 `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
