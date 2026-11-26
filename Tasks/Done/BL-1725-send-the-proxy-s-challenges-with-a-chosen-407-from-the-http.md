@@ -8,7 +8,7 @@ depends-on: [BL-1700]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Documentation/Planning/Decisions/ADR-0160-how-the-http-and-https-proxy-applies-delay-drop-and-chosen-error-fault-rules.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1725 — Send the proxy's challenges with a chosen 407 from the HTTP proxy
 
@@ -52,22 +52,33 @@ own `407` would offer on that connection, over HTTP/1.1 and HTTP/2.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `HttpProxyCommandFaultTests` show a chosen `407` to a `CONNECT` and to a forwarded `GET` carries
+- [x] Named tests in `HttpProxyCommandFaultTests` show a chosen `407` to a `CONNECT` and to a forwarded `GET` carries
       the session's challenges as `Proxy-Authenticate` fields, in order, and no origin is contacted.
-- [ ] A named test shows a chosen `407` on an HTTP/2 stream carries them as `proxy-authenticate` fields, with an
+- [x] A named test shows a chosen `407` on an HTTP/2 stream carries them as `proxy-authenticate` fields, with an
       NTLM and Negotiate only list sent whole and no stream reset.
-- [ ] Named tests show that a session offering none gives a `407` with no `Proxy-Authenticate` and the note of
+- [x] Named tests show that a session offering none gives a `407` with no `Proxy-Authenticate` and the note of
       decision 2, and that a chosen `503` and `401` carry neither `Proxy-Authenticate` nor `WWW-Authenticate`.
-- [ ] ADR-0160 has an amendment naming this task that states decisions 1 to 4, cites RFC 9110 sections 11.7.1 and
+- [x] ADR-0160 has an amendment naming this task that states decisions 1 to 4, cites RFC 9110 sections 11.7.1 and
       15.5.8 and says which sentence of decision 3 it replaces; its row in
       `Documentation/Planning/Decisions/README.md` agrees.
-- [ ] The library's `CLAUDE.md` and the doc comments describing a chosen error say what a chosen `407` sends.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] The library's `CLAUDE.md` and the doc comments describing a chosen error say what a chosen `407` sends.
+- [x] `dotnet build Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary -warnaserror` is clean, the fast tests are
       green with no `TestCategory=Integration` test needed, and the library stays at 100% line and branch coverage.
 
 ## Notes
+
+- Plan: the task's four decisions were already settled, so no `protocol-architect` pass; tests, code and documents
+  were written in the session, tests first (the 6 new `407` cases failed before the code changed).
+- `ProxyCommandFault` now keeps the choosing rule's ID, and `CreateChosenStatusChallenges` is the one place that
+  asks the session for challenges and notes an empty offer; the HTTP/2 handler calls it under `loginGate`.
+- ADR-0160 Amendment 2 records decisions 1 to 4. The README row now names Amendment 1 as well, which it omitted.
+- Review: `code-reviewer` found nothing under Must fix or Should fix. Conformance audit skipped: the task needs no
+  new recording, as the field has the shape of the proxy's login `407` (ADR-0088 Amendment 3).
+- Gates, 2026-11-25: solution build 0 warnings, format check clean, 29,236 fast tests passed (402 in the proxy's
+  tests), `Measure-CodeQuality.ps1` 100% line and 100% branch for the library, 0 failing members.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. A chosen 407 from the HTTP and HTTPS proxy carries the login session's Proxy-Authenticate challenges over HTTP/1.1 and HTTP/2
