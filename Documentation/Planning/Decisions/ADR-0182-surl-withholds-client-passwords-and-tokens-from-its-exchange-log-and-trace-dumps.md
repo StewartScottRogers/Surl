@@ -286,8 +286,6 @@ Accepted limits:
   masked, although the origin HTTP server's redactor would have masked it. Only a non-conforming client does this.
 - A preface anywhere else loses all later log detail, an upload body that holds it included, on origin listen URLs too
   when `--proxy` is named. Saying so in the help text is BL-1735.
-- An upgrade request declaring `Content-Length: 0` leaves `HttpRequestHeadBytesRedactor` not at a request start until
-  the next byte arrives, so the preface after it withholds the rest (BL-1736).
 - FTP and mail logins in cleartext inside a `CONNECT` tunnel were still not masked. Closed by amendment 16.
 - An over-long first `HEADERS` frame relied on BL-1714 to withhold the `CONTINUATION` after it, here as in the
   origin's own log. Closed by BL-1714, as under amendment 7.
