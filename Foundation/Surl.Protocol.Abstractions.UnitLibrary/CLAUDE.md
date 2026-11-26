@@ -207,7 +207,9 @@ and the protocols fan out after.
   HTTP proxy and the SOCKS tunnel; BL-1717, BL-1759, BL-1760) and `Surl.Http3`'s `Http3RequestBytesRedactor`
   (`Credentials`, plus `ApiKeysAndSessionTokens` for WebTransport; BL-1718). The HTTP proxy also masks all
   seven in its tunnelled text lines (and the API keys and session tokens in its HTTP/1.x request heads), and
-  the SOCKS tunnel's line rule reads `Credentials` and `ApiKeysAndSessionTokens` from here too (BL-1760).
+  the SOCKS tunnel masks them in its text lines too (BL-1760); both use `Surl.LineProtocol`'s
+  `TunnelPasswordAndCredentialHeaderLineRule`, which reads `Credentials` and `ApiKeysAndSessionTokens` from here
+  (BL-1767).
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
   returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
   `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,

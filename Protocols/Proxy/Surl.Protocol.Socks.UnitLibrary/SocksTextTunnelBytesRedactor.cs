@@ -1,12 +1,13 @@
 using System.Buffers;
 using Surl.Http2;
+using Surl.LineProtocol;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Socks;
 
 /// <summary>
 /// The <see cref="IReceivedBytesRedactor"/> for a SOCKS tunnel that opens with text. It redacts line
-/// by line (<see cref="SocksTunnelLinesRedactor"/>) until the client sends the HTTP/2 connection
+/// by line (<see cref="TunnelLinesRedactor"/>) until the client sends the HTTP/2 connection
 /// preface, wherever it falls, because HTTP/2 carries a credential as an HPACK field no line rule
 /// sees (ADR-0182, amendment 7). After the preface, frames are redacted by
 /// <see cref="Http2RequestBytesRedactor"/> when the preface opened the tunnel (prior knowledge) or
@@ -16,7 +17,7 @@ namespace Surl.Protocol.Socks;
 /// </summary>
 internal sealed class SocksTextTunnelBytesRedactor : IReceivedBytesRedactor
 {
-    private IReceivedBytesRedactor current = new SocksTunnelLinesRedactor();
+    private IReceivedBytesRedactor current = new TunnelLinesRedactor();
     private SocksHttp2PrefaceFinder? prefaceFinder = new();
     private bool originSwitchedProtocols;
 

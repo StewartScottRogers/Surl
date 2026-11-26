@@ -1,40 +1,39 @@
 using System.Buffers;
 using System.Text;
-using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.HttpProxy;
+namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="ILineRedactionRule"/> for a password command or a credential header in a
-/// <c>CONNECT</c> tunnel: it writes the argument of a <c>PASS</c> or <c>ACCT</c> command as
+/// The <see cref="ILineRedactionRule"/> for a password command or a credential header in a tunnel: it
+/// writes the argument of a <c>PASS</c> or <c>ACCT</c> command as
 /// <see cref="LineBytesRedactor.SecretMask"/>, the credentials of a header named in
 /// <see cref="HttpWithheldHeaderNames.Credentials"/> as <see cref="LineBytesRedactor.SecretMask"/>
-/// after the scheme word (ADR-0182, amendment 16), and the whole value of a header named in
+/// after the scheme word, and the whole value of a header named in
 /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> as
-/// <see cref="LineBytesRedactor.SecretMask"/> (amendment 18). Commands and header names are matched
-/// without regard to case. Every other line is written as received.
+/// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 6, 16, 18, 19 and 20). Commands
+/// and header names are matched without regard to case. Every other line is written as received.
 /// </summary>
 /// <remarks>
 /// A line that begins with a space or a tab and follows a header named in
 /// <see cref="HttpWithheldHeaderNames.All"/>, or another such line, continues that header and is
-/// masked.
+/// masked. One instance serves one tunnel.
 /// </remarks>
-internal sealed class HttpProxyTunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRule
+public sealed class TunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRule
 {
     private const int CommandPrefixLength = 5;
 
     private static ReadOnlySpan<byte> Blanks => " \t"u8;
 
-    private bool previousLineHeldCredentials;
+    private bool _previousLineHeldWithheldHeader;
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        var continuesCredentials = previousLineHeldCredentials && line.Length > 0 && Blanks.Contains(line[0]);
-        var secretStart = continuesCredentials ? SkipBlanks(line, 0) : FindSecretStart(line);
-        previousLineHeldCredentials = continuesCredentials || IsHeaderNamedIn(line, HttpWithheldHeaderNames.All);
+        var continuesWithheldHeader = _previousLineHeldWithheldHeader && line.Length > 0 && Blanks.Contains(line[0]);
+        var secretStart = continuesWithheldHeader ? SkipBlanks(line, 0) : FindSecretStart(line);
+        _previousLineHeldWithheldHeader = continuesWithheldHeader || IsHeaderNamedIn(line, HttpWithheldHeaderNames.All);
         if (secretStart >= line.Length)
         {
             output.Write(line);
@@ -74,7 +73,7 @@ internal sealed class HttpProxyTunnelPasswordAndCredentialHeaderLineRule : ILine
 
     private static bool IsHeaderNamedIn(ReadOnlySpan<byte> line, IReadOnlyList<string> names)
     {
-        var colon = line.IndexOf((byte)':');
+        int colon = line.IndexOf((byte)':');
 
         return colon >= 0 && names.Contains(
             Encoding.Latin1.GetString(line[..colon].TrimEnd(Blanks)),
@@ -87,15 +86,15 @@ internal sealed class HttpProxyTunnelPasswordAndCredentialHeaderLineRule : ILine
     // After the colon and the scheme word; a value of one word is all credentials.
     private static int FindCredentialsStart(ReadOnlySpan<byte> line)
     {
-        var valueStart = FindValueStart(line);
-        var space = line[valueStart..].TrimEnd(Blanks).IndexOf((byte)' ');
+        int valueStart = FindValueStart(line);
+        int space = line[valueStart..].TrimEnd(Blanks).IndexOf((byte)' ');
 
         return space < 0 ? valueStart : SkipBlanks(line, valueStart + space);
     }
 
     private static int SkipBlanks(ReadOnlySpan<byte> line, int start)
     {
-        var next = line[start..].IndexOfAnyExcept(Blanks);
+        int next = line[start..].IndexOfAnyExcept(Blanks);
 
         return next < 0 ? line.Length : start + next;
     }

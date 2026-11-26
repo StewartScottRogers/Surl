@@ -169,7 +169,6 @@ public sealed class SocksExchangeLogRedactionTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Redact([1], null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Flush(null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SocksTunnelLineRedactionRule().Redact([1], null!));
     }
 
     private const string SecretLines = "PASS s3cret-pw\r\nAuthorization: Basic YXBwOnMzY3JldC1wdw==\r\n";

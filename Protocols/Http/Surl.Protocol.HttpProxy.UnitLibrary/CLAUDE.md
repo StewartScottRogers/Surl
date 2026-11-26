@@ -70,10 +70,10 @@ What exists:
 - `HttpProxyRequestOrTunnelBytesRedactor` - masks HTTP/1.x request heads until the bytes are a
   tunnel's text: a line where a request may start that begins with a letter, `1`-`9` or a line feed
   and is no CR LF request line, a `CONNECT` head line without CR LF, or what follows a `CONNECT`
-  head declaring a body. From there `HttpProxyTunnelLinesRedactor` judges every line with
-  `HttpProxyTunnelLineRedactionRule`, which combines
-  `HttpProxyTunnelPasswordAndCredentialHeaderLineRule`, `HttpProxyTunnelImapLoginLineRule` and
-  `Surl.LineProtocol`'s `SaslLineRedactionRule`, so FTP and mail logins in a `CONNECT` tunnel are
+  head declaring a body. From there `Surl.LineProtocol`'s `TunnelLinesRedactor`, which the SOCKS
+  server shares (Amendment 20), judges every line with its `TunnelLineRedactionRule`, which
+  combines `TunnelPasswordAndCredentialHeaderLineRule`, `TunnelImapLoginLineRule` and
+  `SaslLineRedactionRule`, so FTP and mail logins in a `CONNECT` tunnel are
   masked (Amendment 16). The headers tunnelled text masks are those of
   `HttpWithheldHeaderNames.All`: the credential fields after the scheme word, the API-key and
   session-token fields whole (Amendment 18).
@@ -100,7 +100,7 @@ upstream curl 8.21.0 with the recorder playing the proxy; its README says how ea
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`,
 and the horizontal `Surl.Http2.UnitLibrary`, `Surl.Hpack.UnitLibrary` (ADR-0086) and
-`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendment 16) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
+`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendments 16 and 20) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
 through `IAuthenticationPolicy` as the HTTP server does, so it needs no reference (Amendment 3).
 Referencing another protocol server is a build break, and
 `Surl.Protocol.Abstractions.UnitTests` fails if one appears.

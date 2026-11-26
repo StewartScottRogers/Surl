@@ -1,41 +1,45 @@
 using System.Buffers;
-using Surl.LineProtocol;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Socks;
+namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="ILineRedactionRule"/> for the lines of a text protocol carried through a SOCKS
-/// tunnel. SOCKS does not say which protocol that is, so every line is judged by all of these, and
-/// what the one that withholds from earliest in the line writes is logged (ADR-0182, amendments 6,
-/// 9 and 19): <see cref="SocksTunnelPasswordAndCredentialHeaderLineRule"/> (<c>PASS</c>, <c>ACCT</c>,
-/// the credential headers and the API-key and session-token headers),
-/// <see cref="SocksTunnelImapLoginLineRule"/> (the IMAP <c>LOGIN</c> password) and two
-/// <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c> continuation and for the <c>+ </c>
-/// continuation of IMAP and POP3. A line none of them changes is written as received.
+/// The <see cref="ILineRedactionRule"/> the SOCKS server and the HTTP proxy share for the lines of a
+/// text protocol carried through a tunnel. Neither SOCKS nor <c>CONNECT</c> says which protocol that
+/// is, so every line is judged by all of these, and what the one that withholds from earliest in the
+/// line writes is logged (ADR-0182, amendments 9, 16 and 20):
+/// <see cref="TunnelPasswordAndCredentialHeaderLineRule"/> (<c>PASS</c>, <c>ACCT</c>, the credential
+/// headers and the API-key and session-token headers), <see cref="TunnelImapLoginLineRule"/> (the
+/// IMAP <c>LOGIN</c> password) and two <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c>
+/// continuation and for the <c>+ </c> continuation of IMAP and POP3. A line none of them changes is
+/// written as received.
 /// </summary>
 /// <remarks>
 /// A line may end with the line feed that ended it, when no carriage return came before it; the line
 /// feed is kept and the rest is judged. A server line split between the origin's reads is still
 /// recognised as a continuation, because its first bytes are kept until it ends. A server's bare
-/// <c>+</c> or <c>334</c> line, with no space after it, is a continuation too.
+/// <c>+</c> or <c>334</c> line, with no space after it, is a continuation too. One instance serves one
+/// tunnel.
 /// </remarks>
-internal sealed class SocksTunnelLineRedactionRule : ILineRedactionRule
+public sealed class TunnelLineRedactionRule : ILineRedactionRule
 {
     private const byte LineFeed = (byte)'\n';
 
     // As long as the longest continuation prefix, "334 ": all a SASL rule reads of a server's line.
     private const int ContinuationPrefixLength = 4;
 
-    private readonly SocksTunnelImapLoginLineRule imapLogin = new();
-    private readonly ILineRedactionRule[] rules;
+    private readonly TunnelImapLoginLineRule _imapLogin = new();
+    private readonly ILineRedactionRule[] _rules;
 
-    private byte[] unfinishedOriginLineStart = [];
+    private byte[] _unfinishedOriginLineStart = [];
 
-    public SocksTunnelLineRedactionRule() => rules =
+    /// <summary>
+    /// Creates a rule for one tunnel.
+    /// </summary>
+    public TunnelLineRedactionRule() => _rules =
     [
-        new SocksTunnelPasswordAndCredentialHeaderLineRule(),
-        imapLogin,
+        new TunnelPasswordAndCredentialHeaderLineRule(),
+        _imapLogin,
         new SaslLineRedactionRule(["AUTH"], "334 "),
         new SaslLineRedactionRule(["AUTH", "AUTHENTICATE"], "+ "),
     ];
@@ -44,8 +48,8 @@ internal sealed class SocksTunnelLineRedactionRule : ILineRedactionRule
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        bool endsWithLineFeed = line.EndsWith([LineFeed]);
-        imapLogin.LineEndLength = endsWithLineFeed ? 1 : 2;
+        var endsWithLineFeed = line.EndsWith([LineFeed]);
+        _imapLogin.LineEndLength = endsWithLineFeed ? 1 : 2;
         RedactWithoutLineFeed(endsWithLineFeed ? line[..^1] : line, output);
         if (endsWithLineFeed)
         {
@@ -56,7 +60,7 @@ internal sealed class SocksTunnelLineRedactionRule : ILineRedactionRule
     /// <inheritdoc />
     public void ObserveSent(ReadOnlySpan<byte> sent)
     {
-        byte[] joined = [.. unfinishedOriginLineStart, .. sent];
+        byte[] joined = [.. _unfinishedOriginLineStart, .. sent];
         ShowEveryRule(joined);
         if (IsEndedByBareContinuation(joined, out var continuation))
         {
@@ -65,15 +69,7 @@ internal sealed class SocksTunnelLineRedactionRule : ILineRedactionRule
         }
 
         ReadOnlySpan<byte> unfinished = joined.AsSpan(joined.AsSpan().LastIndexOf(LineFeed) + 1);
-        unfinishedOriginLineStart = unfinished[..Math.Min(unfinished.Length, ContinuationPrefixLength)].ToArray();
-    }
-
-    private void ShowEveryRule(ReadOnlySpan<byte> sent)
-    {
-        foreach (var rule in rules)
-        {
-            rule.ObserveSent(sent);
-        }
+        _unfinishedOriginLineStart = unfinished[..Math.Min(unfinished.Length, ContinuationPrefixLength)].ToArray();
     }
 
     // Whether the last line the server finished is "+" or "334" and nothing else.
@@ -85,16 +81,24 @@ internal sealed class SocksTunnelLineRedactionRule : ILineRedactionRule
         return sent.EndsWith([LineFeed]) && (continuation.SequenceEqual("+"u8) || continuation.SequenceEqual("334"u8));
     }
 
+    private void ShowEveryRule(ReadOnlySpan<byte> sent)
+    {
+        foreach (var rule in _rules)
+        {
+            rule.ObserveSent(sent);
+        }
+    }
+
     // Every rule sees every line, because each keeps state from one line to the next.
     private void RedactWithoutLineFeed(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
-        ReadOnlySpan<byte> logged = line;
-        int shownLength = int.MaxValue;
-        foreach (var rule in rules)
+        var logged = line;
+        var shownLength = int.MaxValue;
+        foreach (var rule in _rules)
         {
             var judged = new ArrayBufferWriter<byte>();
             rule.Redact(line, judged);
-            int unchangedLength = line.CommonPrefixLength(judged.WrittenSpan);
+            var unchangedLength = line.CommonPrefixLength(judged.WrittenSpan);
             if (!judged.WrittenSpan.SequenceEqual(line) && unchangedLength < shownLength)
             {
                 logged = judged.WrittenSpan;

@@ -105,6 +105,9 @@ public sealed class SocksTunnelMailRedactionTests
     [DataRow("a LOGIN app {x}s3cret", "a LOGIN app ****")]
     [DataRow("a LOGIN app {3}s3cret}", "a LOGIN app ****")]
     [DataRow("Authorization: Login c2Vj cmV0", "Authorization: Login ****")]
+    [DataRow("a\tLOGIN\tapp\ts3cret-pw", "a\tLOGIN\tapp\t****")]
+    [DataRow("x\ty LOGIN app s3cret-pw", "x\ty LOGIN app ****")]
+    [DataRow("a LOGIN \t s3cret-pw", "a LOGIN \t ****")]
     public void Imap_EachLoginForm_IsLoggedMasked(string sent, string logged) =>
         Assert.AreEqual(logged + "\r\n", Logged(("* OK ready\r\n", sent + "\r\n")));
 

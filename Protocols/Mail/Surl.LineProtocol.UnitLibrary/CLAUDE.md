@@ -2,7 +2,8 @@
 
 Phase 3.
 
-The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in BL-192:
+The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in BL-192, and the
+tunnel line redaction rules the SOCKS server and the HTTP proxy share (ADR-0182, amendment 20):
 
 - `CrlfLineReader` - one buffer over one connection. `ReadLineAsync` ends a line only at
   CRLF (a bare LF or CR is part of the line), bounded by `ExchangeLimits.MaxLineBytes` with no
@@ -26,6 +27,16 @@ The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in B
   continuation prefix (`334 `, `+ `); `*`, empty and unprompted lines pass unchanged. When a
   command word is followed by `AUTH` or `AUTHENTICATE`, the third and fourth words are both masked
   (amendment 5).
+- `TunnelLinesRedactor` (BL-1767, ADR-0182 amendment 20) - the exchange-log redactor for the text a
+  client sends through a SOCKS tunnel or an HTTP proxy `CONNECT` tunnel: a `LineBytesRedactor` over
+  `TunnelLineRedactionRule`, ending a line at a bare line feed too. That rule shows every line to
+  `TunnelPasswordAndCredentialHeaderLineRule` (`PASS` and `ACCT` arguments, the credentials of the
+  `HttpWithheldHeaderNames.Credentials` headers after the scheme word, the whole value of the
+  `ApiKeysAndSessionTokens` headers, and folded lines of either), `TunnelImapLoginLineRule` (the
+  IMAP `LOGIN` password and its literals; each line read with words separated by spaces and tabs
+  and again by spaces only, masking from the earlier password) and two
+  `SaslLineRedactionRule`s (`334 `, `+ `; a bare `+` or `334` line, and one split between the
+  origin's reads, count), and logs what the one withholding from earliest in the line writes.
 - `MailUpstreamTestCaseReplies` (BL-875, ADR-0080 decision 2) - a test seam, never composed by
   the shipped `surl`: one upstream test case's `<reply>` parts and `<servercmd>` lines as the
   IMAP, POP3 and SMTP server halves play them, with a record of every command line read and
@@ -38,7 +49,8 @@ The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in B
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing else
 (ADR-0050 decision 1, amending ADR-0002's table); protocol servers may reference it, and
-the SMTP, IMAP and POP3 servers do (BL-198, BL-201, BL-205).
+the SMTP, IMAP and POP3 servers (BL-198, BL-201, BL-205), the SOCKS server (ADR-0182
+amendment 9) and the HTTP proxy (amendment 16) do.
 
 It reads and writes only through the `IConnection` the listener seam hands a server, with
 the exchange's cancellation token, and times with `ExchangeContext.TimeProvider`. Never
