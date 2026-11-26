@@ -16,11 +16,17 @@ namespace Surl.Http2;
 /// follow the header blocks, every later <c>HEADERS</c>, <c>CONTINUATION</c>, <c>PUSH_PROMISE</c>
 /// and <c>DATA</c> payload is withheld, on every stream; so is every later <c>DATA</c> payload once
 /// more than 4,096 streams have carried a <c>CONNECT</c> block. An empty <c>DATA</c> payload leaves
-/// nothing to withhold: its frame header is written alone. The 9-byte frame headers are always
-/// logged as received, and so is every frame of any other type, and every <c>DATA</c> frame none of
-/// these rules withholds (ADR-0182, decisions 1, 6 and 7, and amendments 11 and 13).
+/// nothing to withhold: its frame header is written alone. After the preface, the 9-byte frame
+/// headers are always logged as received, and so is every frame of any other type, and every
+/// <c>DATA</c> frame none of these rules withholds (ADR-0182, decisions 1, 6 and 7, and amendments
+/// 11 and 13). Bytes that do not open with the preface are withheld, as the remarks say.
 /// </summary>
 /// <remarks>
+/// The preface is compared byte by byte as it arrives, and the bytes that match it are logged as
+/// received. From the first byte that differs - an HTTP/1.x request sent in the preface's place, say -
+/// the redactor writes one <c>****</c> and nothing more: not that byte, no later byte, and nothing
+/// from <see cref="Flush"/> (fail closed; ADR-0182, amendment 17).
+/// <para>
 /// HPACK values are recoverable from a dump whether Huffman-coded or literal, and an indexed field
 /// can refer to a value an earlier block put in the dynamic table, so a copy of the connection's
 /// HPACK decoder decodes the blocks, in order, to know which fields each carries. A header block is
@@ -37,6 +43,7 @@ namespace Surl.Http2;
 /// frame's included if it is one of these, is withheld (fail closed), as is every <c>DATA</c>
 /// payload from then on, an interrupting <c>DATA</c> frame's included. Frames of other types are
 /// never held or decoded: each is written as it arrives.
+/// </para>
 /// <para>
 /// A stream carried a <c>CONNECT</c> header block when a block the copy decoded on it has
 /// <c>:method</c> <c>CONNECT</c>, whether that block was logged or withheld; it stays one for the
@@ -79,6 +86,7 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     // One more than the limit means more CONNECT streams were opened than can be told apart.
     private readonly HashSet<uint> connectStreams = [];
     private int prefaceRemaining = Http2ConnectionPreface.Preface.Length;
+    private bool departedFromPreface;
     private int frameHeaderRead;
     private int payloadRemaining;
     private PayloadMode payloadMode = PayloadMode.PassThrough;
@@ -115,10 +123,10 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     {
         ArgumentNullException.ThrowIfNull(output);
         var index = 0;
-        while (index < received.Length)
+        while (index < received.Length && !departedFromPreface)
         {
             var rest = received[index..];
-            index += prefaceRemaining > 0 ? PassThroughPreface(rest, output)
+            index += prefaceRemaining > 0 ? ReadPreface(rest, output)
                 : payloadRemaining > 0 ? ReadPayload(rest, output)
                 : ReadFrameHeaderByte(rest[0], output);
         }
@@ -149,13 +157,23 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         payloadRemaining = 0;
     }
 
-    private int PassThroughPreface(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
+    // Writes the bytes that match the preface. The first one that differs shows these are not HTTP/2
+    // frames, so no rule here can find a secret in them: one mask, and nothing after it (fail closed).
+    private int ReadPreface(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
     {
-        var take = Math.Min(prefaceRemaining, bytes.Length);
-        output.Write(bytes[..take]);
-        prefaceRemaining -= take;
+        var preface = Http2ConnectionPreface.Preface;
+        var expected = preface[(preface.Length - prefaceRemaining)..];
+        var compared = Math.Min(expected.Length, bytes.Length);
+        var matched = bytes[..compared].CommonPrefixLength(expected[..compared]);
+        output.Write(bytes[..matched]);
+        prefaceRemaining -= matched;
+        if (matched < compared)
+        {
+            departedFromPreface = true;
+            output.Write(Withheld);
+        }
 
-        return take;
+        return compared;
     }
 
     private int ReadFrameHeaderByte(byte next, ArrayBufferWriter<byte> output)

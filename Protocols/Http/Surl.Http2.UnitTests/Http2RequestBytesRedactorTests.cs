@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Text;
 using Surl.Hpack;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Http2;
 
@@ -618,6 +619,50 @@ public sealed class Http2RequestBytesRedactorTests
         var (_, bytes) = Redact([Join(Preface, frame)]);
 
         CollectionAssert.AreEqual(Join(Preface, frame), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_Http1RequestInPlaceOfThePreface_WritesOnlyAMask()
+    {
+        var request = "GET / HTTP/1.1\r\nHost: h\r\nAuthorization: Basic YWxpY2U6czNjcmV0\r\nx-api-key: k3y\r\n\r\n"u8;
+        var redactor = new Http2RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact(request, output);
+        redactor.Flush(output);
+
+        Assert.AreEqual("****", Encoding.Latin1.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "whole")]
+    [DataRow(true, DisplayName = "one byte at a time")]
+    public void Redact_BytesThatLeaveThePrefacePartWay_WritesTheMatchingBytesThenOneMask(bool oneByteAtATime)
+    {
+        var request = "PUT /f HTTP/1.1\r\nAuthorization: Basic YWxpY2U6czNjcmV0\r\n\r\n"u8.ToArray();
+        byte[][] chunks = oneByteAtATime ? [.. request.Select(value => new[] { value })] : [request];
+        var redactor = new Http2RequestBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        foreach (var chunk in chunks)
+        {
+            redactor.Redact(chunk, output);
+        }
+
+        Assert.AreEqual("P****", Encoding.Latin1.GetString(output.WrittenSpan));
+
+        redactor.Redact(request, output);
+        redactor.Flush(output);
+
+        Assert.AreEqual("P****", Encoding.Latin1.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
+    public void Redact_PrefaceLeftAfterAMatchingFirstChunk_WritesThatChunkThenOneMask()
+    {
+        var (text, _) = Redact([Preface[..10], "Authorization: Basic YWxpY2U6czNjcmV0\r\n"u8.ToArray()]);
+
+        Assert.AreEqual("PRI * HTTP****", text);
     }
 
     [TestMethod]
