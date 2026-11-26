@@ -54,6 +54,10 @@ public sealed class TunnelLineRedactionRuleTests
     [DataRow("AUTH \v alice s3cret", "AUTH ****")]
     [DataRow("AUTH * \v s3cret", "AUTH ****")]
     [DataRow("\"AUTH\" login s3cret", "\"AUTH\" ****")]
+    [DataRow("AUTH s3cret", "AUTH ****")]
+    [DataRow("AUTH \"s3 cret\"", "AUTH ****")]
+    [DataRow("HELLO 3 AUTH alice s3cret", "HELLO 3 AUTH ****")]
+    [DataRow("HELLO 3 SETNAME app AUTH alice s3cret", "HELLO 3 SETNAME app AUTH ****")]
     public void Redact_RedisAuthLineAfterAnotherLine_ShowsNoByteOfThePassword(string line, string logged)
     {
         var rule = new TunnelLineRedactionRule();
@@ -61,6 +65,17 @@ public sealed class TunnelLineRedactionRuleTests
 
         Assert.AreEqual(logged, Redact(rule, line));
     }
+
+    [TestMethod]
+    public void Redact_RedisHelloAuthAsTheFirstLine_ShowsNoByteOfThePassword() =>
+        Assert.AreEqual("HELLO 3 AUTH ****", Redact(new TunnelLineRedactionRule(), "HELLO 3 AUTH alice s3cret"));
+
+    [TestMethod]
+    [DataRow("AUTH PLAIN")]
+    [DataRow("AUTH LOGIN")]
+    [DataRow("AUTH TLS")]
+    public void Redact_AuthLineNamingOnlyAMechanism_IsWrittenAsReceived(string line) =>
+        Assert.AreEqual(line, Redact(new TunnelLineRedactionRule(), line));
 
     [TestMethod]
     public void Redact_LineTwoRulesWithhold_IsLoggedAsTheOneWithholdingFromEarliestWritesIt() =>

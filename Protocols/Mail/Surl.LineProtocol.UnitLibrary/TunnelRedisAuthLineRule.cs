@@ -5,21 +5,35 @@ using Surl.Protocol.Abstractions;
 namespace Surl.LineProtocol;
 
 /// <summary>
-/// The <see cref="ILineRedactionRule"/> for an inline Redis <c>AUTH</c> line in a tunnel that
-/// <see cref="SaslLineRedactionRule"/> cannot read: one whose command word is quoted, or that holds a
-/// vertical tab, form feed or carriage return, which Redis counts as white space (ADR-0183, amendment
-/// 8). It writes the line up to the byte that ends the command word, then
+/// The <see cref="ILineRedactionRule"/> for the inline Redis <c>AUTH</c> and <c>HELLO ... AUTH</c>
+/// lines in a tunnel that <see cref="SaslLineRedactionRule"/> does not withhold (ADR-0183, amendments
+/// 8 and 9): an <c>AUTH</c> line whose command word is quoted, or that holds a vertical tab, form feed
+/// or carriage return, which Redis counts as white space; an <c>AUTH</c> line with one argument that
+/// names no SASL or FTP security mechanism; and the arguments after the <c>AUTH</c> of a <c>HELLO</c>
+/// line. It writes the line up to the byte that ends the command word, or that <c>AUTH</c>, then
 /// <see cref="LineBytesRedactor.SecretMask"/> and nothing more. Every other line is written as
 /// received.
 /// </summary>
 /// <remarks>
-/// The command word is the first run of bytes that are not white space. It is quoted <c>AUTH</c> when
-/// removing its <c>"</c> and <c>'</c> bytes leaves <c>AUTH</c>, matched without regard to case; a word
-/// holding both <c>"</c> and a backslash is taken for it too, because an escape may spell any of its
-/// letters. One instance serves one tunnel.
+/// Words are the runs of bytes that are not white space. A word is quoted <c>AUTH</c> or <c>HELLO</c>
+/// when removing its <c>"</c> and <c>'</c> bytes leaves that word, matched without regard to case; a
+/// command word, or a word after <c>HELLO</c>, holding both <c>"</c> and a backslash is taken for
+/// <c>AUTH</c> too, because an escape may spell any of its letters. The one argument of an <c>AUTH</c>
+/// line keeps the white space it quotes. One instance serves one tunnel.
 /// </remarks>
 public sealed class TunnelRedisAuthLineRule : ILineRedactionRule
 {
+    private const byte DoubleQuote = (byte)'"';
+    private const byte Backslash = (byte)'\\';
+
+    // What may follow AUTH without being a secret: SASL mechanisms, and FTP's AUTH TLS and SSL (RFC 4217).
+    private static readonly string[] MechanismNames =
+    [
+        "ANONYMOUS", "CRAM-MD5", "DIGEST-MD5", "EXTERNAL", "GSS-SPNEGO", "GSSAPI", "LOGIN", "NTLM", "OAUTHBEARER",
+        "PLAIN", "SCRAM-SHA-1", "SCRAM-SHA-1-PLUS", "SCRAM-SHA-256", "SCRAM-SHA-256-PLUS", "SCRAM-SHA-512",
+        "SCRAM-SHA-512-PLUS", "XOAUTH2", "SSL", "TLS", "TLS-C", "TLS-P",
+    ];
+
     private static ReadOnlySpan<byte> WhiteSpace => " \t\n\v\f\r"u8;
 
     // The white space SaslLineRedactionRule does not split words at; a line feed never reaches this rule.
@@ -48,41 +62,132 @@ public sealed class TunnelRedisAuthLineRule : ILineRedactionRule
         // The secret is always on the line that names it, whatever the origin sent.
     }
 
-    // Just after the byte that ends the command word; -1 when this rule withholds nothing of the line.
+    // Where the mask begins; -1 when this rule withholds nothing of the line.
     private static int FindMaskStart(ReadOnlySpan<byte> line)
     {
-        // Leading white space is not part of the command word; a line of nothing else leaves it empty.
-        var fromCommand = line.TrimStart(WhiteSpace);
-        var commandLength = fromCommand.IndexOfAny(WhiteSpace);
-        if (commandLength < 0 || !fromCommand[commandLength..].ContainsAnyExcept(WhiteSpace))
+        if (!TryReadFollowedWord(line, 0, out var command, out var argumentsStart))
         {
             return -1;
         }
 
-        var command = fromCommand[..commandLength];
-        var withheld = line.ContainsAny(UnreadSeparators)
+        if (IsAuthLineSaslRulesCannotRead(command, line))
+        {
+            return argumentsStart;
+        }
+
+        if (Spells(command, "HELLO"u8))
+        {
+            return FindMaskStartAfterHelloAuth(line, argumentsStart);
+        }
+
+        return IsAuth(command) && IsOneSecretArgument(line[argumentsStart..]) ? argumentsStart : -1;
+    }
+
+    // Reads the first word at or after start that something other than white space follows; next is the
+    // index just after the byte that ends the word.
+    private static bool TryReadFollowedWord(
+        ReadOnlySpan<byte> line, int start, out ReadOnlySpan<byte> word, out int next)
+    {
+        // Leading white space is not part of a word; a run of nothing else leaves it empty.
+        var fromWord = line[start..].TrimStart(WhiteSpace);
+        var length = fromWord.IndexOfAny(WhiteSpace);
+        if (length < 0 || !fromWord[length..].ContainsAnyExcept(WhiteSpace))
+        {
+            word = default;
+            next = -1;
+            return false;
+        }
+
+        word = fromWord[..length];
+        next = line.Length - fromWord.Length + length + 1;
+        return true;
+    }
+
+    private static bool IsAuthLineSaslRulesCannotRead(ReadOnlySpan<byte> command, ReadOnlySpan<byte> line) =>
+        line.ContainsAny(UnreadSeparators)
             ? IsAuth(command) || MayBeQuotedAuth(command)
             : MayBeQuotedAuth(command);
 
-        return withheld ? line.Length - fromCommand.Length + commandLength + 1 : -1;
+    // Just after the byte that ends the first AUTH among the words from start; -1 when none has arguments.
+    private static int FindMaskStartAfterHelloAuth(ReadOnlySpan<byte> line, int start)
+    {
+        while (TryReadFollowedWord(line, start, out var word, out start))
+        {
+            if (Spells(word, "AUTH"u8) || MayBeEscaped(word))
+            {
+                return start;
+            }
+        }
+
+        return -1;
+    }
+
+    // Whether the arguments are one only, and it is not the name of a mechanism.
+    private static bool IsOneSecretArgument(ReadOnlySpan<byte> arguments)
+    {
+        var fromArgument = arguments.TrimStart(WhiteSpace);
+        var length = ArgumentLength(fromArgument);
+
+        return !fromArgument[length..].ContainsAnyExcept(WhiteSpace) && !IsMechanismName(fromArgument[..length]);
+    }
+
+    // The length of the argument that starts the text, with any white space it quotes.
+    private static int ArgumentLength(ReadOnlySpan<byte> text)
+    {
+        var index = 0;
+        while (index < text.Length && !WhiteSpace.Contains(text[index]))
+        {
+            index += Quotes.Contains(text[index]) ? QuotedLength(text[index..]) : 1;
+        }
+
+        return index;
+    }
+
+    // The length of the quoted run that starts the text; all of it when no quote closes it. As in Redis,
+    // a backslash escapes any byte between double quotes and only a single quote between single quotes.
+    private static int QuotedLength(ReadOnlySpan<byte> text)
+    {
+        for (var index = 1; index < text.Length; index++)
+        {
+            if (text[index] == Backslash && (text[0] == DoubleQuote || text[(index + 1)..].StartsWith("'"u8)))
+            {
+                index++;
+            }
+            else if (text[index] == text[0])
+            {
+                return index + 1;
+            }
+        }
+
+        return text.Length;
+    }
+
+    private static bool IsMechanismName(ReadOnlySpan<byte> word)
+    {
+        foreach (var name in MechanismNames)
+        {
+            if (Ascii.EqualsIgnoreCase(word, name))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsAuth(ReadOnlySpan<byte> word) => Ascii.EqualsIgnoreCase(word, "AUTH"u8);
 
-    private static bool MayBeQuotedAuth(ReadOnlySpan<byte> word)
+    private static bool MayBeQuotedAuth(ReadOnlySpan<byte> word) =>
+        MayBeEscaped(word) || (word.ContainsAny(Quotes) && Spells(word, "AUTH"u8));
+
+    private static bool MayBeEscaped(ReadOnlySpan<byte> word) =>
+        word.Contains(DoubleQuote) && word.Contains(Backslash);
+
+    // Whether the word is the name once its quotes, if it has any, are removed.
+    private static bool Spells(ReadOnlySpan<byte> word, ReadOnlySpan<byte> name)
     {
-        if (!word.ContainsAny(Quotes))
-        {
-            return false;
-        }
-
-        if (word.Contains((byte)'"') && word.Contains((byte)'\\'))
-        {
-            return true;
-        }
-
         byte[] unquoted = [.. word.ToArray().Where(value => !Quotes.Contains(value))];
 
-        return IsAuth(unquoted);
+        return Ascii.EqualsIgnoreCase(unquoted, name);
     }
 }

@@ -36,9 +36,11 @@ tunnel line redaction rules the SOCKS server and the HTTP proxy share (ADR-0182,
   IMAP `LOGIN` password and its literals; each line read with words separated by spaces and tabs
   and again by spaces only, masking from the earlier password), two
   `SaslLineRedactionRule`s (`334 `, `+ `; a bare `+` or `334` line, and one split between the
-  origin's reads, count) and `TunnelRedisAuthLineRule` (BL-1773, ADR-0183 amendment 8: an inline
-  Redis `AUTH` line with a quoted command word or a VT, FF or CR is logged up to the byte after the
-  command word, then `****`), and logs what the one withholding from earliest in the line writes.
+  origin's reads, count) and `TunnelRedisAuthLineRule` (BL-1773 and BL-1774, ADR-0183 amendments 8
+  and 9: an inline Redis `AUTH` line with a quoted command word, a VT, FF or CR, or one argument
+  that is no SASL or FTP security mechanism name is logged up to the byte after the command word,
+  then `****`, and a `HELLO` line up to the byte after its `AUTH` word, then `****`), and logs what
+  the one withholding from earliest in the line writes.
 - `MailUpstreamTestCaseReplies` (BL-875, ADR-0080 decision 2) - a test seam, never composed by
   the shipped `surl`: one upstream test case's `<reply>` parts and `<servercmd>` lines as the
   IMAP, POP3 and SMTP server halves play them, with a record of every command line read and

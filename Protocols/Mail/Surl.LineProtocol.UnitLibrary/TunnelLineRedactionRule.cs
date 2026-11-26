@@ -12,9 +12,9 @@ namespace Surl.LineProtocol;
 /// headers and the API-key and session-token headers), <see cref="TunnelImapLoginLineRule"/> (the
 /// IMAP <c>LOGIN</c> password), two <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c>
 /// continuation and for the <c>+ </c> continuation of IMAP and POP3, and
-/// <see cref="TunnelRedisAuthLineRule"/> (an inline Redis <c>AUTH</c> line with a quoted command word
-/// or a vertical tab, form feed or carriage return; ADR-0183, amendment 8). A line none of them
-/// changes is written as received.
+/// <see cref="TunnelRedisAuthLineRule"/> (an inline Redis <c>AUTH</c> line with one argument, a quoted
+/// command word or a vertical tab, form feed or carriage return, and <c>HELLO ... AUTH</c>; ADR-0183,
+/// amendments 8 and 9). A line none of them changes is written as received.
 /// </summary>
 /// <remarks>
 /// A line may end with the line feed that ended it, when no carriage return came before it; the line
