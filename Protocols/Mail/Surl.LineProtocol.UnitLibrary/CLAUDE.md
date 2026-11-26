@@ -23,8 +23,8 @@ and for binary logins (amendments 23 and 25):
   else not base64 is `NotBase64`.
 - `SaslLineRedactionRule` (BL-1428, ADR-0183) - an `ILineRedactionRule` for `LineBytesRedactor`:
   masks the initial response on `[tag] AUTH mech <b64>` as `****`, however many spaces and tabs
-  separate those words (ADR-0183, amendments 2, 4 and 7; on a line with a tab, `"` or `'` nothing
-  after `****` is written), and the client line after a server line starting with the
+  separate those words (ADR-0183, amendments 2, 4 and 7; on a line with a tab, `"`, `'` or a bare
+  CR (ADR-0182, amendment 33) nothing after `****` is written), and the client line after a server line starting with the
   continuation prefix (`334 `, `+ `); `*`, empty and unprompted lines pass unchanged. When a
   command word is followed by `AUTH` or `AUTHENTICATE`, the third and fourth words are both masked
   (amendment 5).
@@ -33,7 +33,9 @@ and for binary logins (amendments 23 and 25):
   `TunnelLineRedactionRule`, ending a line at a bare line feed too. That rule shows every line to
   `TunnelPasswordAndCredentialHeaderLineRule` (`PASS` and `ACCT` arguments, the credentials of the
   `HttpWithheldHeaderNames.Credentials` headers after the scheme word, the whole value of the
-  `ApiKeysAndSessionTokens` headers, and folded lines of either), `TunnelImapLoginLineRule` (the
+  `ApiKeysAndSessionTokens` headers, and folded lines of either; BL-1772, amendment 33: a header
+  is read at the line's start and after every bare CR, with or without blanks before its name, and a
+  command at the line's start only), `TunnelImapLoginLineRule` (the
   IMAP `LOGIN` password and its literals, `LOGIN` the first word (no tag) or the second, and
   everything after `LOGIN LOGIN` (ADR-0182, amendment 29); each line read with words separated by
   spaces and tabs and again by spaces only, masking from the earlier password), two

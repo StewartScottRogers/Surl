@@ -20,7 +20,8 @@ namespace Surl.LineProtocol;
 /// The words of a client line are separated by runs of spaces and tabs. When a tab or a quote
 /// (<c>"</c> or <c>'</c>) is on a line that holds an initial response, it may have split an argument
 /// in two (Redis's inline <c>AUTH user "a password"</c> in a tunnel), so nothing after the first mask
-/// is written (ADR-0183, amendments 4 and 7).
+/// is written (ADR-0183, amendments 4 and 7). Nor is anything when a bare carriage return is on it,
+/// because what follows one may be a header of its own (ADR-0182, amendment 33).
 /// </para>
 /// <para>
 /// When the first word is a command word and the second is <c>AUTH</c> or <c>AUTHENTICATE</c>, the
@@ -37,8 +38,9 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
 
     private static ReadOnlySpan<byte> WordSeparators => " \t"u8;
 
-    // A tab separates words and a quote joins them, so either may leave a secret's bytes outside its word.
-    private static ReadOnlySpan<byte> ArgumentSplitters => "\t\"'"u8;
+    // A tab separates words, a quote joins them and a bare carriage return may start another line, so
+    // each may leave a secret's bytes outside its word.
+    private static ReadOnlySpan<byte> ArgumentSplitters => "\t\"'\r"u8;
 
     private readonly byte[][] _commandWords;
     private readonly byte[] _continuationPrefix;

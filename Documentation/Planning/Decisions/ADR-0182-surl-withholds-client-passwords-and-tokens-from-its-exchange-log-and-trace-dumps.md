@@ -670,11 +670,11 @@ Accepted limits:
 - Three shapes curl does not send, where one of these fields, or a credential field, **can be logged**. Each predates
   this amendment for the credential fields.
 
-  | Shape | What is logged |
-  | --- | --- |
-  | A folded line following a header line longer than 64 KiB, which is logged as `****` without the rule seeing it | The folded line, as received |
-  | A header line that starts with a space or a tab and follows no withheld header | The line, as received |
-  | A header that follows a bare carriage return | The whole is judged as one line, by the first name in it |
+  | Shape | What is logged | Closed by |
+  | --- | --- | --- |
+  | A folded line following a header line longer than 64 KiB, which is logged as `****` without the rule seeing it | The folded line, as received | Open |
+  | A header line that starts with a space or a tab and follows no withheld header | The line, as received | BL-1772; closed by amendment 33 |
+  | A header that follows a bare carriage return | The whole is judged as one line, by the first name in it | BL-1772; closed by amendment 33 |
 
 ## Amendment 20 (BL-1767, decided by Claude under Stewart's delegation)
 
@@ -1094,3 +1094,36 @@ Accepted limits:
   and logged as received. The servers refuse such a body.
 - As in a head, a trailer line that starts with a space or a tab and follows no secret field, or a field that follows a
   bare carriage return, is logged as received. curl sends neither.
+
+## Amendment 33 (BL-1772, decided by Claude under Stewart's delegation)
+
+In a SOCKS tunnel and in an HTTP proxy `CONNECT` tunnel, a secret header's value was logged in clear when the header
+line started with a space or a tab and followed no withheld header, or when the header followed a bare carriage return
+(two of amendment 19's three shapes).
+
+1. **Blanks before a header name are skipped.** `TunnelPasswordAndCredentialHeaderLineRule` trims spaces and tabs at
+   both ends of a header name. The value is masked as for the same line without them.
+2. **A header is read after every bare carriage return too**, as well as at the start of the line, with the same
+   blanks skipped. The first withheld header so read is masked from where its secret begins to the end of the line,
+   later carriage returns and anything after them included.
+3. **A scheme word is kept only when its credentials follow it before the next bare carriage return.** Otherwise the
+   whole value is masked, so `Authorization: s<CR>X-Other: a b` shows no part of `s`.
+4. **A line holding such a header is continued** by a following line that starts with a space or a tab (amendment 19).
+5. **The SASL rule writes nothing after its first mask on a line with a bare carriage return.** Without this,
+   `a AUTH PLAIN x<CR>X-Api-Key: s` showed `s`, because the SASL rule's mask began earlier than the header rule's and
+   its output won. This adds the carriage return to the tab and the quotes of ADR-0183, amendment 7, in
+   `SaslLineRedactionRule`, so the SMTP, IMAP and POP3 servers' logs withhold it too. That withholds more, never less.
+6. **What this closes.** The second and third rows of amendment 19's table of shapes, for the SOCKS tunnel and, since
+   amendment 20 gave both one rule, for the HTTP proxy's tunnel.
+7. **Rejected:** ending a tunnelled line at a bare carriage return, which would change what the other rules judge as one
+   line and let a secret that holds a carriage return be shown in pieces.
+8. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire. curl sends neither shape.
+
+Accepted limits:
+
+- A line of another protocol, or a body line, that looks like one of these headers after blanks or a carriage return has
+  its value masked. That loses log detail only.
+- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785.
+- A folded line following a header line longer than 64 KiB is still logged as received (amendment 19's first shape).

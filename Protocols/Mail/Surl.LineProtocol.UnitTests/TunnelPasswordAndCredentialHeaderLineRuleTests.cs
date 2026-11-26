@@ -62,6 +62,9 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
     [DataRow("Authorization:")]
     [DataRow("X-Api-Key:   ")]
     [DataRow(" a folded line that follows no header")]
+    [DataRow(" Host: example.com")]
+    [DataRow("X-Other: a\rHost: example.com")]
+    [DataRow("X-Api-Key\r: shown")]
     public void Redact_LineHoldingNoSecret_IsWrittenAsReceived(string line) =>
         Assert.AreEqual(line, Redact(line)[0]);
 
@@ -70,6 +73,33 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
         CollectionAssert.AreEqual(
             new[] { "X-Api-Key: ****", " ****", "\t****", "Host: example.com", " folded host" },
             Redact("X-Api-Key: s3cret", " s3cret-more", "\ts3cret-most", "Host: example.com", " folded host"));
+
+    [TestMethod]
+    [DataRow(" X-Api-Key: s3cret", " X-Api-Key: ****")]
+    [DataRow("\t \tapi-key :s3cret", "\t \tapi-key :****")]
+    [DataRow(" Authorization: Basic s3cret", " Authorization: Basic ****")]
+    [DataRow("\tProxy-Authorization: s3cret", "\tProxy-Authorization: ****")]
+    public void Redact_WithheldHeaderStartingWithBlanks_IsMasked(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(line)[0]);
+
+    [TestMethod]
+    [DataRow("X-Other: a\rX-Api-Key: s3cret", "X-Other: a\rX-Api-Key: ****")]
+    [DataRow("\r\r X-Api-Key: s3cret", "\r\r X-Api-Key: ****")]
+    [DataRow("no colon\rAuthorization: Basic s3cret", "no colon\rAuthorization: Basic ****")]
+    [DataRow("X-Api-Key: s3cret\rX-Other: shown", "X-Api-Key: ****")]
+    [DataRow("X-Api-Key:\rs3cret", "X-Api-Key:****")]
+    [DataRow("Authorization:\rs3cret", "Authorization:****")]
+    [DataRow("Authorization: s3cret\rX-Other: a b", "Authorization: ****")]
+    [DataRow("Authorization: Basic\rs3cret", "Authorization: ****")]
+    [DataRow("Authorization: Basic s3cret\rmore", "Authorization: Basic ****")]
+    public void Redact_WithheldHeaderAroundABareCarriageReturn_IsMaskedToTheEndOfTheLine(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(line)[0]);
+
+    [TestMethod]
+    public void Redact_FoldedLineAfterAHeaderFollowingABareCarriageReturn_IsMasked() =>
+        CollectionAssert.AreEqual(
+            new[] { "Host: a\rX-Api-Key:", " ****" },
+            Redact("Host: a\rX-Api-Key:", " s3cret"));
 
     [TestMethod]
     public void Redact_EmptyLineAfterAWithheldHeader_EndsItsContinuation() =>

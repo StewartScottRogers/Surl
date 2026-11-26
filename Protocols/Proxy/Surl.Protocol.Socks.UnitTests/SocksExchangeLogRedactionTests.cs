@@ -341,6 +341,28 @@ public sealed class SocksExchangeLogRedactionTests
             SocksTunnelRedactionTestKit.Logged(SocksTestKit.Latin1Bytes(sent)));
 
     [TestMethod]
+    [DataRow(" X-Api-Key: s", " X-Api-Key: ****")]
+    [DataRow("\tX-Api-Key: s", "\tX-Api-Key: ****")]
+    [DataRow(" Authorization: Basic s", " Authorization: Basic ****")]
+    [DataRow("\t Proxy-Authorization: s", "\t Proxy-Authorization: ****")]
+    public void Tunnel_ASecretHeaderStartingWithASpaceOrATab_IsLoggedMasked(string sent, string logged) =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes($"GET / HTTP/1.1\r\n{logged}\r\n"),
+            SocksTestKit.Latin1Bytes($"GET / HTTP/1.1\r\n{sent}\r\n"));
+
+    [TestMethod]
+    [DataRow("X-Other: a\rX-Api-Key: s\r\n", "X-Other: a\rX-Api-Key: ****\r\n")]
+    [DataRow("X-Other: a\r Authorization: Basic s\r\n", "X-Other: a\r Authorization: Basic ****\r\n")]
+    [DataRow("Authorization: s\rX-Other: a b\r\n", "Authorization: ****\r\n")]
+    [DataRow("X-Other: a\rX-Api-Key: s\r\n s\r\n", "X-Other: a\rX-Api-Key: ****\r\n ****\r\n")]
+    [DataRow("a AUTH PLAIN b\rX-Api-Key: s\r\n", "a AUTH PLAIN ****\r\n")]
+    [DataRow("AUTHENTICATE PLAIN b\rX-Api-Key: s\r\n", "AUTHENTICATE PLAIN ****\r\n")]
+    public void Tunnel_ASecretHeaderAroundABareCarriageReturn_IsLoggedMasked(string sent, string logged) =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes(logged),
+            SocksTestKit.Latin1Bytes(sent));
+
+    [TestMethod]
     public void Tunnel_LinesEndedByABareLineFeed_AreEachJudged()
     {
         var logged = LoggedTunnel(SocksTestKit.Latin1Bytes("USER app\nPASS s3cret-pw\nQUIT\n"));
