@@ -472,3 +472,11 @@ which got past the loopback, root and `-K` rules.
 anything else: `isError` `refused: listen_urls holds <entry>, which is an option; put options in arguments`. Options
 belong in `arguments`, which are composed last and so are read as checked. Every cookie is then read as the value of
 the `--set-cookie` before it.
+
+## Amendment 4 — the GitHub release carries the NuGet package (BL-1789)
+
+Decided by Claude under Stewart's delegation, 2026-11-26. The Surly cookbook re-pins to every Surl release from the release's assets (Stewart, 2026-11-26, relayed by the Surly session), and until now had to pack the package from source because the release carried only the archives.
+
+**Decision.** On a `v*` tag the release job attaches `Surly.Surl.Mcp.<version>.nupkg`, decision 7's package,
+to the GitHub release beside the `surl-mcp-<rid>` archives, listed in `SHA256SUMS` by its exact name, so a
+missing or misversioned package fails the release. It is still not pushed to any feed (BL-643 stands).
