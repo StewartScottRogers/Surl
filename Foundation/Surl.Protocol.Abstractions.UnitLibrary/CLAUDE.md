@@ -184,7 +184,14 @@ and the protocols fan out after.
 - The decrypted-bytes contract (ADR-0169, decisions 2 and 3; BL-1266): `ExchangeBytesLayer` (`Wire` = 0,
   `Decrypted`, `Decoded`), `ExchangeBytesEvent.Layer` (default `Wire`) and `StreamId` (default `null`), and
   `IDecryptedBytesSink` (`Received`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
-  `DiscardingDecryptedBytesSink.Instance`. Nothing publishes through it yet.
+  `DiscardingDecryptedBytesSink.Instance`. `Surl.Core`'s `ServingEngine` sets its own sink, which notes each chunk in
+  the exchange log (received bytes redacted when the server redacts) and, while the publisher wants bytes, publishes
+  it unredacted as an `ExchangeBytesEvent` with its layer and stream. The sink is called by `Surl.Dtls`'s
+  `DtlsServerSession` (application-data plaintext), `Surl.Quic`'s `QuicServerConnection` (`DATAGRAM` payloads) and
+  `QuicStream` (`STREAM` data), and `Surl.Http3`'s `Http3RequestStreamServer` (the decoded request header list) and
+  `Http3RequestStream` (the decoded response header list, and `DATA` payloads both ways). The `coaps`, `webtransport`,
+  DNS-over-QUIC and `Surl.Protocol.Http` HTTP/3 servers (`Http3ProtocolServer`, `Http3GatewayUpstreamTestCaseServer`)
+  hand the context's sink to their DTLS or QUIC options; the HTTP/3 request stream classes get it from the context.
 
 - What an event says about itself (ADR-0171; BL-1283): `SurlEvent.ExchangeId`, `Scheme` and `Account` (virtual, `null` on
   the base; a record overrides what it has, so `ExchangeStartedEvent`, `ExchangeEndedEvent` and `ExchangeBytesEvent` take a
