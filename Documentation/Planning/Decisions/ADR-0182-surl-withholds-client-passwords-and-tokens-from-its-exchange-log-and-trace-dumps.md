@@ -285,7 +285,7 @@ Accepted limits:
 - After a `101` to `Upgrade: h2c`, a client that sends anything but the exact preface and then `HEADERS` is not
   masked, although the origin HTTP server's redactor would have masked it. Only a non-conforming client does this.
 - A preface anywhere else loses all later log detail, an upload body that holds it included, on origin listen URLs too
-  when `--proxy` is named. Saying so in the help text is BL-1735.
+  when `--proxy` is named. `--aihelp logging` and the manual say so (BL-1735).
 - FTP and mail logins in cleartext inside a `CONNECT` tunnel were still not masked. Closed by amendment 16.
 - An over-long first `HEADERS` frame relied on BL-1714 to withhold the `CONTINUATION` after it, here as in the
   origin's own log. Closed by BL-1714, as under amendment 7.
@@ -326,7 +326,8 @@ Accepted limits:
   `+` that invites an IMAP `APPEND` literal) has a client line masked. That loses log detail only.
 - The answer to a synchronizing literal is not awaited, so after a refused `LOGIN` literal the next lines are withheld
   until the announced count is used up.
-- An initial response after two spaces is logged, as in the mail servers' own logs (BL-1738).
+- An initial response after two spaces was logged, as in the mail servers' own logs. Closed by BL-1738 (ADR-0183,
+  amendment 2).
 - An IMAP tag that begins the tunnel with neither a letter nor `1`-`9` leaves the tunnel's login unmasked. A tag
   beginning `0` is read as LDAP (amendment 10), whose rule logs such text as received.
 - A client that answers before the continuation reaches it, which curl does not do, has that answer judged without it.
