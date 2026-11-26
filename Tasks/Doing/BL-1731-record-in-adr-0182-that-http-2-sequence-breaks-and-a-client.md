@@ -43,3 +43,4 @@ ADR-0182 describes what `Http2RequestBytesRedactor` withholds after a broken hea
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
