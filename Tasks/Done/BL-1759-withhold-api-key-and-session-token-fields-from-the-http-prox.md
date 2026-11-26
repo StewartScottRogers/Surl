@@ -59,7 +59,7 @@ HTTP/1.x and on cleartext HTTP/2.
   (`code-reviewer`), to keep the token cost of a small change low. The three new tests failed before the change.
 - Added `Protocols/Http/Surl.Http2.UnitLibrary/CLAUDE.md` to `touches`: it listed who passes the names. No task in
   Doing names it.
-- Review: fixed the stale doc comments. Recorded in amendment 18, as accepted limits, bare-line-feed heads (BL-1769),
+- Review: fixed the stale doc comments. Recorded in amendment 18, as accepted limits, bare-line-feed heads (BL-1771),
   chunked trailers (BL-1770), and a bare-line-feed folded line in a `CONNECT` head (no task: the proxy refuses folding,
   and no conforming client sends it).
 - Help text: `AiHelpProse` and `ManualText` still say the proxy logs these headers. BL-1764 is the follow-up (it

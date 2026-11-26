@@ -1,5 +1,5 @@
 ---
-id: BL-1769
+id: BL-1771
 title: Judge each bare-line-feed line of an HTTP request head on its own in the exchange log
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1769 — Judge each bare-line-feed line of an HTTP request head on its own in the exchange log
+# BL-1771 — Judge each bare-line-feed line of an HTTP request head on its own in the exchange log
 
 ## Goal
 

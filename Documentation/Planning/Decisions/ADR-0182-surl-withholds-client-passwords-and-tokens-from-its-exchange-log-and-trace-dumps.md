@@ -632,6 +632,6 @@ Accepted limits:
 
   | Shape | What is logged | Closed by |
   | --- | --- | --- |
-  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1769 |
+  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771 |
   | A `CONNECT` head holding a secret field followed by a folded line that ends with a bare line feed | The folded line, as received | Not planned: the proxy refuses folded lines |
   | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770 |
