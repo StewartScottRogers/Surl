@@ -16,14 +16,21 @@ namespace Surl.LineProtocol;
 /// any other line the server sends clears the mark, so a client line sent with no continuation
 /// pending is logged unchanged. A lone <c>*</c> (the cancel line) and an empty line hold no secret
 /// and are logged as they are.
+/// <para>
+/// The words of a client line are separated by runs of spaces and tabs. When a tab is on a line that
+/// holds an initial response, a tab may have split the mechanism or the response in two, so nothing
+/// after the mask is written.
+/// </para>
 /// </remarks>
 public sealed class SaslLineRedactionRule : ILineRedactionRule
 {
-    private const byte Space = (byte)' ';
+    private const byte Tab = (byte)'\t';
     private const byte CarriageReturn = 0x0D;
     private const byte LineFeed = 0x0A;
-    private const int InitialResponseTokenOffset = 2;
-    private const int MostTokensRead = 4;
+    private const int InitialResponseWordOffset = 2;
+    private const int MostWordsRead = 4;
+
+    private static ReadOnlySpan<byte> WordSeparators => " \t"u8;
 
     private readonly byte[][] _commandWords;
     private readonly byte[] _continuationPrefix;
@@ -86,17 +93,18 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
 
     private bool TryFindInitialResponse(ReadOnlySpan<byte> line, out int start, out int end)
     {
-        // The tokens of [tag] AUTH mechanism initial-response, however many spaces separate them.
-        Span<Range> tokens = stackalloc Range[MostTokensRead];
-        var count = SplitOnSpaceRuns(line, tokens);
+        // The words of [tag] AUTH mechanism initial-response, however many spaces and tabs separate them.
+        Span<Range> words = stackalloc Range[MostWordsRead];
+        var count = SplitIntoWords(line, words);
         start = 0;
         end = 0;
         for (var commandIndex = 0; commandIndex <= 1; commandIndex++)
         {
-            var responseIndex = commandIndex + InitialResponseTokenOffset;
-            if (responseIndex < count && IsCommandWord(line[tokens[commandIndex]]))
+            var responseIndex = commandIndex + InitialResponseWordOffset;
+            if (responseIndex < count && IsCommandWord(line[words[commandIndex]]))
             {
-                (start, end) = (tokens[responseIndex].Start.Value, tokens[responseIndex].End.Value);
+                start = words[responseIndex].Start.Value;
+                end = line.Contains(Tab) ? line.Length : words[responseIndex].End.Value;
                 return true;
             }
         }
@@ -117,21 +125,21 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         return false;
     }
 
-    // Fills tokens with the first non-empty runs of bytes that are not spaces.
-    private static int SplitOnSpaceRuns(ReadOnlySpan<byte> line, Span<Range> tokens)
+    // Fills words with the first non-empty runs of bytes that are neither spaces nor tabs.
+    private static int SplitIntoWords(ReadOnlySpan<byte> line, Span<Range> words)
     {
         var count = 0;
-        var tokenStart = 0;
-        for (var index = 0; index <= line.Length && count < tokens.Length; index++)
+        var wordStart = 0;
+        for (var index = 0; index <= line.Length && count < words.Length; index++)
         {
-            if (index == line.Length || line[index] == Space)
+            if (index == line.Length || WordSeparators.Contains(line[index]))
             {
-                if (index > tokenStart)
+                if (index > wordStart)
                 {
-                    tokens[count++] = tokenStart..index;
+                    words[count++] = wordStart..index;
                 }
 
-                tokenStart = index + 1;
+                wordStart = index + 1;
             }
         }
 

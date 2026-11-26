@@ -65,3 +65,14 @@ refuses all of these lines, but the client has already sent the password. SASL l
    `****` is written, and a literal that line announces is `****` too.
 4. **A new line is a new command.** A line that is not part of a literal never continues an earlier `LOGIN`, so the line
    after `A1 LOGIN alice` is logged as sent.
+
+## Amendment 4 — SASL lines with tabs (BL-1749)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens amendment 2, and replaces amendment 3's "SASL lines are
+unchanged". No upstream curl measurement: curl sends single spaces, and only what the log writes changes.
+
+1. **Spaces and tabs.** Runs of spaces and tabs separate the words of a client line, so
+   `A1<tab>AUTHENTICATE<tab>PLAIN<tab><initial-response>` is logged with the response as `****`. Every separator before
+   the mask is logged as received.
+2. **Nothing after the mask.** When a tab is anywhere on a line that holds an initial response, a tab may have split the
+   mechanism or the response in two, so nothing after `****` is written (as amendment 3, point 3, for `LOGIN`).

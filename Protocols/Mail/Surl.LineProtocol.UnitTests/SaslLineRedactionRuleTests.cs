@@ -64,6 +64,32 @@ public sealed class SaslLineRedactionRuleTests
         Assert.AreEqual(logged, Redact(new SaslLineRedactionRule(["AUTHENTICATE"], "+ "), line));
 
     [TestMethod]
+    [DataRow("AUTH\tPLAIN\tAGFsaWNlAHMzY3JldA==", "AUTH\tPLAIN\t****")]
+    [DataRow("AUTH PLAIN\tAGFsaWNlAHMzY3JldA==", "AUTH PLAIN\t****")]
+    [DataRow("AUTH \t PLAIN \t AGFsaWNlAHMzY3JldA==", "AUTH \t PLAIN \t ****")]
+    [DataRow("\tAUTH PLAIN AGFsaWNlAHMzY3JldA==", "\tAUTH PLAIN ****")]
+    public void Redact_AuthInitialResponseOnALineSeparatedByTabs_IsMasked(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(SmtpRule(), line));
+
+    [TestMethod]
+    [DataRow("A1\tAUTHENTICATE\tPLAIN\tAGFsaWNlAHMzY3JldA==", "A1\tAUTHENTICATE\tPLAIN\t****")]
+    [DataRow("A1 AUTHENTICATE\tPLAIN AGFsaWNlAHMzY3JldA==", "A1 AUTHENTICATE\tPLAIN ****")]
+    [DataRow("AUTHENTICATE\tPLAIN\tAGFsaWNlAHMzY3JldA==", "AUTHENTICATE\tPLAIN\t****")]
+    public void Redact_TaggedAuthenticateInitialResponseOnALineSeparatedByTabs_IsMasked(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(new SaslLineRedactionRule(["AUTHENTICATE"], "+ "), line));
+
+    [TestMethod]
+    [DataRow("AUTH PLAIN AGFsaWNl\tAHMzY3JldA==", "AUTH PLAIN ****")]
+    [DataRow("AUTH\tPLAIN abc extra", "AUTH\tPLAIN ****")]
+    [DataRow("AUTH PL\tAIN AGFsaWNlAHMzY3JldA==", "AUTH PL\t****")]
+    public void Redact_LineWithATab_WritesNothingAfterTheMask(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(SmtpRule(), line));
+
+    [TestMethod]
+    public void Redact_TabSeparatedAuthWithoutInitialResponse_IsUnchanged() =>
+        Assert.AreEqual("AUTH\tPLAIN\t", Redact(SmtpRule(), "AUTH\tPLAIN\t"));
+
+    [TestMethod]
     public void Redact_SpacesBeforeTheCommandWord_StillMasksTheInitialResponse() =>
         Assert.AreEqual("  AUTH PLAIN ****", Redact(SmtpRule(), "  AUTH PLAIN AGFsaWNlAHMzY3JldA=="));
 
