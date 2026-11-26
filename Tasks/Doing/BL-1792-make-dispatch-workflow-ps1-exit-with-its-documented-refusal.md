@@ -36,3 +36,4 @@ script intends 2. Writing the message to standard error without throwing fixes i
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
