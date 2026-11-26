@@ -1,5 +1,5 @@
 ---
-id: BL-1739
+id: BL-1744
 title: Withhold MQTT 5 Authentication Data carried through a SOCKS tunnel from the exchange log
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1739 — Withhold MQTT 5 Authentication Data carried through a SOCKS tunnel from the exchange log
+# BL-1744 — Withhold MQTT 5 Authentication Data carried through a SOCKS tunnel from the exchange log
 
 ## Goal
 

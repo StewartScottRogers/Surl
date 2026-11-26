@@ -51,7 +51,7 @@ An MQTT 3.1.1 or 5 `CONNECT` password and an LDAP simple bind password carried t
   documentation points were fixed). No conformance run: only the exchange log changes, no byte on the wire.
 - The `--aihelp` and manual sentences that still call these two passwords not withheld are BL-1723's (it depends on
   this task; `Surl.Cli` is BL-1735's while it is in Doing).
-- MQTT 5 Authentication Data is filed as BL-1739.
+- MQTT 5 Authentication Data is filed as BL-1744.
 - Verified: `-warnaserror` build 0 warnings, format clean, fast tests 29360 passed, 0 failed, 3 skipped; SOCKS tests
   365 passed, library line and branch coverage 100%.
 

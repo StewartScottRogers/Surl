@@ -352,7 +352,7 @@ An MQTT `CONNECT` password and an LDAP simple bind password carried through a SO
 
 Accepted limits:
 
-- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1739).
+- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1744).
 - A packet or message declaring a length that ends before its secret leaves the rest logged as received, and so does
   a `CONNECT` whose protocol name length runs past the packet. Only a non-conforming client does this.
 - An LDAP message length written in five or more octets, legal BER that curl does not send, leaves the tunnel logged
