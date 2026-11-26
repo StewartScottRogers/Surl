@@ -635,3 +635,41 @@ Accepted limits:
   | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771 |
   | A `CONNECT` head holding a secret field followed by a folded line that ends with a bare line feed | The folded line, as received | Not planned: the proxy refuses folded lines |
   | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770 |
+
+## Amendment 19 (BL-1760, decided by Claude under Stewart's delegation)
+
+An origin reached in cleartext through a SOCKS tunnel had its API-key and session-token fields logged in clear in the
+tunnel's log, though the origin's own log withholds them for the HTTP-carried extended servers (amendment 13's accepted
+limit).
+
+1. **The SOCKS tunnel withholds them in every text tunnel**, because SOCKS does not say what the tunnel carries. The
+   names are read from `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, and the credential fields' names from
+   `HttpWithheldHeaderNames.Credentials`; both are matched without regard to case.
+
+   | How the tunnel reads the bytes | What is logged for such a field |
+   | --- | --- |
+   | Text lines: `SocksTunnelPasswordAndCredentialHeaderLineRule` | The whole value, and each folded line of it, as `****`; no scheme word is kept |
+   | HTTP/2 after a preface the frames are read after (`Http2RequestBytesRedactor`; amendment 7) | Each `HEADERS` and `CONTINUATION` payload of a header block carrying it, as `****` (amendment 3's form) |
+
+2. **The rule is renamed.** `SocksTunnelPasswordAndAuthorizationLineRule` (amendments 6 and 9) is now
+   `SocksTunnelPasswordAndCredentialHeaderLineRule`, because it masks more than the authorization headers.
+3. **What this replaces.** The SOCKS tunnel's part of amendment 13, point 3, and of its accepted limit, and
+   amendment 18, point 3's "the SOCKS tunnel is unchanged". The tunnel's log now withholds at least what the origin's
+   own log does of these fields; for an `http` or `https` origin, whose own redactors name no API-key field, it
+   withholds more, never less (narrowing amendment 7, point 2).
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- A line of another protocol that looks like one of these headers has its value masked, and so does a body line. That
+  loses log detail only.
+- The limits on where a tunnel is read as text or as HTTP/2 (amendments 6, 7, 9 and 10), and on bytes no SOCKS
+  handshake explains (amendment 12), hold for these fields as for the credential fields.
+- Three shapes curl does not send, where one of these fields, or a credential field, **can be logged**. Each predates
+  this amendment for the credential fields.
+
+  | Shape | What is logged |
+  | --- | --- |
+  | A folded line following a header line longer than 64 KiB, which is logged as `****` without the rule seeing it | The folded line, as received |
+  | A header line that starts with a space or a tab and follows no withheld header | The line, as received |
+  | A header that follows a bare carriage return | The whole is judged as one line, by the first name in it |
