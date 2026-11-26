@@ -163,7 +163,7 @@ IMAP `+`, the next client line is a secret).
   `authorization` or `proxy-authorization` is logged with its payload replaced by `****`, the frame type and length logged as
   received (as HTTP/2, Amendment 3). Surl advertises a QPACK table capacity of 0, so a fresh decoder reads any section.
 - **Decoded header text** (`Decoded` layer, ADR-0169 decision 1) carries the same values in clear, so a chunk starting with `:` is read as
-  `name: value` lines and those two values are written as `****`.
+  `name: value` lines and those two values are written as `****`. Amendment 22 replaces how the text is told apart.
 - **Fail closed, with one limit.** A `HEADERS` payload that does not decode or runs past its chunk is withheld. A chunk is read as
   frames from its first byte because the redactor is not told its stream; a body chunk starting mid-frame that happens to read as
   an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret. Amendment 21 tells the
@@ -749,4 +749,32 @@ Accepted limits:
   4,096 (BL-1775).
 - `Decoded` header text is still redacted only when it starts with `:` and line by line, so a malformed request whose
   first field is a regular one, or whose secret value holds CR LF, **can be logged** in that note. This amendment changes
-  nothing there (BL-1773).
+  nothing there (BL-1773). Closed by amendment 22.
+
+## Amendment 22 (BL-1773, decided by Claude under Stewart's delegation)
+
+The HTTP/3 server reports a request's decoded header list before it validates it, so a malformed request could put a
+secret in the `Decoded` note two ways (read from the code, then reproduced by unit tests, not recorded on the wire): a
+list whose first field is a regular one was read as HTTP/3 frames, and a value holding CR LF put its rest on a line of
+its own. Both were logged as received.
+
+1. **The engine says which text it is.** `Surl.Protocol.Abstractions` gains `IDecodedTextReceivedBytesRedactor`, an
+   `IReceivedBytesRedactor` with `RedactDecodedText(decodedText, output)`, which holds nothing back. The engine gives
+   every received `Decoded` chunk to a fresh redactor's `RedactDecodedText` when the redactor is one, and to `Redact`
+   when it is not. `Http3RequestBytesRedactor` is one, and no longer guesses from a leading `:`: its `Redact` reads
+   frames only. This replaces amendment 4's "a chunk starting with `:`".
+2. **One header, one line.** The decoded header text writes a CR inside a name or value as the two characters `\r`, and
+   an LF as `\n`, in the note and in the published `ExchangeBytesEvent` alike, so the whole of a secret field's value is
+   on its line and is written as `****`. RFC 9114 makes a request carrying either malformed, so a well-formed
+   request's text is unchanged, and ADR-0169 decision 1's one line per header now holds for every list. A backslash is written as it is,
+   so the text does not say whether `\r` stood in the value as two characters. This is not a change to wire bytes: the
+   `Decrypted` and wire layers keep what the client sent (decision 4).
+3. **Rejected.** Reporting the list only after validation hides what a malformed request carried from a test. Withholding
+   every line after a secret one hides the other fields of well-formed requests. Passing the redactor the field list
+   instead of text changes `IDecryptedBytesSink` for one reader.
+
+Accepted limit:
+
+- A secret field is matched by its exact name, without regard to case, in the note as in the `HEADERS` payload
+  (amendment 4). A malformed name that only resembles one, such as `authorization` followed by a space or a CR, is
+  another name, and its value **can be logged**.
