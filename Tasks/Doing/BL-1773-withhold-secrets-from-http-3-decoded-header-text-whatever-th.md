@@ -37,3 +37,4 @@ No secret field value of an HTTP/3 request is logged in clear in the `Decoded` h
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
