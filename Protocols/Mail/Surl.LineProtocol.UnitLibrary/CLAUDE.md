@@ -34,8 +34,9 @@ and for binary logins (amendments 23 and 25):
   `TunnelPasswordAndCredentialHeaderLineRule` (`PASS` and `ACCT` arguments, the credentials of the
   `HttpWithheldHeaderNames.Credentials` headers after the scheme word, the whole value of the
   `ApiKeysAndSessionTokens` headers, and folded lines of either; BL-1772, amendment 33: a header
-  is read at the line's start and after every bare CR, with or without blanks before its name, and a
-  command at the line's start only, blanks before it skipped (BL-1783, amendment 34)),
+  is read at the line's start and after every bare CR, with or without blanks before its name, and
+  so is a command (BL-1783 and BL-1785, amendments 34 and 36), the line masked from the earlier
+  secret),
   `TunnelImapLoginLineRule` (the
   IMAP `LOGIN` password and its literals, `LOGIN` the first word (no tag) or the second, and
   everything after `LOGIN LOGIN` (ADR-0182, amendment 29); each line read with words separated by

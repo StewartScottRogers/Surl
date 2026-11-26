@@ -8,7 +8,7 @@ namespace Surl.LineProtocol;
 /// The <see cref="ILineRedactionRule"/> for a password command or a credential header in a tunnel: it
 /// writes the argument of a <c>PASS</c> or <c>ACCT</c> command, with or without spaces or tabs before
 /// its command word and that word ended by a space or a tab, all of them logged as received, as
-/// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 30 and 34), the credentials of a
+/// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 30, 34 and 36), the credentials of a
 /// header named in
 /// <see cref="HttpWithheldHeaderNames.Credentials"/> as <see cref="LineBytesRedactor.SecretMask"/>
 /// after the scheme word, and the whole value of a header named in
@@ -18,11 +18,11 @@ namespace Surl.LineProtocol;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A header is read at the start of the line and after every bare carriage return in it, with or
-/// without spaces or tabs before its name. The first withheld header so read is masked as above, and
-/// everything after the place its secret begins is dropped with it, later carriage returns included.
-/// A command is read at the start of the line only, any spaces or tabs there skipped, and never after a
-/// bare carriage return.
+/// A command and a header are each read at the start of the line and after every bare carriage return
+/// in it, with or without spaces or tabs before the command word or the header name. Of the first
+/// password command and the first withheld header so read, the one whose secret begins earlier is
+/// masked as above, and everything after that place is dropped with it, later carriage returns
+/// included. A command word ended by a carriage return is not read as a command.
 /// </para>
 /// <para>
 /// A line that begins with a space or a tab and follows a line holding a header named in
@@ -63,16 +63,29 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRu
         // The secret is always on the line that names it, whatever the origin sent.
     }
 
-    // Where the secret begins in the line; the line's length when it holds none.
+    // Where the earlier of the command's and the header's secrets begins in the line; the line's
+    // length when it holds none.
     private static int FindSecretStart(ReadOnlySpan<byte> line, int headerStart)
     {
-        var commandStart = SkipBlanks(line, 0);
-        if (IsPasswordCommand(line[commandStart..]))
+        var headerSecretStart = headerStart < 0 ? line.Length : headerStart + FindHeaderSecretStart(line[headerStart..]);
+
+        return Math.Min(FindCommandSecretStart(line), headerSecretStart);
+    }
+
+    // Where the argument of the first password command begins, the command at the start of the line
+    // or after a bare carriage return; the line's length when the line holds none.
+    private static int FindCommandSecretStart(ReadOnlySpan<byte> line)
+    {
+        foreach (var segment in line.Split(CarriageReturn))
         {
-            return commandStart + CommandPrefixLength;
+            var commandStart = SkipBlanks(line, segment.Start.Value);
+            if (IsPasswordCommand(line[commandStart..]))
+            {
+                return commandStart + CommandPrefixLength;
+            }
         }
 
-        return headerStart < 0 ? line.Length : headerStart + FindHeaderSecretStart(line[headerStart..]);
+        return line.Length;
     }
 
     // Where the first withheld header begins, at the start of the line or after a bare carriage

@@ -44,6 +44,31 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
         Assert.AreEqual(logged, Redact(line)[0]);
 
     [TestMethod]
+    [DataRow("NOOP\rPASS s3cret", "NOOP\rPASS ****")]
+    [DataRow("NOOP\racct\ts3cret", "NOOP\racct\t****")]
+    [DataRow("\r\r \tPass  two s3cret words", "\r\r \tPass ****")]
+    [DataRow("PASSIVE a\rPASS s3cret", "PASSIVE a\rPASS ****")]
+    [DataRow("NOOP\rPASS s3cret\rNOOP", "NOOP\rPASS ****")]
+    [DataRow("NOOP\rPASS s3cret\rACCT s3cret-account", "NOOP\rPASS ****")]
+    [DataRow("NOOP\rPASS \rs3cret", "NOOP\rPASS ****")]
+    public void Redact_PassOrAcctAfterABareCarriageReturn_IsMaskedToTheEndOfTheLine(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(line)[0]);
+
+    [TestMethod]
+    [DataRow("NOOP\rPASS s3cret\rX-Api-Key: s3cret", "NOOP\rPASS ****")]
+    [DataRow("X-Other: a\rX-Api-Key: s3cret\rPASS s3cret", "X-Other: a\rX-Api-Key: ****")]
+    [DataRow("Authorization: Basic s3cret\rPASS s3cret", "Authorization: Basic ****")]
+    [DataRow("Authorization: Basic\rPASS s3cret", "Authorization: ****")]
+    public void Redact_CommandAndWithheldHeaderInOneLine_IsMaskedFromTheEarlierSecret(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(line)[0]);
+
+    [TestMethod]
+    public void Redact_FoldedLineAfterAHeaderFollowingAPasswordCommand_IsMasked() =>
+        CollectionAssert.AreEqual(
+            new[] { "NOOP\rPASS ****", " ****" },
+            Redact("NOOP\rPASS s3cret\rX-Api-Key:", " s3cret"));
+
+    [TestMethod]
     public void Redact_IndentedPassAfterAWithheldHeader_IsMaskedWholeAsItsContinuation() =>
         CollectionAssert.AreEqual(
             new[] { "X-Api-Key: ****", " ****" },
@@ -84,6 +109,11 @@ public sealed class TunnelPasswordAndCredentialHeaderLineRuleTests
     [DataRow(" Host: example.com")]
     [DataRow("X-Other: a\rHost: example.com")]
     [DataRow("X-Api-Key\r: shown")]
+    [DataRow("NOOP\rPASS ")]
+    [DataRow("NOOP\rPASS\rshown")]
+    [DataRow("NOOP\r \t")]
+    [DataRow("NOOP\rUSER PASS shown")]
+    [DataRow("NOOP\r")]
     public void Redact_LineHoldingNoSecret_IsWrittenAsReceived(string line) =>
         Assert.AreEqual(line, Redact(line)[0]);
 
