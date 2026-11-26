@@ -1,5 +1,5 @@
 ---
-id: BL-1763
+id: BL-1764
 title: Update --aihelp and the manual once the open exchange-log redaction gaps are closed
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1763 — Update --aihelp and the manual once the open exchange-log redaction gaps are closed
+# BL-1764 — Update --aihelp and the manual once the open exchange-log redaction gaps are closed
 
 ## Goal
 

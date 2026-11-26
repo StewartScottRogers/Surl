@@ -39,7 +39,7 @@ The `logging` and `security` topics of `surl --aihelp` and the manual list exact
   AMQP 1.0, Kafka and XMPP SASL `PLAIN`, the MQTT 5 password and Authentication Data, and a mail client's SASL answers
   whatever the mechanism (it called all proofs logged as received). All are named now.
 - Open gaps are stated as logged, so the help does not promise more than the code does (BL-1734, 1744, 1750, 1753,
-  1758, 1759, 1760, 1762; read from the code and those tasks, none recorded on the wire). BL-1763 updates the text
+  1758, 1759, 1760, 1762; read from the code and those tasks, none recorded on the wire). BL-1764 updates the text
   once they close.
 - No design decision and no ADR: help text only. No curl run: no byte on the wire changes.
 - Stand-in: the text still says the event stream keeps raw bytes, which is how a test reads what a client sent.
