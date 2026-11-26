@@ -148,9 +148,10 @@ IMAP `+`, the next client line is a secret).
   carries `authorization` or `proxy-authorization` is logged with the payload of each of its `HEADERS` and `CONTINUATION`
   frames replaced by `****` (HPACK cannot show `Authorization: Basic ****` in place); the 9-byte frame headers are logged
   as received, so the dump's frame length fields name the original length and the dump's count is the new length (decision 2).
-  Every other frame streams through as received.
+  Every other frame streams through as received, except as amendments 11 (`DATA`) and 15 (`PUSH_PROMISE` and broken
+  header-block sequences) say.
 - **Fail closed.** A block the copy cannot decode, one past 64 KiB, or one interrupted by another frame leaves the copy's
-  table unknown; from then on every header-block payload on that connection is withheld.
+  table unknown; from then on every header-block payload on that connection is withheld. Amendment 15 adds four cases.
 - **Switching.** The http server's redactor starts as the HTTP/1.x one and moves to the HTTP/2 one when the connection's
   first bytes are the client preface, or after the server sent `101` for `Upgrade: h2c`.
 
@@ -224,7 +225,8 @@ carries them as fields no line rule sees.
 2. **Frames are read** when the preface is the tunnel's first bytes (prior knowledge), or the origin had sent bytes
    starting `HTTP/1.1 101` (the `h2c` upgrade). Everything after the preface then goes through `Surl.Http2`'s
    `Http2RequestBytesRedactor`, so the tunnel logs what the origin's own exchange logs (amendment 3): a header block
-   with a credential has each frame's payload written as `****`, and every other frame as received.
+   with a credential has each frame's payload written as `****`, and every other frame as received, except as
+   amendments 11 and 15 say.
 3. **Otherwise every later byte is withheld**, written as one `****`. A preface that arrives late with no `101` seen
    (HTTP/2 with prior knowledge inside a `CONNECT` tunnel carried by the SOCKS tunnel, a `101` split across the
    origin's chunks, or a body that happens to hold the preface) is not proof that the following bytes are frames, and
@@ -477,3 +479,30 @@ Accepted limit, until BL-1762 closes it:
 - Each chunk is redacted on its own (amendment 1), so when QUIC splits a `HEADERS` frame, the chunks after the first are
   logged as received unless they happen to read as a `HEADERS` frame, and a secret in them **can be logged**. This
   narrows amendment 4's "never reveals a secret" to a frame that arrives in one chunk.
+
+## Amendment 15 (BL-1728, decided by Claude under Stewart's delegation)
+
+Amendment 3's "Fail closed" bullet did not cover a header-block frame that arrives out of sequence, or a `PUSH_PROMISE`
+from the client. `Http2RequestBytesRedactor` now treats each as leaving its HPACK decoder copy's table unknown.
+
+1. **The four cases.**
+
+   | Case | RFC 9113 |
+   | --- | --- |
+   | A `HEADERS` frame inside an open header block | section 6.10 |
+   | A `CONTINUATION` frame with no open header block | section 6.10 |
+   | A `CONTINUATION` frame on another stream than its block's | section 6.10 |
+   | A `PUSH_PROMISE` frame from the client, inside a block or not | section 8.4 |
+
+2. **What is logged.** The frames held for an open block, the offending frame's payload and every later header-block
+   payload on that connection (`HEADERS`, `CONTINUATION` and `PUSH_PROMISE`) are logged as `****`, the 9-byte frame
+   headers as received. As amendment 11, point 2 says for a lost decoder copy, every later `DATA` payload is withheld
+   too.
+3. **Everywhere the redactor is used** (amendment 11, point 5). This replaces "every other frame streams through as
+   received" (amendment 3) and "every other frame as received" (amendment 7, point 2) for these frames.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
+
+Accepted limit:
+
+- After any of the four, the connection's log loses the payload of every later header-block and `DATA` frame, secret or
+  not. That loses log detail only.
