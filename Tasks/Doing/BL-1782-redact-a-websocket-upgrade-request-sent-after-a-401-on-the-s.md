@@ -43,3 +43,4 @@ The `ws` server's exchange log withholds the credentials of every upgrade reques
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
