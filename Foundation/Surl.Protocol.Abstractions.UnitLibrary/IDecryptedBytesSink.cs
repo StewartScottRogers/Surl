@@ -1,8 +1,9 @@
 namespace Surl.Protocol.Abstractions;
 
 /// <summary>
-/// Where QUIC or DTLS code a server constructs reports the plaintext it recovered or is about to protect
-/// (ADR-0169, decision 3).
+/// Where the code serving an exchange reports bytes it holds in the clear that the wire bytes may not show:
+/// for example a DTLS record's plaintext, a QUIC stream's data, or an HTTP/3 header list and <c>DATA</c>
+/// payload (ADR-0169, decision 3).
 /// </summary>
 public interface IDecryptedBytesSink
 {

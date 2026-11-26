@@ -2,7 +2,8 @@ using Surl.Protocol.Abstractions;
 
 namespace Surl.Core;
 
-// The engine hands each server a sink for the plaintext its QUIC or DTLS code recovers (ADR-0169; BL-1267).
+// The engine hands each server a sink for the bytes its code, such as DTLS, QUIC or HTTP/3 code, holds in the
+// clear (ADR-0169; BL-1267).
 public sealed partial class ServingEngineTests
 {
     [TestMethod]
