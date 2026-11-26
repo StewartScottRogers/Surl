@@ -57,3 +57,4 @@ The exchange log withholds the payload of every `DATA` frame on an HTTP/2 `CONNE
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
