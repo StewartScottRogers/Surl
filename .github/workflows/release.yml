@@ -3,10 +3,12 @@
 # the native-AOT `surl-mcp`, Surl's MCP server on standard input and output, proves it answers an
 # MCP `initialize`, and packages it as its own archive, `surl-mcp-<rid>` (ADR-0103 decision 7).
 # The pack job also packs Surl.Api and Surl.Mcp as NuGet packages and keeps them as the
-# nuget-packages artifact on every run, a tag included; nothing pushes them to a feed (BL-643).
+# nuget-packages artifact on every run, a tag included. On a tag the GitHub release carries both
+# `.nupkg` files beside the archives (BL-1789); nothing pushes them to a feed (BL-643).
 #
-#   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve packages, proves them, and attaches
-#     them, with a SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
+#   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve archives and both NuGet packages, proves
+#     them, and attaches all fourteen, with a SHA256SUMS file listing them, to a GitHub release of
+#     that name. A tag with a hyphen
 #     (v0.1.0-preview.1) makes a pre-release. Tags and releases need Stewart's say-so
 #     (CLAUDE.md), so this workflow never creates a tag itself.
 #   * Running it by hand (workflow_dispatch), weekly against master (schedule), or on a pull
@@ -314,7 +316,8 @@ jobs:
 
   # Packs Surl.Api (ADR-0099 decision 10) and Surl.Mcp (ADR-0103 decision 7) as NuGet packages with
   # the version surl gets, and keeps them as the nuget-packages artifact - on a tag as on a dry run.
-  # Nothing is pushed: publishing a package needs Stewart (CLAUDE.md), so no step holds an API key.
+  # On a tag the release job attaches both to the GitHub release (BL-1789). Nothing is pushed to a
+  # feed: publishing a package needs Stewart (CLAUDE.md), so no step holds an API key.
   # Surl.Api's project references are bundled into its lib folder, so it has no package dependency;
   # Surl.Mcp is one framework-dependent .NET tool package of type McpServer, whose .mcp/server.json
   # is stamped with the same version first.
@@ -462,13 +465,22 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: nuget-packages
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
           name: pass-rate-notes
           path: notes
 
-      # surl-* takes surl-mcp-*'s six packages as well as surl's six.
+      # surl-* takes surl-mcp-*'s six archives as well as surl's six. The packages are named at the
+      # tag's version, so a missing or misversioned package fails the release here.
       - name: Checksums
         working-directory: dist
-        run: sha256sum surl-* > SHA256SUMS && cat SHA256SUMS
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          sha256sum surl-* "Surly.Surl.Api.$version.nupkg" "Surly.Surl.Mcp.$version.nupkg" > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Release
         env:

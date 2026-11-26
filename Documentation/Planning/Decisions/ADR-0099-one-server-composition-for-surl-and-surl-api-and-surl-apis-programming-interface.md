@@ -433,3 +433,14 @@ and ADR-0103 decision 3's chunk JSON never decided against a time; it was never 
 
 **Acted on by** BL-1559 (`Surl.Api`), then BL-1557 (`Surl.Mcp.UnitLibrary`, `get_exchanges`) and BL-1558
 (`Surl.Control.UnitLibrary`, the exchange writer). Each depends on BL-1552.
+
+## Amendment 2026-11-26: the GitHub release carries the package (BL-1789)
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), 2026-11-26, in BL-1789.
+The Surly cookbook re-pins to every Surl release from the release's assets (Stewart, 2026-11-26, relayed by the Surly session), and until now had to pack the package from source because the release carried only the archives.
+
+**Decision.** On a `v*` tag, `.github/workflows/release.yml`'s release job downloads the `nuget-packages`
+artifact and attaches `Surly.Surl.Api.<version>.nupkg` to the GitHub release beside the archives, listed in
+`SHA256SUMS`. The checksum step names the package at the tag's version, so a missing or misversioned package
+fails the release. Decision 10's package is unchanged, and attaching it to a release is not a feed push: nothing
+is pushed to nuget.org or any other feed (BL-643 stands).
