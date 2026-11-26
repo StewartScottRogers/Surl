@@ -596,3 +596,42 @@ Accepted limits:
   which curl does not do, are still read by the HTTP/1.x redactor, which sees no HPACK field, so a secret in them
   **can be logged**. Bytes that arrive after the redactor moves to HTTP/2 and do not start with the preface are
   withheld.
+
+## Amendment 18 (BL-1759, decided by Claude under Stewart's delegation)
+
+An origin reached in cleartext through the HTTP proxy had its API-key and session-token fields logged in clear in the
+proxy's log, though the origin's own log withholds them for the HTTP-carried extended servers (amendment 13's accepted
+limit).
+
+1. **The proxy withholds them wherever it withholds the credential fields**: in forwarded requests and `CONNECT`
+   tunnels alike, the `CONNECT` head included, because it cannot tell which origin it carries. The names are read from
+   `HttpWithheldHeaderNames.ApiKeysAndSessionTokens` and matched without regard to case. The accepted limits below say
+   where they can still be logged.
+
+   | How the proxy reads the bytes | What is logged for such a field |
+   | --- | --- |
+   | An HTTP/1.x request head (`HttpRequestHeadBytesRedactor`) | The whole value, and each folded line of it, as `****` |
+   | Tunnelled text (amendment 16, point 1): `HttpProxyTunnelPasswordAndCredentialHeaderLineRule` | The same, no scheme word kept |
+   | HTTP/2 after a preface where a request may start (`Http2RequestBytesRedactor`) | Each `HEADERS` and `CONTINUATION` payload of a header block carrying it, as `****` (amendment 3's form) |
+
+2. **Origin listen URLs.** With `--proxy` named, origin `http` and `https` listen URLs use this redactor (amendment 8,
+   point 1), so their logs withhold the fields too. That withholds more, never less.
+3. **What this replaces.** The HTTP proxy's part of amendment 13, point 3, and of its accepted limit; and, for these
+   five fields, amendment 16's "in tunnelled text, any header but the two credential fields". The SOCKS tunnel is
+   unchanged (BL-1760), and so are the http and https servers' own redactors.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- A line of a tunnelled text protocol that looks like one of these headers has its value masked, and so does a body
+  line judged as text. That loses log detail only.
+- Amendment 16's limits on where tunnelled bytes are read as HTTP or text hold for these fields as for the credential
+  fields.
+- Three shapes curl does not send, where one of these fields, or a credential field, **can be logged**. Each predates
+  this amendment for the credential fields.
+
+  | Shape | What is logged | Closed by |
+  | --- | --- | --- |
+  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1769 |
+  | A `CONNECT` head holding a secret field followed by a folded line that ends with a bare line feed | The folded line, as received | Not planned: the proxy refuses folded lines |
+  | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770 |
