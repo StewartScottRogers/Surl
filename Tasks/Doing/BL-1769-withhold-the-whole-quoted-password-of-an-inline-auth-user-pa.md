@@ -32,3 +32,4 @@ Found while working BL-1768 by reading the code; not yet reproduced by a test. `
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
