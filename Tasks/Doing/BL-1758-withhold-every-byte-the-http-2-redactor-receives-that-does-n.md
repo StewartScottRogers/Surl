@@ -56,3 +56,4 @@ with none of its credentials, API keys or session tokens.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
