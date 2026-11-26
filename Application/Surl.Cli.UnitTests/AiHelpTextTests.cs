@@ -523,7 +523,13 @@ public sealed partial class AiHelpTextTests
         StringAssert.Contains(page, "surl writes as `****` the argument of a `PASS` or `ACCT` line, the credentials of an `Authorization` or `Proxy-Authorization` header line, the password of an IMAP `LOGIN` line, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation.");
         StringAssert.Contains(page, "When the first byte is `0x10`, an MQTT `CONNECT`, surl withholds its password (MQTT 3.1.1 and 5).");
         StringAssert.Contains(page, "Not withheld in a SOCKS tunnel: the API-key and session-token headers; MQTT 5 Authentication Data;");
-        StringAssert.Contains(page, "Inside an HTTP/1.x `CONNECT` tunnel through the HTTP proxy only HTTP credentials are withheld");
+        StringAssert.Contains(page, "Inside an HTTP/1.x `CONNECT` tunnel through the HTTP proxy only some of those secrets are withheld too.");
+        StringAssert.Contains(page, "makes surl judge it and every later line, and write as `****` the argument of a `PASS` or `ACCT` line, the credentials of an `Authorization` or `Proxy-Authorization` header line, the password of an IMAP `LOGIN` line, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation, bytes the client sends before the proxy's `200` included.");
+        StringAssert.Contains(page, "Not withheld in a `CONNECT` tunnel: the API-key and session-token headers; the MQTT `CONNECT` password and LDAP bind credentials;");
+        StringAssert.Contains(page, "A tunnel whose first byte is not a letter, `1` to `9` or a line feed");
+        StringAssert.Contains(page, "A first tunnelled line of three words whose last starts `HTTP/` or `RTSP/`");
+        StringAssert.Contains(page, "whose request line ends with CR LF and whose later lines end with a bare line feed can have its credentials, and secrets sent after it, logged.");
+        StringAssert.Contains(page, "A SASL answer sent before the origin's continuation reaches the client is judged without it and logged");
         Assert.DoesNotContain("Not withheld in a tunnel: SASL", page);
     }
 
@@ -532,7 +538,7 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("security").Output;
 
-        StringAssert.Contains(page, "Inside a SOCKS tunnel only the `PASS`, `ACCT`, IMAP `LOGIN`, SASL, `Authorization` and `Proxy-Authorization` secrets of a text protocol, an MQTT `CONNECT` password and LDAP bind credentials are withheld, and inside an HTTP proxy tunnel only HTTP credentials are, so treat the log of a proxy listener as holding secrets.");
+        StringAssert.Contains(page, "Inside a SOCKS tunnel only the `PASS`, `ACCT`, IMAP `LOGIN`, SASL, `Authorization` and `Proxy-Authorization` secrets of a text protocol, an MQTT `CONNECT` password and LDAP bind credentials are withheld, and inside an HTTP proxy `CONNECT` tunnel only those text-protocol secrets, not an MQTT password or an LDAP bind, so treat the log of a proxy listener as holding secrets.");
     }
 
     [TestMethod]
