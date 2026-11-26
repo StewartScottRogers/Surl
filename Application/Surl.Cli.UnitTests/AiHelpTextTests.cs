@@ -483,7 +483,7 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("logging").Output;
 
-        StringAssert.Contains(page, "Challenge responses and proofs (Digest, NTLM, Negotiate, CRAM-MD5, SCRAM, APOP, SigV4) are not secrets in clear and are logged as received, and so are data bodies, with three exceptions: a line sent through a SOCKS or HTTP proxy tunnel that reads as one carrying a secret has that secret withheld, an HTTP/2 connection preface can make surl withhold the rest of a connection, and surl withholds the payload of some HTTP/2 `DATA` frames, as the next paragraphs say.");
+        StringAssert.Contains(page, "Data bodies are logged as received too, with three exceptions: a line sent through a SOCKS or HTTP proxy tunnel that reads as one carrying a secret has that secret withheld, an HTTP/2 connection preface can make surl withhold the rest of a connection, and surl withholds the payload of some HTTP/2 `DATA` frames, as the next paragraphs say.");
         StringAssert.Contains(page, "On a `--proxy` listen URL, and on the `http` and `https` listen URLs of a start that names `--proxy`, while a connection is read as HTTP/1.x, an HTTP/2 connection preface that does not start where a request may start (one inside an upload body, partway through a line or after a HAProxy `PROXY` line sent into a tunnel) withholds every later byte the client sends on that connection, later requests included, behind one `****`.");
         StringAssert.Contains(page, "A preface that starts where a request may start (ALPN `h2`, prior knowledge in a `CONNECT` tunnel, or after an `h2c` upgrade request) is not that case: what follows is read as HTTP/2.");
         Assert.DoesNotContain("data bodies are not secrets in clear", page);
@@ -499,6 +499,40 @@ public sealed partial class AiHelpTextTests
         StringAssert.Contains(page, "A withheld `DATA` frame is logged as its 9-byte frame header, as received, then `****`, and an empty one as its header alone.");
         StringAssert.Contains(page, "Every other `DATA` payload is logged as received, one sent on a stream before that stream's `CONNECT` header block, which a client may not do, included. The event stream keeps the withheld bytes, so a test that needs them reads it.");
         Assert.DoesNotContain("any credential tunnelled in them included", page);
+    }
+
+    [TestMethod]
+    public void Answer_Logging_NamesEveryApiKeyHeaderAndTheServersThatWithholdThem()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "The S3, Azure Storage, Google Cloud Storage, OCI registry, MCP, SignalR, Socket.IO, gRPC, WebTransport and DNS over HTTPS servers also withhold the API-key and session-token headers");
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            StringAssert.Contains(page, $"`{name}`");
+        }
+
+        StringAssert.Contains(page, "The HTTP and HTTPS servers, the HTTP proxy, WebSocket, RTSP and the tunnels through either proxy log those five headers as received, a tunnel to one of the servers named first included.");
+    }
+
+    [TestMethod]
+    public void Answer_Logging_SaysWhatIsAndIsNotWithheldInEachTunnel()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "surl writes as `****` the argument of a `PASS` or `ACCT` line, the credentials of an `Authorization` or `Proxy-Authorization` header line, the password of an IMAP `LOGIN` line, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation.");
+        StringAssert.Contains(page, "When the first byte is `0x10`, an MQTT `CONNECT`, surl withholds its password (MQTT 3.1.1 and 5).");
+        StringAssert.Contains(page, "Not withheld in a SOCKS tunnel: the API-key and session-token headers; MQTT 5 Authentication Data;");
+        StringAssert.Contains(page, "Inside an HTTP/1.x `CONNECT` tunnel through the HTTP proxy only HTTP credentials are withheld");
+        Assert.DoesNotContain("Not withheld in a tunnel: SASL", page);
+    }
+
+    [TestMethod]
+    public void Answer_Security_SaysWhichSecretsAProxyTunnelsLogWithholds()
+    {
+        var page = AiHelpText.Answer("security").Output;
+
+        StringAssert.Contains(page, "Inside a SOCKS tunnel only the `PASS`, `ACCT`, IMAP `LOGIN`, SASL, `Authorization` and `Proxy-Authorization` secrets of a text protocol, an MQTT `CONNECT` password and LDAP bind credentials are withheld, and inside an HTTP proxy tunnel only HTTP credentials are, so treat the log of a proxy listener as holding secrets.");
     }
 
     [TestMethod]
