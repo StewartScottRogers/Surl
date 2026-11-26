@@ -30,3 +30,4 @@ Found while working BL-1766. `AiHelpProse.cs` and `ManualText.cs` list "Redis on
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
