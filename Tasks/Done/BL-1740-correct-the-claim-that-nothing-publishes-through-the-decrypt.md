@@ -34,7 +34,7 @@ The `Surl.Protocol.Abstractions.UnitLibrary` project instructions say truthfully
   every non-test caller of `Received` or `Sent`, and which servers hand the sink on. The callers were found by
   searching the code; the Context list missed `Http3RequestStream`. No ADR: no decision was needed.
 - Verified 2026-11-25: `dotnet build` clean, fast tests pass (29,315 passed).
-- Follow-up filed as BL-1741 (doc comments in `.cs` files, outside this task's `touches`). Filed with the board
+- Follow-up filed as BL-1743 (doc comments in `.cs` files, outside this task's `touches`). Filed with the board
   script directly, as it is one small task.
 
 ## Log

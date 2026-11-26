@@ -1,5 +1,5 @@
 ---
-id: BL-1741
+id: BL-1743
 title: Correct the doc comments that describe the decrypted-bytes contract as QUIC and DTLS plaintext only
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1741 — Correct the doc comments that describe the decrypted-bytes contract as QUIC and DTLS plaintext only
+# BL-1743 — Correct the doc comments that describe the decrypted-bytes contract as QUIC and DTLS plaintext only
 
 ## Goal
 
