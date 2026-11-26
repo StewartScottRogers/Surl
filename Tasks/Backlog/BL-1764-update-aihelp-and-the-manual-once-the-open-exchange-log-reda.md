@@ -4,7 +4,7 @@ title: Update --aihelp and the manual once the open exchange-log redaction gaps 
 priority: Low
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1734, BL-1744, BL-1750, BL-1753, BL-1758, BL-1759, BL-1760, BL-1762]
+depends-on: [BL-1734, BL-1744, BL-1750, BL-1753, BL-1758, BL-1759, BL-1760, BL-1762, BL-1771]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-25
@@ -41,3 +41,5 @@ tasks in `depends-on` made the exchange log withhold.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: BL-1771 added to `depends-on`: it closed the bare-line-feed request head case both texts still name as
+  logged (ADR-0182 amendment 24, whose accepted limits name what can still be logged).
