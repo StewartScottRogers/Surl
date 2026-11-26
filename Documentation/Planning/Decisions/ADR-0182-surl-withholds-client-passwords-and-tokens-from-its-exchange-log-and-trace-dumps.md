@@ -182,6 +182,8 @@ masked them (Surly bug report 2026-11-25, item 1). Amendment 2's rule for the HT
 1. **Where the tunnel starts.** After the server sent a success reply (SOCKS5 `05 00 …`, longer than the two-byte method
    selection; SOCKS4 `00 5A …`), seen through `IReceivedBytesRedactor.ObserveSent`, the client's tunnelled bytes are
    redacted by a tunnel phase (`SocksTunnelBytesRedactor`). Before it, `Socks5PasswordRedactor` redacts the handshake.
+   Replaced by amendment 12: the tunnel starts after the request's last byte, and `SocksHandshakeBytesRedactor`
+   redacts the handshake.
 2. **Text or binary.** SOCKS does not say what the tunnel carries, so the first tunnelled client byte decides: an ASCII
    letter (`A`-`Z`, `a`-`z`; amendment 9 adds the digits `1`-`9`) starts a text protocol's command or request line, and the rest of the tunnel goes through
    `LineBytesRedactor` with the SOCKS library's `SocksTunnelLineRedactionRule`; any other first byte (TLS `0x16`, MQTT,
@@ -207,7 +209,8 @@ Accepted limits:
 - HTTP/2 in cleartext (`--http2-prior-knowledge`, or the frames after an `h2c` upgrade) carries `authorization` as an
   HPACK field, not a header line, so the line rule does not see it. Closed by amendment 7.
 - A client that sends ahead of the server's replies (greeting and login together, or tunnelled bytes with the request),
-  which curl does not do, has those early bytes logged as the handshake redactor writes them.
+  which curl does not do, has those early bytes logged as the handshake redactor writes them. Closed by
+  amendment 12, with the limits it lists.
 
 ## Amendment 7 (BL-1709, decided by Claude under Stewart's delegation)
 
@@ -240,7 +243,8 @@ Accepted limits:
   preface is followed by bytes read as frames, so a credential in a later text request on that tunnel **can be logged**.
   curl sends nothing but HTTP/2 after a `101` to `Upgrade: h2c`, and does not send the preface after any other.
 - Amendment 6's client that sends ahead can lose more than its early bytes: if the preface travels with the SOCKS
-  request, the tunnel's first byte seen is a frame's `00`, so the whole tunnel is logged byte for byte (BL-1707).
+  request, the tunnel's first byte seen is a frame's `00`, so the whole tunnel is logged byte for byte. Closed by
+  amendment 12.
 - An over-long first `HEADERS` frame does not yet make `Http2RequestBytesRedactor` withhold the `CONTINUATION` after
   it, here or in the origin's own log (BL-1714).
 
@@ -360,7 +364,7 @@ Accepted limits:
 - The LDAP lengths enclosing a bind still encode the password's length indirectly, as in amendment 5.
 - Another binary protocol starting `0x10` or `0x30` may have a packet held until whole, never more than 64 KiB, and
   lose log detail to `****`. That never reveals a secret.
-- A client that sends ahead of the server's replies keeps amendment 6's limit (BL-1707).
+- A client that sends ahead of the server's replies keeps amendment 6's limit. Closed by amendment 12.
 
 ## Amendment 11 (BL-1733, decided by Claude under Stewart's delegation)
 
@@ -392,3 +396,36 @@ Accepted limits:
   as received.
 - A tunnel's payload is lost from the log even when it holds no secret (TLS ciphertext included). That loses log
   detail only.
+
+## Amendment 12 (BL-1707, decided by Claude under Stewart's delegation)
+
+A client that did not wait for the server's SOCKS replies had its RFC 1929 password logged in clear when it sent the
+login with its greeting, and its tunnelled secrets when it sent them with its request. The server serves such a client
+and forwards the early bytes to the origin. curl waits, so nothing changes for it.
+
+1. **The client's bytes say where the tunnel starts.** `SocksHandshakeBytesRedactor` follows the handshake's own
+   length fields (SOCKS4, SOCKS4a, the SOCKS5 greeting, the RFC 1929 or RFC 1961 messages and the request) to the
+   request's last byte. Every byte after it is the tunnel's, whether or not a success reply has been sent. This
+   replaces `Socks5PasswordRedactor` and widens amendment 6, point 1.
+2. **No reply decides the handshake.** The byte after the greeting is `05` for a request. Otherwise the client sends
+   RFC 1961 messages when the greeting offered method `01` and the listener has a keytab, because the server then
+   selects `01`; otherwise an RFC 1929 login, when the byte is `01` or the greeting offered method `02`. A rule that
+   waited for the method selection depended on how the client's bytes fell between reads: a login sent in a second
+   read after a `05 00` was logged in clear. Rejected for that reason. A login is therefore masked whatever method
+   the server selected, a refusal included.
+3. **A success reply still starts the tunnel** when the handshake redactor has not found the request's end, as before.
+4. **Replies are not the origin's.** The tunnel's redactor is shown what the server sends only after the success
+   reply, so a method selection, login reply or success reply sent after early tunnel bytes is never read as part of
+   a `334` or `+` continuation.
+5. **Refused requests.** Bytes a client sent after a request the server then refuses are redacted as a tunnel's.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
+
+Accepted limits:
+
+- A line answering a SASL `334` or `+` that the client sends before the origin's continuation reaches it is judged
+  without it (amendment 9), so it is logged as received.
+- On a listener with a keytab, a client that offers method `01` and then sends an RFC 1929 login, which the server
+  refuses, has it read as RFC 1961 messages and can have it logged as received.
+- Bytes no SOCKS handshake explains (a first byte that is no SOCKS version, a request whose version or address type
+  is wrong) are logged as received, with everything after them, unless a success reply follows. The server refuses
+  each such request.

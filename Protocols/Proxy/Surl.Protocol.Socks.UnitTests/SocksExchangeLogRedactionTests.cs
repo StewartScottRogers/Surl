@@ -110,28 +110,16 @@ public sealed class SocksExchangeLogRedactionTests
     }
 
     [TestMethod]
-    public void NoAuthenticationMethod_LeavesALaterLookalikeUnchanged()
+    [DataRow(new byte[] { 5, 0 }, DisplayName = "no authentication")]
+    [DataRow(new byte[] { 5, 0xFF }, DisplayName = "a refusal")]
+    [DataRow(new byte[] { 5 }, DisplayName = "a short selection")]
+    public void LoginSentWhateverTheServerSelected_IsLoggedWithPasswdMasked(byte[] selection)
     {
-        byte[] greeting = [5, 0];
-        var logged = Logged([([], [greeting]), ([5, 0], [Login])]);
+        byte[] greeting = [5, 1, 0];
 
-        CollectionAssert.AreEqual((byte[])[.. greeting, .. Login], logged);
-    }
+        var logged = Logged([([], [greeting]), (selection, [Login])]);
 
-    [TestMethod]
-    public void MethodSelectionRefusal_LeavesTheNextBytesUnchanged()
-    {
-        var logged = Logged([([], [Greeting]), ([5, 0xFF], [Login])]);
-
-        CollectionAssert.AreEqual((byte[])[.. Greeting, .. Login], logged);
-    }
-
-    [TestMethod]
-    public void ShortMethodSelection_LeavesTheNextBytesUnchanged()
-    {
-        var logged = Logged([([], [Greeting]), ([5], [Login])]);
-
-        CollectionAssert.AreEqual((byte[])[.. Greeting, .. Login], logged);
+        CollectionAssert.AreEqual((byte[])[.. greeting, .. Masked()], logged);
     }
 
     [TestMethod]

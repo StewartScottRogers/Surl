@@ -45,7 +45,7 @@ namespace Surl.Protocol.Socks;
 /// <c>02</c> NotAllowed, <c>03</c> Unreachable, <c>04</c> HostNotFound, <c>05</c> Refused,
 /// <c>06</c> TimedOut, <c>01</c> anything else. A request or login whose version is wrong, or that
 /// curl ends early, closes the connection without a reply. The log never holds an RFC 1929 password,
-/// and masks the secrets <see cref="CreateRedactor"/> names in a granted tunnel.
+/// and masks the secrets <see cref="CreateRedactor"/> names in the tunnel's bytes.
 /// </para>
 /// <para>
 /// After success, bytes are relayed both ways unread until both sides close, with any bytes curl
@@ -113,7 +113,7 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer, IExchangeBy
 
     /// <summary>
     /// Creates the redactor that writes secrets as <c>****</c> in the exchange log: the RFC 1929
-    /// <c>PASSWD</c> and, in a granted tunnel carrying a text protocol, the argument of <c>PASS</c> and
+    /// <c>PASSWD</c> and, in a tunnel carrying a text protocol, the argument of <c>PASS</c> and
     /// <c>ACCT</c>, the credentials of <c>Authorization</c> and <c>Proxy-Authorization</c>, the IMAP
     /// <c>LOGIN</c> password, and SASL <c>AUTH</c> and <c>AUTHENTICATE</c> initial responses and the
     /// lines answering <c>334</c> or <c>+</c>. In such a tunnel, an HTTP/2 header block carrying either
@@ -121,13 +121,15 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer, IExchangeBy
     /// HTTP/2 <c>CONNECT</c> stream, and every byte after a preface that neither opened the tunnel nor
     /// followed an <c>HTTP/1.1 101</c> is withheld. In a tunnel opening with <c>0x10</c>, the password
     /// of the MQTT <c>CONNECT</c> is written as <c>****</c>; in one opening with <c>0x30</c>, the
-    /// non-empty authentication of every LDAP bind is. Everything else is logged as it arrived
-    /// (ADR-0182, amendments 6, 7, 9, 10 and 11, which list the limits and what else a malformed or
-    /// oversized packet, or an HTTP/2 header block that cannot be followed, has withheld).
+    /// non-empty authentication of every LDAP bind is. The tunnel's bytes are those after the
+    /// request's last byte, whether or not the client waited for the server's replies. Everything else
+    /// is logged as it arrived (ADR-0182, amendments 6, 7, 9, 10, 11 and 12, which list the limits and
+    /// what else a malformed or oversized packet, or an HTTP/2 header block that cannot be followed,
+    /// has withheld).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for the connection, used by that exchange alone.</returns>
-    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new SocksExchangeBytesRedactor();
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new SocksExchangeBytesRedactor(gssApi is not null);
 
     /// <summary>
     /// Answers the request on <paramref name="connection"/> and relays until both sides close, or
