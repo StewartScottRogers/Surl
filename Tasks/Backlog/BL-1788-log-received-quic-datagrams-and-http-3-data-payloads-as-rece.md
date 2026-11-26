@@ -1,5 +1,5 @@
 ---
-id: BL-1787
+id: BL-1788
 title: Log received QUIC datagrams and HTTP/3 DATA payloads as received in the exchange log unless they can carry a secret
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1787 — Log received QUIC datagrams and HTTP/3 DATA payloads as received in the exchange log unless they can carry a secret
+# BL-1788 — Log received QUIC datagrams and HTTP/3 DATA payloads as received in the exchange log unless they can carry a secret
 
 ## Goal
 

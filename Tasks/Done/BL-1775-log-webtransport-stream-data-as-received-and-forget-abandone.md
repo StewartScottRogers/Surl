@@ -45,7 +45,7 @@ The WebTransport server's exchange log shows stream data as received, and stream
   3 `RedactAndRedactStream_APlainRedactor_WithholdsASecretHeadersFrameThatFollowsAnUnknown0x41Frame`.
 - Code review: no must-fix; four wording fixes applied. Conformance stage skipped: no option, exit code or wire byte
   changes. No `--aihelp` or manual text describes the changed behaviour, so `Surl.Cli` is unchanged.
-- Follow-up: BL-1787 (datagrams and `DATA` payloads are still read as frames).
+- Follow-up: BL-1788 (datagrams and `DATA` payloads are still read as frames).
 
 ## Log
 

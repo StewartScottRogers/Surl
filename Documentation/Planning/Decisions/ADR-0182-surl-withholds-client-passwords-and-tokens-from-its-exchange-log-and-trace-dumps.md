@@ -1195,4 +1195,4 @@ Accepted limits:
   data that reads as a `HEADERS` frame can be withheld. That loses log detail only.
 - A stream that opens with the marker is logged as received whatever it holds.
 - QUIC datagrams and `DATA` payloads are still read as frames, so one that reads as a `HEADERS` frame can be withheld.
-  That loses log detail only; this amendment leaves it to a follow-up task (BL-1787).
+  That loses log detail only; this amendment leaves it to a follow-up task (BL-1788).
