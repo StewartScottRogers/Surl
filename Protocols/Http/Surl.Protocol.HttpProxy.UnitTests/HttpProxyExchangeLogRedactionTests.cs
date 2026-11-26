@@ -151,6 +151,51 @@ public sealed class HttpProxyExchangeLogRedactionTests
             Logged("CONNECT o:80 HTTP/1.1\r\n\r\n", "GET / HTTP/1.1\r\nAuthorization: Basic YWxpY2U6\r\n\r\n"));
 
     [TestMethod]
+    public void ConnectTunnel_FtpPassAndAcct_AreLoggedAsMasks()
+    {
+        string[] turns =
+        [
+            "S:220 ready\r\n",
+            "USER alice\r\n",
+            "S:331 password\r\n",
+            "PASS s3cret\r\n",
+            "S:332 account\r\n",
+            "ACCT billing-s3cret\r\n",
+        ];
+        const string Expected = HttpProxyTunnelRedactionTestKit.Connect + "USER alice\r\nPASS ****\r\nACCT ****\r\n";
+
+        Assert.AreEqual(Expected, HttpProxyTunnelRedactionTestKit.LoggedTunnel(turns));
+        Assert.AreEqual(Expected, HttpProxyTunnelRedactionTestKit.LoggedTunnelByteByByte(turns));
+    }
+
+    [TestMethod]
+    [DataRow("AUTH PLAIN AGFsaWNlAHMzY3JldA==", "AUTH PLAIN ****", "235 ok")]
+    [DataRow("A1 AUTHENTICATE PLAIN AGFsaWNlAHMzY3JldA==", "A1 AUTHENTICATE PLAIN ****", "A1 OK")]
+    [DataRow("AUTH LOGIN\r\n|334 VXNlcm5hbWU6|AGFsaWNlAHMzY3JldA==", "AUTH LOGIN\r\n****", "235 ok")]
+    [DataRow("A1 AUTHENTICATE PLAIN\r\n|+ |AGFsaWNlAHMzY3JldA==", "A1 AUTHENTICATE PLAIN\r\n****", "A1 OK")]
+    public void ConnectTunnel_MailSaslCredentials_AreAbsentFromTheLog(string exchange, string expected, string answer)
+    {
+        var parts = exchange.Split('|');
+        string[] turns = parts.Length == 1
+            ? [parts[0] + "\r\n", $"S:{answer}\r\n"]
+            : [parts[0], $"S:{parts[1]}\r\n", parts[2] + "\r\n", $"S:{answer}\r\n"];
+        var logged = HttpProxyTunnelRedactionTestKit.Connect + expected + "\r\n";
+
+        Assert.AreEqual(logged, HttpProxyTunnelRedactionTestKit.LoggedTunnel(turns));
+        Assert.AreEqual(logged, HttpProxyTunnelRedactionTestKit.LoggedTunnelByteByByte(turns));
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_ImapLogin_PasswordIsAbsentFromTheLog()
+    {
+        string[] turns = ["S:* OK ready\r\n", "A1 CAPABILITY\r\n", "S:A1 OK\r\n", "A2 LOGIN alice s3cret\r\n"];
+        const string Expected = HttpProxyTunnelRedactionTestKit.Connect + "A1 CAPABILITY\r\nA2 LOGIN alice ****\r\n";
+
+        Assert.AreEqual(Expected, HttpProxyTunnelRedactionTestKit.LoggedTunnel(turns));
+        Assert.AreEqual(Expected, HttpProxyTunnelRedactionTestKit.LoggedTunnelByteByByte(turns));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ForwardedAuthorization_ReachesTheOriginUnchangedWhileTheLogHoldsOnlyMaskedBytes()
     {
         var origin = Connection("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");

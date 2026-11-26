@@ -117,7 +117,12 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
     /// Creates the redactor of the exchange log for curl's connection, which withholds the
     /// credentials of the client's <c>Proxy-Authorization</c> and <c>Authorization</c> fields where
     /// it reads them (ADR-0182, amendment 8). In HTTP/1.x request heads, those inside an HTTP/1.1
-    /// <c>CONNECT</c> tunnel included, the credentials are written as <c>****</c>. From an HTTP/2
+    /// <c>CONNECT</c> tunnel included, the credentials are written as <c>****</c>. Once the bytes are
+    /// taken as a tunnel's text (a line where a request may start that is no request line, among the
+    /// cases amendment 16 lists), then, line by line, the argument of <c>PASS</c> and <c>ACCT</c>,
+    /// the password of an IMAP <c>LOGIN</c>, SASL <c>AUTH</c> and <c>AUTHENTICATE</c> responses,
+    /// the lines answering <c>334</c> or <c>+</c> and those two fields' credentials are written as
+    /// <c>****</c> (amendment 16 also lists what is not masked). From an HTTP/2
     /// connection preface that starts where a request may start (on curl's connection to the proxy
     /// or inside such a tunnel), a header block carrying either field is logged as its frame headers,
     /// each followed by <c>****</c> in place of its payload. A <c>DATA</c> frame on an HTTP/2

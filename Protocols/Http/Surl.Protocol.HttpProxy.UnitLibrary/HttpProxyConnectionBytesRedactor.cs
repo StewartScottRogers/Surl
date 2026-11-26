@@ -1,15 +1,16 @@
 using System.Buffers;
 using Surl.Http2;
-using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
-/// The <see cref="IReceivedBytesRedactor"/> of one connection to the proxy (ADR-0182, amendment 8).
-/// HTTP/1.x request heads, those inside an HTTP/1.1 <c>CONNECT</c> tunnel included, are redacted by
-/// <see cref="HttpRequestHeadBytesRedactor"/> until the client sends the HTTP/2 connection preface,
-/// wherever it falls, because HTTP/2 carries a credential as an HPACK field no line rule sees.
+/// The <see cref="IReceivedBytesRedactor"/> of one connection to the proxy (ADR-0182, amendments 8
+/// and 16). Until the client sends the HTTP/2 connection preface,
+/// <see cref="HttpProxyRequestOrTunnelBytesRedactor"/> redacts HTTP/1.x request heads, those inside
+/// an HTTP/1.1 <c>CONNECT</c> tunnel included, and the lines of a tunnelled text protocol (FTP,
+/// SMTP, IMAP, POP3). The preface is looked for wherever it falls, because HTTP/2 carries a
+/// credential as an HPACK field no line rule sees.
 /// When the preface starts where a request may start (ALPN <c>h2</c>, prior knowledge in a tunnel,
 /// or after an <c>h2c</c> upgrade), every later byte is redacted by
 /// <see cref="Http2RequestBytesRedactor"/>, which withholds the <c>DATA</c> payloads of an HTTP/2
@@ -18,7 +19,7 @@ namespace Surl.Protocol.HttpProxy;
 /// </summary>
 internal sealed class HttpProxyConnectionBytesRedactor : IReceivedBytesRedactor
 {
-    private readonly HttpRequestHeadBytesRedactor http1 = new();
+    private readonly HttpProxyRequestOrTunnelBytesRedactor beforePreface = new();
 
     // The last bytes received before the preface, as many as the preface is long.
     private readonly byte[] latest = new byte[Http2ConnectionPreface.Preface.Length];
@@ -43,13 +44,13 @@ internal sealed class HttpProxyConnectionBytesRedactor : IReceivedBytesRedactor
     }
 
     /// <inheritdoc />
-    public void ObserveSent(ReadOnlySpan<byte> sent) => (afterPreface ?? http1).ObserveSent(sent);
+    public void ObserveSent(ReadOnlySpan<byte> sent) => (afterPreface ?? beforePreface).ObserveSent(sent);
 
     /// <inheritdoc />
     public void Flush(ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        (afterPreface ?? http1).Flush(output);
+        (afterPreface ?? beforePreface).Flush(output);
     }
 
     // The preface begins with 'P' and ends with a line feed, so every 'P' starts a segment and the
@@ -81,14 +82,14 @@ internal sealed class HttpProxyConnectionBytesRedactor : IReceivedBytesRedactor
 
     private void RedactSegment(ReadOnlySpan<byte> segment, ArrayBufferWriter<byte> output)
     {
-        // Asked before the HTTP/1.x redactor takes the segment: afterwards it holds those bytes.
-        MatchPreface(segment, http1.IsAtRequestStart);
-        http1.Redact(segment, output);
+        // Asked before the redactor takes the segment: afterwards it may hold those bytes.
+        MatchPreface(segment, beforePreface.IsAtRequestStart);
+        beforePreface.Redact(segment, output);
         KeepLatest(segment);
         if (latest.AsSpan().SequenceEqual(Http2ConnectionPreface.Preface))
         {
-            // The preface ends a line, so flushing here leaves the HTTP/1.x redactor holding none of it.
-            http1.Flush(output);
+            // The preface ends a line, so flushing here leaves that redactor holding none of it.
+            beforePreface.Flush(output);
             afterPreface = matchedFromRequestStart == latest.Length ? CreateFrameRedactor() : new HttpProxyWithheldBytesRedactor();
         }
     }
