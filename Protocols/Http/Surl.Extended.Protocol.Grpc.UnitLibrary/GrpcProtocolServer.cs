@@ -34,12 +34,14 @@ public sealed class GrpcProtocolServer(IAuthenticationPolicy authenticationPolic
     public IReadOnlyList<string> Schemes { get; } = [PlainScheme, TlsScheme];
 
     /// <summary>
-    /// Creates the redactor that withholds the <c>authorization</c> and <c>proxy-authorization</c> values of
-    /// the HTTP/2 header blocks on one connection, so the exchange log never holds them (ADR-0182; BL-1469).
+    /// Creates the redactor that withholds the HTTP/2 header blocks on one connection that carry a field of
+    /// <see cref="HttpWithheldHeaderNames.All"/> (credentials, API keys and session tokens), so the exchange
+    /// log never holds those values (ADR-0182, amendment 13).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for that exchange alone.</returns>
-    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Http2RequestBytesRedactor();
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new Http2RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
 
     /// <inheritdoc />
     public async Task ServeAsync(IConnection connection, ExchangeContext context)

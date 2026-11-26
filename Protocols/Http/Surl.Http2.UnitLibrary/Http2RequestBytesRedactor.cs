@@ -7,8 +7,9 @@ namespace Surl.Http2;
 
 /// <summary>
 /// An <see cref="IReceivedBytesRedactor"/> for the bytes a client sends on one HTTP/2 connection:
-/// the connection preface, then frames. A header block that carries an <c>authorization</c> or
-/// <c>proxy-authorization</c> field is logged with each of its <c>HEADERS</c> and <c>CONTINUATION</c>
+/// the connection preface, then frames. A header block that carries a secret field - one of
+/// <see cref="HttpWithheldHeaderNames.Credentials"/>, or one the redactor was made to withhold as
+/// well - is logged with each of its <c>HEADERS</c> and <c>CONTINUATION</c>
 /// payloads replaced by <c>****</c>. A <c>PUSH_PROMISE</c> payload is always withheld, and so is the
 /// payload of every <c>DATA</c> frame on a stream that carried a <c>CONNECT</c> header block,
 /// because it holds another protocol's bytes, credentials included. Once the redactor can no longer
@@ -17,7 +18,7 @@ namespace Surl.Http2;
 /// more than 4,096 streams have carried a <c>CONNECT</c> block. An empty <c>DATA</c> payload leaves
 /// nothing to withhold: its frame header is written alone. The 9-byte frame headers are always
 /// logged as received, and so is every frame of any other type, and every <c>DATA</c> frame none of
-/// these rules withholds (ADR-0182, decisions 1, 6 and 7, and amendment 11).
+/// these rules withholds (ADR-0182, decisions 1, 6 and 7, and amendments 11 and 13).
 /// </summary>
 /// <remarks>
 /// HPACK values are recoverable from a dump whether Huffman-coded or literal, and an indexed field
@@ -68,6 +69,9 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
         Hold,
     }
 
+    private readonly HashSet<string> secretFieldNames =
+        new(HttpWithheldHeaderNames.Credentials, StringComparer.OrdinalIgnoreCase);
+
     private readonly HpackDecoder decoder = new(HpackDecoder.DefaultMaximumTableSize, int.MaxValue);
     private readonly byte[] frameHeader = new byte[FrameHeaderLength];
     private readonly List<(byte[] Header, byte[] Payload)> heldFrames = [];
@@ -82,6 +86,29 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
     private int heldPayloadRead;
     private int heldFramesLength;
     private bool decoderLost;
+
+    /// <summary>
+    /// Creates a redactor that withholds the header blocks carrying one of
+    /// <see cref="HttpWithheldHeaderNames.Credentials"/>.
+    /// </summary>
+    public Http2RequestBytesRedactor()
+        : this([])
+    {
+    }
+
+    /// <summary>
+    /// Creates a redactor that withholds the header blocks carrying one of
+    /// <see cref="HttpWithheldHeaderNames.Credentials"/> or any further field.
+    /// </summary>
+    /// <param name="additionalSecretFieldNames">
+    /// Further fields whose value is a secret, such as <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/>,
+    /// matched without regard to case.
+    /// </param>
+    public Http2RequestBytesRedactor(IEnumerable<string> additionalSecretFieldNames)
+    {
+        ArgumentNullException.ThrowIfNull(additionalSecretFieldNames);
+        secretFieldNames.UnionWith(additionalSecretFieldNames);
+    }
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
@@ -264,7 +291,7 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
             RememberConnectStream(StreamIdOf(heldFrames[0].Header));
         }
 
-        if (!decoded || fields.Any(field => IsSecretName(field.Name)))
+        if (!decoded || fields.Any(field => secretFieldNames.Contains(field.Name)))
         {
             WriteHeldFramesWithheld(output);
         }
@@ -348,10 +375,6 @@ public sealed class Http2RequestBytesRedactor : IReceivedBytesRedactor
 
         return true;
     }
-
-    private static bool IsSecretName(string name) =>
-        name.Equals("authorization", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("proxy-authorization", StringComparison.OrdinalIgnoreCase);
 
     private void LoseDecoderAndWriteHeldFramesWithheld(ArrayBufferWriter<byte> output)
     {

@@ -429,3 +429,27 @@ Accepted limits:
 - Bytes no SOCKS handshake explains (a first byte that is no SOCKS version, a request whose version or address type
   is wrong) are logged as received, with everything after them, unless a success reply follows. The server refuses
   each such request.
+
+## Amendment 13 (BL-1717, decided by Claude under Stewart's delegation)
+
+gRPC and DNS over HTTPS on HTTP/2 logged an API-key or session-token field in clear, though decision 7 says the
+HTTP-carried extended servers withhold them: `Http2RequestBytesRedactor` named only `authorization` and
+`proxy-authorization`.
+
+1. **The caller names the further fields.** `Http2RequestBytesRedactor` always withholds
+   `HttpWithheldHeaderNames.Credentials` and takes any further field names from whoever makes it, as the HTTP/1.x head
+   redactor does. Names are matched without regard to case.
+2. **gRPC and DNS over HTTPS** make it with `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`. A header block carrying
+   any field of `HttpWithheldHeaderNames.All` is logged as amendment 3 says: each of its `HEADERS` and `CONTINUATION`
+   payloads is `****`, the 9-byte frame headers as received.
+3. **No one else changes.** The http and https servers, the HTTP proxy and the SOCKS tunnel make it with no further
+   names, so they withhold `authorization` and `proxy-authorization` only, as decision 7 and amendments 3, 7 and 8
+   state. Rejected: withholding API keys in every HTTP/2 log, which would make the http server's HTTP/2 log differ from
+   its HTTP/1.x one.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
+
+Accepted limit:
+
+- A gRPC or DNS over HTTPS origin reached in cleartext through the HTTP proxy or a SOCKS tunnel has its API-key and
+  session-token fields logged in the tunnel's log, though the origin's own log withholds them. This narrows
+  amendment 7, point 2 ("the tunnel logs what the origin's own exchange logs") to the two credential fields.

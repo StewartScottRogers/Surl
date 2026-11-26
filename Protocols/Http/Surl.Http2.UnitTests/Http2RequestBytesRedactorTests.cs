@@ -5,8 +5,8 @@ using Surl.Hpack;
 namespace Surl.Http2;
 
 /// <summary>
-/// The HTTP/2 redactor withholds the payloads of header blocks that carry <c>authorization</c> or
-/// <c>proxy-authorization</c>, every <c>PUSH_PROMISE</c> payload, the <c>DATA</c> payloads of
+/// The HTTP/2 redactor withholds the payloads of header blocks that carry <c>authorization</c>,
+/// <c>proxy-authorization</c> or a further field it was made with, every <c>PUSH_PROMISE</c> payload, the <c>DATA</c> payloads of
 /// <c>CONNECT</c> streams, and, once it can no longer follow the header blocks, every later
 /// <c>HEADERS</c>, <c>CONTINUATION</c>, <c>PUSH_PROMISE</c> and <c>DATA</c> payload (ADR-0182,
 /// BL-1423, BL-1714, BL-1728, BL-1729, BL-1733).
@@ -125,6 +125,50 @@ public sealed class Http2RequestBytesRedactorTests
 
         Assert.DoesNotContain("YWxpY2U6", text);
     }
+
+    [TestMethod]
+    public void Redact_ApiKeyOnARedactorMadeWithNoFurtherNames_IsLoggedAsReceived()
+    {
+        var stream = Join(Preface, Headers(Block(new HpackEncoder(), ("x-api-key", Secret))));
+
+        var (_, bytes) = Redact([stream]);
+
+        CollectionAssert.AreEqual(stream, bytes);
+    }
+
+    [TestMethod]
+    public void Redact_FurtherNameInAnotherCase_WithholdsThePayload()
+    {
+        var frame = Headers(Block(new HpackEncoder(), ("x-api-key", Secret)));
+
+        var bytes = RedactWithFurtherName("X-Api-Key", Join(Preface, frame));
+
+        CollectionAssert.AreEqual(Join(Preface, WithPayloadWithheld(frame)), bytes);
+    }
+
+    [TestMethod]
+    public void Redact_CredentialOnARedactorMadeWithFurtherNames_IsStillWithheld()
+    {
+        var frame = Headers(Block(new HpackEncoder(), ("authorization", Secret)));
+
+        var bytes = RedactWithFurtherName("X-Api-Key", Join(Preface, frame));
+
+        CollectionAssert.AreEqual(Join(Preface, WithPayloadWithheld(frame)), bytes);
+    }
+
+    private static byte[] RedactWithFurtherName(string name, byte[] received)
+    {
+        var redactor = new Http2RequestBytesRedactor([name]);
+        var output = new ArrayBufferWriter<byte>();
+        redactor.Redact(received, output);
+        redactor.Flush(output);
+
+        return output.WrittenSpan.ToArray();
+    }
+
+    [TestMethod]
+    public void Constructor_NullFurtherNames_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Http2RequestBytesRedactor(null!));
 
     [TestMethod]
     public void Redact_BytesInOneByteChunks_GiveTheSameDumpAsOneChunk()

@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Text;
 using Surl.Http2;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.DnsQuery;
 
@@ -46,6 +47,21 @@ public sealed class DnsConnectionBytesRedactorTests
 
         Assert.DoesNotContain("sekret", logged);
         Assert.Contains("****", logged);
+    }
+
+    [TestMethod]
+    public void Redact_Http2RequestWithEachApiKeyAndSessionTokenHeader_LogsItsPayloadAsStars()
+    {
+        var preface = Http2ConnectionPreface.Preface.ToArray();
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var headers = new DnsHttp2TestFrames().Request(1, "POST", "/dns-query", false, (name.ToLowerInvariant(), "sekret-key"));
+
+            var logged = Redact(preface, headers);
+
+            byte[] expected = [.. preface, .. headers[..9], .. "****"u8];
+            Assert.AreEqual(Encoding.Latin1.GetString(expected), logged, name);
+        }
     }
 
     [TestMethod]

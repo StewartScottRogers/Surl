@@ -202,8 +202,10 @@ and the protocols fan out after.
 - `HttpWithheldHeaderNames` (BL-1712): the one list of the HTTP header fields whose values surl withholds
   (ADR-0182): `Credentials` (`Authorization`, `Proxy-Authorization`), `ApiKeysAndSessionTokens` (five) and
   `All`. `Surl.HttpMessage`'s request head redactor, `Surl.HttpServing`'s `HttpExchangeRedaction` and
-  `Surl.Authentication`'s withheld Signature Version 4 canonical request read it; the HTTP/2, HTTP/3 and
-  SOCKS tunnel redactors still name `Authorization` and `Proxy-Authorization` themselves.
+  `Surl.Authentication`'s withheld Signature Version 4 canonical request read it, and so does `Surl.Http2`'s
+  `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC and DNS over HTTPS;
+  BL-1717); the HTTP/3 and SOCKS tunnel redactors still name `Authorization` and `Proxy-Authorization`
+  themselves.
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
   returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
   `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,

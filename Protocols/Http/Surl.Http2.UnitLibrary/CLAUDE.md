@@ -40,7 +40,9 @@ Public, what a server uses:
   `NO_ERROR`, and half-closes; a close or a malformed frame first writes nothing, and the
   caller's deadline token bounds the whole of it.
 - `Http2RequestBytesRedactor` - what the exchange log may write of a client's HTTP/2 bytes
-  (ADR-0182); its class remarks say what it withholds and how much it holds back.
+  (ADR-0182); its class remarks say what it withholds and how much it holds back. It always withholds
+  `HttpWithheldHeaderNames.Credentials` and takes further field names from whoever makes it (gRPC and
+  DNS over HTTPS pass `ApiKeysAndSessionTokens`; amendment 13).
 - `Http2ConnectionPreface` (tells the 24 preface bytes from an HTTP/1.x head),
   `Http2SettingsPayload` (decodes an `HTTP2-Settings` payload), `Http2Setting`,
   `Http2SettingIdentifier`, `Http2ErrorCode`, and `Http2RequestHeadMapping`; `Surl.Http3` keeps
