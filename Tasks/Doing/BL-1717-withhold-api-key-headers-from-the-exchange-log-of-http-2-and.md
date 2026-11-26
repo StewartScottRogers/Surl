@@ -36,3 +36,4 @@ gRPC and DNS over HTTPS on HTTP/2 log a request header block that carries an API
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
