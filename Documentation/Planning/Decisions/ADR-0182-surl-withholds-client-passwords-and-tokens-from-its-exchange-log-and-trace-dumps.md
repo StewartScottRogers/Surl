@@ -734,20 +734,22 @@ read from the code, not recorded).
    the chunk that completes its frame header, decodes and carries no secret field; otherwise it is `****` once, and every
    further byte of it is left out. Every other frame's payload is logged as received, so a `DATA` payload is no longer
    mistaken for a frame. A unidirectional stream carries no request, and each of its chunks is redacted alone.
+   Amendment 35 excepts a session stream of either direction from this point.
 4. **Nothing is held back.** Holding a split payload until it is whole could show a non-secret one, but needs a buffer of
    up to 64 KiB per stream and a flush when the stream ends, which nothing reports. Rejected: a split `HEADERS` payload
    is withheld whether or not it carries a secret, as its first chunk already was (amendment 4).
 5. **Bounded memory.** Only streams part-way through a frame are remembered, at most 4,096. When one more would be, the
    redactor has lost a stream's place, and every later bidirectional stream chunk is `****` (fail closed, as amendment
-   11, point 4).
+   11, point 4). Replaced by amendment 35.
 6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
 
 Accepted limits:
 
 - A WebTransport bidirectional stream (signal `0x41`, session ID, then data) is read as frames too, so data that reads
-  as a `HEADERS` frame is withheld, now possibly across several chunks. That loses log detail only (BL-1775).
+  as a `HEADERS` frame is withheld, now possibly across several chunks. That loses log detail only (BL-1775). Closed
+  by amendment 35.
 - A stream reset or finished part-way through a frame stays remembered until the connection ends, and counts towards the
-  4,096 (BL-1775).
+  4,096 (BL-1775). Closed by amendment 35.
 - `Decoded` header text is still redacted only when it starts with `:` and line by line, so a malformed request whose
   first field is a regular one, or whose secret value holds CR LF, **can be logged** in that note. This amendment changes
   nothing there (BL-1773). Closed by amendment 22.
@@ -1153,3 +1155,44 @@ Accepted limits:
 - Which tunnels are read as text is unchanged (amendment 9, point 1): a line that starts with a space or a tab and is
   the first thing a tunnel carries does not make it one.
 - A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785.
+
+## Amendment 35 (BL-1775, decided by Claude under Stewart's delegation)
+
+The WebTransport server's HTTP/3 redactor read a WebTransport bidirectional stream as frames, so session data could be
+left out of the log, and a stream that ended part-way through a frame stayed remembered: after 4,096 of them every
+later bidirectional chunk was `****` (amendment 21's first two accepted limits).
+
+1. **Session streams are marked by whoever makes the redactor.** WebTransport makes `Http3RequestBytesRedactor` with
+   the bidirectional signal `0x41` and the unidirectional stream type `0x54`. A client stream of that direction whose
+   first integer, of any variable-length encoding, equals the marker is session data: it is logged as received from the
+   chunk completing that integer, while the stream is remembered, and the integer's earlier bytes are logged as
+   received too. The session ID is not parsed, since the server never reads such a stream as a request.
+2. **Only the stream's first integer counts.** So with a marker every stream of that direction is remembered from its
+   first chunk, and a later `40 41` on a bidirectional stream is still read as frames. A unidirectional stream that is
+   not a session stream is still judged chunk by chunk.
+3. **The plain HTTP/3 redactor has no marker.** The http and https servers' redactor reads `0x41` as an unknown frame
+   type, so a secret `HEADERS` frame after it is still withheld. Without a marker only bidirectional streams part-way
+   through a frame are remembered.
+4. **Bounded memory, replacing amendment 21, point 5.** At most 4,096 streams of each direction are remembered. One
+   more forgets the lowest stream ID of that direction and keeps the highest forgotten ID as a high-water mark. A
+   bidirectional stream that is not remembered and is at or below the mark is written as `****`, failing closed for it
+   alone. Such a unidirectional stream is judged chunk by chunk and not remembered again. This forgets abandoned
+   streams without any end-of-stream notification.
+5. **Rejected:** an end-of-stream notification, which needs a new contract through `Surl.Quic`, `Surl.Core` and
+   `Surl.Protocol.Abstractions`; forgetting the least recently used stream, whose mark could jump past quiet or late
+   streams and which needs more bookkeeping; and parsing the session ID.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), and no byte on the wire changes.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- A forgotten bidirectional stream is `****` from then on. That includes a long-lived `CONNECT` stream of a
+  WebTransport connection after 4,096 later bidirectional streams; its `DATA` payloads are still noted separately.
+- A bidirectional stream first seen at or below the mark is `****` too, and so is one of the plain redactor that comes
+  back after a frame boundary with an ID at or below the mark.
+- A unidirectional session stream that is forgotten, or first seen at or below the mark, is judged chunk by chunk, so
+  data that reads as a `HEADERS` frame can be withheld. That loses log detail only.
+- A stream that opens with the marker is logged as received whatever it holds.
+- QUIC datagrams and `DATA` payloads are still read as frames, so one that reads as a `HEADERS` frame can be withheld.
+  That loses log detail only; this amendment leaves it to a follow-up task (BL-1787).
