@@ -36,3 +36,4 @@ A tagged `AUTHENTICATE` line whose tag is also a SASL command word is logged wit
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
