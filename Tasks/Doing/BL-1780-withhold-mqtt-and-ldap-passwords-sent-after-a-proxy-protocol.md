@@ -43,3 +43,4 @@ An MQTT `CONNECT` password and an LDAP bind sent through a SOCKS tunnel after a 
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
