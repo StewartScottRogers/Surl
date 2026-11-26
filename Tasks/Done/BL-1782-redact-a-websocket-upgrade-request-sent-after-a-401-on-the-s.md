@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Ws.UnitLibrary, Protocols/Http/Surl.Protocol.Ws.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1782 — Redact a WebSocket upgrade request sent after a 401 on the same connection
 
@@ -32,15 +32,28 @@ The `ws` server's exchange log withholds the credentials of every upgrade reques
 
 ## Acceptance criteria
 
-- [ ] A test in `Surl.Protocol.Ws.UnitTests` passes in which the second upgrade head on one connection, after the first
+- [x] A test in `Surl.Protocol.Ws.UnitTests` passes in which the second upgrade head on one connection, after the first
       was answered `401`, is logged with `Authorization: Basic ****`, also one byte at a time.
-- [ ] Frames after the head answered `101` still pass through unchanged, pinned by the same or another test.
-- [ ] A new ADR-0182 amendment states the behaviour and removes amendment 26's accepted limit.
-- [ ] Build with `-warnaserror` is clean, fast tests are green, and the library stays at 100% line and branch coverage.
+- [x] Frames after the head answered `101` still pass through unchanged, pinned by the same or another test.
+- [x] A new ADR-0182 amendment states the behaviour and removes amendment 26's accepted limit.
+- [x] Build with `-warnaserror` is clean, fast tests are green, and the library stays at 100% line and branch coverage.
 
 ## Notes
+
+- Fix: `WebSocketUpgradeHeadBytesRedactor` gives every byte to `HttpRequestHeadBytesRedactor` until it sees the server
+  send `HTTP/1.1 101 `, then flushes any held line and passes bytes through. Both gaps close (ADR-0182 amendment 27).
+- Choice: bytes read before the server answers are judged as a head, frames sent that early included (fail closed). The
+  old test pinning those as unchanged now expects them masked. Rejected: restarting the mask on each `401`, since a
+  client may send its next request before the `401` is observed.
+- Measured with pinned curl 8.21.0: on a `ws` `401`, `--anyauth` and `--digest` close the connection (exit 22) and send
+  no second request (fixture `anyauth-401-101`). So the Context's "as curl --anyauth or --digest sends it" is not what
+  curl does on `ws`; the second head comes from another client.
+- Accepted limit (in amendment 27): bytes a head declares as its body are logged as received, as amendment 24 has it.
+- Verified: 6 new tests failed on the old redactor; build `-warnaserror` 0 warnings; format clean; fast tests green in
+  83 projects (Ws 136); `Surl.Protocol.Ws.UnitLibrary` 100% line, 100% branch, 0 failing members.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. The ws exchange log withholds the Authorization of every upgrade request until the server sends 101 (ADR-0182 amendment 27)
