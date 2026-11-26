@@ -36,3 +36,4 @@ An FTP or NATS client that ends lines with a bare line feed has each line in the
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: Backlog -> Doing.
