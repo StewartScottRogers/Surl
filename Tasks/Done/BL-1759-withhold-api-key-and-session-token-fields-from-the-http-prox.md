@@ -8,7 +8,7 @@ depends-on: [BL-1717]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary/HttpWithheldHeaderNames.cs, Foundation/Surl.Protocol.Abstractions.UnitLibrary/CLAUDE.md, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1759 — Withhold API-key and session-token fields from the HTTP proxy's exchange log
 
@@ -37,19 +37,36 @@ HTTP/1.x and on cleartext HTTP/2.
 
 ## Acceptance criteria
 
-- [ ] `HttpProxyExchangeLogRedactionTests.Http1RequestThroughTheProxy_ApiKeyFields_AreLoggedAsMasks` passes for each name
+- [x] `HttpProxyExchangeLogRedactionTests.Http1RequestThroughTheProxy_ApiKeyFields_AreLoggedAsMasks` passes for each name
       in `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, in a forwarded request and in a `CONNECT` tunnel.
-- [ ] `HttpProxyExchangeLogRedactionTests.Http2RequestThroughTheProxy_ApiKeyFields_WithholdTheHeaderBlock` passes for
+- [x] `HttpProxyExchangeLogRedactionTests.Http2RequestThroughTheProxy_ApiKeyFields_WithholdTheHeaderBlock` passes for
       each of those names on prior-knowledge HTTP/2 in a `CONNECT` tunnel: each `HEADERS` payload is `****`.
-- [ ] The proxy library reads the field names from `HttpWithheldHeaderNames` and names none of the five itself.
-- [ ] A new ADR-0182 amendment (the next free number) states the above, and the redactor's doc comment, the
+- [x] The proxy library reads the field names from `HttpWithheldHeaderNames` and names none of the five itself.
+- [x] A new ADR-0182 amendment (the next free number) states the above, and the redactor's doc comment, the
       `HttpWithheldHeaderNames` doc comment and both libraries' `CLAUDE.md` files agree with it.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the proxy library stays at 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the proxy library stays at 100% line and
       branch coverage.
 
 ## Notes
+
+- Plan: give `HttpRequestHeadBytesRedactor` and `Http2RequestBytesRedactor` the five names, and have the tunnelled-text
+  line rule mask them whole. The line rule is included because the goal says "on HTTP/1.x" and tunnelled text carries
+  HTTP/1.x too (amendment 16 named this task for it). Recorded as ADR-0182 amendment 18.
+- Kept the name `HttpProxyTunnelPasswordAndCredentialHeaderLineRule`: an API key and a session token are credentials,
+  and BL-1767 refers to the class by that name.
+- No exit code, option or wire byte changes, so no upstream curl measurement and no conformance stage.
+- Pipeline stages run in the session (plan, tests, implementation, documents); only the review went to an agent
+  (`code-reviewer`), to keep the token cost of a small change low. The three new tests failed before the change.
+- Added `Protocols/Http/Surl.Http2.UnitLibrary/CLAUDE.md` to `touches`: it listed who passes the names. No task in
+  Doing names it.
+- Review: fixed the stale doc comments. Recorded in amendment 18, as accepted limits, bare-line-feed heads (BL-1769),
+  chunked trailers (BL-1770), and a bare-line-feed folded line in a `CONNECT` head (no task: the proxy refuses folding,
+  and no conforming client sends it).
+- Help text: `AiHelpProse` and `ManualText` still say the proxy logs these headers. BL-1764 is the follow-up (it
+  depends on this task), so no new one was filed.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. The HTTP proxy's exchange log withholds the API-key and session-token fields on HTTP/1.x, tunnelled text and cleartext HTTP/2 (ADR-0182 amendment 18)
