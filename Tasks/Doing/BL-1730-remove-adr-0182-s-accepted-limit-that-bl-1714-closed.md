@@ -33,3 +33,4 @@ ADR-0182 no longer says that an over-long first `HEADERS` frame leaves the follo
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
