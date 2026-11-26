@@ -34,3 +34,4 @@ The FTP exchange log writes the argument as `****` on a `PASS<tab><password>` or
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
