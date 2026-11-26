@@ -47,3 +47,4 @@ decision 10 and ADR-0103 decision 7 (decided by Claude under Stewart's delegatio
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
