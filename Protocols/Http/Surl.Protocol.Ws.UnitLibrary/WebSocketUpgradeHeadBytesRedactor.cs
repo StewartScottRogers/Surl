@@ -5,65 +5,38 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Ws;
 
 /// <summary>
-/// An <see cref="IReceivedBytesRedactor"/> for one WebSocket connection: it masks the credentials of
-/// the upgrade request's <c>Authorization</c> field exactly as <see cref="HttpRequestHeadBytesRedactor"/>
-/// does (ADR-0182), and stops at the blank line that ends that head - the first empty line after a
-/// non-empty one, so empty lines before the request line do not stop it (amendment 26). Every byte
-/// after it is taken for WebSocket frames and is passed through unchanged, so a frame whose payload
-/// reads <c>Authorization: x</c> is logged as it was sent.
+/// An <see cref="IReceivedBytesRedactor"/> for one WebSocket connection: until the server sends
+/// <c>101</c>, every byte received is judged by an <see cref="HttpRequestHeadBytesRedactor"/>, so
+/// the credentials of each upgrade request's <c>Authorization</c> field are masked, that of a
+/// request sent again after a <c>401</c> too (ADR-0182, amendment 27). Bytes received once the
+/// <c>101</c> has been sent are WebSocket frames and are passed through unchanged, so a frame whose
+/// payload reads <c>Authorization: x</c> is logged as it was sent. Bytes received before it, those
+/// read together with the upgrade request included, are judged as a request head.
 /// </summary>
 internal sealed class WebSocketUpgradeHeadBytesRedactor : IReceivedBytesRedactor
 {
-    private const byte CarriageReturn = 0x0D;
-    private const byte LineFeed = 0x0A;
-
-    private readonly HttpRequestHeadBytesRedactor head = new();
-    private bool headEnded;
-    private bool headHasNonEmptyLine;
-    private bool lineIsEmpty = true;
+    private readonly HttpRequestHeadBytesRedactor heads = new();
+    private bool upgradeAccepted;
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        int headLength = headEnded ? 0 : LengthThroughHeadEnd(received);
-        if (headLength > 0)
+        if (!upgradeAccepted)
         {
-            head.Redact(received[..headLength], output);
+            heads.Redact(received, output);
+            return;
         }
 
-        output.Write(received[headLength..]);
+        // The unfinished line still held from before the 101 goes ahead of the frames that follow it.
+        heads.Flush(output);
+        output.Write(received);
     }
 
     /// <inheritdoc />
-    public void ObserveSent(ReadOnlySpan<byte> sent) => head.ObserveSent(sent);
+    public void ObserveSent(ReadOnlySpan<byte> sent) =>
+        upgradeAccepted |= sent.StartsWith("HTTP/1.1 101 "u8);
 
     /// <inheritdoc />
-    public void Flush(ArrayBufferWriter<byte> output) => head.Flush(output);
-
-    private int LengthThroughHeadEnd(ReadOnlySpan<byte> received)
-    {
-        for (int index = 0; index < received.Length; index++)
-        {
-            byte next = received[index];
-            if (next == LineFeed)
-            {
-                // Empty lines before the request line end no head: the server skips them (RFC 9112, section 2.2).
-                if (lineIsEmpty && headHasNonEmptyLine)
-                {
-                    headEnded = true;
-                    return index + 1;
-                }
-
-                lineIsEmpty = true;
-            }
-            else if (next != CarriageReturn)
-            {
-                headHasNonEmptyLine = true;
-                lineIsEmpty = false;
-            }
-        }
-
-        return received.Length;
-    }
+    public void Flush(ArrayBufferWriter<byte> output) => heads.Flush(output);
 }

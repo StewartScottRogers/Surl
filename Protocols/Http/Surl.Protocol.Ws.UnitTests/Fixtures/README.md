@@ -56,3 +56,17 @@ Recorded on 2026-11-05 the same way (ADR-0134 decision 3), with `$h` the `101` a
 
 curl wrote the `CLOSE` payload (`\x03\xF5try later`) to `stdout.bin`. A `CLOSE` with `1011` and no reason
 (`$h\x88\x02\x03\xF3`) also exited 0.
+
+## A challenged upgrade (BL-1782)
+
+Recorded on 2026-11-26 the same way, on port 18391, with `$challenge` the `401` of `basic-401` above
+and `$accept` the `101` and empty `CLOSE` of `upgrade-101`, offered as a second reply:
+
+| Folder | Replies, in order | curl arguments | Exit |
+| --- | --- | --- | --- |
+| `anyauth-401-101` | `$challenge`, then `$accept` | `-sS`, `--anyauth`, `-u`, `tester:secret`, `ws://127.0.0.1:18391/chat` | 22 |
+
+curl sent one request, with no `Authorization`, then closed the connection on the `401` without
+sending it again (`curl: (22) Refused WebSocket upgrade: 401`), so `$accept` was never sent.
+`--digest` did the same. The tests add the login to the recorded request to make the retry another
+client may send on that connection.

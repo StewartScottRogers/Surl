@@ -926,9 +926,37 @@ section 2.2).
 
 Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
 
-Accepted limits, until BL-1782 changes where the redactor stops:
+Its two accepted limits (a later upgrade head on the connection, and a field after a line of carriage returns, logged
+as received) are closed by amendment 27, which also replaces points 1 to 3.
 
-- The redactor stops at the end of the first head. A `401` keeps the connection (ADR-0032), so the `Authorization` of
-  a later upgrade request on it **is logged as received**.
-- A line of carriage returns alone after the request line still ends the redactor's search. The server refuses such a
-  head, and a field after that line **is logged as received**. Only a client crafting its own bytes does this.
+## Amendment 27 (BL-1782, decided by Claude under Stewart's delegation)
+
+The WebSocket redactor stopped at the end of the first upgrade head. A `401` keeps the connection (ADR-0032), so the
+`Authorization` of a later upgrade request on it was logged in clear. So was a field after a line of carriage returns
+that followed the request line.
+
+1. **The server's `101` is what ends redaction, not a head's blank line.** Until the redactor sees the server send
+   bytes starting `HTTP/1.1 101 `, every received byte goes to `HttpRequestHeadBytesRedactor`, so every upgrade head
+   on the connection is redacted, however the bytes are split. This replaces amendment 26, points 1 to 3.
+2. **Bytes received after the `101` was sent are frames** and are written unchanged. A line still held back from
+   before it is written first, judged as a head line.
+3. **Fail closed before the answer.** Bytes read before the server has answered, those read together with an upgrade
+   request included, are judged as a request head: the client does not yet know the answer, so they may be its next
+   request. A frame sent that early is logged as received unless the head rules mask it: a line of it that reads as a
+   secret field, and the lines with no colon after one, have their values written as `****`, and a line longer than
+   64 KiB is `****` as far as the `101` or the end of that line.
+4. **A line of carriage returns alone ends no head**, as `HttpRequestHeadBytesRedactor` reads it, so a field after it
+   is masked.
+5. **Rejected:** masking only until a first head has ended and starting again on each `401`, because a client may send
+   its next request before the `401` reaches the redactor.
+
+Evidence: pinned upstream curl 8.21.0 (`0E773709…8778`), answered `401` on `ws://` with `--anyauth` and with
+`--digest`, closed the connection and exited 22 without sending a second request
+(`--anyauth`: fixture `anyauth-401-101` in `Surl.Protocol.Ws.UnitTests`). So the second head on one connection comes
+from another client. The redaction itself is reproduced by unit tests, not recorded on the wire.
+
+Accepted limit:
+
+- As amendment 24 has it for every user of the head redactor, what a head declares as its body is logged as received.
+  The server refuses an upgrade that declares one and closes the connection, so only a client crafting its own bytes
+  puts a login there.
