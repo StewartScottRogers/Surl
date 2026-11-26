@@ -50,3 +50,4 @@ tasks in `depends-on` made the exchange log withhold.
   logged (ADR-0182 amendment 24, whose accepted limits name what can still be logged).
 - 2026-11-26: BL-1780 added to `depends-on`, with a context bullet and a criterion for the proxy tunnel sentences
   that BL-1765 and BL-1780 made out of date.
+- 2026-11-26: Backlog -> Doing.
