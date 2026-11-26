@@ -32,3 +32,4 @@ but left the index alone because another task in progress named that file.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
