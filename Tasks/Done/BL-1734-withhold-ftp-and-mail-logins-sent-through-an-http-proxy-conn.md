@@ -8,7 +8,7 @@ depends-on: [BL-1713]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1734 — Withhold FTP and mail logins sent through an HTTP proxy CONNECT tunnel from the exchange log
 
@@ -39,21 +39,35 @@ are logged as `****`.
 
 ## Acceptance criteria
 
-- [ ] `HttpProxyExchangeLogRedactionTests.ConnectTunnel_FtpPassAndAcct_AreLoggedAsMasks` passes: after a granted
+- [x] `HttpProxyExchangeLogRedactionTests.ConnectTunnel_FtpPassAndAcct_AreLoggedAsMasks` passes: after a granted
       `CONNECT` the log holds `PASS ****` and `ACCT ****`, also when the client's bytes arrive one at a time.
-- [ ] `HttpProxyExchangeLogRedactionTests.ConnectTunnel_MailSaslCredentials_AreAbsentFromTheLog` passes for an
+- [x] `HttpProxyExchangeLogRedactionTests.ConnectTunnel_MailSaslCredentials_AreAbsentFromTheLog` passes for an
       `AUTH PLAIN <base64>` line and for continuation lines answering `334 ` and `+ `.
-- [ ] `HttpProxyExchangeLogRedactionTests.ConnectTunnel_ImapLogin_PasswordIsAbsentFromTheLog` passes.
-- [ ] The tests `HttpProxyExchangeLogRedactionTests` and `HttpProxyConnectionBytesRedactorTests` held before this task
+- [x] `HttpProxyExchangeLogRedactionTests.ConnectTunnel_ImapLogin_PasswordIsAbsentFromTheLog` passes.
+- [x] The tests `HttpProxyExchangeLogRedactionTests` and `HttpProxyConnectionBytesRedactorTests` held before this task
       pass with their expected output unchanged.
-- [ ] ADR-0182 gains an amendment saying what is masked inside a `CONNECT` tunnel and what is not, and the
+- [x] ADR-0182 gains an amendment saying what is masked inside a `CONNECT` tunnel and what is not, and the
       `CreateRedactor` doc comment and the proxy library's `CLAUDE.md` (references included) match.
-- [ ] Build with `-warnaserror` is clean, fast tests are green, and the proxy library stays at 100% line and branch
+- [x] Build with `-warnaserror` is clean, fast tests are green, and the proxy library stays at 100% line and branch
       coverage.
 
 ## Notes
+
+- Design (ADR-0182 amendment 16): `HttpProxyRequestOrTunnelBytesRedactor` reads HTTP request heads until a line that
+  is not one starts where a request may start; from there `HttpProxyTunnelLinesRedactor` judges every line. The tunnel
+  rules are near copies of the SOCKS ones (BL-1764 shares them); the proxy library now references `Surl.LineProtocol`.
+- The client's bytes decide where the tunnel starts, not the `200` seen through `ObserveSent` as the Context suggests:
+  switching at the `200` would log tunnelled bytes sent before it. `ObserveSent` still feeds the continuation rules.
+- Pipeline: planned, tested and implemented in the session, without delegating those stages, to save tokens;
+  `code-reviewer` reviewed. Conformance audit skipped: no byte Surl sends or accepts changes, only the log.
+- Review found two leaks, fixed with failing tests first: a `CONNECT` head with a bare-line-feed line, and a `CONNECT`
+  head declaring a body, both left the tunnel's `PASS` in clear.
+- Verified: build `-warnaserror` clean, format clean, fast tests 29551 passed, 0 failed, 3 skipped; the proxy library
+  measures 100% line and branch coverage, 0 failing members.
+- Follow-ups filed: BL-1764 (share the tunnel rules), BL-1765 (MQTT and LDAP in the proxy tunnel), BL-1766 (help text).
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. FTP PASS/ACCT and SMTP, IMAP and POP3 logins sent through an HTTP proxy CONNECT tunnel are logged as ****
