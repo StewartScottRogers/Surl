@@ -20,8 +20,9 @@ An MQTT 5 Authentication Data value carried through a SOCKS tunnel, in a `CONNEC
 ## Context
 
 - BL-1706 masks only the `CONNECT` password (ADR-0182, amendment 10, accepted limits).
-  `SocksTunnelMqttConnectRedactor` logs `CONNECT` properties and every later packet as received.
-- The origin server's model is `Mqtt5ClientSecretBytesRedactor`. The SOCKS library may not reference it (ADR-0002
+  `Surl.LineProtocol`'s `TunnelMqttConnectRedactor`, which the SOCKS server and the HTTP proxy share since BL-1765
+  (amendment 23), logs `CONNECT` properties and every later packet as received.
+- The origin server's model is `Mqtt5ClientSecretBytesRedactor`. `Surl.LineProtocol` may not reference it (ADR-0002
   decision 3).
 - Pinned upstream curl speaks MQTT 3.1.1 only, so the test bytes come from the MQTT 5.0 specification, sections 3.1 and
   3.15.
