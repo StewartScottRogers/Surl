@@ -98,6 +98,22 @@ public sealed class NatsExchangeLogRedactionTests
     }
 
     [TestMethod]
+    public void Connect_AfterABareLineFeed_MasksThePassAndTheToken() =>
+        Assert.AreEqual(
+            "PING\nCONNECT {\"pass\":\"****\",\"auth_token\":\"****\"}\r\n",
+            Logged("PING\nCONNECT {\"pass\":\"s3cret\",\"auth_token\":\"t0ken\"}\r\n"));
+
+    [TestMethod]
+    public void EveryOtherLineOfTheSameChunk_IsLoggedAsSentLineFeedsIncluded() =>
+        Assert.AreEqual(
+            "PING\n\nCONNECT {\"pass\":\"****\"}\nSUB a 1\nCONNECT\nPONG\r\nPING\n",
+            Logged("PING\n\nCONNECT {\"pass\":\"s3cret\"}\nSUB a 1\nCONNECT\nPONG\r\nPING\n"));
+
+    [TestMethod]
+    public void Connect_UnreadableAndEndedByABareLineFeed_IsMaskedUpToTheLineFeed() =>
+        Assert.AreEqual("CONNECT ****\nPING\r\n", Logged("CONNECT {\"pass\":\"s3cret\"\nPING\r\n"));
+
+    [TestMethod]
     public void RuleObserveSent_ChangesNothing()
     {
         var redactor = NewRedactor();
