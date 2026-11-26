@@ -89,7 +89,20 @@ internal static class MqttPacketEncoder
     /// <param name="topic">The message's topic name.</param>
     /// <param name="payload">The message's payload.</param>
     /// <returns>The packet's bytes.</returns>
-    public static byte[] RetainedPublish(string topic, ReadOnlySpan<byte> payload)
+    public static byte[] RetainedPublish(string topic, ReadOnlySpan<byte> payload) =>
+        QualityOfServiceZeroPublish(0x01, topic, payload);
+
+    /// <summary>
+    /// A QoS 0 <c>PUBLISH</c> of a message published while the subscription was held, with
+    /// <c>RETAIN</c> and <c>DUP</c> clear (section 3.3.1.3): fixed header <c>0x30</c>.
+    /// </summary>
+    /// <param name="topic">The message's topic name.</param>
+    /// <param name="payload">The message's payload.</param>
+    /// <returns>The packet's bytes.</returns>
+    public static byte[] LivePublish(string topic, ReadOnlySpan<byte> payload) =>
+        QualityOfServiceZeroPublish(0x00, topic, payload);
+
+    private static byte[] QualityOfServiceZeroPublish(int flags, string topic, ReadOnlySpan<byte> payload)
     {
         var topicBytes = Encoding.UTF8.GetBytes(topic);
         var body = new byte[sizeof(ushort) + topicBytes.Length + payload.Length];
@@ -97,7 +110,7 @@ internal static class MqttPacketEncoder
         topicBytes.CopyTo(body, sizeof(ushort));
         payload.CopyTo(body.AsSpan(sizeof(ushort) + topicBytes.Length));
 
-        return Encode(((byte)MqttPacketType.Publish << 4) | 0x01, body);
+        return Encode((byte)(((int)MqttPacketType.Publish << 4) | flags), body);
     }
 
     /// <summary>

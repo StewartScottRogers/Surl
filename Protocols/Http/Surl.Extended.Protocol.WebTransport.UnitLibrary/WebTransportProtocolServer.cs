@@ -49,12 +49,15 @@ public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatag
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly([Scheme]);
 
     /// <summary>
-    /// Creates the redactor of the decrypted-bytes notes of one HTTP/3 connection: it withholds the
-    /// <c>authorization</c> and <c>proxy-authorization</c> values of request header blocks (ADR-0182; BL-1469).
+    /// Creates the redactor of the decrypted-bytes notes of one HTTP/3 connection: it withholds, from
+    /// request header blocks and their decoded header text, the value of every field in
+    /// <see cref="HttpWithheldHeaderNames.All"/> (credentials, API keys and session tokens; ADR-0182
+    /// decision 7 and amendment 14).
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for that exchange alone.</returns>
-    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Http3RequestBytesRedactor();
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new Http3RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
 
     /// <summary>
     /// Runs one QUIC connection on <paramref name="flow"/> and serves its WebTransport sessions until

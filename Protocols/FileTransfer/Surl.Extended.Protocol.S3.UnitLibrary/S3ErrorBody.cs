@@ -1,11 +1,13 @@
 using System.Text;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
 
 /// <summary>
-/// Writes the S3 <c>Error</c> body ("Error responses"; ADR-0108, decision 1.1): the XML
-/// declaration, then one line holding <c>Code</c>, <c>Message</c>, any extra element the code
-/// carries, <c>Resource</c> and <c>RequestId</c>, as UTF-8.
+/// Writes the S3 <c>Error</c> body ("Error responses"; ADR-0108, decision 1.1 and Amendment 12):
+/// the XML declaration, then <c>Code</c>, <c>Message</c>, a signature mismatch's
+/// <c>StringToSign</c> and <c>CanonicalRequest</c>, any extra element the code carries,
+/// <c>Resource</c> and <c>RequestId</c>, as UTF-8, with no whitespace between elements.
 /// </summary>
 internal static class S3ErrorBody
 {
@@ -17,7 +19,8 @@ internal static class S3ErrorBody
     /// <summary>
     /// Renders the body.
     /// </summary>
-    /// <param name="error">The error, whose code and message are fixed text.</param>
+    /// <param name="error">The error, whose code and message are fixed text, with its signature
+    /// mismatch if it carries one.</param>
     /// <param name="resource">The request's path as the client sent it, still percent-encoded.</param>
     /// <param name="requestId">The answer's <c>x-amz-request-id</c>.</param>
     /// <param name="extraElements">The elements the code carries beside the common ones, such as
@@ -28,6 +31,7 @@ internal static class S3ErrorBody
         var xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Error>");
         AppendElement(xml, "Code", error.Code);
         AppendElement(xml, "Message", error.Message);
+        AppendSignatureMismatch(xml, error.SignatureMismatch);
         foreach (var element in extraElements)
         {
             AppendElement(xml, element.Key, Echoed(element.Value));
@@ -47,16 +51,39 @@ internal static class S3ErrorBody
     /// </summary>
     /// <param name="value">The client's value.</param>
     /// <returns>The value as it is written into the element.</returns>
-    public static string Echoed(string value)
+    public static string Echoed(string value) =>
+        Escaped(value.Length > MaxEchoedLength ? value[..MaxEchoedLength] : value, keepsLineFeeds: false);
+
+    /// <summary>
+    /// The canonical request or the string to sign as it is echoed (ADR-0108, Amendment 12): its
+    /// line feeds kept, every other character outside printable ASCII replaced by <c>?</c>, then
+    /// <c>&amp;</c>, <c>&lt;</c> and <c>&gt;</c> escaped, and not cut.
+    /// </summary>
+    /// <param name="signedText">The text, built from the client's request.</param>
+    /// <returns>The text as it is written into the element.</returns>
+    public static string EchoedLines(string signedText) => Escaped(signedText, keepsLineFeeds: true);
+
+    private static string Escaped(string value, bool keepsLineFeeds)
     {
-        var cut = value.Length > MaxEchoedLength ? value[..MaxEchoedLength] : value;
-        var printable = new StringBuilder(cut.Length);
-        foreach (var character in cut)
+        var printable = new StringBuilder(value.Length);
+        foreach (var character in value)
         {
-            printable.Append(character is >= ' ' and <= '~' ? character : '?');
+            var isKept = character is >= ' ' and <= '~' || (keepsLineFeeds && character == '\n');
+            printable.Append(isKept ? character : '?');
         }
 
         return printable.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").ToString();
+    }
+
+    private static void AppendSignatureMismatch(StringBuilder xml, AwsSigV4SignatureMismatch? mismatch)
+    {
+        if (mismatch is null)
+        {
+            return;
+        }
+
+        AppendElement(xml, "StringToSign", EchoedLines(mismatch.StringToSign));
+        AppendElement(xml, "CanonicalRequest", EchoedLines(mismatch.CanonicalRequest));
     }
 
     private static void AppendElement(StringBuilder xml, string name, string text) =>

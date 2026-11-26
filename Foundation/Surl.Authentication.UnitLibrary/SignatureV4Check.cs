@@ -146,7 +146,10 @@ internal static class SignatureV4Check
     /// <param name="payloadHash">The payload hash the canonical request ends with.</param>
     /// <param name="reencodesPath">Whether the canonical path is the path percent-encoded again.</param>
     /// <param name="excludedQueryParameter">A query parameter the canonical query leaves out (a presigned URL's signature), or <see langword="null"/>.</param>
-    /// <returns>Accepted as the key's account, or refused.</returns>
+    /// <returns>
+    /// Accepted as the key's account, or refused; a configured account's signature that does not
+    /// match carries what was computed, when a canonical request could be built.
+    /// </returns>
     public static HttpCredentialCheck VerifySignature(
         AccountBook accounts,
         AwsSigV4Authorization authorization,
@@ -156,8 +159,11 @@ internal static class SignatureV4Check
         bool reencodesPath,
         string? excludedQueryParameter = null)
     {
+        string? BuildCanonicalRequest(bool withholdsSecrets) => AwsSigV4CanonicalRequest.Build(
+            request, authorization, payloadHash, reencodesPath, excludedQueryParameter, withholdsSecrets);
+
         var account = accounts.FindAwsSigV4Account(authorization.AccessKeyId);
-        var canonicalRequest = AwsSigV4CanonicalRequest.Build(request, authorization, payloadHash, reencodesPath, excludedQueryParameter);
+        var canonicalRequest = BuildCanonicalRequest(false);
         var matches = canonicalRequest is not null
             && accounts.SecretComparer.FixedTimeEquals(
                 AwsSigV4Calculation.ComputeSignature(authorization, requestTime, canonicalRequest, account.Secret),
@@ -170,9 +176,22 @@ internal static class SignatureV4Check
             return new HttpCredentialCheck(HttpCredentialOutcome.Accepted, account.AccountName, [], authorization.AccessKeyId);
         }
 
-        return Refused(
-            authorization,
-            account.AccountName is null ? HttpAuthenticationRefusal.UnknownAccount : HttpAuthenticationRefusal.BadSignature);
+        if (account.AccountName is null)
+        {
+            return Refused(authorization, HttpAuthenticationRefusal.UnknownAccount);
+        }
+
+        var refused = Refused(authorization, HttpAuthenticationRefusal.BadSignature);
+
+        // The hash signed is of the request as received; the copy carried withholds its secrets.
+        return canonicalRequest is null
+            ? refused
+            : refused with
+            {
+                SignatureMismatch = new AwsSigV4SignatureMismatch(
+                    BuildCanonicalRequest(true)!,
+                    AwsSigV4Calculation.BuildStringToSign(authorization, requestTime, canonicalRequest)),
+            };
     }
 
     /// <summary>

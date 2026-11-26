@@ -18,6 +18,8 @@ public sealed class HttpProxyCommandFaultTests
 
     private const string OriginResponse = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok";
 
+    private const string NoChallengeNote = "fault rule f1 chose 407, and the proxy offers no challenge on this connection";
+
     [TestMethod]
     public async Task ServeAsync_ConnectMatchingAnErrorRule_AnswersExactlyTheChosenStatusAndOpensNoTunnel()
     {
@@ -36,14 +38,60 @@ public sealed class HttpProxyCommandFaultTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ConnectChosen407_CarriesNoProxyAuthenticateChallenge()
+    public async Task ServeAsync_ConnectChosen407_CarriesTheSessionsChallengesInOrderAndContactsNoOrigin()
+    {
+        var origins = new InMemoryOriginConnector();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Scheme = "http-proxy", Reply = "407" });
+        var log = new RecordingExchangeLog();
+
+        var (written, _) = await ServeAsync(Connection(LoggedIn(Connect)), origins, plan, policy: new UnitTestProxyAuthenticationPolicy(), log: log);
+
+        Assert.AreEqual(ChallengedAnswer("407 Proxy Authentication Required", UnitTestProxyAuthenticationPolicy.Challenges), written);
+        Assert.IsEmpty(origins.Requests);
+        Assert.DoesNotContain(NoChallengeNote, log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ForwardedGetChosen407WithItsOwnReason_CarriesTheSessionsChallengesInOrderAndContactsNoOrigin()
+    {
+        var origins = new InMemoryOriginConnector();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Scheme = "http-proxy", Reply = "407 Who Are You" });
+
+        var (written, client) = await ServeAsync(Connection(LoggedIn(ForwardedGet)), origins, plan, policy: new UnitTestProxyAuthenticationPolicy());
+
+        Assert.AreEqual(ChallengedAnswer("407 Who Are You", UnitTestProxyAuthenticationPolicy.Challenges), written);
+        Assert.IsEmpty(origins.Requests);
+        Assert.IsFalse(client.WritesCompleted);
+    }
+
+    [TestMethod]
+    [DataRow(Connect)]
+    [DataRow(ForwardedGet)]
+    public async Task ServeAsync_Chosen407FromASessionOfferingNoChallenge_CarriesNoneAndNotesIt(string request)
     {
         var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Scheme = "http-proxy", Reply = "407" });
+        var log = new RecordingExchangeLog();
 
-        var (written, _) = await ServeAsync(Connection(Connect), new InMemoryOriginConnector(), plan);
+        var (written, _) = await ServeAsync(Connection(request), new InMemoryOriginConnector(), plan, log: log);
 
         Assert.AreEqual(Answer(407, "Proxy Authentication Required"), written);
+        Assert.Contains(NoChallengeNote, log.Notes);
+    }
+
+    [TestMethod]
+    [DataRow("503")]
+    [DataRow("401")]
+    public async Task ServeAsync_ChosenStatusOtherThan407_CarriesNoChallenge(string reply)
+    {
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Scheme = "http-proxy", Reply = reply });
+        var log = new RecordingExchangeLog();
+
+        var (written, _) = await ServeAsync(Connection(LoggedIn(Connect)), new InMemoryOriginConnector(), plan, policy: new UnitTestProxyAuthenticationPolicy(), log: log);
+
+        Assert.StartsWith($"HTTP/1.1 {reply} ", written);
         Assert.DoesNotContain("Proxy-Authenticate", written);
+        Assert.DoesNotContain("WWW-Authenticate", written);
+        Assert.DoesNotContain(NoChallengeNote, log.Notes);
     }
 
     [TestMethod]
@@ -235,6 +283,49 @@ public sealed class HttpProxyCommandFaultTests
         Assert.AreEqual("http://origin.test/a", plan.Points.Single().Path);
     }
 
+    [TestMethod]
+    public async Task ServeStreamAsync_StreamChosen407_CarriesAnNtlmAndNegotiateOnlyListWholeAndResetsNothing()
+    {
+        string[] offered = ["NTLM", "Negotiate"];
+        var origins = new InMemoryOriginConnector();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Scheme = "http-proxy", Reply = "407" });
+        var head = new Http2RequestHead("CONNECT", "origin.test:443", "origin.test:443", [new("proxy-authorization", "Basic dTpw")], null, false);
+
+        var (response, stream) = await ServeStreamAsync(head, origins, plan, new UnitTestProxyAuthenticationPolicy { OfferedChallenges = offered });
+
+        Assert.AreEqual("407", response.Status);
+        CollectionAssert.AreEqual(offered, ProxyAuthenticateValues(response));
+        Assert.IsEmpty(stream.Resets);
+        Assert.IsEmpty(origins.Requests);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_StreamChosen407FromASessionOfferingNoChallenge_CarriesNoneAndNotesIt()
+    {
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Scheme = "http-proxy", Reply = "407" });
+        var log = new RecordingExchangeLog();
+        var head = new Http2RequestHead("GET", "/a", "origin.test", [], null, false) { Scheme = "http" };
+
+        var (response, _) = await ServeStreamAsync(head, new InMemoryOriginConnector(), plan, log: log);
+
+        Assert.AreEqual("407", response.Status);
+        Assert.IsEmpty(ProxyAuthenticateValues(response));
+        Assert.Contains(NoChallengeNote, log.Notes);
+    }
+
+    // The request with the Basic login UnitTestProxyAuthenticationPolicy lets in.
+    private static string LoggedIn(string request) =>
+        request.Replace("\r\n\r\n", "\r\nProxy-Authorization: Basic dTpw\r\n\r\n", StringComparison.Ordinal);
+
+    // The proxy's own answer with one Proxy-Authenticate per challenge, on a connection kept.
+    private static string ChallengedAnswer(string status, IEnumerable<string> challenges) =>
+        $"HTTP/1.1 {status}\r\n{DateField}Server: surl\r\n"
+        + string.Concat(challenges.Select(challenge => $"Proxy-Authenticate: {challenge}\r\n"))
+        + $"Content-Type: text/plain; charset=us-ascii\r\nContent-Length: {status.Length + 1}\r\n\r\n{status}\n";
+
+    private static string[] ProxyAuthenticateValues(Http2TestResponse response) =>
+        response.Fields.Where(field => field.Name == "proxy-authenticate").Select(field => field.Value).ToArray();
+
     private static async Task<(string Written, InMemoryConnection Client)> ServeAsync(
         InMemoryConnection client,
         InMemoryOriginConnector origins,
@@ -258,11 +349,16 @@ public sealed class HttpProxyCommandFaultTests
         return (Latin1(client.WrittenBytes), client);
     }
 
-    private static async Task<(Http2TestResponse Response, Http2TestStream Stream)> ServeStreamAsync(Http2RequestHead head, InMemoryOriginConnector origins, ScriptedFaultPlan plan)
+    private static async Task<(Http2TestResponse Response, Http2TestStream Stream)> ServeStreamAsync(
+        Http2RequestHead head,
+        InMemoryOriginConnector origins,
+        ScriptedFaultPlan plan,
+        IAuthenticationPolicy? policy = null,
+        RecordingExchangeLog? log = null)
     {
         var stream = new Http2TestStream(head, isBodyAnnounced: false, CancellationToken.None);
-        var context = Context(new RecordingExchangeLog()) with { Faults = plan };
-        using var handler = new Http2ProxyStreamHandler(context, origins, new AnonymousAuthenticationPolicy().StartHttpConnection(null));
+        var context = Context(log ?? new RecordingExchangeLog()) with { Faults = plan };
+        using var handler = new Http2ProxyStreamHandler(context, origins, (policy ?? new AnonymousAuthenticationPolicy()).StartHttpConnection(null));
 
         await handler.ServeStreamAsync(stream.Stream, CancellationToken.None);
 

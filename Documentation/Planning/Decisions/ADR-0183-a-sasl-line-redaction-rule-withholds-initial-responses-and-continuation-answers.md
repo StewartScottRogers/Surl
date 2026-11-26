@@ -43,3 +43,61 @@ Decided by Claude under Stewart's delegation, 2026-11-20. Settles decision 5.
    literal, so the next client line is read as a command.
 5. **Known limit.** The line seam holds at most 64 KiB without a CR LF; a longer run inside a literal is written as `****`
    by `LineBytesRedactor` and the rule does not see it, so its literal count can then run long. Only the log is affected.
+
+## Amendment 2 — runs of spaces (BL-1738)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Narrows how decision 2 counts tokens.
+
+1. **A run of spaces separates two tokens.** `AUTH PLAIN  <initial-response>`, with extra spaces before the mechanism,
+   the response or the command word, is logged with the response as `****`; every space is logged as received. Upstream
+   curl sends single spaces, but the log must withhold the password of any client, and of a line the server refuses.
+
+## Amendment 3 — IMAP LOGIN lines with no tag or with tabs (BL-1748)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens which lines amendment 1 treats as `LOGIN`. The server
+refuses all of these lines, but the client has already sent the password. SASL lines are unchanged.
+
+1. **First or second word.** A line is a `LOGIN` command when its first or second word is `LOGIN`; words are separated by
+   runs of spaces and tabs.
+2. **Both words `LOGIN`.** The first may be the tag or the second may be the user name of a line with no tag, so both
+   arguments after the second word are `****`. Losing a user name in the log is preferred to guessing which reading holds.
+3. **Tabs.** When a tab is on the line that holds the password, a tab may have split one argument in two, so nothing after
+   `****` is written, and a literal that line announces is `****` too.
+4. **A new line is a new command.** A line that is not part of a literal never continues an earlier `LOGIN`, so the line
+   after `A1 LOGIN alice` is logged as sent.
+
+## Amendment 4 — SASL lines with tabs (BL-1749)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens amendment 2, and replaces amendment 3's "SASL lines are
+unchanged". No upstream curl measurement: curl sends single spaces, and only what the log writes changes.
+
+1. **Spaces and tabs.** Runs of spaces and tabs separate the words of a client line, so
+   `A1<tab>AUTHENTICATE<tab>PLAIN<tab><initial-response>` is logged with the response as `****`. Every separator before
+   the mask is logged as received.
+2. **Nothing after the mask.** When a tab is anywhere on a line that holds an initial response, a tab may have split the
+   mechanism or the response in two, so nothing after `****` is written (as amendment 3, point 3, for `LOGIN`).
+
+## Amendment 5 — a tag that is itself a SASL command word (BL-1754)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens decision 2. No upstream curl measurement: curl's IMAP
+tags are not command words, and only what the log writes changes.
+
+1. **Two readings.** When a line's first word is one of the rule's command words and its second is `AUTH` or
+   `AUTHENTICATE`, the first word may be the command (the third word is the initial response) or the tag (the fourth is).
+2. **Both withheld.** The third and the fourth word are each `****`, so `AUTHENTICATE AUTHENTICATE PLAIN <response>` is
+   logged as `AUTHENTICATE AUTHENTICATE **** ****`. Losing the mechanism in the log is preferred to guessing which
+   reading holds (as amendment 3, point 2, for `LOGIN`). With three words the third is `****`; with a tab on the line
+   nothing after the first `****` is written (amendment 4, point 2).
+3. **Either second word.** The rule treats `AUTH` and `AUTHENTICATE` alike in second place, whatever its own command
+   words are. The SOCKS tunnel's two SASL rules (ADR-0182, amendment 9) therefore write the same line for
+   `AUTH AUTHENTICATE PLAIN <response>`; had only the rule that knows both words masked the response, the tunnel's rule
+   could have logged the other's output, which holds it.
+
+## Amendment 6 — a POP3 PASS line that starts with spaces or tabs (BL-1756)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. No upstream curl measurement: curl starts its lines with the
+command word, and only what the log writes changes.
+
+1. **Leading spaces and tabs.** The POP3 server's redaction rule finds `PASS` after any run of spaces and tabs at the
+   start of the line, so `<tab>PASS<tab><password>` is logged as `<tab>PASS<tab>****`. Every byte before the mask is logged
+   as received. The server refuses such a line, but the client has already sent the password.

@@ -189,7 +189,9 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
     /// <summary>
     /// Asks the fault plan about a request the proxy let in (ADR-0160 decision 1) and acts on it: a
     /// drop aborts curl's connection with nothing sent, a chosen error is answered in place of the
-    /// request's own answer. <see langword="null"/> when the request goes on.
+    /// request's own answer, a chosen <c>407</c> with one <c>Proxy-Authenticate</c> per challenge the
+    /// connection's login session offers (ADR-0160 Amendment 2). <see langword="null"/> when the
+    /// request goes on.
     /// </summary>
     private async Task<bool?> AnswerCommandFaultAsync(HttpRequestHead head, ProxyTarget target, string? accountName, bool closes)
     {
@@ -202,7 +204,7 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
         }
 
         return fault.ChosenStatus is { } status
-            ? await AnswerAsync(status, $"{head.Method} {head.RequestTarget}: a fault rule chose the error", closes)
+            ? await AnswerAsync(status, $"{head.Method} {head.RequestTarget}: a fault rule chose the error", closes, fault.CreateChosenStatusChallenges(context, authenticationSession))
             : null;
     }
 

@@ -278,19 +278,26 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 
         var refusal = isServiceSignature ? Forbidden : Challenge();
 
-        return refusal with { CheckedLogin = LoginChecked(method, check, false), Refusal = check.Refusal };
+        return refusal with
+        {
+            CheckedLogin = LoginChecked(method, check, false),
+            Refusal = check.Refusal,
+            SignatureMismatch = check.SignatureMismatch,
+        };
     }
 
     private static CheckedLogin LoginChecked(AuthenticationMethod method, HttpCredentialCheck check, bool isAccepted) =>
         new(AuthenticationMethods.AuthorizationSchemeOf(method), check.UserAsSent, isAccepted);
 
-    private HttpAuthenticationVerdict Challenge()
-    {
-        var values = policy.HttpMethods
-            .Where(method => !AuthenticationMethods.SendsPlaintextSecret(method.Method)
-                || policy.OffersPlaintextSecrets(isEncrypted))
+    public IReadOnlyList<string> CreateChallenges() =>
+        policy.HttpMethods
+            .Where(method => !SendsRefusedPlaintextSecret(method.Method))
             .SelectMany(method => method.CreateChallenges())
             .ToList();
+
+    private HttpAuthenticationVerdict Challenge()
+    {
+        var values = CreateChallenges();
 
         return values.Count == 0
             ? Forbidden

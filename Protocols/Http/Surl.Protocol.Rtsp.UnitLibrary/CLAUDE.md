@@ -42,7 +42,11 @@ recording rows):
   `BYE`, and where a received RTP packet's payload lies (`RtpPayload`).
 - `RtspRequestResponder.Faults.cs` - a fault rule's chosen error (ADR-0134 decision 2): asked through
   `Surl.HttpMessage`'s `HttpCommandFaults` once the login lets a request in, before the method's own
-  checks, and answered as a refusal that keeps the connection.
+  checks, and answered as a refusal that keeps the connection. A chosen `401` sends the session's
+  `CreateChallenges` values as `WWW-Authenticate` fields, in order (RFC 9110 section 11.6.1; ADR-0134
+  Amendment 2), in place of the let-in verdict's values, which are at most a login success token, never
+  a challenge; when the session offers none, it goes without one and the exchange log notes that. Every
+  other chosen status, `407` included, keeps the verdict's values and gains no challenge.
 - `RtspSessionDescription` - decision 4's SDP; `RtspStatus` - the statuses and their reason
   phrases; `RtspUnreadRequestDrainer` - the lingering close after a closing refusal.
 

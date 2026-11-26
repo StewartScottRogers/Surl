@@ -119,3 +119,39 @@ listen URL's scheme, silently change every proxy too. The point's `Scheme`, `Com
 - Forwarded request answered 503 with `--fail`: exit 22, `curl: (22) The requested URL returned error: 503`, as expected; a `times=1` rule fails only the first run and the retry gets the file.
 - Forwarded request dropped at the command stage: exit 56, `Recv failure: Connection was reset`, as expected (the test also accepts 52 and 55 for Linux and macOS, as `DropConnection` does).
 - `delay` of 5 s with `--max-time 1`: exit 28, `Operation timed out`, as expected.
+
+## Amendment 2 — a chosen `407` carries the proxy's challenges (BL-1725)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Found during BL-1700.
+[RFC 9110 section 15.5.8](https://www.rfc-editor.org/rfc/rfc9110#section-15.5.8) says a proxy sending `407` MUST
+send `Proxy-Authenticate`, and [section 11.7.1](https://www.rfc-editor.org/rfc/rfc9110#section-11.7.1) that it
+sends at least one in each `407` it generates. This **replaces** decision 3's sentence "A chosen `407` carries no
+`Proxy-Authenticate` challenge (a login challenge is the policy's, not a fault's)." The challenges are still the
+policy's: the fault only asks for them.
+
+- **D1.** A chosen status `407`, whatever its reason phrase, carries the values of the connection's proxy login
+  session's `IHttpAuthenticationSession.CreateChallenges()`, one `Proxy-Authenticate` field per value, in order:
+  to `CONNECT`, to a forwarded request and on an HTTP/2 stream. On HTTP/2, whose streams share the session, it is
+  asked under the same gate the login is judged under.
+- **D2.** When the session offers none (the contract's default, as `AnonymousAuthenticationPolicy`'s session), the
+  `407` goes without the field and the exchange log notes
+  `fault rule <id> chose 407, and the proxy offers no challenge on this connection`.
+- **D3.** Over HTTP/2, NTLM and Negotiate challenges, even when they are the only ones offered, are sent like any
+  other: no stream is filtered or reset. The proxy's own login `407` over HTTP/2 sends every value of its verdict,
+  so a chosen `407` matches it. This differs from the HTTP server, which resets such a `401` with
+  `HTTP_1_1_REQUIRED` ([ADR-0081](ADR-0081-what-upstream-curl-expects-for-ntlm-and-negotiate-over-http-2-and-http-3.md)
+  decision 7, [ADR-0134](ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md) Amendment 1).
+  The proxy's login answers are not changed. What upstream curl does with them over HTTP/2 to a proxy has not been
+  measured, and nothing is claimed about it.
+- **D4.** Every other chosen status is unchanged, and a chosen `401` is not given `WWW-Authenticate`. Whether the
+  connection closes after the answer is unchanged.
+
+No new recording from pinned upstream curl 8.21.0 was made: the field has the shape of the proxy's login `407`,
+already pinned by the fixtures [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md)
+Amendment 3 describes.
+
+### Consequences
+
+A test seeds a chosen `407` with `error;scheme=http-proxy;reply=407` (or `https-proxy`), or its `Surl.Api`
+equivalent, and sees in the response the challenges the proxy's own `407` would offer. The rule publishes the same
+one `FaultAppliedEvent`; no store changes.

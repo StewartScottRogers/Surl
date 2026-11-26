@@ -132,17 +132,25 @@ public sealed partial class Mqtt5BrokerTests
         var idleClock = new RecordingIdleClock();
         var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "PUBLISH", DelayMilliseconds = 500 });
         var context = Context(clock, TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
-        var connection = ConnectionSending(staysOpen: false, Connect(), Publish("a/b", "hi", 1, 7), DisconnectNormally);
+        // The client stays: one that half-closes ends the hold at once (ADR-0141, amendment 2).
+        var connection = ConnectionSending(staysOpen: true, Connect(), Publish("a/b", "hi", 1, 7), DisconnectNormally);
 
         var serving = Broker(state).ServeAsync(connection, context);
         await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
-        var publishedAtTheHold = published.Count;
-        var pausedAtTheHold = idleClock.IsPaused;
-        clock.Advance(TimeSpan.FromMilliseconds(500));
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        // A timer that fired resumes the server on another thread, so only the clock says at once
+        // that the hold's wait is still counting.
+        var timersPendingBeforeTheDelay = clock.PendingTimerCount;
+        var completedBeforeTheDelay = serving.IsCompleted;
+        var publishedBeforeTheDelay = published.Count;
+        var pausedBeforeTheDelay = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
         await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
-        Assert.AreEqual(0, publishedAtTheHold);
-        Assert.IsTrue(pausedAtTheHold);
+        Assert.AreEqual(1, timersPendingBeforeTheDelay);
+        Assert.IsFalse(completedBeforeTheDelay);
+        Assert.AreEqual(0, publishedBeforeTheDelay);
+        Assert.IsTrue(pausedBeforeTheDelay);
         Assert.IsFalse(idleClock.IsPaused);
         Assert.HasCount(1, published);
         CollectionAssert.AreEqual(new byte[] { 0x40, 0x02, 0x00, 0x07 }, AfterConnackSuccess(connection.WrittenBytes));

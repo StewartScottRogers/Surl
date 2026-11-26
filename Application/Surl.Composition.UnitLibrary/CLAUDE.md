@@ -18,6 +18,10 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
   entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,
   "`surl --aihelp`"). The overload `ComposeProtocolServers(registrations, services)` builds any list.
+- `--mqtt-hold-subscription` (ADR-0014 Amendment 1, BL-1721): the start sets
+  `ComposedProtocolServices.MqttHoldSubscriptionCount` to `SurlCommandLine.MqttHoldSubscriptionCount`, which the
+  one `MqttProtocolServer` for `mqtt` and `mqtts` is built with; `null`, the default, holds no subscription. Tests:
+  `SurlServerCompositionTests.MqttHoldSubscription.cs`.
 - Per-scheme accounts (ADR-0102 decision 4.3 and its 2026-11-06 amendment, BL-881): every
   registration with a login builds its server with `ComposedProtocolServices.AuthenticationPolicyFor(<its
   plain scheme>)`, which the start sets to `SchemeAuthenticationPolicies.For` (carried on
@@ -30,7 +34,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - The HTTP and HTTPS proxies (ADR-0088 Amendment 6, BL-1003): `ComposeAsync` appends `SurlCommandLine.ProxyListenUrls`
   to the listen URLs, and `ProxyComposition.RouteProxyListeners` wraps each server answering `http` or `https` in a
   `ProxyRoutingProtocolServer`, which serves a listen URL with `IsProxy` by one `HttpProxyProtocolServer` and any other by
-  the wrapped server. The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
+  the wrapped server. For the exchange log the router returns the proxy server's redactor on every listen URL it
+  routes, origin ones included, since `ExchangeRedactionContext` does not say which kind it is (ADR-0182 Amendment 8;
+  `ProxyRedactionCompositionTests`). The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
   (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.

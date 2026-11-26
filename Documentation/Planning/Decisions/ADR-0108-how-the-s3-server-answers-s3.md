@@ -118,9 +118,9 @@ query subresources, as the API Reference's "Request Syntax" of each page writes 
   percent-encoded, XML-escaped (`&`, `<`, `>`) and cut to 1024 bytes; it is the only client byte
   echoed. Codes that the page lists with an extra element (`Key` for `NoSuchKey`, `BucketName` for
   `NoSuchBucket`, `ArgumentName` and `ArgumentValue` for `InvalidArgument`) carry it, escaped the
-  same way; `SignatureDoesNotMatch`'s `StringToSign` and `CanonicalRequest` elements are **not**
-  sent, because they disclose how the server canonicalised the request to a peer who may be probing
-  it.
+  same way. `SignatureDoesNotMatch`'s `StringToSign` and `CanonicalRequest` elements were not sent
+  (**replaced by Amendment 12**: they are sent, so the body is then no longer one line and
+  `Resource` and the extra elements are not the only client bytes echoed).
 - A `HEAD` error has the status and `x-amz-request-id` and no body (HeadObject: "the response to a
   HEAD request has no body").
 
@@ -129,7 +129,7 @@ The codes the server sends, each with the status the "List of error codes" table
 | Code | Status | When |
 | --- | --- | --- |
 | `AccessDenied` | 403 | No signature with anonymous off; an anonymous write; a write while `--allow-uploads` is off; a write a share's access forbids (ADR-0102 decision 2.3); an expired presigned URL |
-| `AuthorizationHeaderMalformed` | 400 | An `AWS4-HMAC-SHA256` header that does not parse, or whose scope does not end `/s3/aws4_request` |
+| `AuthorizationHeaderMalformed` | 400 | An `AWS4-HMAC-SHA256` header that does not parse, or whose scope does not end `/s3/aws4_request` (a presigned URL's parameters likewise, Amendment 9; a scope naming another region than a regional AWS `Host`, Amendment 11) |
 | `BadDigest` | 400 | `Content-MD5` or an `x-amz-checksum-*` value not matching the body |
 | `EntityTooLarge` | 400 | A body, a part or a completed upload past `--max-filesize` (decision 7) |
 | `EntityTooSmall` | 400 | A multipart part other than the last below 5 MiB, at completion |
@@ -177,7 +177,9 @@ The codes the server sends, each with the status the "List of error codes" table
   No option is added: a harness that wants another domain names it as the listen URL's host.
 - **Any other `Host`** - an IP literal, a name matching no domain, none at all - is path style.
   Region is never checked against anything: the server is every region at once, so no
-  `PermanentRedirect` is ever sent.
+  `PermanentRedirect` is ever sent. (**Replaced by Amendment 11** as to the region check: a
+  regional AWS `Host` is now compared with the credential scope's region. Still no
+  `PermanentRedirect`.)
 - Over TLS, a virtual-hosted name with dots cannot match a wildcard certificate; `--self-signed`'s
   certificate names the listen host and `localhost` only, so a client using dotted buckets goes
   path style, as the user guide advises. The server does not refuse it.
@@ -236,7 +238,8 @@ Checked by `Surl.Authentication`'s existing SigV4 method (ADR-0043, ADR-0045) th
 `IHttpAuthenticationSession`, with the service fixed to `s3`: the canonical URI encoded once,
 the query re-encoded and sorted, the signed fields, the payload hash from `x-amz-content-sha256`
 (the hex SHA-256, `UNSIGNED-PAYLOAD`, or a decision 4.5 streaming value), the date within 15
-minutes either way on the injected `TimeProvider`. Any region in the scope is accepted. A body with
+minutes either way on the injected `TimeProvider`. Any region in the scope is accepted (**replaced
+by Amendment 11**: not when a regional AWS `Host` names another one). A body with
 a hex hash is bound once read (ADR-0045): a mismatch is `400 XAmzContentSHA256Mismatch` and the
 object is not stored. `x-amz-security-token` is accepted only as a signed field and grants nothing:
 there is no token service, and the signature with the account's secret is the proof.
@@ -248,6 +251,7 @@ there is no token service, and the signature with the account's secret is the pr
 | No signature, anonymous off; or an anonymous write | `403 AccessDenied` |
 | `Authorization` with another scheme (Basic, Bearer, Digest, AWS signature version 2 `AWS <key>:<sig>`) | `400 InvalidArgument`, Message `Unsupported Authorization Type` |
 | `AWS4-HMAC-SHA256` that does not parse, or a scope whose service is not `s3` | `400 AuthorizationHeaderMalformed` |
+| A scope naming another region than a regional AWS `Host` (Amendment 11, checked before every other row) | `400 AuthorizationHeaderMalformed` |
 | Signed without `x-amz-content-sha256` | `400 InvalidRequest`, Message `Missing required header for this request: x-amz-content-sha256` |
 | Access key that is no account | `403 InvalidAccessKeyId` |
 | Signature that does not verify | `403 SignatureDoesNotMatch` |
@@ -383,8 +387,8 @@ example.
 - **Serving ListObjects version 1 beside version 2.** Rejected (decision 1): a second paging grammar
   for a request no current client sends.
 - **Sending `StringToSign` and `CanonicalRequest` in `SignatureDoesNotMatch`,** as S3 does.
-  Rejected: a debugging aid that tells a probing peer how the request was canonicalised; the client
-  already knows what it signed.
+  Rejected at first as a debugging aid that tells a probing peer how the request was canonicalised.
+  **Reversed by Amendment 12**: both are sent.
 - **Leaving presigned URLs and `aws-chunked` out.** Rejected: AWS's SDKs and CLI send them, and the
   standing rule leaves nothing out because it is work.
 
@@ -787,3 +791,132 @@ listed the signed `-TRAILER` form among the streaming values answered `501 NotIm
    wrong checksum is `400 BadDigest`; signed chunks with no chain are `403 SignatureDoesNotMatch`
    before the body is read.
 4. **Still `501 NotImplemented`:** `STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD` and its trailer form only.
+
+## Amendment 11 - a credential scope naming another region than a regional AWS `Host` is refused (BL-1698, 2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-25, in
+BL-1698. It answers item 2 of the Surly bug report
+`Z:\repos\Surly\Documentation\Bug-Reports\2026-11-25T1430-Surl-bug-report.md` (a signature scoped
+to `eu-west-1` was answered `200` for a `us-east-1` host). It replaces decision 2's "Region is
+never checked against anything" and decision 4.2's "Any region in the scope is accepted". The code
+is `S3Login`, `S3CredentialScope` and `S3VirtualHost.RegionOf`.
+
+**Sources.** The rule is AWS's, from "Troubleshoot Signature Version 4 signing", "Credential scope
+errors"
+(<https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-troubleshooting.html>): "If the
+credential scope does not specify the same Region as the request, the signature verification step
+fails". "Elements of an AWS API request signature"
+(<https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-signing-elements.html>) is cited
+for the scope's shape alone. Neither page names the S3 error code: `AuthorizationHeaderMalformed`
+comes from the bug report and from this record's use of S3's "List of error codes" (decision 1.1).
+
+1. **Which `Host` names a region.** Only the client's `Host`, in the literal forms
+   `s3.<region>.amazonaws.com` and `<bucket>.s3.<region>.amazonaws.com`, the region one label; the
+   port and a trailing dot are removed and the name is case-folded. A regional AWS listen host
+   named by the `Host` gets the rule too; a listen URL alone gives no region, and a request
+   without exactly one `Host` names none. Every other `Host` accepts a scope of any region: an IP
+   literal, `localhost`, another DNS name, `s3.amazonaws.com` and names under it, and the dual-stack,
+   `s3-<region>`, accelerate and `.amazonaws.com.cn` forms. Why: when the client's own `Host`
+   names a region the endpoint has one, and a stand-in that accepts a wrong scope hides the bug a
+   test exists to catch; every use that names no region is unchanged.
+2. **Which region the scope names:** the third `/`-separated part from the end of a credential of
+   at least five parts, so an access key may hold a `/`. It is read from the first
+   `Authorization` field's first `Credential=` under `AWS4-HMAC-SHA256` (the scheme in any case),
+   or from a presigned URL's `X-Amz-Credential` when `X-Amz-Algorithm` is exactly
+   `AWS4-HMAC-SHA256`. It is compared with the case-folded `Host` region case-sensitively. Nothing
+   else in the scope (date, service, terminator) is checked here.
+3. **What is not compared,** and is left to the authentication session to judge: a credential that
+   cannot be read that way (no `Credential=`, fewer than five parts), a query signature and an
+   `Authorization` field together, and any other scheme or algorithm (another provider's
+   `<X>4-HMAC-SHA256`, SigV4a). A request left to the session is not region-checked, and an unsigned
+   request has no scope to compare.
+4. **The check runs before the authentication session.** A mismatch is `400
+   AuthorizationHeaderMalformed` with the code's fixed `Message`, in the header and the presigned
+   form alike. No account is consulted, there is no failed-login delay, no login event and no
+   refuse-login fault, and no fault rule's chosen error is looked for. So it wins over an unknown
+   access key, a bad signature, clock skew, an expired presigned URL and a wrong service. A request
+   body is left unread: no `100 Continue`, the connection closed after the usual drain, and nothing
+   stored. The exchange log takes one note, `Login refused: the credential scope's region is not the
+   region the Host names.`. Why before the session: the comparison needs no secret, as the answers
+   of Amendment 1, point 4 need none, and the S3 server references neither `Surl.Authentication`
+   nor its parser, so no contract changes.
+5. **Known simplifications, not verified against S3.** Real S3 may answer the presigned case with
+   `AuthorizationQueryParametersError`, and may add a `<Region>` element to the error body. Surl
+   keeps the one code, as Amendment 9 maps malformed presigned credentials, and the code's fixed
+   `Message` with no extra element (decision 1.1).
+
+**Evidence from upstream curl** (2026-11-25; an extended server is judged by the specification,
+ADR-0083, so this shows the exchange completes and is not the rule's source). The pinned upstream
+curl 8.21.0 builds (`UpstreamCurlBuilds.json`) with
+[`--aws-sigv4`](https://curl.se/docs/manpage.html#--aws-sigv4) and `--connect-to` over
+`--s3-plaintext` got `200` for the right region and `400` for a wrong one: the header form, path
+style and virtual-hosted style, GET, HEAD and PUT; and presigned URLs (signed with `openssl`) with
+the reference build. The hosts `127.0.0.1`, `localhost` and `s3.amazonaws.com` accepted any region.
+TLS was not exercised. Recorded with the reference build and `Record-CurlExchange.ps1`: given
+`--aws-sigv4 aws:amz`, with no region or service, and the host `S3.US-EAST-1.amazonaws.com`, curl
+keeps the case and signs the scope `.../US-EAST-1/S3/aws4_request`. Point 2 refuses that region, and
+the session's case-sensitive service check (Amendment 1, point 1) refuses the service `S3` with the
+same code in any case.
+
+**Tests:** `S3LoginExchangeTests`
+(`ServeAsync_ValidSignatureScopedToAnotherRegionThanTheVirtualHostedRegionalHost_Is400AuthorizationHeaderMalformedWithNoObject`,
+the path-style and presigned cases beside it, and
+`ServeAsync_HostNamingNoRegion_AcceptsAScopeOfAnyRegion`), `S3LoginTests`
+(`ServeAsync_ScopeOfAnotherRegion_IsRefusedWithoutAskingTheSessionAndNoted` and its neighbours),
+`S3CredentialScopeTests` and `S3VirtualHostTests`.
+
+## Amendment 12 - `SignatureDoesNotMatch` carries `StringToSign` and `CanonicalRequest` (BL-1702, 2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-25, in
+BL-1701 and BL-1702. It answers item 4 of the Surly bug report
+`Z:\repos\Surly\Documentation\Bug-Reports\2026-11-25T1430-Surl-bug-report.md` (a wrong secret was
+answered `403 SignatureDoesNotMatch` with neither element). It reverses decision 1.1's sentence that
+the two elements are not sent, and the rejected alternative "Sending `StringToSign` and
+`CanonicalRequest`". BL-1701 carries both on the refused verdict
+(`HttpAuthenticationVerdict.SignatureMismatch`, built by `Surl.Authentication`); the S3 code that
+writes them is `S3Login`, `S3Error.SignatureMismatch` and `S3ErrorBody`.
+
+**Source.** AWS, "Troubleshoot Signature Version 4 signing", "Canonical request and signing string
+errors" (<https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-troubleshooting.html>):
+"Compare the canonical request and string to your signed request with the value in the error
+message." The page shows no error body, so the element names are the bug report's, and their order
+and escaping are this record's.
+
+1. **What is sent.** When a configured account's signature does not match, in the `Authorization`
+   form or the presigned form, the `Error` body holds `Code`, `Message`, `StringToSign`,
+   `CanonicalRequest`, `Resource`, `RequestId`: what the server computed from the request it
+   received. No option turns them off.
+2. **Why they are sent.** Both are computed only from the client's own request and the public
+   Signature Version 4 algorithm and hold no secret of the server's. A stand-in's job is to let a
+   test author see why a signature differs, which is what these elements are for.
+3. **Withheld values.** In `CanonicalRequest`, `****` replaces the value of every signed header
+   [ADR-0182](ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md)
+   withholds (`Authorization`, `Proxy-Authorization`, the API-key fields and
+   `x-amz-security-token`) and of an `X-Amz-Security-Token` query parameter, because the bytes the
+   server sends reach the `-v` log unredacted. `StringToSign` is the genuine one: its last line is
+   the SHA-256 of the request as signed, so it need not be the hash of the `CanonicalRequest` shown.
+   **Accepted limit:** whoever holds both can test guesses of a withheld value against that hash,
+   which matters only for a guessable value.
+4. **How they are written.** Line feeds are kept, so this body is not one line; every other
+   character outside printable ASCII becomes `?`, as in every value this server echoes (and so the
+   XML stays well-formed), so a header value holding such bytes does not show as it was hashed; `&`,
+   `<` and `>` are escaped. This goes beyond ADR-0006 section 3, which lets a peer be shown a path
+   it sent: the signed headers and the query go back too, only to the peer that sent them, with
+   point 3's values withheld. Neither element is cut to 1024 characters: a cut one cannot be compared, and
+   both are built from a request head `--max-request-head` bounds. That bound is not tight yet: a
+   `SignedHeaders` list repeating a name repeats its values in the canonical request, which
+   `Surl.Authentication` has built since ADR-0043 (BL-1719).
+5. **When neither element is sent:** an unknown access key (`InvalidAccessKeyId`), a request no
+   canonical request can be built from (a signed header missing), a right signature refused by a
+   `refuse-login` fault, a bad `aws-chunked` chunk or trailer signature, a fault rule's chosen
+   error, and every other code. A `HEAD` error still has no body.
+
+**Not sent:** any other element AWS's own answer may hold; no page cited here lists one.
+
+**Tests:** `S3LoginExchangeTests`
+(`ServeAsync_GetSignedWithAWrongSecret_Is403WithTheStringToSignAndCanonicalRequestTheServerComputed`,
+`ServeAsync_PresignedUrlSignedWithAWrongSecret_Is403WithTheStringToSignAndCanonicalRequestTheServerComputed`,
+`ServeAsync_HeadSignedWithAWrongSecret_Is403WithNoBody`,
+`ServeAsync_WrongSecretWithASignedSecurityToken_ShowsTheTokenWithheldInTheCanonicalRequest`),
+`S3ErrorBodyTests` and
+`S3LoginTests.JudgeBodyAsync_BadSignatureWithItsMismatch_IsSignatureDoesNotMatchCarryingIt`.

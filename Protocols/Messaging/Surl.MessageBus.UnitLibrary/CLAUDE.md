@@ -33,6 +33,12 @@ What it holds now (BL-629):
   payload removes it, and a subscribe with `includeRetained` is offered the matching ones in
   ordinal order of topic. An expired message is never delivered and is dropped from the
   retained slot when read.
+- **Several filters in one step (BL-1732).** `BusConnection.SubscribeTogether` takes
+  `BusSubscribeRequest`s and subscribes them, retained messages included, under one hold of the
+  bus's lock, so no publish is accepted between them and none reaches the new subscriptions both
+  retained and live. A request naming a subscription the connection already holds keeps it and reads
+  its retained messages again; one that is not a live subscription of that connection throws, and
+  nothing is subscribed (ADR-0100 decision 3.3, "Several filters in one step").
 - **Named queues (BL-631).** `BusConnection.DeclareQueue` makes a queue with
   `BusQueueFlags` (durable, exclusive, auto-delete). Declaring it again with other flags is
   `QueueFlagsDiffer`. `BindQueue` and `UnbindQueue` bind it to canonical filters, and a topic
@@ -170,7 +176,9 @@ What it holds now (BL-629):
   `TopicNameLookup` every server maps through (ADR-0100's planned `ITopicNameLookup`): the
   default mapping for its scheme (`mqtt`, `mqtt5`, `amqp`, `amqp1`, `kafka`, `nats`, `stomp`,
   `redis` and their TLS twins, and `mqtt5+ws`; a Redis channel is canonical as it stands, BL-866), with each `TopicMap` (`--topic-map`) alias of
-  one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound.
+  one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound,
+  and a filter that is a wildcard on its scheme gets no alias, even when a map names the same text
+  (`orders.*` is an AMQP 0-9-1 routing key and a wildcard binding key, BL-1704).
   `TopicAccessGrant`s (`--topic-access`): with none, everyone may do everything; with any, a
   caller needs a grant to its account or `@everyone`. The caller is an account name, `null`
   for anonymous, on `Connect(string?)`, `Publish(BusMessage, string?)` and

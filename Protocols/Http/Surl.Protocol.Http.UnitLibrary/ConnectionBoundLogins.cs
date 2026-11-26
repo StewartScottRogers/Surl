@@ -27,7 +27,8 @@ internal static class ConnectionBoundLogins
             .Select(field => field.Value)
             .ToList();
 
-        return answer.Status == HttpStatus.Unauthorized && challenges.Count > 0 && challenges.All(IsTheSchemeOf);
+        // By code, so a fault rule's 401 with a reason phrase of its own is a 401 too.
+        return answer.Status.Code == HttpStatus.Unauthorized.Code && challenges.Count > 0 && challenges.All(IsTheSchemeOf);
     }
 
     // Whether a credentials or challenge value's auth-scheme (RFC 9110, section 11.1) is NTLM or Negotiate.

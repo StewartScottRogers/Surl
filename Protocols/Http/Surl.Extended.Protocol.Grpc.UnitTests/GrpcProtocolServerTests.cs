@@ -103,4 +103,23 @@ public sealed class GrpcProtocolServerTests
         Assert.DoesNotContain("sekret", System.Text.Encoding.Latin1.GetString(output.WrittenSpan));
         Assert.Contains("****", System.Text.Encoding.Latin1.GetString(output.WrittenSpan));
     }
+
+    [TestMethod]
+    public void CreateRedactor_EachApiKeyAndSessionTokenHeaderBlock_IsLoggedWithItsPayloadAsStars()
+    {
+        var preface = Surl.Http2.Http2ConnectionPreface.Preface.ToArray();
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var redactor = new GrpcProtocolServer(new AnonymousAuthenticationPolicy()).CreateRedactor(new ExchangeRedactionContext(1, "grpc"));
+            var output = new System.Buffers.ArrayBufferWriter<byte>();
+            var headers = new GrpcHttp2TestFrames().Call(1, "/surl.test.Echo/Echo", true, (name.ToLowerInvariant(), "sekret-key"));
+
+            redactor.Redact(preface, output);
+            redactor.Redact(headers, output);
+            redactor.Flush(output);
+
+            byte[] expected = [.. preface, .. headers[..9], .. "****"u8];
+            CollectionAssert.AreEqual(expected, output.WrittenSpan.ToArray(), name);
+        }
+    }
 }

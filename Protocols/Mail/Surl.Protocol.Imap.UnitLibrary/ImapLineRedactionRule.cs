@@ -24,15 +24,33 @@ namespace Surl.Protocol.Imap;
 /// <para>
 /// The bytes after a literal, on the line that finishes it, are the rest of the same command.
 /// </para>
+/// <para>
+/// A line is a <c>LOGIN</c> command when its first or second word is <c>LOGIN</c>, matched without
+/// regard to case; words are separated by runs of spaces and tabs. The server refuses a line with no
+/// tag, one that starts with a space and one that separates words with a tab, but the client has
+/// already sent the password, so it is withheld all the same.
+/// </para>
+/// <para>
+/// When the first two words are both <c>LOGIN</c>, the first may be the tag or the second may be the
+/// user name of a line with no tag, so both arguments after the second are withheld.
+/// </para>
+/// <para>
+/// When a tab is on the line that holds the password, a tab may have split one argument in two, so
+/// nothing after the mask is written, and a literal that line announces is withheld too.
+/// </para>
 /// </remarks>
 internal sealed class ImapLineRedactionRule : ILineRedactionRule
 {
-    private const byte Space = (byte)' ';
+    private const byte Tab = (byte)'\t';
     private const byte Quote = (byte)'"';
     private const byte Backslash = (byte)'\\';
     private const int NotInLogin = -1;
     private const int PasswordArgumentIndex = 1;
     private const int LineEndLength = 2;
+
+    private static ReadOnlySpan<byte> LoginWord => "LOGIN"u8;
+
+    private static ReadOnlySpan<byte> WordSeparators => " \t"u8;
 
     private readonly SaslLineRedactionRule _saslRule = new(["AUTHENTICATE"], "+ ");
     private readonly ArrayBufferWriter<byte> _saslOutput = new();
@@ -40,6 +58,10 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
     private bool _awaitingLiteralContinuation;
     private long _literalRemaining;
     private int _loginArgumentIndex = NotInLogin;
+    private bool _firstArgumentMayBePassword;
+
+    private bool IsAtPossiblePassword =>
+        _loginArgumentIndex == PasswordArgumentIndex || (_loginArgumentIndex == 0 && _firstArgumentMayBePassword);
 
     /// <inheritdoc/>
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
@@ -87,7 +109,8 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
 
     private void RedactCommandLine(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
-        if (TryFindLoginArguments(line, out var argumentsStart))
+        _loginArgumentIndex = NotInLogin;
+        if (TryFindLoginArguments(line, out var argumentsStart, out _firstArgumentMayBePassword))
         {
             output.Write(line[..argumentsStart]);
             _loginArgumentIndex = 0;
@@ -114,11 +137,12 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
 
     private void RedactLoginArguments(ReadOnlySpan<byte> text, ArrayBufferWriter<byte> output)
     {
+        var holdsTab = text.Contains(Tab);
         while (true)
         {
-            var spaceCount = text.Length - text.TrimStart(Space).Length;
-            output.Write(text[..spaceCount]);
-            text = text[spaceCount..];
+            var separatorCount = text.Length - text.TrimStart(WordSeparators).Length;
+            output.Write(text[..separatorCount]);
+            text = text[separatorCount..];
             if (text.IsEmpty)
             {
                 return;
@@ -133,18 +157,27 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
 
             var argument = text[..ArgumentLength(text)];
             text = text[argument.Length..];
+            output.Write(IsAtPossiblePassword ? LineBytesRedactor.SecretMask : argument);
             if (_loginArgumentIndex == PasswordArgumentIndex)
             {
-                output.Write(LineBytesRedactor.SecretMask);
-                _loginArgumentIndex = NotInLogin;
-                output.Write(text);
-                AnnounceTrailingLiteral(text);
+                RedactAfterPassword(text, holdsTab, output);
                 return;
             }
 
-            output.Write(argument);
             _loginArgumentIndex++;
         }
+    }
+
+    private void RedactAfterPassword(ReadOnlySpan<byte> text, bool holdsTab, ArrayBufferWriter<byte> output)
+    {
+        // With a tab the argument index stays at the password, so a literal announced here is masked.
+        if (!holdsTab)
+        {
+            _loginArgumentIndex = NotInLogin;
+            output.Write(text);
+        }
+
+        AnnounceTrailingLiteral(text);
     }
 
     private void RedactLiteralLine(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
@@ -165,7 +198,7 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
 
     private void WriteLiteralBytes(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
     {
-        output.Write(_loginArgumentIndex == PasswordArgumentIndex ? LineBytesRedactor.SecretMask : bytes);
+        output.Write(IsAtPossiblePassword ? LineBytesRedactor.SecretMask : bytes);
     }
 
     private void FinishLiteral()
@@ -202,29 +235,29 @@ internal sealed class ImapLineRedactionRule : ILineRedactionRule
         _awaitingLiteralContinuation = !marker.IsNonSynchronizing;
     }
 
-    private static bool TryFindLoginArguments(ReadOnlySpan<byte> line, out int argumentsStart)
+    private static bool TryFindLoginArguments(
+        ReadOnlySpan<byte> line, out int argumentsStart, out bool firstArgumentMayBePassword)
     {
-        argumentsStart = 0;
-        var tagEnd = line.IndexOf(Space);
-        if (tagEnd < 0)
-        {
-            return false;
-        }
-
-        var afterTag = line[(tagEnd + 1)..];
-        var wordLength = afterTag.IndexOf(Space);
-        var word = wordLength < 0 ? afterTag : afterTag[..wordLength];
-        argumentsStart = tagEnd + 1 + word.Length;
-        return Ascii.EqualsIgnoreCase(word, "LOGIN"u8);
+        var fromFirstWord = line.TrimStart(WordSeparators);
+        var fromSecondWord = fromFirstWord[AtomLength(fromFirstWord)..].TrimStart(WordSeparators);
+        var isFirstWordLogin = StartsWithLoginWord(fromFirstWord);
+        var isSecondWordLogin = StartsWithLoginWord(fromSecondWord);
+        var fromLoginWord = isSecondWordLogin ? fromSecondWord : fromFirstWord;
+        argumentsStart = line.Length - fromLoginWord.Length + LoginWord.Length;
+        firstArgumentMayBePassword = isFirstWordLogin && isSecondWordLogin;
+        return isFirstWordLogin || isSecondWordLogin;
     }
+
+    private static bool StartsWithLoginWord(ReadOnlySpan<byte> text) =>
+        Ascii.EqualsIgnoreCase(text[..AtomLength(text)], LoginWord);
 
     private static int ArgumentLength(ReadOnlySpan<byte> text) =>
         text[0] == Quote ? QuotedLength(text) : AtomLength(text);
 
     private static int AtomLength(ReadOnlySpan<byte> text)
     {
-        var spaceAt = text.IndexOf(Space);
-        return spaceAt < 0 ? text.Length : spaceAt;
+        var separatorAt = text.IndexOfAny(WordSeparators);
+        return separatorAt < 0 ? text.Length : separatorAt;
     }
 
     private static int QuotedLength(ReadOnlySpan<byte> text)

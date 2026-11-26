@@ -28,6 +28,15 @@ namespace Surl.Protocol.HttpProxy;
 /// to close or announced a body; a refusal is <c>403</c> and closes.
 /// </para>
 /// <para>
+/// <b>Fault rules</b> (ADR-0160). A request or <c>CONNECT</c> the login let in, with a well formed
+/// target, is put to the exchange's fault plan before its origin is contacted: a delay holds it, a
+/// drop ends it with nothing sent, and a chosen error is the proxy's own answer with the rule's
+/// status. A chosen <c>407</c>, whatever its reason phrase, carries one <c>Proxy-Authenticate</c>
+/// per challenge the connection's proxy login session offers, over HTTP/2 too, NTLM and Negotiate
+/// included (Amendment 2); a session offering none leaves it without the field, noted in the
+/// exchange log. No other chosen status, <c>401</c> included, gains a challenge.
+/// </para>
+/// <para>
 /// <b>Forwarding.</b> An absolute-form <c>http://</c> target is sent to its authority (port 80
 /// when absent) in origin-form, with <c>Host</c> generated from the authority, the hop-by-hop
 /// fields and <c>Proxy-Authorization</c> removed and <c>Via: 1.1 surl</c> added; the origin's
@@ -105,15 +114,31 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["http", "https"]);
 
     /// <summary>
-    /// Creates the redactor that writes the credentials of the client's <c>Proxy-Authorization</c> and
-    /// <c>Authorization</c> fields as <c>****</c> in the exchange log (ADR-0182, decision 7 and
-    /// amendment 2). The log holds curl's side of the connection only; bytes the proxy sends to an
-    /// origin are not logged.
+    /// Creates the redactor of the exchange log for curl's connection, which withholds the
+    /// credentials of the client's <c>Proxy-Authorization</c> and <c>Authorization</c> fields where
+    /// it reads them (ADR-0182, amendment 8), and the values of the fields in
+    /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> (amendment 18). In HTTP/1.x
+    /// request heads, those inside an HTTP/1.1 <c>CONNECT</c> tunnel included, the credentials and
+    /// those values are written as <c>****</c> (amendment 18 lists the heads and trailers where they
+    /// can still be logged). Once the bytes are taken as a tunnel's text (a line where a request may start that is no request line, among the
+    /// cases amendment 16 lists), then, line by line, the argument of <c>PASS</c> and <c>ACCT</c>,
+    /// the password of an IMAP <c>LOGIN</c>, SASL <c>AUTH</c> and <c>AUTHENTICATE</c> responses,
+    /// the lines answering <c>334</c> or <c>+</c>, those two fields' credentials and the API-key and
+    /// session-token fields' values are written as
+    /// <c>****</c> (amendment 16 also lists what is not masked). From an HTTP/2
+    /// connection preface that starts where a request may start (on curl's connection to the proxy
+    /// or inside such a tunnel), a header block carrying any of these fields is logged as its frame headers,
+    /// each followed by <c>****</c> in place of its payload. A <c>DATA</c> frame on an HTTP/2
+    /// <c>CONNECT</c> stream, or on any stream once the header blocks can no longer be followed, is
+    /// logged the same way, an empty one as its frame header alone, so a credential tunnelled in it
+    /// is not logged; <c>Surl.Http2</c>'s <c>Http2RequestBytesRedactor</c> says exactly what is withheld. After a
+    /// preface anywhere else, every later byte is withheld. The log holds curl's side of the
+    /// connection only; bytes the proxy sends to an origin are not logged.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
-    /// <returns>An HTTP request head redactor for curl's connection, used by that exchange alone.</returns>
+    /// <returns>A redactor for curl's connection, used by that exchange alone.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
-        new HttpRequestHeadBytesRedactor();
+        new HttpProxyConnectionBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until curl closes it or an answer

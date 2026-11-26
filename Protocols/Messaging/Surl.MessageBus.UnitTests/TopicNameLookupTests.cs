@@ -50,6 +50,17 @@ public sealed class TopicNameLookupTests
     }
 
     [TestMethod]
+    public void FromCanonicalTopic_ASourceNamesDefaultTopic_IsUnreachableOnThatSchemeAndItsTlsTwinOnly()
+    {
+        var lookup = new TopicNameLookup([new TopicMap("nats", "orders.created", "mqtt", "shop/orders/new")]);
+
+        Assert.AreEqual(TopicNameMappingOutcome.Unreachable, lookup.FromCanonicalTopic("nats", "orders/created").Outcome);
+        Assert.AreEqual(TopicNameMappingOutcome.Unreachable, lookup.FromCanonicalTopic("natss", "orders/created").Outcome);
+        Assert.AreEqual(TopicNameMapping.Of("orders.created"), lookup.FromCanonicalTopic("nats", "shop/orders/new"));
+        Assert.AreEqual(TopicNameMapping.Of("orders/created"), lookup.FromCanonicalTopic("mqtt", "orders/created"));
+    }
+
+    [TestMethod]
     public void DefaultMapping_EverySchemeFamily_MapsByItsOwnRules()
     {
         var lookup = new TopicNameLookup([]);
@@ -118,6 +129,17 @@ public sealed class TopicNameLookupTests
 
         Assert.AreEqual(TopicNameMapping.Of("t"), lookup.ToCanonicalTopic("amqp", "b"));
         Assert.AreEqual(TopicNameMapping.Of("a"), lookup.FromCanonicalTopic("amqp", "t"));
+    }
+
+    // '*' is an ordinary character of an AMQP 0-9-1 routing key, so a map may name "orders.*";
+    // as a binding key the same text is a wildcard.
+    [TestMethod]
+    public void ToCanonicalFilter_AnAliasedAmqpNameThatAsABindingKeyIsAWildcard_IsMappedByTheDefaultRules()
+    {
+        var lookup = new TopicNameLookup([new TopicMap("amqp", "orders.*", "mqtt", "shop/orders")]);
+
+        Assert.AreEqual(TopicNameMapping.Of("shop/orders"), lookup.ToCanonicalTopic("amqp", "orders.*"));
+        Assert.AreEqual(TopicNameMapping.Of("orders/+"), lookup.ToCanonicalFilter("amqp", "orders.*"));
     }
 
     [TestMethod]

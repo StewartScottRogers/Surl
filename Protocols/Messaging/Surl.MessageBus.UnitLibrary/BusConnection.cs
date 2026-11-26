@@ -69,6 +69,30 @@ public sealed class BusConnection : IDisposable
     }
 
     /// <summary>
+    /// Makes several subscriptions as <see cref="Subscribe"/> does, each asking for its retained
+    /// messages, in one step: no publish is accepted between them. So a retained publish reaches
+    /// the subscriptions made here either as a retained message in the results or live, never one
+    /// each way, as an MQTT <c>SUBSCRIBE</c> of several filters needs.
+    /// </summary>
+    /// <param name="requests">The filters, in the order they are subscribed. A request naming a
+    /// subscription already held keeps it and reads its retained messages again, in the same step.</param>
+    /// <param name="deliver">The callback every new subscription is given, on the same terms as
+    /// <see cref="Subscribe"/>'s. A held subscription keeps its own.</param>
+    /// <returns>One result for each request, in order; a held subscription's is
+    /// <see cref="MessageBusOutcome.Succeeded"/> with that subscription. A refused filter refuses
+    /// only itself.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">A request's held subscription is not a live subscription
+    /// of this connection; nothing was subscribed.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public IReadOnlyList<BusSubscribeResult> SubscribeTogether(IReadOnlyList<BusSubscribeRequest> requests, Action<BusMessage> deliver)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        ArgumentNullException.ThrowIfNull(deliver);
+        return bus.RunAs(Exchange, () => bus.SubscribeTogether(this, requests, deliver));
+    }
+
+    /// <summary>
     /// Publishes <paramref name="message"/> as <see cref="MessageBus.Publish(BusMessage, string?)"/>
     /// does for <see cref="Account"/>, marked as this connection's own, so this connection's
     /// <see cref="BusSubscription.NoLocal"/> subscriptions do not receive it.

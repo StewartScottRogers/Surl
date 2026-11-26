@@ -154,6 +154,7 @@ public sealed class GoogleV4HmacAuthenticationMethodTests
         Assert.AreEqual(HttpAuthenticationOutcome.Forbidden, verdict.Outcome);
         Assert.AreEqual(refusal, verdict.Refusal);
         Assert.IsNull(verdict.AccountName);
+        Assert.AreEqual(refusal == HttpAuthenticationRefusal.BadSignature, verdict.SignatureMismatch is not null);
     }
 
     [TestMethod]
@@ -254,6 +255,16 @@ public sealed class GoogleV4HmacAuthenticationMethodTests
     public async Task VerifyAsync_HostNotSigned_IsForbiddenAsMalformed()
     {
         var verdict = await JudgeAsync(CreatePolicy(), WorkedGet(Authorization(signedHeaders: "x-goog-content-sha256;x-goog-date")));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.MalformedCredentials);
+    }
+
+    [TestMethod]
+    [DataRow("host;host;x-goog-content-sha256;x-goog-date", DisplayName = "in the same case")]
+    [DataRow("host;x-goog-content-sha256;x-goog-date;X-Goog-Date", DisplayName = "in another case")]
+    public async Task VerifyAsync_SignedHeadersRepeatingAName_IsForbiddenAsMalformed(string signedHeaders)
+    {
+        var verdict = await JudgeAsync(CreatePolicy(), WorkedGet(Authorization(signedHeaders: signedHeaders)));
 
         AssertForbidden(verdict, HttpAuthenticationRefusal.MalformedCredentials);
     }

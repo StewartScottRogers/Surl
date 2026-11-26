@@ -36,7 +36,8 @@ namespace Surl.Composition;
 /// is configured. An SSH server, one for scp and one for sftp, answers with the host keys and offers the algorithms
 /// given (ADR-0051, ADR-0066). The WebSocket server echoes every client message instead with
 /// <c>--ws-echo</c> (ADR-0071 decision 4). The RTSP server has no rtsps, as curl has none (ADR-0074
-/// decision 7).
+/// decision 7). The MQTT server holds each subscription open with <c>--mqtt-hold-subscription</c> (ADR-0014
+/// Amendment 1).
 /// </remarks>
 public static class ProtocolServerRegistrations
 {
@@ -53,7 +54,8 @@ public static class ProtocolServerRegistrations
         ProtocolServerRegistration.ImplicitTls("imaps", "imap"),
         new(["ldap"], services => services.LdapServer),
         ProtocolServerRegistration.ImplicitTls("ldaps", "ldap"),
-        new(["mqtt", "mqtts"], services => new MqttProtocolServer(services.MessageBus, services.AuthenticationPolicyFor("mqtt"))),
+        new(["mqtt", "mqtts"], services => new MqttProtocolServer(
+            services.MessageBus, services.AuthenticationPolicyFor("mqtt"), services.MqttHoldSubscriptionCount)),
         new(["pop3"], services => new Pop3ProtocolServer(
             services.AuthenticationPolicyFor("pop3"), services.AuthenticationPolicyFor("pop3"), services.MailStore, services.IsTlsUpgradeAvailable)),
         ProtocolServerRegistration.ImplicitTls("pop3s", "pop3"),

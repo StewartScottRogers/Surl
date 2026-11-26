@@ -10,7 +10,8 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// DNS over TCP and TLS starts with a two-byte message length whose first byte is never an ASCII capital
 /// letter for a real query, so those bytes pass through as received; an HTTP request starts with a method
 /// (a capital letter), so DNS over HTTPS is redacted as HTTP/1.1 request heads, or, when the bytes open with
-/// the HTTP/2 preface, as HTTP/2 header blocks.
+/// the HTTP/2 preface, as HTTP/2 header blocks. Both HTTP forms withhold the fields of
+/// <see cref="HttpWithheldHeaderNames.All"/>: credentials, API keys and session tokens.
 /// </summary>
 public sealed class DnsConnectionBytesRedactor : IReceivedBytesRedactor
 {
@@ -75,7 +76,7 @@ public sealed class DnsConnectionBytesRedactor : IReceivedBytesRedactor
 
         if (undecided.Count >= preface.Length)
         {
-            Choose(new Http2RequestBytesRedactor(), output);
+            Choose(new Http2RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens), output);
         }
         else if (endOfInput)
         {

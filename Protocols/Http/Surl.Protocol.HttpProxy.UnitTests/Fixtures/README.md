@@ -70,3 +70,17 @@ AUTHENTICATE_MESSAGEs carry the recording machine's workstation name, as curl se
 | `proxy-digest-connect` | `... -Port 18267 -ResponsesPerConnection 3 -CurlArgs '-sS','-p','--proxy-digest','-U','u:p','-x','http://127.0.0.1:18267','http://origin.test:8080/a'` | `<407>`, `<est>`, `<tok>` | 0, `ok`; Digest `uri="origin.test:8080"` |
 | `proxy-ntlm-forward` | `... -Port 18268 -ResponsesPerConnection 2 -CurlArgs '-sS','-m','10','--proxy-ntlm','-U','u:p','-x','http://127.0.0.1:18268','http://origin.test/a'` | NTLM `<407>`, `<ok>` | 0, `ok` |
 | `proxy-ntlm-connect` | `... -Port 18269 -ResponsesPerConnection 3 -CurlArgs '-sS','-m','10','-p','--proxy-ntlm','-U','u:p','-x','http://127.0.0.1:18269','http://origin.test:8080/a'` | NTLM `<407>`, `<est>`, `<tok>` | 0, `ok` |
+
+HTTP/2 inside a `CONNECT` tunnel (BL-1713, ADR-0182), recorded on 2026-11-25 with the pinned
+static 8.21.0 build (`589C8E4D…2648`, which has HTTP/2) as `-Curl`, for the exchange log's
+redaction tests. The recorder answered the `CONNECT` with `<est>`
+(`'HTTP/1.1 200 Connection established\r\n\r\n'`) and the tunnelled bytes with nothing, so curl
+exits 16 for want of HTTP/2 frames and there is no `response.bin`. `request-1.bin` is the
+`CONNECT`; `request-2.bin` is what curl sent inside the tunnel, its `authorization` field
+(`-u a:s3cret`) Huffman-coded in the one `HEADERS` frame. The `PROXY` line of
+`--haproxy-protocol` carries the recording's own port numbers.
+
+| Folder | Command line | Exit, stdout or stderr |
+| --- | --- | --- |
+| `proxy-http2-prior-knowledge-connect` | `... -Port 18391 -ResponsesPerConnection 2 -Response <est>,'' -CurlArgs '-sS','-m','5','-p','-x','http://127.0.0.1:18391','--http2-prior-knowledge','-u','a:s3cret','-U','p:pw','http://origin.test/a'` | 16, `curl: (16) Error in the HTTP2 framing layer` |
+| `proxy-haproxy-http2-connect` | `... -Port 18392 -ResponsesPerConnection 2 -Response <est>,'' -CurlArgs '-sS','-m','5','-p','-x','http://127.0.0.1:18392','--haproxy-protocol','--http2-prior-knowledge','-u','a:s3cret','http://origin.test/a'` | 16, `curl: (16) Error in the HTTP2 framing layer` |

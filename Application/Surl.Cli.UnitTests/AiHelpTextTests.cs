@@ -464,7 +464,7 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("testing").Output;
 
-        foreach (var option in CommandLineOptions.All.Where(option => option.Help.Explanation is not null))
+        foreach (var option in CommandLineOptions.All.Where(option => option.Help.Explanation is not null && option.Help.Categories.Contains("testing")))
         {
             StringAssert.Contains(page, NewLine + NewLine + $"`--{option.LongName}`: {option.Help.Explanation}" + NewLine, option.LongName);
         }
@@ -476,6 +476,79 @@ public sealed partial class AiHelpTextTests
         var page = AiHelpText.Answer("testing").Output;
 
         StringAssert.Contains(page, "A `refuse-login` rule is asked only once a login's credentials match an account, so a wrong password is refused as usual and neither fires the rule nor spends one of its `times`.");
+    }
+
+    [TestMethod]
+    public void Answer_Logging_SaysAMisplacedHttp2PrefaceWithholdsEveryLaterByte()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "Data bodies are logged as received too, with three exceptions: a line sent through a SOCKS or HTTP proxy tunnel that reads as one carrying a secret has that secret withheld, an HTTP/2 connection preface can make surl withhold the rest of a connection, and surl withholds the payload of some HTTP/2 `DATA` frames, as the next paragraphs say.");
+        StringAssert.Contains(page, "On a `--proxy` listen URL, and on the `http` and `https` listen URLs of a start that names `--proxy`, while a connection is read as HTTP/1.x, an HTTP/2 connection preface that does not start where a request may start (one inside an upload body, partway through a line or after a HAProxy `PROXY` line sent into a tunnel) withholds every later byte the client sends on that connection, later requests included, behind one `****`.");
+        StringAssert.Contains(page, "A preface that starts where a request may start (ALPN `h2`, prior knowledge in a `CONNECT` tunnel, or after an `h2c` upgrade request) is not that case: what follows is read as HTTP/2.");
+        Assert.DoesNotContain("data bodies are not secrets in clear", page);
+    }
+
+    [TestMethod]
+    public void Answer_Logging_SaysWhichHttp2DataPayloadsAreWithheld()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "Where the log reads a client's bytes as HTTP/2 frames (the HTTP and HTTPS servers, the HTTP proxy, gRPC, DNS over HTTPS and HTTP/2 inside a SOCKS tunnel), it withholds the payload of every `DATA` frame on a stream that carried a `CONNECT` header block, extended `CONNECT` included, because such a stream carries another protocol's bytes, credentials included.");
+        StringAssert.Contains(page, "Once surl can no longer follow a connection's header blocks, or more than 4096 of its streams have carried a `CONNECT` block, every later `DATA` payload on that connection is withheld, on every stream.");
+        StringAssert.Contains(page, "A withheld `DATA` frame is logged as its 9-byte frame header, as received, then `****`, and an empty one as its header alone.");
+        StringAssert.Contains(page, "Every other `DATA` payload is logged as received, one sent on a stream before that stream's `CONNECT` header block, which a client may not do, included. The event stream keeps the withheld bytes, so a test that needs them reads it.");
+        Assert.DoesNotContain("any credential tunnelled in them included", page);
+    }
+
+    [TestMethod]
+    public void Answer_Logging_NamesEveryApiKeyHeaderAndTheServersThatWithholdThem()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "The S3, Azure Storage, Google Cloud Storage, OCI registry, MCP, SignalR, Socket.IO, gRPC, WebTransport and DNS over HTTPS servers also withhold the API-key and session-token headers");
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            StringAssert.Contains(page, $"`{name}`");
+        }
+
+        StringAssert.Contains(page, "The HTTP and HTTPS servers, the HTTP proxy, WebSocket, RTSP and the tunnels through either proxy log those five headers as received, a tunnel to one of the servers named first included.");
+    }
+
+    [TestMethod]
+    public void Answer_Logging_SaysWhatIsAndIsNotWithheldInEachTunnel()
+    {
+        var page = AiHelpText.Answer("logging").Output;
+
+        StringAssert.Contains(page, "surl writes as `****` the argument of a `PASS` or `ACCT` line, the credentials of an `Authorization` or `Proxy-Authorization` header line, the password of an IMAP `LOGIN` line, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation.");
+        StringAssert.Contains(page, "When the first byte is `0x10`, an MQTT `CONNECT`, surl withholds its password (MQTT 3.1.1 and 5).");
+        StringAssert.Contains(page, "Not withheld in a SOCKS tunnel: the API-key and session-token headers; MQTT 5 Authentication Data; the NATS, STOMP, AMQP, Kafka and XMPP logins, and Redis ones other than the password of an inline `AUTH <user> <password>` line (so the password of an inline `AUTH <password>` or `HELLO <protover> AUTH` line is logged);");
+        StringAssert.Contains(page, "Inside an HTTP/1.x `CONNECT` tunnel through the HTTP proxy only some of those secrets are withheld too.");
+        StringAssert.Contains(page, "makes surl judge it and every later line, and write as `****` the argument of a `PASS` or `ACCT` line, the credentials of an `Authorization` or `Proxy-Authorization` header line, the password of an IMAP `LOGIN` line, and each SASL `AUTH` or `AUTHENTICATE` initial response and each line answering a `334` or `+` continuation, bytes the client sends before the proxy's `200` included.");
+        StringAssert.Contains(page, "Not withheld in a `CONNECT` tunnel: the API-key and session-token headers; the MQTT `CONNECT` password and LDAP bind credentials;");
+        StringAssert.Contains(page, "A tunnel whose first byte is not a letter, `1` to `9` or a line feed");
+        StringAssert.Contains(page, "A first tunnelled line of three words whose last starts `HTTP/` or `RTSP/`");
+        StringAssert.Contains(page, "whose request line ends with CR LF and whose later lines end with a bare line feed can have its credentials, and secrets sent after it, logged.");
+        StringAssert.Contains(page, "A SASL answer sent before the origin's continuation reaches the client is judged without it and logged");
+        Assert.DoesNotContain("Not withheld in a tunnel: SASL", page);
+    }
+
+    [TestMethod]
+    public void Answer_Security_SaysWhichSecretsAProxyTunnelsLogWithholds()
+    {
+        var page = AiHelpText.Answer("security").Output;
+
+        StringAssert.Contains(page, "Inside a SOCKS tunnel only the `PASS`, `ACCT`, IMAP `LOGIN`, SASL, `Authorization` and `Proxy-Authorization` secrets of a text protocol, an MQTT `CONNECT` password and LDAP bind credentials are withheld, and inside an HTTP proxy `CONNECT` tunnel only those text-protocol secrets, not an MQTT password or an LDAP bind, so treat the log of a proxy listener as holding secrets.");
+    }
+
+    [TestMethod]
+    public void Answer_Testing_SaysAnHttpChosen401CarriesTheServersChallenges()
+    {
+        var page = AiHelpText.Answer("testing").Output;
+
+        StringAssert.Contains(page, "An `http` or `https` `error` rule that chooses `401` (`error;scheme=http;reply=401`) sends it with the challenges the server's own `401` would offer on that connection, as `WWW-Authenticate` fields (see the auth topic).");
+        StringAssert.Contains(page, "When the server offers none on the connection, the `401` goes without one and the log says so.");
+        StringAssert.Contains(page, "Over HTTP/2 and HTTP/3, a `401` whose only challenges are NTLM or Negotiate is reset instead (`HTTP_1_1_REQUIRED`, `H3_VERSION_FALLBACK`), so the client does not receive it or its `body=` text, though one of the rule's `times` is spent.");
     }
 
     [TestMethod]

@@ -14,6 +14,10 @@ internal static class AwsSigV4CanonicalRequest
 {
     private const string UnreservedPunctuation = "-._~";
 
+    private const string WithheldValue = "****";
+
+    private const string SecurityTokenParameter = "X-Amz-Security-Token";
+
     /// <summary>
     /// Builds the canonical request, or <see langword="null"/> when a signed header is missing
     /// from the request or its target has no path.
@@ -30,15 +34,21 @@ internal static class AwsSigV4CanonicalRequest
     /// A query parameter left out of the canonical query, named as it reads once re-encoded:
     /// a presigned URL's <c>X-Amz-Signature</c>; <see langword="null"/> to keep every parameter.
     /// </param>
+    /// <param name="withholdsSecrets">
+    /// <see langword="true"/> for the copy a refusal may show: each signed header the exchange log
+    /// withholds (ADR-0182) and an <c>X-Amz-Security-Token</c> query parameter has <c>****</c> for
+    /// its value. It is not the request that was signed, so no signature is computed over it.
+    /// </param>
     /// <returns>The canonical request, or <see langword="null"/>.</returns>
     public static string? Build(
         HttpAuthenticationRequest request,
         AwsSigV4Authorization authorization,
         string payloadHash,
         bool reencodesPath,
-        string? excludedQueryParameter = null)
+        string? excludedQueryParameter = null,
+        bool withholdsSecrets = false)
     {
-        var headers = BuildHeaders(request.Fields, authorization.SignedHeaders);
+        var headers = BuildHeaders(request.Fields, authorization.SignedHeaders, withholdsSecrets);
         var pathAndQuery = ReadPathAndQuery(request.Target);
         if (headers is null || pathAndQuery is null)
         {
@@ -52,7 +62,7 @@ internal static class AwsSigV4CanonicalRequest
             '\n',
             request.Method,
             canonicalPath,
-            CanonicaliseQuery(query, excludedQueryParameter),
+            CanonicaliseQuery(query, excludedQueryParameter, withholdsSecrets),
             headers,
             string.Join(';', authorization.SignedHeaders),
             payloadHash);
@@ -88,7 +98,7 @@ internal static class AwsSigV4CanonicalRequest
     // Each signed header's values, trimmed with inner runs of spaces made one, joined with a
     // comma; every line ends with a line feed, so the block ends with a blank line.
     private static string? BuildHeaders(
-        IReadOnlyList<KeyValuePair<string, string>> fields, IReadOnlyList<string> signedHeaders)
+        IReadOnlyList<KeyValuePair<string, string>> fields, IReadOnlyList<string> signedHeaders, bool withholdsSecrets)
     {
         var lines = new StringBuilder();
         foreach (var name in signedHeaders)
@@ -102,7 +112,8 @@ internal static class AwsSigV4CanonicalRequest
                 return null;
             }
 
-            lines.Append(name).Append(':').AppendJoin(',', values).Append('\n');
+            var isWithheld = withholdsSecrets && HttpWithheldHeaderNames.All.Contains(name, StringComparer.OrdinalIgnoreCase);
+            lines.Append(name).Append(':').Append(isWithheld ? WithheldValue : string.Join(',', values)).Append('\n');
         }
 
         return lines.ToString();
@@ -113,7 +124,7 @@ internal static class AwsSigV4CanonicalRequest
 
     // Each parameter split at its first = (none reads as an empty value), its name and value
     // re-encoded, then sorted by name and then by value, as measured (Fixtures/README.md).
-    private static string CanonicaliseQuery(string query, string? excludedQueryParameter)
+    private static string CanonicaliseQuery(string query, string? excludedQueryParameter, bool withholdsSecrets)
     {
         var parameters = query
             .Split('&', StringSplitOptions.RemoveEmptyEntries)
@@ -122,10 +133,13 @@ internal static class AwsSigV4CanonicalRequest
             .Where(pair => pair.Name != excludedQueryParameter)
             .OrderBy(pair => pair.Name, StringComparer.Ordinal)
             .ThenBy(pair => pair.Value, StringComparer.Ordinal)
-            .Select(pair => $"{pair.Name}={pair.Value}");
+            .Select(pair => $"{pair.Name}={(withholdsSecrets && IsSecurityToken(pair.Name) ? WithheldValue : pair.Value)}");
 
         return string.Join('&', parameters);
     }
+
+    private static bool IsSecurityToken(string parameterName) =>
+        string.Equals(parameterName, SecurityTokenParameter, StringComparison.OrdinalIgnoreCase);
 
     // A + is a space and %XX the byte it names; each byte is then written as Encode writes it,
     // so an escaped unreserved character is unescaped and a % before no hex digits is escaped.

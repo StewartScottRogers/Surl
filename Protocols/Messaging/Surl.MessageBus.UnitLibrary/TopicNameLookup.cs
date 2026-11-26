@@ -105,13 +105,18 @@ public sealed class TopicNameLookup
     /// </summary>
     /// <param name="scheme">The server's scheme.</param>
     /// <param name="filter">The filter as the client sent it; Kafka's is a topic name.</param>
-    /// <returns>The alias's canonical topic when the filter is exactly an aliased name, or the
-    /// default mapping's result.</returns>
+    /// <returns>The alias's canonical topic when the filter is exactly an aliased name and is not a
+    /// wildcard filter on the scheme, or the default mapping's result.</returns>
     /// <exception cref="ArgumentException"><paramref name="scheme"/> is not a known scheme.</exception>
     public TopicNameMapping ToCanonicalFilter(string scheme, string? filter)
     {
         var family = FamilyOf(scheme);
-        return Alias(family, filter) ?? DefaultToCanonicalFilter(family, filter);
+        var mapped = DefaultToCanonicalFilter(family, filter);
+
+        // '*' is a literal in an AMQP 0-9-1 routing key and a wildcard in a binding key, so a map
+        // may name a key that, as a filter, is a wildcard.
+        var isWildcard = mapped.IsMapped && !CanonicalTopicName.IsValidTopic(mapped.Name);
+        return isWildcard ? mapped : Alias(family, filter) ?? mapped;
     }
 
     /// <summary>

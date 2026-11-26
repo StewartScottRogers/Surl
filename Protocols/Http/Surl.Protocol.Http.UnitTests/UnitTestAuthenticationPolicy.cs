@@ -6,7 +6,8 @@ namespace Surl.Protocol.Http;
 /// A hand-written <see cref="IAuthenticationPolicy"/> for the HTTP server's tests: every
 /// connection's session answers each request with the verdict <c>judge</c> returns, and the
 /// policy records the <see cref="TlsSession"/> each connection was started with and every
-/// request it was shown.
+/// request it was shown. Every session offers <see cref="OfferedChallenges"/> from
+/// <see cref="IHttpAuthenticationSession.CreateChallenges"/>.
 /// </summary>
 internal sealed class UnitTestAuthenticationPolicy(Func<HttpAuthenticationRequest, HttpAuthenticationVerdict> judge) : IAuthenticationPolicy
 {
@@ -21,6 +22,8 @@ internal sealed class UnitTestAuthenticationPolicy(Func<HttpAuthenticationReques
     public IReadOnlyList<HttpAuthenticationRequest> JudgedRequests => judgedRequests;
 
     public IReadOnlyList<LoginExchange?> StartedExchanges => startedExchanges;
+
+    public IReadOnlyList<string> OfferedChallenges { get; init; } = [];
 
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException("The HTTP server never checks a password login.");
@@ -47,5 +50,7 @@ internal sealed class UnitTestAuthenticationPolicy(Func<HttpAuthenticationReques
 
             return ValueTask.FromResult(policy.Judge(request));
         }
+
+        public IReadOnlyList<string> CreateChallenges() => policy.OfferedChallenges;
     }
 }

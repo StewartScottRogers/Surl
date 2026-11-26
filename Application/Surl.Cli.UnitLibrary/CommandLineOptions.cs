@@ -52,6 +52,15 @@ internal static class CommandLineOptions
         + "timestamp it signs. surl warns on every start while --auth is given, from the info log level up, "
         + "naming the methods it accepts.";
 
+    // ADR-0014 Amendment 1: the one explanation of an option that loosens nothing, so --help says how curl ends.
+    private const string MqttHoldSubscriptionExplanation =
+        "Without it an mqtt or mqtts subscribe gets SUBACK, the retained messages and DISCONNECT. With it surl "
+        + "holds each subscription open, sends it every later publish, from any protocol, and sends DISCONNECT right "
+        + "after the PUBLISH that reaches the count on the connection, retained messages counted, so curl exits 0. "
+        + "A count of 0 is never reached. Until the count is reached, curl's own --max-time ends the fetch with exit "
+        + "28 and what had arrived on stdout, and a connection surl closes, on stop or at one of its limits, exits "
+        + "56. Give curl -N to read each message as it arrives.";
+
     private const string SelfSignedExplanation =
         "Serves a throwaway self-signed certificate, made at start, for a listen URL of a scheme that starts "
         + "with TLS (such as https) when no --cert is given; without it, and without --cert, such a URL is "
@@ -184,6 +193,9 @@ internal static class CommandLineOptions
             new(null, "Serve names that start with a dot", ["content", "dict", "ftp", "gopher", "http", "security", "smb", "ssh", "tftp"], IsInShortList: false, Default: "off")),
         Flag("allow-zone-transfer", null, negatable: true, (c, on) => c with { AllowZoneTransfer = on },
             new(null, "Answer DNS zone transfers (AXFR, IXFR)", ["dns", "security"], IsInShortList: false, Default: "off")),
+        WithArgument<int>("mqtt-hold-subscription", null, OptionArgumentReader.Number, (c, v) => c with { MqttHoldSubscriptionCount = v },
+            new("<count>", "Hold a subscribe open for live publishes", ["mqtt"], IsInShortList: false, Default: "off",
+                MqttHoldSubscriptionExplanation)),
         Flag("mqtt5-disconnect-after-retained", null, negatable: true, (c, on) => c with { Mqtt5DisconnectAfterRetained = on },
             new(null, "End a subscribe after retained messages", ["mqtt5"], IsInShortList: false, Default: "off")),
         WithArgument<IReadOnlyList<string>>("dns-transport", null, OptionArgumentReader.DnsTransports, (c, v) => c with { DnsTransports = v },

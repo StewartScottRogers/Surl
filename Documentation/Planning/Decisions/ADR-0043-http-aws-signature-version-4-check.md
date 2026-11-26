@@ -7,7 +7,9 @@
 - **Builds on:** [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
   sections 1, 3, 4, 6 and 8.
 - **Amended by:** amendment 1 below (2026-11-21, decided by Claude under Stewart's delegation;
-  built by BL-1548): over HTTP/2 and HTTP/3 the signed `host` comes from `:authority`.
+  built by BL-1548): over HTTP/2 and HTTP/3 the signed `host` comes from `:authority`; amendment 2
+  below (2026-11-25, decided by Claude under Stewart's delegation; built by BL-1719): a
+  `SignedHeaders` list naming a header twice is malformed.
 
 ## Context
 
@@ -138,3 +140,41 @@ HTTP/3 Signature Version 4 login is refused.
 
 - A test using `https://` with `--aws-sigv4` gets the same answer over HTTP/1.1, HTTP/2 and
   HTTP/3. No store, event or fault changes.
+
+## Amendment 2 (2026-11-25) — a `SignedHeaders` list names each header once
+
+Decided by Claude under Stewart's delegation. Built by BL-1719.
+
+### Problem
+
+Section 1 writes, for each name in the signed header list, every value of the fields with that
+name. A list repeating a name wrote those values once per repetition. Under the default
+`--max-request-head` (102400 bytes), one field of about 50 000 bytes named about 25 000 times
+asked for over a billion characters. The canonical request is built for an unknown access key
+too (section 3), so no account was needed.
+
+### Evidence
+
+- Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 -Port 18719`,
+  `--aws-sigv4 aws:amz:us-east-1:s3 -u AKIDEXAMPLE:secret -H 'X-Test: b' -H 'x-test:  a  '
+  -H 'X-TEST: c'` (fixture `aws-sigv4-repeated-header`): curl sends all three fields and
+  `SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-test`, the name listed once, and the
+  signature verifies under section 1 (the three values joined with `,` in the order sent).
+- AWS's "Create a canonical request" lists each signed header name once, lower-case and sorted.
+
+### Decision
+
+1. **A signed header list naming a header twice, compared ignoring case, is refused
+   `MalformedCredentials`**, before any canonical request is built. Case is ignored because
+   section 1 matches fields to names that way, so `host;Host` repeats a field's values too.
+2. **The rule is in the credentials' reader** (`AwsSigV4Authorization.TryCreate`), so it covers
+   the `Authorization` form, the presigned form (`X-Amz-SignedHeaders`) and
+   `GOOG4-HMAC-SHA256`.
+3. **Nothing else about the list is newly required.** Order and letter case are not checked: a
+   list out of order or in upper case is still judged by its signature.
+
+### Consequences
+
+- The canonical request holds each field's value at most once, so its size grows no faster
+  than the request head.
+- Like other credentials that do not read, the refusal names no user.

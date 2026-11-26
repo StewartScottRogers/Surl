@@ -117,9 +117,9 @@ internal sealed partial class Amqp0BrokerConnection
     {
         var header = publish.Header!;
         var properties = Amqp0BasicProperties.Read(header.PropertyFlags, header.PropertyList);
-        var topic = AmqpTopicExchangeNames.ToCanonicalTopic(publish.RoutingKey);
+        var topic = topicNames.ToCanonicalTopic(publish.RoutingKey);
         var message = Amqp0BusMessages.ToBusMessage(
-            topic.Name ?? publish.RoutingKey, ExchangeNameOf(publish), publish.RoutingKey, header, properties, publish.Body, context.TimeProvider.GetUtcNow());
+            topic.Name ?? publish.RoutingKey, ExchangeNameOf(publish), publish.RoutingKey, header, properties, publish.Body, context.TimeProvider.GetUtcNow(), topicNames);
         var persistent = properties.DeliveryMode == PersistentDeliveryMode;
         var (routed, taken) = publish.Exchange?.Name == Amqp0ExchangeTable.TopicSpace
             ? PublishOnTopicSpace(topic, message, publish.Immediate, persistent)

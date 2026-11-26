@@ -142,6 +142,22 @@ public sealed partial class NatsServerConnectionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_FullWildcardUnderATopicMap_IsNotSentTheSourceNamesDefaultTopic()
+    {
+        var bus = new Surl.MessageBus.MessageBus(
+            new ManualTimeProvider(),
+            configuration: new() { TopicMaps = [new TopicMap("nats", "orders.created", "mqtt", "shop/orders/new")] });
+        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), bus);
+        var subscriber = await OpenSubscribedAsync(server, Connect(), "SUB > 1\r\n");
+
+        bus.Publish(new BusMessage("orders/created", "hidden"u8.ToArray()));
+        bus.Publish(new BusMessage("shop/orders/new", "mapped"u8.ToArray()));
+
+        await ExpectAnswersAsync(subscriber, "PONG\r\nMSG orders.created 1 6\r\nmapped\r\n");
+        await CloseAsync(subscriber);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_HpubWithoutHeaders_IsUnknownProtocolOperationAndClosed()
     {
         var (answers, _) = await ServeAsync(new UnitTestNatsAuthenticationPolicy(), Connect() + "HPUB foo 12 12\r\nNATS/1.0\r\n\r\n\r\nPING\r\n");

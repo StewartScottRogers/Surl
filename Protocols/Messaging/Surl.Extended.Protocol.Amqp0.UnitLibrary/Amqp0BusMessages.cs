@@ -21,17 +21,18 @@ internal static class Amqp0BusMessages
     /// <summary>
     /// The bus message for a publish: its properties onto the bus's fields, and beside them the
     /// native form - exchange and routing key as two shortstrs, then the property flags and list
-    /// byte for byte.
+    /// byte for byte. <c>reply-to</c> becomes the response topic <paramref name="topicNames"/> maps it
+    /// to, or none.
     /// </summary>
     /// <exception cref="Amqp0ChannelException"><c>expiration</c> is not a count of milliseconds from 0 to 2147483647 (406).</exception>
-    public static BusMessage ToBusMessage(string topic, string exchange, string routingKey, Amqp0ContentHeader header, Amqp0BasicProperties properties, byte[] body, DateTimeOffset now) =>
+    public static BusMessage ToBusMessage(string topic, string exchange, string routingKey, Amqp0ContentHeader header, Amqp0BasicProperties properties, byte[] body, DateTimeOffset now, Amqp0TopicNames topicNames) =>
         new(topic, body)
         {
             QualityOfService = BusQualityOfService.AtLeastOnce,
             ContentType = properties.ContentType,
             Headers = HeadersOf(properties.Headers),
             ExpiresAt = ExpiresAt(properties.Expiration, now),
-            ResponseTopic = MappedTopic(properties.ReplyTo),
+            ResponseTopic = topicNames.ToCanonicalTopic(properties.ReplyTo).Name,
             CorrelationData = properties.CorrelationId is { } correlationId ? Encoding.UTF8.GetBytes(correlationId) : null,
             HighPriority = properties.Priority >= HighPriorityFloor,
             NativeForm = new(NativeFormat, NativeBytes(exchange, routingKey, header)),
@@ -39,10 +40,11 @@ internal static class Amqp0BusMessages
 
     /// <summary>
     /// What a delivery of <paramref name="message"/> from <paramref name="queueName"/> carries: the
-    /// native form unchanged when it has one, otherwise <c>amq.topic</c> and its mapped routing key
-    /// (or the default exchange and the queue's name) and a header built from what it has.
+    /// native form unchanged when it has one, otherwise <c>amq.topic</c> and the routing key
+    /// <paramref name="topicNames"/> maps its topic to (or, when it has none, the default exchange and
+    /// the queue's name) and a header built from what it has.
     /// </summary>
-    public static Amqp0OutgoingContent ToOutgoingContent(BusMessage message, string queueName, DateTimeOffset now)
+    public static Amqp0OutgoingContent ToOutgoingContent(BusMessage message, string queueName, DateTimeOffset now, Amqp0TopicNames topicNames)
     {
         if (message.NativeForm is { Format: NativeFormat } native)
         {
@@ -53,8 +55,8 @@ internal static class Amqp0BusMessages
             return new(exchange, routingKey, flags, reader.ReadRemaining(), message.Payload);
         }
 
-        var (propertyFlags, propertyList) = PropertiesOf(message, now).Encode();
-        var mapped = AmqpTopicExchangeNames.FromCanonicalTopic(message.Topic);
+        var (propertyFlags, propertyList) = PropertiesOf(message, now, topicNames).Encode();
+        var mapped = topicNames.FromCanonicalTopic(message.Topic);
         return mapped.IsMapped
             ? new(Amqp0ExchangeTable.TopicSpace, mapped.Name, propertyFlags, propertyList, message.Payload)
             : new(string.Empty, queueName, propertyFlags, propertyList, message.Payload);
@@ -83,9 +85,6 @@ internal static class Amqp0BusMessages
         return now.AddMilliseconds(milliseconds);
     }
 
-    private static string? MappedTopic(string? routingKey) =>
-        routingKey is not null && AmqpTopicExchangeNames.ToCanonicalTopic(routingKey) is { IsMapped: true } mapped ? mapped.Name : null;
-
     private static byte[] NativeBytes(string exchange, string routingKey, Amqp0ContentHeader header)
     {
         var writer = new Amqp0WireWriter();
@@ -96,12 +95,12 @@ internal static class Amqp0BusMessages
         return writer.ToArray();
     }
 
-    private static Amqp0BasicProperties PropertiesOf(BusMessage message, DateTimeOffset now) => new()
+    private static Amqp0BasicProperties PropertiesOf(BusMessage message, DateTimeOffset now, Amqp0TopicNames topicNames) => new()
     {
         ContentType = FittingShortString(message.ContentType),
         Headers = message.Headers.Count == 0 ? null : TableOf(message.Headers),
         CorrelationId = FittingShortString(Utf8OrNull(message.CorrelationData)),
-        ReplyTo = message.ResponseTopic is { } responseTopic ? MappedRoutingKey(responseTopic) : null,
+        ReplyTo = message.ResponseTopic is { } responseTopic ? topicNames.FromCanonicalTopic(responseTopic).Name : null,
         Expiration = message.ExpiresAt is { } expiresAt ? RemainingMilliseconds(expiresAt, now) : null,
         Timestamp = (ulong)Math.Max(0, message.PublishedAt.ToUnixTimeSeconds()),
     };
@@ -111,9 +110,6 @@ internal static class Amqp0BusMessages
             .Where(header => FittingShortString(header.Name) is not null)
             .Select(header => new Amqp0Field(header.Name, Amqp0FieldValue.LongString(header.Value)))
             .ToList());
-
-    private static string? MappedRoutingKey(string topic) =>
-        AmqpTopicExchangeNames.FromCanonicalTopic(topic) is { IsMapped: true } mapped ? mapped.Name : null;
 
     private static string RemainingMilliseconds(DateTimeOffset expiresAt, DateTimeOffset now) =>
         ((long)Math.Max(0, Math.Ceiling((expiresAt - now).TotalMilliseconds))).ToString(CultureInfo.InvariantCulture);

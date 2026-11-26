@@ -45,7 +45,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   default set, which send a plain-text secret, and the `Authorization` scheme of each.
 - `AuthenticationPolicy` (with `AuthenticationSettings`) implements `IAuthenticationPolicy`:
   section 5 for password logins, section 4 for HTTP through `HttpAuthenticationSession`, and
-  the 1-second refusal delay on the injected `TimeProvider`.
+  the 1-second refusal delay on the injected `TimeProvider`. The session's `CreateChallenges`
+  (BL-1699) returns the values its `Challenge` verdict sends - the offered methods', without those
+  sending a plain-text secret where the connection may not offer them - without judging a request.
 - `IHttpAuthenticationMethod` / `IHttpCredentialVerifier` / `HttpCredentialCheck`: the seam
   each HTTP method (BL-111, BL-113, BL-120, BL-121, BL-122) implements. The policy offers and
   checks only the methods it is given that `--auth` accepts; an `Authorization` of any other
@@ -183,7 +185,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   the account's password as the secret, at the injected `TimeProvider`'s time (ADR-0043): the
   signed `x-<provider>-date` must be within `RequestTimeWindow` (15 minutes) either way, and
   `host` and the date must be signed. It holds no per-connection state.
-- `AwsSigV4Authorization` reads the `Credential`, `SignedHeaders` and `Signature` parameters;
+- `AwsSigV4Authorization` reads the `Credential`, `SignedHeaders` and `Signature` parameters,
+  and reads a `SignedHeaders` list naming a header twice, in any case, as malformed, so no
+  canonical request repeats a field's values (ADR-0043 amendment 2, BL-1719; `Authorization`,
+  presigned and `GOOG4-HMAC-SHA256` alike);
   `AwsSigV4Provider` recognises any `<PROVIDER>4-HMAC-SHA256` scheme (`AuthenticationMethods`
   maps them all to `AwsSigV4`) and spells the algorithm and key prefix;
   `AwsSigV4CanonicalRequest` rebuilds the canonical request as measured from pinned upstream
@@ -207,6 +212,15 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `HttpCredentialCheck.Refusal` and the verdict (BL-420, ADR-0108 Amendment 1): malformed
   credentials or date, clock skew, unknown account (the dummy secret's refusal), bad signature,
   payload hash mismatch. The HTTP server ignores it.
+- A configured account's signature that does not match (header, presigned URL or checked at the
+  body; `SignatureV4Check.VerifySignature`, so Cloud Storage's V4 HMAC too) also carries
+  `HttpCredentialCheck.SignatureMismatch` and the verdict's (BL-1701): the string to sign
+  (`AwsSigV4Calculation.BuildStringToSign`) of the real canonical request, and a copy of that request
+  built with `withholdsSecrets`, which writes `****` for a signed `Authorization`,
+  `Proxy-Authorization`, API-key or `x-amz-security-token` header and for an `X-Amz-Security-Token`
+  query parameter (ADR-0182; the header names are Abstractions' `HttpWithheldHeaderNames.All`). It is `null` for every other refusal and every accepted verdict, a
+  fault-refused login and a request no canonical request can be built from included; chunk and
+  trailer signature failures carry none.
 - A request with `HttpAuthenticationRequest.AwsSigV4Service` set (the S3 server's `s3`) is judged
   by `HttpAuthenticationSession.JudgeServiceSignature` with `AuthenticationPolicy.ServiceSignatureVerifier`,
   whatever `--auth` accepts: no `Authorization` is anonymous under `--allow-anonymous` and

@@ -82,6 +82,7 @@ internal sealed class SocketIoSession
     private DateTimeOffset heartbeatFrom;
     private DateTimeOffset? pingSentAt;
     private DateTimeOffset? noNamespaceSince;
+    private TaskCompletionSource clockWake = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task<SocketIoSessionEnd>? finished;
 
     /// <summary>
@@ -544,6 +545,7 @@ internal sealed class SocketIoSession
         SendConnectError(name, fault.Reply!);
     }
 
+    // The connect deadline a last leave sets can be sooner than what the clock sleeps to, so it is woken.
     private void Leave(string name)
     {
         lock (gate)
@@ -551,6 +553,7 @@ internal sealed class SocketIoSession
             if (connectedNamespaces.Remove(name) && connectedNamespaces.Count == 0)
             {
                 noNamespaceSince = context.TimeProvider.GetUtcNow();
+                clockWake.TrySetResult();
             }
         }
     }
@@ -625,7 +628,7 @@ internal sealed class SocketIoSession
         while (true)
         {
             var now = context.TimeProvider.GetUtcNow();
-            var (pingDue, pongDue, connectDue) = Deadlines();
+            var (pingDue, pongDue, connectDue, wake) = Deadlines();
             if (now >= pongDue)
             {
                 Decide(SocketIoSessionEnd.WebSocketClose(SocketIoSessionEnd.NormalClosure, "no pong arrived within pingTimeout"));
@@ -647,20 +650,25 @@ internal sealed class SocketIoSession
                 continue;
             }
 
-            await Task.Delay(Earliest(pingDue, pongDue, connectDue) - now, context.TimeProvider, token);
+            // The earliest deadline, a wake or the end finishes the sleep; only the end stops the clock.
+            var sleep = wake.WaitAsync(Earliest(pingDue, pongDue, connectDue) - now, context.TimeProvider, token);
+            await sleep.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            token.ThrowIfCancellationRequested();
         }
     }
 
-    private (DateTimeOffset PingDue, DateTimeOffset PongDue, DateTimeOffset ConnectDue) Deadlines()
+    // Reads the deadlines, and the task that completes if one of them moves sooner after this read.
+    private (DateTimeOffset PingDue, DateTimeOffset PongDue, DateTimeOffset ConnectDue, Task Wake) Deadlines()
     {
         var headTimeout = context.Limits.HeadTimeout;
         lock (gate)
         {
+            clockWake = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var connectDue = noNamespaceSince is { } since && headTimeout != Timeout.InfiniteTimeSpan ? since + headTimeout : DateTimeOffset.MaxValue;
 
             return pingSentAt is { } sentAt
-                ? (DateTimeOffset.MaxValue, sentAt + PingTimeout, connectDue)
-                : (heartbeatFrom + PingInterval, DateTimeOffset.MaxValue, connectDue);
+                ? (DateTimeOffset.MaxValue, sentAt + PingTimeout, connectDue, clockWake.Task)
+                : (heartbeatFrom + PingInterval, DateTimeOffset.MaxValue, connectDue, clockWake.Task);
         }
     }
 

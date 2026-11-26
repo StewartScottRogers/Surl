@@ -3,12 +3,74 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// What abandoning a body check publishes (ADR-0045 amendment 1, decision 2).
+/// What abandoning a body check publishes (ADR-0045 amendment 1, decision 2), how a directory
+/// account source changes the answer, and the challenges a session names on its own.
 /// </summary>
 [TestClass]
 public sealed class HttpAuthenticationSessionTests
 {
     private readonly ManualTimeProvider clock = new();
+
+    private AuthenticationPolicy BasicDigestAndBearerPolicy() =>
+        PolicyFixture.Create(
+            PolicyFixture.AliceAndToken,
+            clock,
+            httpMethods:
+            [
+                new BasicAuthenticationMethod(PolicyFixture.AliceAndToken),
+                new DigestAuthenticationMethod(PolicyFixture.AliceAndToken, new FixedDigestNonceBook(FixedDigestNonceBook.FixtureNonce)),
+                new BearerAuthenticationMethod(PolicyFixture.AliceAndToken),
+            ]);
+
+    [TestMethod]
+    public async Task CreateChallenges_OverTls_MatchesTheChallengeVerdict()
+    {
+        var session = BasicDigestAndBearerPolicy().StartHttpConnection(PolicyFixture.Tls);
+        var verdict = await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        var challenges = session.CreateChallenges();
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+        CollectionAssert.AreEqual(verdict.WwwAuthenticateValues.ToArray(), challenges.ToArray());
+        Assert.IsTrue(challenges.Any(value => value.StartsWith("Basic ", StringComparison.Ordinal)));
+        Assert.IsTrue(challenges.Any(value => value.StartsWith("Digest ", StringComparison.Ordinal)));
+        Assert.IsTrue(challenges.Any(value => value.StartsWith("Bearer ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task CreateChallenges_OverPlainHttp_OmitsBasicAsTheChallengeVerdictDoes()
+    {
+        var session = BasicDigestAndBearerPolicy().StartHttpConnection(null);
+        var verdict = await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        var challenges = session.CreateChallenges();
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+        CollectionAssert.AreEqual(verdict.WwwAuthenticateValues.ToArray(), challenges.ToArray());
+        Assert.IsFalse(challenges.Any(value => value.StartsWith("Basic ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void CreateChallenges_WithNoHttpMethod_IsEmpty()
+    {
+        var policy = PolicyFixture.Create(PolicyFixture.AliceAndToken, clock);
+
+        var challenges = policy.StartHttpConnection(PolicyFixture.Tls).CreateChallenges();
+
+        Assert.IsEmpty(challenges);
+    }
+
+    [TestMethod]
+    public async Task CreateChallenges_AfterAnAcceptedBearerLogin_StillOffersBearer()
+    {
+        var session = BasicDigestAndBearerPolicy().StartHttpConnection(PolicyFixture.Tls);
+        var verdict = await session.JudgeAsync(PolicyFixture.Get("Bearer tok"), CancellationToken.None);
+
+        var challenges = session.CreateChallenges();
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+        CollectionAssert.Contains(challenges.ToArray(), "Bearer realm=\"surl\"");
+    }
 
     private static HttpCredentialCheck Awaiting(string? verifiedAccountName) =>
         new(HttpCredentialOutcome.AwaitingBody, verifiedAccountName, [], "alice", _ => new HttpCredentialCheck(HttpCredentialOutcome.Accepted, "alice", []));

@@ -2,7 +2,9 @@
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
 ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4. Built by BL-552, BL-554 (the
-HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the upstream cases' server half (BL-556) is built, but the command line and composition (BL-555) are still to come, so `surl` composes nothing of it yet.
+HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the upstream cases' server half
+(BL-556) is built too. `surl` composes the proxy for its `--proxy` listen URLs (`Surl.Composition`'s
+`ProxyComposition`, BL-1003).
 
 **The upstream test cases' proxy half** (ADR-0080 decision 2; BL-556) is a test seam the shipped `surl` never
 composes: `Surl.Conformance.UnitTests` composes `HttpProxyUpstreamTestCaseServer` with one case's
@@ -24,9 +26,17 @@ Every request and `CONNECT` is judged after the `Host` check and before anything
 `CONNECT`'s authority, an absolute-form request's path and query. A challenge is `407` with one
 `Proxy-Authenticate` per value and keeps the connection; `Forbidden` is `403` and closes.
 
+**Fault rules** (ADR-0160): `ProxyCommandFault` asks the plan once per `CONNECT`, forwarded request and
+HTTP/2 stream, after the login and before the origin connection, with scheme `http-proxy` or
+`https-proxy`; a delay holds, a drop sends nothing (HTTP/2: the stream is reset), and a chosen error is
+the proxy's own answer with the rule's status. A chosen `407`, whatever its reason phrase, carries one
+`Proxy-Authenticate` per value of the login session's `CreateChallenges()` (Amendment 2, BL-1725), on
+HTTP/2 too, NTLM and Negotiate sent whole with no stream reset; a session offering none leaves it without
+the field and the exchange log notes it. No other chosen status, `401` included, gains a challenge.
+
 **The HTTPS proxy** is this same server on a connection the serving engine secured before
 `ServeAsync` (an `https` listen URL with `ListenUrl.IsProxy`, whose listener offers ALPN
-`http/1.1` only). `HttpProxyExchange` notes the TLS once before the first request; a session that
+`h2` then `http/1.1`, ADR-0088 Amendment 9). `HttpProxyExchange` notes the TLS once before the first request; a session that
 agreed any ALPN but `h2` or `http/1.1` is closed unwritten (Amendment 2). `HttpProxyProtocolServerTlsTests`
 drive it with an `InMemoryConnection` given an initial `TlsSession`.
 
@@ -38,7 +48,7 @@ timeout). Each stream is judged by the connection's proxy login first; a `CONNEC
 any other `:scheme http` stream is forwarded to its origin over HTTP/1.1 on its own origin
 connection and the response relayed back on the stream (a `101` from the origin is `502`; another
 scheme is `501`). `AlreadyReadBytesConnection` hands `Http2ConnectionServer` the bytes read past the
-connection preface. The listener does not offer `h2` to a proxy yet; `HttpProxyProtocolServerHttp2Tests` drive it
+connection preface. `HttpProxyProtocolServerHttp2Tests` drive it
 with a `TlsSession` whose `ApplicationProtocol` is `h2`, replaying bytes recorded from pinned
 upstream curl in `Fixtures/https-proxy-h2-*`.
 
@@ -46,9 +56,29 @@ upstream curl in `Fixtures/https-proxy-h2-*`.
 
 What exists:
 
-- `HttpProxyProtocolServer` - the `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`503`). Takes the `IOriginConnector` every origin is reached through; it never decides an
-  address itself (the connector applies the allowed-origin rule). Its remarks state every answer.
+- `HttpProxyProtocolServer` - the `IConnectionProtocolServer`, `IConnectionRefusalWriter`
+  (`503`) and `IExchangeBytesRedactingServer`. Takes the `IOriginConnector` every origin is reached
+  through; it never decides an address itself (the connector applies the allowed-origin rule). Its
+  remarks state every answer.
+- `HttpProxyConnectionBytesRedactor` - the exchange-log redactor `CreateRedactor` returns
+  (ADR-0182 Amendment 8): until the client's HTTP/2 preface it hands the bytes to
+  `HttpProxyRequestOrTunnelBytesRedactor`; a preface where a request may start hands the rest to
+  `Surl.Http2`'s `Http2RequestBytesRedactor`, which withholds the `DATA` payloads of a `CONNECT`
+  stream (Amendment 11). Both it and the request head redactor are given
+  `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, so every request through the proxy has the
+  API-key and session-token fields withheld beside the credential fields (Amendment 18).
+- `HttpProxyRequestOrTunnelBytesRedactor` - masks HTTP/1.x request heads until the bytes are a
+  tunnel's text: a line where a request may start that begins with a letter, `1`-`9` or a line feed
+  and is no CR LF request line, a `CONNECT` head line without CR LF, or what follows a `CONNECT`
+  head declaring a body. From there `HttpProxyTunnelLinesRedactor` judges every line with
+  `HttpProxyTunnelLineRedactionRule`, which combines
+  `HttpProxyTunnelPasswordAndCredentialHeaderLineRule`, `HttpProxyTunnelImapLoginLineRule` and
+  `Surl.LineProtocol`'s `SaslLineRedactionRule`, so FTP and mail logins in a `CONNECT` tunnel are
+  masked (Amendment 16). The headers tunnelled text masks are those of
+  `HttpWithheldHeaderNames.All`: the credential fields after the scheme word, the API-key and
+  session-token fields whole (Amendment 18).
+- `HttpProxyWithheldBytesRedactor` - takes over when the preface starts anywhere else: one `****`
+  for every later byte.
 - `HttpProxyExchange` - one curl connection: reads request heads with `Surl.HttpMessage`'s
   `HttpConnectionReader`, keeps one `OriginLink` between requests. `HttpProxyExchange.Forwarding.cs`
   forwards absolute-form `http://` requests (origin-form, `Host` from the authority, bodies,
@@ -69,7 +99,8 @@ What exists:
 upstream curl 8.21.0 with the recorder playing the proxy; its README says how each was recorded.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`,
-and the horizontal `Surl.Http2.UnitLibrary` and `Surl.Hpack.UnitLibrary` (ADR-0086) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
+and the horizontal `Surl.Http2.UnitLibrary`, `Surl.Hpack.UnitLibrary` (ADR-0086) and
+`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendment 16) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
 through `IAuthenticationPolicy` as the HTTP server does, so it needs no reference (Amendment 3).
 Referencing another protocol server is a build break, and
 `Surl.Protocol.Abstractions.UnitTests` fails if one appears.

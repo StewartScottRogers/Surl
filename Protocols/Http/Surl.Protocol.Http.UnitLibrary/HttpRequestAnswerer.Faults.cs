@@ -7,7 +7,7 @@ namespace Surl.Protocol.Http;
 
 /// <summary>
 /// How the answerer answers a request with a fault rule's chosen error (ADR-0124 decision 4,
-/// ADR-0134 decision 1).
+/// ADR-0134 decision 1 and Amendment 1).
 /// </summary>
 internal sealed partial class HttpRequestAnswerer
 {
@@ -55,9 +55,11 @@ internal sealed partial class HttpRequestAnswerer
 
     // A request let in is answered with a matching chosen-error rule's status before the content
     // store is touched: an empty answer that keeps the connection as a 404 does, or, when the
-    // request announced a body that is never read, a refusal that closes it. Null when no rule
-    // applies, or when the rule's reply does not fit the HTTP error shape.
-    private async Task<HttpAnswer?> AnswerChosenErrorAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges)
+    // request announced a body that is never read, a refusal that closes it. A drop rule, or a
+    // client that left during a delay, gives the dropped answer instead. Null when no rule
+    // applies, or when the rule's reply does not fit the HTTP error shape. The WWW-Authenticate
+    // fields are those WwwAuthenticateValuesForChosenError gives for the chosen status.
+    private async Task<HttpAnswer?> AnswerChosenErrorAsync(HttpRequest request, string? accountName, IReadOnlyList<string> verdictValues)
     {
         var path = RequestPath(request.Target);
         var found = await HttpCommandFaults.FindAndApplyWithClientOutcomeAsync(context, request.Method, path, accountName, holdConnection);
@@ -87,11 +89,34 @@ internal sealed partial class HttpRequestAnswerer
         var status = new HttpStatus(code, reasonPhrase ?? ErrorReasonPhrases.GetValueOrDefault(code, string.Empty));
         HttpCommandFaults.PublishApplied(context, rule, request.Method, path, $"{status.Code} {status.ReasonPhrase}");
 
+        var sentValues = WwwAuthenticateValuesForChosenError(rule.Id, status.Code, verdictValues);
+
         var answer = request.Body.IsAnnounced
-            ? Refuse(request, status, null, challenges, $"{request.Method} {request.Target}: fault rule {rule.Id} chose the error, and the body announced was not read")
-            : EmptyAnswer(request, status, challenges);
+            ? Refuse(request, status, null, sentValues, $"{request.Method} {request.Target}: fault rule {rule.Id} chose the error, and the body announced was not read")
+            : EmptyAnswer(request, status, sentValues);
 
         return rule.Body is null ? answer : WithChosenBody(request, answer, rule.Body);
+    }
+
+    // The WWW-Authenticate values a chosen error goes with. A let-in verdict's values are only login
+    // success tokens (Negotiate's final token), never challenges, so a chosen 401 always replaces them
+    // with those the session's own 401 would offer on this connection (RFC 9110 section 11.6.1). A
+    // session offering none leaves the 401 without one, and this notes that in the exchange log. Every
+    // other status keeps the verdict's values unchanged.
+    private IReadOnlyList<string> WwwAuthenticateValuesForChosenError(string faultRuleId, int statusCode, IReadOnlyList<string> verdictValues)
+    {
+        if (statusCode != HttpStatus.Unauthorized.Code)
+        {
+            return verdictValues;
+        }
+
+        var offered = authenticationSession.CreateChallenges();
+        if (offered.Count == 0)
+        {
+            context.Log.Note($"fault rule {faultRuleId} chose 401, and the server offers no challenge on this connection");
+        }
+
+        return offered;
     }
 
     // The rule's body= text replaces the status's fixed text: the same Content-Type, the text's UTF-8 length, and no

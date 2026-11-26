@@ -2,9 +2,9 @@ namespace Surl.MessageBus;
 
 /// <summary>
 /// One live subscription on a <see cref="MessageBus"/>, made by
-/// <see cref="BusConnection.Subscribe"/>. Every message published after it began on a topic its
-/// <see cref="Filter"/> matches is handed to its delivery callback, in publish order, until it
-/// is disposed or its connection is.
+/// <see cref="BusConnection.Subscribe"/> or <see cref="BusConnection.SubscribeTogether"/>. Every
+/// message published after it began on a topic its <see cref="Filter"/> matches is handed to its
+/// delivery callback, in publish order, until it is disposed or its connection is.
 /// </summary>
 public sealed class BusSubscription : IDisposable
 {

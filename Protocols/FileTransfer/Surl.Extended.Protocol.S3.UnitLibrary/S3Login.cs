@@ -8,7 +8,9 @@ namespace Surl.Extended.Protocol.S3;
 /// The Signature Version 4 check of S3 requests (ADR-0108, decision 4): each request is judged
 /// by the connection's <see cref="IHttpAuthenticationSession"/> as a request for the <c>s3</c>
 /// service, and every refusal is answered with the S3 error decision 4.3 gives it. The check
-/// itself is <c>Surl.Authentication</c>'s, reached only through the contract.
+/// itself is <c>Surl.Authentication</c>'s, reached only through the contract. One refusal is made
+/// here, before the session is asked: a credential scope naming another region than a regional AWS
+/// <c>Host</c> names is <c>AuthorizationHeaderMalformed</c>.
 /// </summary>
 /// <param name="authentication">The connection's authentication session.</param>
 /// <param name="exchange">The exchange the requests arrive on: its log takes each checked login's note, and the content store learns it behind every write (ADR-0168).</param>
@@ -19,23 +21,36 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, Exchang
     /// </summary>
     public const string Service = "s3";
 
+    private const string OtherRegionNote = "Login refused: the credential scope's region is not the region the Host names.";
+
     /// <summary>
-    /// Judges a request's head: who makes it, or the error refusing it. Without a signature it
-    /// is anonymous under <c>--allow-anonymous</c>, and an anonymous write is still
-    /// <c>403 AccessDenied</c>.
+    /// Judges a request's head: who makes it, or the error refusing it. When the <c>Host</c>
+    /// field names a region (<see cref="S3VirtualHost.RegionOf"/>) and the credential scope
+    /// (<see cref="S3CredentialScope"/>) names a different one, compared exactly, the request is
+    /// <c>400 AuthorizationHeaderMalformed</c>: the session is not asked, so no secret is
+    /// consulted, and the exchange log takes a note. Otherwise the session judges: without a
+    /// signature the request is anonymous under <c>--allow-anonymous</c>, and an anonymous write
+    /// is still <c>403 AccessDenied</c>.
     /// </summary>
     /// <param name="request">The request.</param>
     /// <param name="cancellationToken">Cancels the judgement.</param>
     /// <returns>The caller, with the rest of a check that binds the body, or the refusal.</returns>
     public async Task<S3LoginResult> JudgeHeadAsync(HttpRequest request, CancellationToken cancellationToken)
     {
+        if (IsScopedToAnotherRegionThanTheHosts(request))
+        {
+            exchange.Log.Note(OtherRegionNote);
+
+            return S3LoginResult.Refused(S3Error.AuthorizationHeaderMalformed);
+        }
+
         var isWrite = request.Method is not ("GET" or "HEAD");
         var verdict = await authentication.JudgeAsync(
             new HttpAuthenticationRequest(request.Method, request.Target, isWrite, request.Fields, Service), cancellationToken);
         NoteLogin(verdict);
         if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
         {
-            return S3LoginResult.Refused(ErrorOf(verdict.Refusal));
+            return S3LoginResult.Refused(RefusalOf(verdict));
         }
 
         return isWrite && verdict.AccountName is null
@@ -55,7 +70,7 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, Exchang
         var verdict = await bodyCheck.JudgeBodyAsync(bodySha256, cancellationToken);
         NoteLogin(verdict);
 
-        return verdict.Outcome == HttpAuthenticationOutcome.Proceed ? null : ErrorOf(verdict.Refusal);
+        return verdict.Outcome == HttpAuthenticationOutcome.Proceed ? null : RefusalOf(verdict);
     }
 
     /// <summary>
@@ -93,6 +108,20 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, Exchang
         HttpAuthenticationRefusal.ConflictingCredentials => S3Error.ConflictingAuthentication,
         _ => S3Error.AccessDenied,
     };
+
+    // The refusal's error, with what the session computed when the signature did not match.
+    private static S3Error RefusalOf(HttpAuthenticationVerdict verdict)
+    {
+        var error = ErrorOf(verdict.Refusal);
+
+        return verdict.SignatureMismatch is { } mismatch ? error with { SignatureMismatch = mismatch } : error;
+    }
+
+    // Only a Host and a scope that both name a region can disagree.
+    private static bool IsScopedToAnotherRegionThanTheHosts(HttpRequest request) =>
+        S3VirtualHost.RegionOf(request.Authority) is { } hostRegion
+        && S3CredentialScope.RegionOf(request.Target, request.Fields) is { } scopeRegion
+        && !scopeRegion.Equals(hostRegion, StringComparison.Ordinal);
 
     private void NoteLogin(HttpAuthenticationVerdict verdict)
     {

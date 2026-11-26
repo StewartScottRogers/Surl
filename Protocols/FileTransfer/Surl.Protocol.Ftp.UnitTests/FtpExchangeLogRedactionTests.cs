@@ -41,8 +41,16 @@ public sealed class FtpExchangeLogRedactionTests
         Assert.AreEqual("ACCT ****\r\nacct ****\r\n", Logged("ACCT billing\r\nacct billing\r\n"));
 
     [TestMethod]
+    public void Pass_SeparatedByATab_IsMaskedKeepingTheTab() =>
+        Assert.AreEqual("PASS\t****\r\npass\t****\r\n", Logged("PASS\ts3cret\r\npass\ts3 cret\r\n"));
+
+    [TestMethod]
+    public void Acct_SeparatedByATab_IsMaskedKeepingTheTab() =>
+        Assert.AreEqual("ACCT\t****\r\nacct\t****\r\n", Logged("ACCT\tbilling\r\nacct\tbilling\r\n"));
+
+    [TestMethod]
     public void PassWithNoArgument_IsLoggedAsSent() =>
-        Assert.AreEqual("PASS\r\nPASS \r\n", Logged("PASS\r\nPASS \r\n"));
+        Assert.AreEqual("PASS\r\nPASS \r\nPASS\t\r\n", Logged("PASS\r\nPASS \r\nPASS\t\r\n"));
 
     [TestMethod]
     public void UserAndEveryOtherCommand_AreLoggedUnchanged() =>
@@ -53,6 +61,24 @@ public sealed class FtpExchangeLogRedactionTests
     [TestMethod]
     public void Pass_AfterAuthTls_IsMasked() =>
         Assert.AreEqual("AUTH TLS\r\nUSER alice\r\nPASS ****\r\n", Logged("AUTH TLS\r\n", "USER alice\r\n", "PASS s3cret\r\n"));
+
+    [TestMethod]
+    public void Pass_AfterABareLineFeed_IsMasked() =>
+        Assert.AreEqual("USER alice\nPASS ****\r\n", Logged("USER alice\nPASS s3cret\r\n"));
+
+    [TestMethod]
+    public void EveryOtherLineOfTheSameChunk_IsLoggedAsSentLineFeedsIncluded() =>
+        Assert.AreEqual(
+            "USER alice\nPASS ****\nACCT\t****\n\nPASS\nSYST\nQUIT\r\nNOOP\n",
+            Logged("USER alice\nPASS s3cret\nACCT\tbilling\n\nPASS\nSYST\nQUIT\r\nNOOP\n"));
+
+    [TestMethod]
+    public void Pass_EndedByABareLineFeed_KeepsTheLineFeedAndWhatFollows() =>
+        Assert.AreEqual("PASS ****\nSYST\r\n", Logged("PASS s3cret\nSYST\r\n"));
+
+    [TestMethod]
+    public void PassWithNoArgument_EndedByABareLineFeed_IsLoggedAsSent() =>
+        Assert.AreEqual("PASS \nPASS\t\nPASS\r\n", Logged("PASS \nPASS\t\nPASS\r\n"));
 
     [TestMethod]
     public void ObserveSent_ChangesNothing()

@@ -104,4 +104,5 @@ The chosen-error fault (BL-1031, ADR-0124 decisions 4 and 9):
 The exchange log never holds a CONNECT `pass` or `auth_token` (ADR-0182, BL-1458): `NatsServer` implements
 `IExchangeBytesRedactingServer` with a `LineBytesRedactor` over `NatsConnectLineRedactionRule`, which masks those two
 top-level JSON values as `****` inside their quotes (a whole unreadable argument as `****`) and logs the rest, `user`
-included, as received.
+included, as received. A line ending in a bare LF is judged on its own (BL-1757): the rule splits what
+`LineBytesRedactor` hands it, which ends only at CR LF, at each LF.

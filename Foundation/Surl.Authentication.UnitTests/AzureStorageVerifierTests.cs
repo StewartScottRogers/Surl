@@ -79,6 +79,7 @@ public sealed class AzureStorageVerifierTests
         Assert.AreEqual(refusal, verdict.Refusal);
         Assert.IsNull(verdict.AccountName);
         Assert.IsEmpty(verdict.WwwAuthenticateValues);
+        Assert.IsNull(verdict.SignatureMismatch);
     }
 
     private static void AssertAccepted(HttpAuthenticationVerdict verdict, string expectedNote, string accountName = AccountName)

@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Superseded in part:** decision 3's "a will, user name and password the flags allow are accepted and not read" is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): the user name and password are checked.
 - **Superseded in part:** decision 1's "whatever its `RETAIN` flag says" is superseded by [ADR-0176](ADR-0176-how-the-mqtt-3-1-1-server-treats-the-retain-flag-and-why-it-keeps-the-server-sent-disconnect.md): only a RETAIN 1 publish (or a `--topic ...;retain` match) is retained. Decision 2's `DISCONNECT` is kept by ADR-0176.
+- **Amended by:** [Amendment 1](#amendment-1-2026-11-25-bl-1715-a-subscription-may-be-held-open-for-live-publishes) (2026-11-25, BL-1715): a new option holds a subscription open for live publishes; the server does so since BL-1720, and `surl` has the option since BL-1721. Without it decision 2's one-shot subscribe stands.
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28, in BL-036
 
@@ -98,3 +99,98 @@ needs only the `CONNACK`.
 - A long-lived MQTT subscriber (another broker client) gets the retained messages and is
   then disconnected, so `surl` is not a general-purpose broker. That is a deliberate
   limit of a server built to answer curl.
+
+## Amendment 1 (2026-11-25, BL-1715): a subscription may be held open for live publishes
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"). No package, no threshold
+change, no download. The server (BL-1720) and the option (BL-1721) are built, and pinned upstream curl proves them
+(BL-1722, `UpstreamCurlHoldsASubscriptionOnSurlOverMqttTests`): count 1 ends a fetch with exit 0 on a publish made
+after the `SUBACK`, count 0 with `--max-time` ends it with exit 28 and that publish on stdout, and without the option
+a retained message is fetched with exit 0.
+
+### Why
+
+A test could not start `curl mqtt://host/<topic>`, publish over NATS or AMQP, and have curl receive the
+message: decision 2 ends every subscribe with `DISCONNECT` as soon as the retained messages are sent. A
+stand-in needs that scenario. Upstream curl has no option that says how many messages to wait for, so the
+server has to decide when the fetch ends.
+
+### Measured
+
+`Record-CurlExchange.ps1 -Raw` against the pinned win-x64 build (SHA-256
+`0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`), 2026-11-25, `curl -sS mqtt://127.0.0.1:P/t`
+with the arguments named. Each row starts with `CONNACK` 0 and `SUBACK`.
+
+| Server then | curl arguments | curl sends after `SUBSCRIBE` | Exit code, stdout, stderr |
+| --- | --- | --- | --- |
+| retained `PUBLISH`, `DISCONNECT` | none | nothing; closes | 0; the message |
+| retained `PUBLISH`, 2 quiet seconds, a `PUBLISH` (`30`), `DISCONNECT` | none | nothing; closes | 0; both messages |
+| two `PUBLISH`es a few seconds apart, `DISCONNECT` | none | nothing; closes | 0; both |
+| retained `PUBLISH`, a `PUBLISH`, bare close | none | nothing | 56; both; `Connection disconnected` |
+| retained `PUBLISH`, held open | `--max-time 5` | nothing; closes at 5 s, no `DISCONNECT` | 28; the message; `Operation timed out after 5003 milliseconds with 5 out of 5 bytes received` |
+| held open, nothing sent | `--max-time 5` | nothing; closes | 28; empty; `... with 0 bytes received` |
+| two live `PUBLISH`es, held open | `--max-time 8 -N` | nothing; closes | 28; both |
+| `PUBLISH`, held open, curl killed | none | | stdout (a pipe) is **empty** |
+| `PUBLISH`, held open, curl killed | `-N` | | stdout holds the message |
+| quiet; each `PINGREQ` answered `PINGRESP`; then a `PUBLISH`, `DISCONNECT` at about 150 s | `-v --trace-time` | `PINGREQ` `C0 00` after 60 s of quiet, and again 60 s after the `PINGRESP` | 0; the message |
+| quiet; the `PINGREQ` never answered; then a `PUBLISH`, `DISCONNECT` at about 195 s | `-v --trace-time` | one `PINGREQ` at 60 s, no second one | 0; the message |
+| a `PUBLISH` every 20 s for 160 s, `DISCONNECT` | `-v --trace-time` | **nothing: no `PINGREQ` at all** | 0; all eight |
+
+So upstream curl holds a subscription for as long as the server does, writes every `PUBLISH` it receives,
+exits 0 only on `DISCONNECT`, and sends `PINGREQ` only while it receives nothing.
+
+### Decision
+
+1. **Off by default.** Without the new option decision 2 stands: `SUBACK`, the retained messages,
+   `DISCONNECT`. A plain `curl mqtt://host/<topic>` keeps exiting 0.
+2. **`--mqtt-hold-subscription <count>`** holds every subscription of an `mqtt` or `mqtts` listener open.
+   `<count>` is a non-negative whole number; anything else exits 2. The server sends `DISCONNECT` and closes
+   right after the `<count>`-th `PUBLISH` it has sent on the connection, retained and live counted alike, even
+   if more retained messages match. `0` sets no count: the server never ends the subscription for having sent
+   messages. `mqtt5` is unaffected (it has its own
+   [ADR-0093](ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md) behaviour). `Surl.Api`,
+   `-K` files and `surl-mcp` get it as they get every command-line option. No warning is printed: it grants no
+   topic `--topic-access` does not already allow. Because the option decides how curl's fetch ends,
+   `surl --help --mqtt-hold-subscription` and `--aihelp mqtt` write an explanation paragraph for it, the kind
+   [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) decision 5 gives loosening options; `--help testing` does not
+   list it (BL-1721).
+3. **What is sent.** The server subscribes on the bus before it writes `SUBACK`, so a publish made after the
+   subscriber has the `SUBACK` is never missed. `SUBACK` comes first, then the retained messages as in
+   decision 2, then each later publish once per connection however many filters match: QoS 0, `RETAIN` and
+   `DUP` clear (section 3.3.1.3), under the name the scheme gives the topic. A topic `--topic-map` hides from
+   the scheme is neither sent nor counted. A publish from any protocol on the shared bus qualifies, the
+   subscriber's own included. If every filter of the connection's first `SUBSCRIBE` is refused (`0x80`), the
+   server sends `DISCONNECT` as today, so curl does not wait for nothing.
+4. **While held** the server goes on reading: `PINGREQ` gets `PINGRESP`; another `SUBSCRIBE` adds filters (the
+   same filter again replaces it) and delivers their retained messages against the same count; `UNSUBSCRIBE`
+   removes filters and leaves the connection open; `PUBLISH` is handled as the original decision 4 and ADR-0176 say; the
+   client's `DISCONNECT` or close ends the subscription. Faults are asked where they are today (`CONNECT`,
+   `SUBSCRIBE`, `PUBLISH`); a delivery has no fault point of its own.
+5. **Bounds.** At most 1000 publishes and 16 MiB of payload wait for one subscriber (ADR-0093's session
+   numbers); one more closes the connection with no bytes and a log note. `--idle-timeout`, the maximum
+   exchange duration (`--max-time`, 3600 s by default) and the connection limits apply, each ending in a bare
+   close (ADR-0006, section 5).
+6. **Keep Alive is not enforced**, as today. Section 3.1.2.10 has a server close a client silent for one and a
+   half Keep Alive periods (90 s for curl's 60), but curl sends nothing while publishes keep arriving (last row
+   above), so enforcing it would cut off a working `curl` subscription. Curl is the oracle (ADR-0003). The
+   idle timeout still ends a dead connection: with nothing sent either way, 120 s by default.
+
+### How a test uses it
+
+- **Seed:** retained messages as ADR-0176 decision 3 says; they count toward `<count>`.
+- **Know the subscription is live:** wait until the exchange's sent bytes hold the `SUBACK` (`90`) -
+  `SurlServer.Exchanges` or `FindExchanges` (`Sent`), `surl-mcp`'s `get_exchanges`, or the control endpoint's
+  events. Then publish: `SurlServer.Messages.PublishAsync`, `publish_message`, NATS, AMQP, STOMP, another
+  `mqtt` client or `curl -d`. No retain flag and no sleep are needed.
+- **Observe:** each `PUBLISH` appears in the exchange's sent bytes, the bus publishes a delivered store change for each live one,
+  and curl writes each message to stdout (give `-N` to read it while curl is still running).
+- **End:** `<count>` reached, exit 0 (the deterministic way); curl's `--max-time`, exit 28 with what arrived
+  on stdout; the test ends curl; or `surl` closes on stop or a limit, exit 56. A reset of the stores leaves a
+  live subscription and its count as they are
+  ([ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decision 3).
+
+### Rejected
+
+- **Always hold open.** A plain fetch would exit 28 or hang instead of 0.
+- **End after a quiet time.** The result would depend on how fast the publisher is, not on what it published.
+- **A flag with no count.** Curl could then never exit 0 from a held subscription.

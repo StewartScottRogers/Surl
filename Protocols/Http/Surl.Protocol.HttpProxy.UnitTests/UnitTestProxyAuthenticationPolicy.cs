@@ -31,6 +31,9 @@ internal sealed partial class UnitTestProxyAuthenticationPolicy : IAuthenticatio
 
     public CheckedLogin? CheckedLogin { get; init; }
 
+    /// <summary>What a session's <c>CreateChallenges</c> offers; <see cref="Challenges"/> unless set.</summary>
+    public IReadOnlyList<string> OfferedChallenges { get; init; } = Challenges;
+
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException("The proxy never checks a password login.");
 
@@ -47,6 +50,8 @@ internal sealed partial class UnitTestProxyAuthenticationPolicy : IAuthenticatio
     private sealed class Session(UnitTestProxyAuthenticationPolicy policy) : IHttpAuthenticationSession
     {
         private bool sawNtlmNegotiate;
+
+        public IReadOnlyList<string> CreateChallenges() => policy.OfferedChallenges;
 
         public ValueTask<HttpAuthenticationVerdict> JudgeAsync(HttpAuthenticationRequest request, CancellationToken cancellationToken)
         {

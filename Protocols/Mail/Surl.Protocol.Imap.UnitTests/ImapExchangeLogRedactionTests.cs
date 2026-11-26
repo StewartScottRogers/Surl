@@ -108,6 +108,106 @@ public sealed class ImapExchangeLogRedactionTests
             Logged("A1 LOGIN alice {6}\r\n", "<A1 BAD Literal too long\r\n", "A2 LOGIN bob s3cret\r\n"));
 
     [TestMethod]
+    public void Login_WithTwoSpacesAfterTheTagAndAnAtomPassword_IsMasked() =>
+        Assert.AreEqual("A1  LOGIN alice ****\r\n", Logged("A1  LOGIN alice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithTwoSpacesAfterTheTagAndAQuotedPassword_IsMasked() =>
+        Assert.AreEqual("A1  LOGIN alice ****\r\n", Logged("A1  LOGIN alice \"s3 cret\"\r\n"));
+
+    [TestMethod]
+    public void Login_WithTwoSpacesAfterTheTagAndAPasswordLiteral_IsMasked() =>
+        Assert.AreEqual(
+            "A1  LOGIN alice {6}\r\n****\r\n",
+            Logged("A1  LOGIN alice {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void TagFollowedOnlyBySpaces_IsLoggedAsSent() =>
+        Assert.AreEqual("A1  \r\n", Logged("A1  \r\n"));
+
+    [TestMethod]
+    public void Login_WithASpaceBeforeTheTagAndAnAtomPassword_IsMasked() =>
+        Assert.AreEqual(" A1 LOGIN alice ****\r\n", Logged(" A1 LOGIN alice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithSeveralSpacesBeforeTheTagAndAQuotedPassword_IsMasked() =>
+        Assert.AreEqual("   A1  LOGIN alice ****\r\n", Logged("   A1  LOGIN alice \"s3 cret\"\r\n"));
+
+    [TestMethod]
+    public void Login_WithASpaceBeforeTheTagAndAPasswordLiteral_IsMasked() =>
+        Assert.AreEqual(
+            " A1 LOGIN alice {6}\r\n****\r\n",
+            Logged(" A1 LOGIN alice {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithASpaceInPlaceOfTheTag_IsMasked() =>
+        Assert.AreEqual(" LOGIN login ****\r\n", Logged(" LOGIN login s3cret\r\n"));
+
+    [TestMethod]
+    public void LineOfOnlySpaces_IsLoggedAsSent() =>
+        Assert.AreEqual("   \r\n", Logged("   \r\n"));
+
+    [TestMethod]
+    public void Login_WithNoTagAndNoLeadingSpace_IsMasked() =>
+        Assert.AreEqual("LOGIN alice ****\r\n", Logged("LOGIN alice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithNoTagAndAPasswordLiteral_IsMasked() =>
+        Assert.AreEqual(
+            "LOGIN alice {6}\r\n****\r\n",
+            Logged("LOGIN alice {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithTabsBetweenWords_IsMasked() =>
+        Assert.AreEqual("A1\tLOGIN\talice\t****\r\n", Logged("A1\tLOGIN\talice\ts3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithNoTagAndTabsBetweenWords_IsMasked() =>
+        Assert.AreEqual("\tLOGIN\talice\t****\r\n", Logged("\tLOGIN\talice\ts3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithTabsAndAPasswordLiteral_IsMasked() =>
+        Assert.AreEqual(
+            "A1\tLOGIN\talice\t{6}\r\n****\r\n",
+            Logged("A1\tLOGIN\talice\t{6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithATabInsideThePassword_MasksAllOfIt() =>
+        Assert.AreEqual("A1 LOGIN alice ****\r\n", Logged("A1 LOGIN alice s3\tcret\r\n"));
+
+    [TestMethod]
+    public void Login_WithATabInsideTheUser_WithholdsEverythingAfterTheMask() =>
+        Assert.AreEqual("A1 LOGIN al\t****\r\n", Logged("A1 LOGIN al\tice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithATabInsideTheUserAndAPasswordLiteral_MasksTheLiteral() =>
+        Assert.AreEqual("A1 LOGIN al\t****\r\n****\r\n", Logged("A1 LOGIN al\tice {6+}\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithATagOfLogin_MasksBothArguments() =>
+        Assert.AreEqual("LOGIN LOGIN **** ****\r\n", Logged("LOGIN LOGIN alice s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithATagOfLoginAndAUserLiteralAndAPasswordLiteral_MasksBothLiterals() =>
+        Assert.AreEqual(
+            "LOGIN LOGIN {5}\r\n**** {6}\r\n****\r\n",
+            Logged("LOGIN LOGIN {5}\r\n", "<+ Ready for literal data\r\n", "alice {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithNoTagAndAUserNamedLogin_MasksThePassword() =>
+        Assert.AreEqual("LOGIN login ****\r\n", Logged("LOGIN login s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithNoTagAUserNamedLoginAndAPasswordLiteral_MasksThePassword() =>
+        Assert.AreEqual(
+            "LOGIN login {6}\r\n****\r\n",
+            Logged("LOGIN login {6}\r\n", "<+ Ready for literal data\r\n", "s3cret\r\n"));
+
+    [TestMethod]
+    public void Login_WithOnlyAUserThenAnotherCommand_LogsTheOtherCommandUnchanged() =>
+        Assert.AreEqual("A1 LOGIN alice\r\nA2 NOOP\r\n", Logged("A1 LOGIN alice\r\n", "A2 NOOP\r\n"));
+
+    [TestMethod]
     public void Authenticate_WithAnInitialResponse_IsMasked() =>
         Assert.AreEqual("A2 AUTHENTICATE PLAIN ****\r\n", Logged("A2 AUTHENTICATE PLAIN AGFsaWNlAHMzY3JldA==\r\n"));
 

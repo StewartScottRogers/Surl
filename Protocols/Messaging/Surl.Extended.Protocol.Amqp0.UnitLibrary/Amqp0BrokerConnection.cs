@@ -25,6 +25,7 @@ internal sealed partial class Amqp0BrokerConnection
     private readonly ISaslAuthenticationPolicy policy;
     private readonly Amqp0BrokerOptions options;
     private readonly MessageBus.MessageBus bus;
+    private readonly Amqp0TopicNames topicNames;
     private readonly Amqp0ExchangeTable exchanges;
     private readonly Amqp0ConsumerRegistry consumers;
     private readonly Amqp0FrameReader reader;
@@ -59,6 +60,7 @@ internal sealed partial class Amqp0BrokerConnection
         this.policy = policy;
         this.options = options;
         this.bus = bus;
+        topicNames = new(bus.Names, context.Scheme);
         this.exchanges = exchanges;
         reader = new Amqp0FrameReader(connection);
     }

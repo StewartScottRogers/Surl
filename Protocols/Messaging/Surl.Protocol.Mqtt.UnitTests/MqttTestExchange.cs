@@ -15,9 +15,10 @@ internal static class MqttTestExchange
         TimeProvider timeProvider,
         CancellationToken cancellationToken,
         ExchangeLimits? limits = null,
-        IExchangeLog? log = null) => new(
+        IExchangeLog? log = null,
+        string scheme = "mqtt") => new(
             1,
-            new ListenUrl("mqtt", "127.0.0.1", 18883).WithBoundPort(18883),
+            new ListenUrl(scheme, "127.0.0.1", 18883).WithBoundPort(18883),
             new IPEndPoint(IPAddress.Loopback, 18883),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log ?? new RecordingExchangeLog(),

@@ -266,7 +266,7 @@ internal sealed partial class Amqp0BrokerConnection
     // routing key it could match is unroutable itself.
     private void BindOnTopicSpace(string queue, string key, bool bind)
     {
-        var filter = AmqpTopicExchangeNames.ToCanonicalFilter(key);
+        var filter = topicNames.ToCanonicalFilter(key);
         if (!filter.IsMapped)
         {
             context.Log.Note("A binding key on amq.topic has no canonical form; nothing was bound.");

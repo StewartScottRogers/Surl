@@ -7,7 +7,9 @@
   real servers"): `surl` is configured as a real server, with mail domains, mailboxes, shares,
   topics and groups. That approval is his and is not reopened here; this ADR decides what each
   option means.
-- **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379).
+- **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379); a map hides its source name's default topic from that scheme, see the
+  BL-1703 amendment at the end; the AMQP 0-9-1 server applies maps, see the BL-1704 amendment; so
+  does the MQTT 3.1.1 server, see the BL-1705 amendment.
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and
@@ -644,3 +646,85 @@ writes it to a peer.
     is an account name like any other to groups, access rows and scheme views.
 - The extended brokers' and object servers' own build tasks word decisions 2.3 and 3.4's denials
   from the specifications cited; the Curl port never decides any of them (ADR-0083).
+
+## Amendment (BL-1703) - a map hides its source name's default topic from that scheme (2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1703, answering
+item 5 (Question) of the Surly bug report `2026-11-25T1430-Surl-bug-report.md`, made against Surl
+v0.1.8 (`9f8005dff`). With
+
+`surl --allow-anonymous --topic-map nats:orders.created=mqtt:shop/orders/new nats://127.0.0.1:P1/ mqtt://127.0.0.1:P2/`
+
+a NATS subscriber to `>` receives nothing for `curl -d B mqtt://127.0.0.1:P2/orders/created`.
+
+**This is intended, and is kept.**
+
+1. Decision 3.3 already says the left name's default mapping is no longer reached from that scheme,
+   and makes a map apply both ways: on `nats`, the subject `orders.created` now means
+   `shop/orders/new`. A name means one topic in both directions, or a subscriber that republishes
+   on, or subscribes to, the subject it was handed reaches a different topic.
+2. Delivering the canonical topic `orders/created` as `orders.created` would hand a `>` subscriber
+   that wrong name, and inventing another name for it (an escape form) would be a mapping no NATS
+   client knows. So the topic has no NATS name, and a topic a scheme cannot name is not delivered to
+   it, wildcard subscribers included, as for any topic NATS cannot name already.
+3. `TopicNameLookup.FromCanonicalTopic` answers `TopicNameMappingOutcome.Unreachable` for a topic
+   whose default name on the scheme is aliased to another topic, for every scheme family it knows.
+   The `nats`, `mqtt5`, `amqp1`, `kafka`, `stomp` and `redis` servers and their TLS twins ask it and
+   drop such a topic. The `mqtt` (MQTT 3.1.1) and `amqp` (AMQP 0-9-1) servers and their TLS twins
+   map names by the default rules alone and never ask it, so as of this amendment a map naming them
+   on its left side is accepted and not applied: they deliver the topic as before. That falls short
+   of decision 3.3; BL-1704 (`amqp`) and BL-1705 (`mqtt`) are to apply the maps there.
+4. A test that wants the hidden topic on that scheme gives it another name with a second map
+   (`nats:orders.created.raw=mqtt:orders/created`); `surl --aihelp messages` says so.
+
+## Amendment (BL-1704) - how the AMQP 0-9-1 server applies a map (2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1704. It
+replaces what the BL-1703 amendment's item 3 says of the `amqp` and `amqps` servers: they now ask
+`MessageBus.Names` for the listener's scheme, so decision 3.3 holds there. No upstream curl speaks
+either scheme; the behaviour is judged by decision 3.3 and the AMQP 0-9-1 specification (ADR-0083).
+
+1. **Where a map applies.** To every routing key a client publishes with, whatever the exchange (it
+   gives the bus message its canonical topic; which queues the other exchanges choose still goes by
+   the key as sent), to a binding or unbinding key on `amq.topic`, and to `reply-to`; and, outbound,
+   to the routing key and `reply-to` of a delivery built from a bus message. **Why:** a name means
+   one topic in both directions (the BL-1703 amendment's item 1), and `nats` already maps its reply
+   subject the same way.
+2. **Exact keys only.** A binding key with a `*` or `#` word is a wildcard, so the default rules map
+   it (decision 3.3). `*` is an ordinary character of a routing key, so a map may name `orders.*`:
+   that applies to the routing key `orders.*`, never to the binding key. `TopicNameLookup.ToCanonicalFilter`
+   therefore gives a filter that is a wildcard on its scheme no alias. A map's name past 255 bytes is
+   no routing key a client can be sent (a `shortstr`), so outbound its target has no 0-9-1 name.
+3. **A message published over AMQP 0-9-1 keeps its own routing key** when delivered to an AMQP 0-9-1
+   client, from its native form (ADR-0112 decision 6), unchanged by any map.
+4. **A hidden topic is delivered as any topic with no 0-9-1 name** (ADR-0112 decision 6): when a
+   wildcard binding on `amq.topic` copies it into a queue, `basic.deliver` and `get-ok` carry the
+   default exchange `""` and the queue's name, never the hidden routing key. It is not discarded,
+   unlike a live subscriber's (the BL-1703 amendment's item 2). **Why:** the delivery comes from a
+   queue, which holds messages sent to it directly too, and the bus message does not say how it
+   arrived, so discarding would risk losing a message a client sent to that queue; ADR-0112 already
+   gives such a topic an answer that names no topic.
+
+## Amendment (BL-1705) - how the MQTT 3.1.1 server applies a map (2026-11-25)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1705. It
+replaces what the BL-1703 amendment's item 3 says of the `mqtt` and `mqtts` servers: they now ask
+`MessageBus.Names` for the listener's scheme, so decision 3.3 holds there, and with the BL-1704
+amendment every messaging server applies maps. No byte changes without a map. With one, only the
+topic names Surl takes and sends change; the packets' form is ADR-0014's, judged by MQTT 3.1.1 and
+decision 3.3.
+
+1. **Where a map applies.** To a `PUBLISH`'s topic name (published on the alias's target), to a
+   `SUBSCRIBE` filter that is exactly an aliased name (a wildcard filter is mapped by the default
+   rules alone), and to the topic name of each retained `PUBLISH` sent back.
+2. **A hidden topic is not sent**, to wildcard subscribers included (the BL-1703 amendment's item 2),
+   and is not counted among the retained messages the exchange log notes as delivered. Retained
+   messages keep the ordinal order of the bus's topics, whatever names they are sent under.
+3. **No will and no live delivery.** This server skips the `CONNECT`'s will and answers a
+   `SUBSCRIBE` with retained messages alone, then `DISCONNECT` (ADR-0014), so a map has no will
+   topic and no later delivery to name here. BL-1705 leaves both as they were.
+4. **What names a rule or a note sees.** `--topic-access` and the exchange log's refused-publish
+   note see the canonical topic, as access rows are written in canonical names. A fault rule's path
+   is the canonical topic at a `PUBLISH` and the filter as sent at a `SUBSCRIBE`, as the MQTT 5
+   server gives them; this amends ADR-0139 decision 1's "its topic as the path". **Why:** one fault
+   rule or access row then matches a publish whichever protocol's name the client used.

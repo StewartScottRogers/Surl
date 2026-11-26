@@ -32,6 +32,37 @@ public sealed class S3VirtualHostTests
     }
 
     [TestMethod]
+    [DataRow("s3.us-east-1.amazonaws.com", "us-east-1", DisplayName = "a regional endpoint")]
+    [DataRow("photos.s3.us-east-1.amazonaws.com", "us-east-1", DisplayName = "a virtual-hosted regional name")]
+    [DataRow("my.photos.s3.eu-west-2.amazonaws.com", "eu-west-2", DisplayName = "a dotted bucket")]
+    [DataRow("s3.eu-west-2.amazonaws.com:9000", "eu-west-2", DisplayName = "with a port")]
+    [DataRow("PHOTOS.S3.US-EAST-1.AMAZONAWS.COM.:443", "us-east-1", DisplayName = "case folded, trailing dot, port")]
+    public void RegionOf_RegionalAwsName_IsTheRegion(string authority, string region)
+    {
+        Assert.AreEqual(region, S3VirtualHost.RegionOf(authority));
+    }
+
+    [TestMethod]
+    [DataRow(null, DisplayName = "no host")]
+    [DataRow("[::1]:9000", DisplayName = "an IPv6 literal")]
+    [DataRow("127.0.0.1:9000", DisplayName = "an IPv4 literal")]
+    [DataRow("localhost", DisplayName = "localhost")]
+    [DataRow("photos.localhost", DisplayName = "a bucket of localhost")]
+    [DataRow("s3.test", DisplayName = "another DNS name")]
+    [DataRow("s3.amazonaws.com", DisplayName = "the global endpoint")]
+    [DataRow("photos.s3.amazonaws.com", DisplayName = "a bucket of the global endpoint")]
+    [DataRow("x.s3.s3.amazonaws.com", DisplayName = "a dotted bucket of the global endpoint")]
+    [DataRow("photos.s3.a.b.amazonaws.com", DisplayName = "a region of two labels")]
+    [DataRow("photos.s3..amazonaws.com", DisplayName = "an empty region")]
+    [DataRow("s3.dualstack.us-east-1.amazonaws.com", DisplayName = "a dual-stack endpoint")]
+    [DataRow("ec2.us-east-1.amazonaws.com", DisplayName = "another service")]
+    [DataRow("s3.us-east-1.example.com", DisplayName = "another domain")]
+    public void RegionOf_NameNamingNoRegion_IsNull(string? authority)
+    {
+        Assert.IsNull(S3VirtualHost.RegionOf(authority));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_HostNamingABucketOfTheListenHost_AddressesTheBucket()
     {
         var harness = new S3ServerHarness(listenHost: "s3.test");

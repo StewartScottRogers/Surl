@@ -46,8 +46,30 @@ public sealed class Pop3ExchangeLogRedactionTests
         Assert.AreEqual("pass ****\r\n", Logged("pass s3cret\r\n"));
 
     [TestMethod]
+    public void Pass_SeparatedByATab_IsMaskedKeepingTheTab() =>
+        Assert.AreEqual("PASS\t****\r\n", Logged("PASS\ts3cret\r\n"));
+
+    [TestMethod]
+    public void Pass_AfterASpace_IsMaskedKeepingTheSpace() =>
+        Assert.AreEqual(" PASS ****\r\n", Logged(" PASS s3cret\r\n"));
+
+    [TestMethod]
+    public void Pass_AfterATabAndSeparatedByATab_IsMaskedKeepingBothTabs() =>
+        Assert.AreEqual("\tPASS\t****\r\n", Logged("\tPASS\ts3cret\r\n"));
+
+    [TestMethod]
+    public void Pass_AfterARunOfSpacesAndTabs_IsMaskedKeepingTheRun() =>
+        Assert.AreEqual(" \t pass ****\r\n", Logged(" \t pass s3cret\r\n"));
+
+    [TestMethod]
     public void PassWithNoArgument_IsLoggedAsSent() =>
-        Assert.AreEqual("PASS\r\nPASS \r\n", Logged("PASS\r\nPASS \r\n"));
+        Assert.AreEqual("PASS\r\nPASS \r\nPASS\t\r\n", Logged("PASS\r\nPASS \r\nPASS\t\r\n"));
+
+    [TestMethod]
+    public void LeadingSpacesAndTabsWithNoPassArgument_AreLoggedAsSent() =>
+        Assert.AreEqual(
+            " \t\r\n PASS\r\n\tPASS \r\n PAS\r\n RETR 1\r\n",
+            Logged(" \t\r\n PASS\r\n\tPASS \r\n PAS\r\n RETR 1\r\n"));
 
     [TestMethod]
     public void UserApopAndMaildropCommands_AreLoggedUnchanged() =>

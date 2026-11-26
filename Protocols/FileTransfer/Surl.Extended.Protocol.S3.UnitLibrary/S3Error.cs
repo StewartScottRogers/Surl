@@ -1,4 +1,5 @@
 using Surl.HttpMessage;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
 
@@ -78,6 +79,14 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     public bool ClosesWithoutDrain { get; init; }
 
     /// <summary>
+    /// What the server computed for a signature that did not match, with withheld values already
+    /// written <c>****</c>, which the <c>Error</c> body shows as <c>StringToSign</c> and
+    /// <c>CanonicalRequest</c> (ADR-0108, Amendment 12); <see langword="null"/> for every other
+    /// refusal.
+    /// </summary>
+    public AwsSigV4SignatureMismatch? SignatureMismatch { get; init; }
+
+    /// <summary>
     /// <c>400 InvalidArgument</c>: a key the store cannot hold on a write, or a bad query value.
     /// </summary>
     public static S3Error InvalidArgument { get; } = new("InvalidArgument", HttpStatus.BadRequest, "Invalid Argument");
@@ -135,7 +144,9 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
 
     /// <summary>
     /// <c>400 AuthorizationHeaderMalformed</c>: an <c>AWS4-HMAC-SHA256</c> field that does not
-    /// parse, or whose scope is not for <c>s3</c> (ADR-0108, decision 4.3).
+    /// parse, or whose scope is not for <c>s3</c> (ADR-0108, decision 4.3), a presigned URL's
+    /// parameters refused the same way, or an <c>AWS4-HMAC-SHA256</c> credential scope naming
+    /// another region than a regional AWS <c>Host</c> names (<see cref="S3Login"/>).
     /// </summary>
     public static S3Error AuthorizationHeaderMalformed { get; } = new("AuthorizationHeaderMalformed", HttpStatus.BadRequest, "The authorization header that you provided is not valid.");
 

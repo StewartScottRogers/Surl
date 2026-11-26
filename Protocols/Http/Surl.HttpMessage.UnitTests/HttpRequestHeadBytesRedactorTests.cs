@@ -155,6 +155,31 @@ public sealed class HttpRequestHeadBytesRedactorTests
     }
 
     [TestMethod]
+    public void IsAtRequestStart_RightAfterAHeadDeclaringContentLengthZero_IsTrue()
+    {
+        var redactor = new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact("POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\n"u8, output);
+
+        Assert.IsTrue(redactor.IsAtRequestStart);
+    }
+
+    [TestMethod]
+    public void Redact_NextHeadAfterAContentLengthZeroHead_MasksItsAuthorization()
+    {
+        const string first = "POST /u HTTP/1.1\r\nContent-Length: 0\r\n\r\n";
+        var redactor = new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact(Encoding.Latin1.GetBytes(first), output);
+        redactor.Redact(Encoding.Latin1.GetBytes(Sample), output);
+        redactor.Flush(output);
+
+        Assert.AreEqual(first + SampleRedacted, Latin1(output));
+    }
+
+    [TestMethod]
     public void Redact_AndFlush_RefuseANullOutput()
     {
         var redactor = new HttpRequestHeadBytesRedactor();

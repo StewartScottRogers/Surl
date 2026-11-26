@@ -54,7 +54,9 @@ What it holds:
   `null` at once when the client half-closes, and otherwise after `wait` on its `peekClock`.
 - The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
   login, `PasswordLogin` judged as a `PasswordLoginVerdict`, one
-  `IHttpAuthenticationSession` per HTTP connection, and `NamesAccount`, a default interface member
+  `IHttpAuthenticationSession` per HTTP connection, whose `CreateChallenges`, a default interface member
+  returning an empty list, gives the `WWW-Authenticate` values the connection's own `401` would offer,
+  judging no request (BL-1699), and `NamesAccount`, a default interface member
   matching nothing, which says whether a name is a named account's so the Azure Storage server can
   read a path-style target, ADR-0109 decision 2, BL-725), `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
@@ -67,6 +69,9 @@ What it holds:
   and shared access signatures its only methods (the Azure Storage server's, ADR-0109 decision 3;
   BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`; BL-711 added
   `ExpiryOutOfRange` and `ConflictingCredentials` for presigned URLs, which also use `SignatureExpired`),
+  a `BadSignature` Signature Version 4 verdict's `SignatureMismatch`, an `AwsSigV4SignatureMismatch`
+  holding the canonical request (with `****` for each value ADR-0182 withholds from the log) and the
+  string to sign the server computed (BL-1701),
   an accepted verdict's `ChunkSignatures`, the `IHttpChunkSignatureChain` an `aws-chunked`
   `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` body's chunks are checked against (ADR-0108 decision 4.5), and `CheckedLogin`, the
   credentials checked and the answer, whose `Note` a server writes to the verbose log
@@ -179,7 +184,14 @@ and the protocols fan out after.
 - The decrypted-bytes contract (ADR-0169, decisions 2 and 3; BL-1266): `ExchangeBytesLayer` (`Wire` = 0,
   `Decrypted`, `Decoded`), `ExchangeBytesEvent.Layer` (default `Wire`) and `StreamId` (default `null`), and
   `IDecryptedBytesSink` (`Received`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
-  `DiscardingDecryptedBytesSink.Instance`. Nothing publishes through it yet.
+  `DiscardingDecryptedBytesSink.Instance`. `Surl.Core`'s `ServingEngine` sets its own sink, which notes each chunk in
+  the exchange log (received bytes redacted when the server redacts) and, while the publisher wants bytes, publishes
+  it unredacted as an `ExchangeBytesEvent` with its layer and stream. The sink is called by `Surl.Dtls`'s
+  `DtlsServerSession` (application-data plaintext), `Surl.Quic`'s `QuicServerConnection` (`DATAGRAM` payloads) and
+  `QuicStream` (`STREAM` data), and `Surl.Http3`'s `Http3RequestStreamServer` (the decoded request header list) and
+  `Http3RequestStream` (the decoded response header list, and `DATA` payloads both ways). The `coaps`, `webtransport`,
+  DNS-over-QUIC and `Surl.Protocol.Http` HTTP/3 servers (`Http3ProtocolServer`, `Http3GatewayUpstreamTestCaseServer`)
+  hand the context's sink to their DTLS or QUIC options; the HTTP/3 request stream classes get it from the context.
 
 - What an event says about itself (ADR-0171; BL-1283): `SurlEvent.ExchangeId`, `Scheme` and `Account` (virtual, `null` on
   the base; a record overrides what it has, so `ExchangeStartedEvent`, `ExchangeEndedEvent` and `ExchangeBytesEvent` take a
@@ -187,6 +199,19 @@ and the protocols fan out after.
   (`Text`, `Number`, `Flag`, `Choice`, `Bytes`, named by property name). `SurlEventMemberTests` fails when a record leaves
   a public property unwritten or shadows a fact instead of overriding it.
 
+- `HttpWithheldHeaderNames` (BL-1712): the one list of the HTTP header fields whose values surl withholds
+  (ADR-0182): `Credentials` (`Authorization`, `Proxy-Authorization`), `ApiKeysAndSessionTokens` (five) and
+  `All`. `Surl.HttpMessage`'s request head redactor, `Surl.HttpServing`'s `HttpExchangeRedaction` and
+  `Surl.Authentication`'s withheld Signature Version 4 canonical request read it, and so does `Surl.Http2`'s
+  `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC, DNS over HTTPS and
+  the HTTP proxy; BL-1717, BL-1759; the proxy also masks them in its HTTP/1.x request heads and tunnelled
+  text lines) and `Surl.Http3`'s `Http3RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for
+  WebTransport; BL-1718); the SOCKS tunnel redactor still names `Authorization` and `Proxy-Authorization`
+  itself.
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
   returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
-  `ILineRedactionRule`, holding at most 64 KiB. Nothing implements them yet.
+  `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
+  SMTP, IMAP, POP3 and NATS servers return a `LineBytesRedactor` with their own rule, others an `IReceivedBytesRedactor`
+  of their own or of a shared library (gRPC's is `Surl.Http2`'s `Http2RequestBytesRedactor`), and `Surl.Composition`'s
+  wrapping servers hand on a redactor too. `Surl.Core`'s `ServingEngine` writes the redacted bytes to the exchange log
+  and feeds the event stream the bytes as received; a server that does not implement it is logged byte for byte.

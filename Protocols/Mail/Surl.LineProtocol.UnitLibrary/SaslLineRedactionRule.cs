@@ -16,14 +16,26 @@ namespace Surl.LineProtocol;
 /// any other line the server sends clears the mark, so a client line sent with no continuation
 /// pending is logged unchanged. A lone <c>*</c> (the cancel line) and an empty line hold no secret
 /// and are logged as they are.
+/// <para>
+/// The words of a client line are separated by runs of spaces and tabs. When a tab is on a line that
+/// holds an initial response, a tab may have split the mechanism or the response in two, so nothing
+/// after the first mask is written.
+/// </para>
+/// <para>
+/// When the first word is a command word and the second is <c>AUTH</c> or <c>AUTHENTICATE</c>, the
+/// first may be the command or an IMAP tag, so the response of both readings is withheld: the third
+/// and the fourth word.
+/// </para>
 /// </remarks>
 public sealed class SaslLineRedactionRule : ILineRedactionRule
 {
-    private const byte Space = (byte)' ';
+    private const byte Tab = (byte)'\t';
     private const byte CarriageReturn = 0x0D;
     private const byte LineFeed = 0x0A;
-    private const int InitialResponseTokenOffset = 2;
-    private const int MostTokensRead = 4;
+    private const int InitialResponseWordOffset = 2;
+    private const int MostWordsRead = 4;
+
+    private static ReadOnlySpan<byte> WordSeparators => " \t"u8;
 
     private readonly byte[][] _commandWords;
     private readonly byte[] _continuationPrefix;
@@ -51,21 +63,12 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         if (_continuationPending)
         {
             _continuationPending = false;
-            if (!line.IsEmpty && !line.SequenceEqual("*"u8))
-            {
-                output.Write(LineBytesRedactor.SecretMask);
-                return;
-            }
+            output.Write(line.IsEmpty || line.SequenceEqual("*"u8) ? line : LineBytesRedactor.SecretMask);
         }
-        else if (TryFindInitialResponse(line, out var start, out var end))
+        else
         {
-            output.Write(line[..start]);
-            output.Write(LineBytesRedactor.SecretMask);
-            output.Write(line[end..]);
-            return;
+            RedactInitialResponse(line, output);
         }
-
-        output.Write(line);
     }
 
     /// <inheritdoc />
@@ -84,25 +87,53 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         }
     }
 
-    private bool TryFindInitialResponse(ReadOnlySpan<byte> line, out int start, out int end)
+    private void RedactInitialResponse(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
-        // Tokens are separated by single spaces: [tag] AUTH mechanism initial-response.
-        Span<Range> tokens = stackalloc Range[MostTokensRead];
-        var count = SplitOnSpaces(line, tokens);
-        start = 0;
-        end = 0;
+        // The words of [tag] AUTH mechanism initial-response, however many spaces and tabs separate them.
+        Span<Range> words = stackalloc Range[MostWordsRead];
+        var count = SplitIntoWords(line, words);
+        ReadOnlySpan<Range> found = words[..count];
+        WriteWithWordsMasked(line, found[FindInitialResponseWords(line, found)], output);
+    }
+
+    // Which of the words may be an initial response: none, one, or one for each reading of the line.
+    private Range FindInitialResponseWords(ReadOnlySpan<byte> line, ReadOnlySpan<Range> words)
+    {
         for (var commandIndex = 0; commandIndex <= 1; commandIndex++)
         {
-            var responseIndex = commandIndex + InitialResponseTokenOffset;
-            if (responseIndex < count && IsCommandWord(line[tokens[commandIndex]]))
+            var responseIndex = commandIndex + InitialResponseWordOffset;
+            if (responseIndex < words.Length && IsCommandWord(line[words[commandIndex]]))
             {
-                (start, end) = (tokens[responseIndex].Start.Value, tokens[responseIndex].End.Value);
-                return end > start;
+                // A second word that starts SASL too may be the command, and the first word its tag.
+                var mayBeTagged = commandIndex == 0 && IsSaslStartWord(line[words[1]]);
+                return responseIndex..(mayBeTagged ? words.Length : responseIndex + 1);
             }
         }
 
-        return false;
+        return default;
     }
+
+    private static void WriteWithWordsMasked(
+        ReadOnlySpan<byte> line, ReadOnlySpan<Range> maskedWords, ArrayBufferWriter<byte> output)
+    {
+        var written = 0;
+        foreach (var word in maskedWords)
+        {
+            output.Write(line[written..word.Start.Value]);
+            output.Write(LineBytesRedactor.SecretMask);
+            written = word.End.Value;
+            if (line.Contains(Tab))
+            {
+                return;
+            }
+        }
+
+        output.Write(line[written..]);
+    }
+
+    // Either word, whatever this rule's command words are, so that every rule reads such a line alike.
+    private static bool IsSaslStartWord(ReadOnlySpan<byte> word) =>
+        Ascii.EqualsIgnoreCase(word, "AUTH"u8) || Ascii.EqualsIgnoreCase(word, "AUTHENTICATE"u8);
 
     private bool IsCommandWord(ReadOnlySpan<byte> word)
     {
@@ -117,16 +148,21 @@ public sealed class SaslLineRedactionRule : ILineRedactionRule
         return false;
     }
 
-    private static int SplitOnSpaces(ReadOnlySpan<byte> line, Span<Range> tokens)
+    // Fills words with the first non-empty runs of bytes that are neither spaces nor tabs.
+    private static int SplitIntoWords(ReadOnlySpan<byte> line, Span<Range> words)
     {
         var count = 0;
-        var tokenStart = 0;
-        for (var index = 0; index <= line.Length && count < tokens.Length; index++)
+        var wordStart = 0;
+        for (var index = 0; index <= line.Length && count < words.Length; index++)
         {
-            if (index == line.Length || line[index] == Space)
+            if (index == line.Length || WordSeparators.Contains(line[index]))
             {
-                tokens[count++] = tokenStart..index;
-                tokenStart = index + 1;
+                if (index > wordStart)
+                {
+                    words[count++] = wordStart..index;
+                }
+
+                wordStart = index + 1;
             }
         }
 

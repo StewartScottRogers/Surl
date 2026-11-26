@@ -1,0 +1,11 @@
+GET /x HTTP/1.1
+Host: 127.0.0.1:18719
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20261125/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-test, Signature=93635f1061483192e05b08e14caa24d0122e4dc913151d647adb94c65def5039
+X-Amz-Date: 20261125T220614Z
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+User-Agent: curl/8.21.0
+Accept: */*
+X-Test: b
+x-test:  a  
+X-TEST: c
+

@@ -48,6 +48,8 @@
   files' byte formats and layout, which queues persist, how a log file is saved, and what a load and
   a failed write answer ("The message bus files").
 - **Amended:** decision 3.2 by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (2026-11-18, BL-1379): `--topic` and `--topic-access` keep `#` at any level; `--aihelp messages` says so.
+- **Amended:** decision 3.3 by its own text (2026-11-25, BL-1732): a connection subscribes several
+  filters in one step, with no publish between them ("Several filters in one step").
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -413,6 +415,22 @@ stopped consumer no longer counts as a consumer. The four outcomes BL-730 added 
   one of that connection's subscriptions it reached. A server uses it to send a message that matches
   several of a client's subscriptions once (MQTT 5.0 `[MQTT-3.3.4-2]`), which is how "each server then
   applies its own overlap rule" above is carried out.
+
+**Several filters in one step** (2026-11-25, BL-1732). Decided by Claude under Stewart's delegation.
+
+- **`BusConnection.SubscribeTogether`** subscribes an ordered list of filters (`BusSubscribeRequest`),
+  each asking for its retained messages, under one hold of the bus's lock, so no publish is accepted
+  between them. A request naming a subscription the connection already holds keeps it, making no second
+  one, and reads its retained messages again in the same step. One naming a subscription that is not a
+  live one of that connection is an `ArgumentException` and nothing is subscribed. A refused filter
+  refuses only itself.
+- **Why.** Subscribing an MQTT `SUBSCRIBE`'s filters one at a time let a retained publish land between
+  two of them: it reached the held subscription live through the first and as a retained message through
+  the second, so ADR-0014 Amendment 1 sent it twice and counted it twice. Only the bus can close that
+  gap. The MQTT server's held subscription uses it.
+- **Rejected: dropping the second copy in the server** by remembering which messages it had returned as
+  retained. With three filters and two publishes it either loses the first publish or sends the older
+  one after the newer.
 
 **The named queue's rules** (2026-11-06, BL-694, recording what BL-631 built into
 `Surl.MessageBus`). The table above left these open:

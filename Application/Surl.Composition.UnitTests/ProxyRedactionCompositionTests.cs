@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text;
 using Surl.Cli;
+using Surl.Hpack;
+using Surl.Http2;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -38,14 +40,57 @@ public sealed class ProxyRedactionCompositionTests
     }
 
     [TestMethod]
-    public void CreateRedactor_OriginRedacts_IsTheOriginsOne()
+    public void CreateRedactor_BothRedact_IsTheProxysOne()
+    {
+        var proxy = new RedactingServer();
+        var router = new ProxyRoutingProtocolServer(new RedactingServer(), proxy);
+
+        var redactor = router.CreateRedactor(new ExchangeRedactionContext(1, "http"));
+
+        Assert.AreSame(proxy.Created, redactor);
+    }
+
+    [TestMethod]
+    public void CreateRedactor_OnlyTheOriginRedacts_IsTheOriginsOne()
     {
         var origin = new RedactingServer();
-        var router = new ProxyRoutingProtocolServer(origin, new RedactingServer());
+        var router = new ProxyRoutingProtocolServer(origin, new PlainServer());
 
         var redactor = router.CreateRedactor(new ExchangeRedactionContext(1, "http"));
 
         Assert.AreSame(origin.Created, redactor);
+    }
+
+    [TestMethod]
+    public void ComposedProxy_Http2InsideAConnectTunnel_LogsNoCredential()
+    {
+        const string Token = "YWxpY2U6c2VjcmV0";
+        const string Connect = "CONNECT origin.test:80 HTTP/1.1\r\nHost: origin.test:80\r\n\r\n";
+        var commandLine = new SurlCommandLine { ProxyListenUrls = [ListenUrlParser.ParseProxy("http://127.0.0.1:3128").ListenUrl!] };
+        var original = SurlServerComposition.ComposeUnservedProtocolServers(
+            SurlServerComposition.ComposeContentStore(commandLine, TimeProvider.System), TimeProvider.System);
+        var routed = ProxyComposition.RouteProxyListeners(original, commandLine, new InMemoryOriginConnector(), new AnonymousAuthenticationPolicy());
+        var router = routed.OfType<ProxyRoutingProtocolServer>().Single(server => server.Schemes.Contains("http"));
+        var redactor = router.CreateRedactor(new ExchangeRedactionContext(1, "http"));
+        var headerBlock = new HpackEncoder(stringCoding: HpackStringCoding.Raw).Encode(
+        [
+            new HpackHeaderField(":method", "GET"),
+            new HpackHeaderField("authorization", Right, HpackFieldIndexing.WithoutIndexing),
+        ]);
+        StringAssert.Contains(Encoding.ASCII.GetString(headerBlock), Token);
+        // A HEADERS frame on stream 1 with END_STREAM and END_HEADERS.
+        byte[] headers = [0, 0, (byte)headerBlock.Length, 0x1, 0x5, 0, 0, 0, 1, .. headerBlock];
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+
+        redactor.Redact(Encoding.ASCII.GetBytes(Connect), output);
+        redactor.ObserveSent("HTTP/1.1 200 Connection established\r\n\r\n"u8);
+        redactor.Redact(Http2ConnectionPreface.Preface, output);
+        redactor.Redact(headers, output);
+        redactor.Flush(output);
+
+        var logged = Encoding.Latin1.GetString(output.WrittenSpan);
+        StringAssert.StartsWith(logged, Connect);
+        Assert.DoesNotContain(Token, logged);
     }
 
     [TestMethod]

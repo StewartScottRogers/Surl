@@ -36,6 +36,14 @@ namespace Surl.Protocol.Abstractions;
 /// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> (ADR-0108 decision 4.5), the chain each
 /// <c>aws-chunked</c> chunk's signature is checked against; <see langword="null"/> otherwise.
 /// </param>
+/// <param name="SignatureMismatch">
+/// On a verdict refusing a Signature Version 4 signature that did not match
+/// (<see cref="HttpAuthenticationRefusal.BadSignature"/>), the canonical request and string to
+/// sign the server computed; <see langword="null"/> on every other verdict, including a
+/// <see cref="HttpAuthenticationRefusal.BadSignature"/> with nothing computed to compare (a signed
+/// header the request does not carry, a target with no path, a matching signature a fault refused)
+/// and a refused chunk signature, which <see cref="ChunkSignatures"/> answers.
+/// </param>
 public sealed record HttpAuthenticationVerdict(
     HttpAuthenticationOutcome Outcome,
     IReadOnlyList<string> WwwAuthenticateValues,
@@ -43,4 +51,5 @@ public sealed record HttpAuthenticationVerdict(
     CheckedLogin? CheckedLogin = null,
     IHttpRequestBodyCheck? BodyCheck = null,
     HttpAuthenticationRefusal? Refusal = null,
-    IHttpChunkSignatureChain? ChunkSignatures = null);
+    IHttpChunkSignatureChain? ChunkSignatures = null,
+    AwsSigV4SignatureMismatch? SignatureMismatch = null);

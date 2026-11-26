@@ -14,15 +14,17 @@ namespace Surl.Http3;
 /// <remarks>
 /// <list type="bullet">
 /// <item>A chunk that starts with <c>:</c> is the decoded header text of a request
-/// (<c>name: value</c> lines, ADR-0169 decision 1): the value of an <c>authorization</c> or
-/// <c>proxy-authorization</c> line is written as <c>****</c>.</item>
+/// (<c>name: value</c> lines, ADR-0169 decision 1): the value of a secret field's line is written as
+/// <c>****</c>.</item>
 /// <item>Any other chunk is read as HTTP/3 frames from its first byte: each frame header is logged as
-/// received, a <c>HEADERS</c> payload is logged as received unless its QPACK field section carries
-/// <c>authorization</c> or <c>proxy-authorization</c>, cannot be decoded, or runs past the chunk, in which
-/// case the payload (or the rest of it) is written as <c>****</c>; every other frame's payload is logged as
-/// received. A QPACK value is recoverable from the bytes whether Huffman-coded or literal, which is why
-/// the whole payload goes, as the HTTP/2 redactor does with a header block.</item>
+/// received, a <c>HEADERS</c> payload is logged as received unless its QPACK field section carries a
+/// secret field, cannot be decoded, or runs past the chunk, in which case the payload (or the rest of
+/// it) is written as <c>****</c>; every other frame's payload is logged as received. A QPACK value is
+/// recoverable from the bytes whether Huffman-coded or literal, which is why the whole payload goes, as
+/// the HTTP/2 redactor does with a header block.</item>
 /// </list>
+/// A secret field is one of <see cref="HttpWithheldHeaderNames.Credentials"/>, or one the redactor was
+/// made to withhold as well (ADR-0182, amendment 14), matched without regard to case.
 /// Surl advertises a QPACK dynamic table capacity of 0 (ADR-0082 decision 8), so every field section is
 /// self-contained and a fresh decoder reads it. A chunk that begins in the middle of a frame (a large body
 /// split across QUIC packets) is not told apart from a frame start; its bytes are logged as received unless
@@ -32,6 +34,32 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
 {
     private static readonly byte[] Withheld = "****"u8.ToArray();
     private static readonly byte[] LineEnd = "\r\n"u8.ToArray();
+
+    private readonly HashSet<string> secretFieldNames =
+        new(HttpWithheldHeaderNames.Credentials, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Creates a redactor that withholds the values of
+    /// <see cref="HttpWithheldHeaderNames.Credentials"/>.
+    /// </summary>
+    public Http3RequestBytesRedactor()
+        : this([])
+    {
+    }
+
+    /// <summary>
+    /// Creates a redactor that withholds the values of
+    /// <see cref="HttpWithheldHeaderNames.Credentials"/> and of any further field.
+    /// </summary>
+    /// <param name="additionalSecretFieldNames">
+    /// Further fields whose value is a secret, such as <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/>,
+    /// matched without regard to case.
+    /// </param>
+    public Http3RequestBytesRedactor(IEnumerable<string> additionalSecretFieldNames)
+    {
+        ArgumentNullException.ThrowIfNull(additionalSecretFieldNames);
+        secretFieldNames.UnionWith(additionalSecretFieldNames);
+    }
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
@@ -55,7 +83,7 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
     /// <inheritdoc />
     public void Flush(ArrayBufferWriter<byte> output) => ArgumentNullException.ThrowIfNull(output);
 
-    private static void RedactFrames(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
+    private void RedactFrames(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
         var position = 0;
         while (position < received.Length)
@@ -86,7 +114,7 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
         }
     }
 
-    private static void WriteHeadersPayload(ReadOnlySpan<byte> payload, bool complete, ArrayBufferWriter<byte> output)
+    private void WriteHeadersPayload(ReadOnlySpan<byte> payload, bool complete, ArrayBufferWriter<byte> output)
     {
         if (complete && !CarriesSecret(payload))
         {
@@ -98,14 +126,14 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
         output.Write(Withheld);
     }
 
-    private static bool CarriesSecret(ReadOnlySpan<byte> section)
+    private bool CarriesSecret(ReadOnlySpan<byte> section)
     {
         var decoded = new QpackDecoder(0, int.MaxValue).DecodeFieldSection(0, section);
 
-        return !decoded.IsDecoded || decoded.FieldLines.Any(line => IsSecretName(line.Name));
+        return !decoded.IsDecoded || decoded.FieldLines.Any(line => secretFieldNames.Contains(line.Name));
     }
 
-    private static void RedactDecodedText(ReadOnlySpan<byte> text, ArrayBufferWriter<byte> output)
+    private void RedactDecodedText(ReadOnlySpan<byte> text, ArrayBufferWriter<byte> output)
     {
         while (text.Length > 0)
         {
@@ -124,7 +152,7 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
 
     // A pseudo-header's name starts with ':', so the name ends at the first colon after it; a line with
     // no colon is logged as is.
-    private static void WriteDecodedLine(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
+    private void WriteDecodedLine(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         var start = line.Length > 0 && line[0] == (byte)':' ? 1 : 0;
         var colon = line[start..].IndexOf((byte)':');
@@ -133,7 +161,7 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
             colon += start;
         }
 
-        if (colon > 0 && IsSecretName(Encoding.UTF8.GetString(line[..colon])))
+        if (colon > 0 && secretFieldNames.Contains(Encoding.UTF8.GetString(line[..colon])))
         {
             output.Write(line[..(colon + 1)]);
             output.Write(" "u8);
@@ -144,8 +172,4 @@ public sealed class Http3RequestBytesRedactor : IReceivedBytesRedactor
 
         output.Write(line);
     }
-
-    private static bool IsSecretName(string name) =>
-        name.Equals("authorization", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("proxy-authorization", StringComparison.OrdinalIgnoreCase);
 }

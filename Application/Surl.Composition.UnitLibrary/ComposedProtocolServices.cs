@@ -71,6 +71,12 @@ public sealed class ComposedProtocolServices(
     public bool AllowsZoneTransfer { get; init; }
 
     /// <summary>
+    /// Gets <c>--mqtt-hold-subscription</c>'s count, which the MQTT server for <c>mqtt</c> and <c>mqtts</c> holds each
+    /// subscription open to (ADR-0014 Amendment 1); <see langword="null"/>, holding none, unless set.
+    /// </summary>
+    public int? MqttHoldSubscriptionCount { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether <c>--mqtt5-disconnect-after-retained</c> is given, so the MQTT 5 broker
     /// disconnects a client with <c>0x00</c> after a subscribe's retained messages (ADR-0093 decision 9); off unless set.
     /// </summary>

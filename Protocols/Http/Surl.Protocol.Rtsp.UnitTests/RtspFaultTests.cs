@@ -94,6 +94,59 @@ public sealed class RtspFaultTests
     }
 
     [TestMethod]
+    [DataRow("401", "401 Unauthorized")]
+    [DataRow("401 who goes there", "401 who goes there")]
+    public async Task ChosenUnauthorized_OnARequestLetInWithASuccessToken_CarriesTheSessionsChallengesAndKeepsTheConnection(string reply, string statusLine)
+    {
+        var rule = new FaultRule("f1", FaultKind.Error) { Reply = reply };
+        var policy = LettingInWithASuccessToken(offeredChallenges: ["Digest realm=\"surl\", nonce=\"n\"", "Basic realm=\"surl\""]);
+        var request = Ascii("OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\nOPTIONS * RTSP/1.0\r\nCSeq: 2\r\n\r\n");
+
+        var (connection, log, _, _) = await ServeWithFaultsAsync([request], new ScriptedFaultPlan(rule), policy);
+
+        string[] fields = ["WWW-Authenticate: Digest realm=\"surl\", nonce=\"n\"", "WWW-Authenticate: Basic realm=\"surl\""];
+        Assert.AreEqual(ResponseHead(statusLine, "1", fields) + ResponseHead(statusLine, "2", fields), Latin1(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.DoesNotContain(note => note.Contains("offers no challenge", StringComparison.Ordinal), log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ChosenUnauthorized_WhenTheSessionOffersNoChallenge_HasNoWwwAuthenticateAndNotesIt()
+    {
+        var rule = new FaultRule("f1", FaultKind.Error) { Reply = "401" };
+        var policy = LettingInWithASuccessToken(offeredChallenges: []);
+
+        var (connection, log, events, _) = await ServeWithFaultsAsync([Ascii("OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n")], new ScriptedFaultPlan(rule), policy);
+
+        Assert.AreEqual(ResponseHead("401 Unauthorized", "1"), Latin1(connection.WrittenBytes));
+        Assert.Contains("fault rule f1 chose 401, and the server offers no challenge on this connection", log.Notes);
+        Assert.HasCount(1, events.Events.OfType<FaultAppliedEvent>().ToList());
+    }
+
+    [TestMethod]
+    [DataRow("403", "403 Forbidden")]
+    [DataRow("407", "407 Proxy Authentication Required")]
+    [DataRow("503", "503 Service Unavailable")]
+    public async Task ChosenErrorOtherThanUnauthorized_CarriesTheVerdictsValuesAndNoneOfTheSessionsChallenges(string reply, string statusLine)
+    {
+        var rule = new FaultRule("f1", FaultKind.Error) { Reply = reply };
+        var policy = LettingInWithASuccessToken(offeredChallenges: ["Basic realm=\"surl\""]);
+
+        var (connection, log, _, _) = await ServeWithFaultsAsync([Ascii("OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n")], new ScriptedFaultPlan(rule), policy);
+
+        Assert.AreEqual(ResponseHead(statusLine, "1", "WWW-Authenticate: Negotiate b2s="), Latin1(connection.WrittenBytes));
+        Assert.DoesNotContain(note => note.Contains("offers no challenge", StringComparison.Ordinal), log.Notes);
+    }
+
+    // Every request is let in as alice with a Negotiate final token, which is no challenge.
+    private static UnitTestAuthenticationPolicy LettingInWithASuccessToken(IReadOnlyList<string> offeredChallenges) =>
+        new(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, ["Negotiate b2s="], "alice"))
+        {
+            OfferedChallenges = offeredChallenges,
+        };
+
+    [TestMethod]
     public async Task AnnounceWithAChosenError_StoresNothing()
     {
         var fileSystem = new Content.InMemoryContentFileSystem(TimeProvider.System);
