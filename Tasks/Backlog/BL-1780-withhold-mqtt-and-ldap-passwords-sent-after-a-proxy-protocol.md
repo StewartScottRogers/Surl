@@ -1,5 +1,5 @@
 ---
-id: BL-1779
+id: BL-1780
 title: Withhold MQTT and LDAP passwords sent after a PROXY protocol line through a SOCKS tunnel
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1779 — Withhold MQTT and LDAP passwords sent after a PROXY protocol line through a SOCKS tunnel
+# BL-1780 — Withhold MQTT and LDAP passwords sent after a PROXY protocol line through a SOCKS tunnel
 
 ## Goal
 

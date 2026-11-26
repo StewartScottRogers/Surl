@@ -54,7 +54,7 @@ An MQTT `CONNECT` password and an LDAP simple bind password sent through an HTTP
 - Pipeline: planned, tested and implemented in the lane's own session, then two `code-reviewer` passes. Conformance
   auditor skipped: only the exchange log changes, no byte Surl sends or accepts.
 - Results: fast tests 29,842 passed, 0 failed; the three libraries at 100% line and branch coverage.
-- Follow-up: BL-1779 (the same `PROXY` line gap through SOCKS). BL-1744's context updated to the new class name.
+- Follow-up: BL-1780 (the same `PROXY` line gap through SOCKS). BL-1744's context updated to the new class name.
 - Seen, not changed: two Done task files carry ID BL-1773 (the board script warns).
 
 ## Log

@@ -831,4 +831,4 @@ Accepted limits:
 - A login that does not start at either of the two places (behind a PROXY protocol version 2 header, or other bytes) is
   not masked by these two redactors.
 - A SOCKS tunnel that starts with a `PROXY` line is read as text, so an MQTT or LDAP password after it **can be logged**
-  (BL-1779).
+  (BL-1780).
