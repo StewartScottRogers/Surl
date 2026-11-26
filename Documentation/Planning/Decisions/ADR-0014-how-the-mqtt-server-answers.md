@@ -103,8 +103,10 @@ needs only the `CONNACK`.
 ## Amendment 1 (2026-11-25, BL-1715): a subscription may be held open for live publishes
 
 **Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"). No package, no threshold
-change, no download. The server (BL-1720) and the option (BL-1721) are built; not yet built: BL-1722 (pinned curl
-proof).
+change, no download. The server (BL-1720) and the option (BL-1721) are built, and pinned upstream curl proves them
+(BL-1722, `UpstreamCurlHoldsASubscriptionOnSurlOverMqttTests`): count 1 ends a fetch with exit 0 on a publish made
+after the `SUBACK`, count 0 with `--max-time` ends it with exit 28 and that publish on stdout, and without the option
+a retained message is fetched with exit 0.
 
 ### Why
 
