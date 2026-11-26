@@ -10,14 +10,14 @@ namespace Surl.Protocol.Ftp;
 /// included (ADR-0182, decisions 1 and 6).
 /// </summary>
 /// <remarks>
-/// The command is matched without regard to case. A <c>PASS</c> or <c>ACCT</c> with no argument
+/// The command is matched without regard to case, and a space or a tab may separate it from its
+/// argument; the separator is logged as sent. A tab names no command to the server, but the bytes
+/// after it are still the client's secret. A <c>PASS</c> or <c>ACCT</c> with no argument
 /// holds no secret and is logged as it is. FTPS's <c>AUTH TLS</c> upgrade changes nothing: the
 /// logged control bytes are plaintext either way.
 /// </remarks>
 internal sealed class FtpLineRedactionRule : ILineRedactionRule
 {
-    private const byte Space = (byte)' ';
-
     /// <inheritdoc/>
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
@@ -41,7 +41,7 @@ internal sealed class FtpLineRedactionRule : ILineRedactionRule
 
     private static bool CarriesSecret(ReadOnlySpan<byte> line) =>
         line.Length > 5
-        && line[4] == Space
+        && line[4] is (byte)' ' or (byte)'\t'
         && (IsCommand(line[..4], "pass"u8) || IsCommand(line[..4], "acct"u8));
 
     private static bool IsCommand(ReadOnlySpan<byte> word, ReadOnlySpan<byte> lowerCaseCommand)

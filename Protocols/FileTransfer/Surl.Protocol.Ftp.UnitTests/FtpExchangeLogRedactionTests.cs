@@ -41,8 +41,16 @@ public sealed class FtpExchangeLogRedactionTests
         Assert.AreEqual("ACCT ****\r\nacct ****\r\n", Logged("ACCT billing\r\nacct billing\r\n"));
 
     [TestMethod]
+    public void Pass_SeparatedByATab_IsMaskedKeepingTheTab() =>
+        Assert.AreEqual("PASS\t****\r\npass\t****\r\n", Logged("PASS\ts3cret\r\npass\ts3 cret\r\n"));
+
+    [TestMethod]
+    public void Acct_SeparatedByATab_IsMaskedKeepingTheTab() =>
+        Assert.AreEqual("ACCT\t****\r\nacct\t****\r\n", Logged("ACCT\tbilling\r\nacct\tbilling\r\n"));
+
+    [TestMethod]
     public void PassWithNoArgument_IsLoggedAsSent() =>
-        Assert.AreEqual("PASS\r\nPASS \r\n", Logged("PASS\r\nPASS \r\n"));
+        Assert.AreEqual("PASS\r\nPASS \r\nPASS\t\r\n", Logged("PASS\r\nPASS \r\nPASS\t\r\n"));
 
     [TestMethod]
     public void UserAndEveryOtherCommand_AreLoggedUnchanged() =>
