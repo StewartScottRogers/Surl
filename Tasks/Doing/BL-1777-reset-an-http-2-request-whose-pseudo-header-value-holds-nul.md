@@ -32,3 +32,4 @@ An HTTP/2 request whose pseudo-header value holds NUL, CR or LF is refused as ma
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: Backlog -> Doing.
