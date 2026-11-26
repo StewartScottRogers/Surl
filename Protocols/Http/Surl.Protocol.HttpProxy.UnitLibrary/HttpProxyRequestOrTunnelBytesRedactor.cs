@@ -8,9 +8,11 @@ namespace Surl.Protocol.HttpProxy;
 /// <summary>
 /// The <see cref="IReceivedBytesRedactor"/> for what a client sends the proxy before any HTTP/2
 /// connection preface: HTTP request heads (<see cref="HttpRequestHeadBytesRedactor"/>), until the
-/// bytes turn out to be a <c>CONNECT</c> tunnel's text. From there on, every line is redacted by
-/// <see cref="TunnelLinesRedactor"/> (ADR-0182, amendment 16). Request heads and tunnelled
-/// lines alike lose the values of <see cref="HttpWithheldHeaderNames.Credentials"/> and
+/// bytes turn out to be a <c>CONNECT</c> tunnel's text or binary login. From there on, text is
+/// redacted line by line by <see cref="TunnelLinesRedactor"/> (ADR-0182, amendment 16), and an MQTT
+/// <c>CONNECT</c> or an LDAP bind by the redactor <see cref="TunnelBinaryLoginRedactors"/> chooses
+/// (amendment 23). Request heads and tunnelled lines alike lose the values of
+/// <see cref="HttpWithheldHeaderNames.Credentials"/> and
 /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> (amendment 18).
 /// </summary>
 /// <remarks>
@@ -23,15 +25,24 @@ namespace Surl.Protocol.HttpProxy;
 /// which makes it the tunnel's.
 /// </para>
 /// <para>
-/// The client's bytes alone say where this happens, so tunnelled bytes sent before the proxy's
-/// <c>200</c> are redacted too. A tunnel starting with any other byte (TLS, LDAP, MQTT) stays with
-/// the request head redactor.
+/// <see cref="ConnectHeadEndFinder"/> finds where a <c>CONNECT</c> head ends, however its lines are
+/// read. When the byte after it is <c>0x10</c> or <c>0x30</c>, every later byte is that binary
+/// redactor's. So is it when one of those bytes follows a first tunnel line starting <c>PROXY </c>,
+/// which curl's <c>--haproxy-protocol</c> sends ahead of the protocol's own bytes. This holds even
+/// when the byte starts text a line rule would have judged, such as an IMAP tag beginning <c>0</c>.
+/// </para>
+/// <para>
+/// The client's bytes alone say where all this happens, so tunnelled bytes sent before the proxy's
+/// <c>200</c> are redacted too. A tunnel starting with any other byte that starts no text (TLS and
+/// other binary protocols) stays with the redactor its <c>CONNECT</c> head ended in.
 /// </para>
 /// </remarks>
 internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesRedactor
 {
     private const byte LineFeed = (byte)'\n';
     private const int RequestLineWordCount = 3;
+
+    private static ReadOnlySpan<byte> ProxyProtocolLineStart => "PROXY "u8;
 
     // The proxy cannot tell which origin it carries, so every request head loses the API-key fields too.
     private readonly HttpRequestHeadBytesRedactor requests = new(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
@@ -42,8 +53,20 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
     private bool isInConnectHead;
     private bool isTunnelledText;
 
+    private readonly ConnectHeadEndFinder connectHeads = new();
+
+    // True when the next byte is the first of the tunnelled protocol: after a CONNECT head's empty
+    // line, and after a PROXY protocol line there.
+    private bool isAtTunnelStart;
+    private IReceivedBytesRedactor? tunnelledBinaryLogin;
+
+    // The tunnel's first line while unfinished: its first bytes, as many as "PROXY " is long.
+    private readonly ArrayBufferWriter<byte> firstTunnelLineStart = new();
+    private bool isInFirstTunnelLine;
+
     /// <summary>Whether the next byte may begin a new request.</summary>
-    public bool IsAtRequestStart => !isTunnelledText && undecidedLine.WrittenCount == 0 && requests.IsAtRequestStart;
+    public bool IsAtRequestStart =>
+        !isTunnelledText && tunnelledBinaryLogin is null && undecidedLine.WrittenCount == 0 && requests.IsAtRequestStart;
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
@@ -75,6 +98,7 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
         undecidedLine.ResetWrittenCount();
         requests.Flush(output);
         tunnelLines.Flush(output);
+        tunnelledBinaryLogin?.Flush(output);
     }
 
     private static bool MayStartTunnel(byte first) =>
@@ -96,6 +120,19 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
     // The bytes hold at most one line feed, as their last byte.
     private void RedactWithinOneLine(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
     {
+        FollowTunnelStart(bytes);
+        if (tunnelledBinaryLogin is not null)
+        {
+            tunnelledBinaryLogin.Redact(bytes, output);
+            return;
+        }
+
+        RedactAsRequestOrText(bytes, output);
+        isAtTunnelStart |= connectHeads.EndsConnectHead(bytes);
+    }
+
+    private void RedactAsRequestOrText(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
+    {
         if (isTunnelledText)
         {
             tunnelLines.Redact(bytes, output);
@@ -107,6 +144,27 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
         else
         {
             requests.Redact(bytes, output);
+        }
+    }
+
+    // Chooses the binary redactor at the tunnelled protocol's first byte, and finds the end of a
+    // PROXY protocol line ahead of it. The bytes are redacted afterwards.
+    private void FollowTunnelStart(ReadOnlySpan<byte> bytes)
+    {
+        if (isAtTunnelStart)
+        {
+            isAtTunnelStart = false;
+            tunnelledBinaryLogin = TunnelBinaryLoginRedactors.ForFirstByte(bytes[0]);
+            isInFirstTunnelLine = tunnelledBinaryLogin is null;
+            firstTunnelLineStart.ResetWrittenCount();
+        }
+
+        if (isInFirstTunnelLine)
+        {
+            var wanted = ProxyProtocolLineStart.Length - firstTunnelLineStart.WrittenCount;
+            firstTunnelLineStart.Write(bytes[..Math.Min(wanted, bytes.Length)]);
+            isInFirstTunnelLine = bytes[^1] != LineFeed;
+            isAtTunnelStart = !isInFirstTunnelLine && firstTunnelLineStart.WrittenSpan.SequenceEqual(ProxyProtocolLineStart);
         }
     }
 

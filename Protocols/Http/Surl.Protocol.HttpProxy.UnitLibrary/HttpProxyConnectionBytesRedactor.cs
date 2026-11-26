@@ -8,9 +8,10 @@ namespace Surl.Protocol.HttpProxy;
 /// The <see cref="IReceivedBytesRedactor"/> of one connection to the proxy (ADR-0182, amendments 8
 /// and 16). Until the client sends the HTTP/2 connection preface,
 /// <see cref="HttpProxyRequestOrTunnelBytesRedactor"/> redacts HTTP/1.x request heads, those inside
-/// an HTTP/1.1 <c>CONNECT</c> tunnel included, and the lines of a tunnelled text protocol (FTP,
-/// SMTP, IMAP, POP3). The preface is looked for wherever it falls, because HTTP/2 carries a
-/// credential as an HPACK field no line rule sees.
+/// an HTTP/1.1 <c>CONNECT</c> tunnel included, the lines of a tunnelled text protocol (FTP,
+/// SMTP, IMAP, POP3), and a tunnelled MQTT <c>CONNECT</c> or LDAP bind (amendment 23). The preface
+/// is looked for wherever it falls, because HTTP/2 carries a credential as an HPACK field no line
+/// rule sees.
 /// When the preface starts where a request may start (ALPN <c>h2</c>, prior knowledge in a tunnel,
 /// or after an <c>h2c</c> upgrade), every later byte is redacted by
 /// <see cref="Http2RequestBytesRedactor"/>, which withholds the <c>DATA</c> payloads of an HTTP/2

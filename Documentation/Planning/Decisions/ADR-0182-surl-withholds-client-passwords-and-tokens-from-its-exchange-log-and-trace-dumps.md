@@ -553,9 +553,9 @@ judged tunnelled lines only as HTTP head lines.
    listen URLs use this redactor (amendment 8, point 1), so all of this holds for them.
 6. **Raw bytes elsewhere.** The event stream and `HttpProxyUpstreamTestCaseServer` keep raw bytes (decision 4).
 
-Not masked inside a `CONNECT` tunnel: the MQTT `CONNECT` password and the LDAP bind (BL-1765); the logins of every
-other protocol, the extended servers' included; and, in tunnelled text, any header but the two credential fields of
-`HttpWithheldHeaderNames.Credentials` (BL-1759 adds the API-key fields to the proxy).
+Not masked inside a `CONNECT` tunnel: the MQTT `CONNECT` password and the LDAP bind (BL-1765; closed by amendment
+23); the logins of every other protocol, the extended servers' included; and, in tunnelled text, any header but the two
+credential fields of `HttpWithheldHeaderNames.Credentials` (BL-1759 adds the API-key fields to the proxy).
 
 Accepted limits:
 
@@ -778,3 +778,57 @@ Accepted limit:
 - A secret field is matched by its exact name, without regard to case, in the note as in the `HEADERS` payload
   (amendment 4). A malformed name that only resembles one, such as `authorization` followed by a space or a CR, is
   another name, and its value **can be logged**.
+
+## Amendment 23 (BL-1765, decided by Claude under Stewart's delegation)
+
+An MQTT `CONNECT` password and an LDAP simple bind password sent through an HTTP proxy `CONNECT` tunnel were logged in
+clear: the proxy gave a tunnel starting `0x10` or `0x30` to the request head redactor, which masks header fields only.
+
+1. **One copy, in `Surl.LineProtocol`.** SOCKS's redactors move there, public, as amendment 20 did the line rules. Both
+   servers already reference it, so no new library or reference is needed. Rejected: copies in the proxy library, which a
+   fix could miss; and a new library, for two classes that sit beside the rules both servers already share.
+
+   | Shared class | Was |
+   | --- | --- |
+   | `TunnelMqttConnectRedactor` (with `TunnelMqttConnectPasswordFinder`) | `SocksTunnelMqttConnectRedactor`, `SocksMqttConnectPasswordFinder` |
+   | `TunnelLdapBindRedactor` (with `TunnelBerHeader`, `TunnelBerRead`) | `SocksTunnelLdapBindRedactor`, `SocksBerHeader`, `SocksBerRead` |
+   | `TunnelBinaryLoginRedactors`, which chooses by the first byte | `SocksTunnelBytesRedactor`'s own choice |
+
+   Where amendment 10 names a replaced class, the shared one is meant, and this replaces its point 1's "the SOCKS
+   library keeps its own small framing parsers". What each redactor writes, and amendment 10's limits, are unchanged and
+   hold for both servers.
+2. **Where the proxy's tunnel starts.** At the byte after the empty line that ends a `CONNECT` head, whether or not the
+   head declares a body. `ConnectHeadEndFinder` finds it from the lines alone: a head starts at a line holding
+   `CONNECT ` whose last word starts `HTTP/`, and lines end with a line feed, with or without a carriage return. When
+   that byte is `0x10` or `0x30`, every later byte of the connection is that redactor's. The proxy's `200` is not waited
+   for (amendment 16, point 2). The finder is apart from the line rules' own reading, so it also finds a head after a
+   leading empty line, one a request body runs into in the same read, and one retried after a `407`, however the bytes
+   are split. Rejected: relying on where the head redactor sees a request start, which each of those three defeats.
+3. **A `PROXY` line first.** curl 8.21.0 with `--haproxy-protocol -p` sends a PROXY protocol line in the tunnel before
+   the MQTT `CONNECT` (fixture `proxytunnel-haproxy-mqtt-user-and-password`). So the proxy judges the byte after a first
+   tunnel line starting `PROXY ` the same way.
+4. **What this replaces.** Amendment 16's "not masked inside a `CONNECT` tunnel" for MQTT and LDAP; for these two first
+   bytes, its point 1's "every later byte of the connection is redacted line by line" and its point 5's "a tunnel
+   starting with any other byte (TLS and other binary protocols) is too". Every other binary tunnel is redacted as
+   before.
+5. **Raw bytes elsewhere.** The event stream and `HttpProxyUpstreamTestCaseServer` keep raw bytes (decision 4).
+
+Evidence: pinned upstream curl 8.21.0 sent the MQTT 3.1.1 `CONNECT` straight after the proxy's `200` (fixture
+`proxytunnel-mqtt-user-and-password`). The LDAP test bytes are the bind it sent straight to an LDAP server
+(`Surl.Protocol.Ldap.UnitTests/Fixtures/simple-bind-base-search`); no LDAP exchange through a tunnel was recorded.
+
+Accepted limits:
+
+- A tunnel starting `0x10` or `0x30` no longer has its later lines judged by any line rule, so a secret in such a line
+  (a header field, or, where the tunnel was read as text, a `PASS`, `LOGIN` or SASL line) **can be logged**. Where it
+  was read as text this includes an IMAP tag beginning `0` (after a `PROXY` line, or a `CONNECT` head that declares a
+  body or ends a line with a bare line feed), which amendments 9 and 16 had masked or left as here.
+- Any client line holding `CONNECT ` whose last word starts `HTTP/` (another method's request line ending in
+  `CONNECT`, a header field or a body line as much as a `CONNECT` request line) starts a head for the finder. A `0x10`
+  or `0x30` after the next empty line then hands the rest of the connection to that redactor, so later header fields,
+  and the password of a tunnel opened later on that connection, **can be logged**. Only a client crafting its own bytes
+  does this. Rejected: matching only a line that begins `CONNECT `, which a body running into the request line defeats.
+- A login that does not start at either of the two places (behind a PROXY protocol version 2 header, or other bytes) is
+  not masked by these two redactors.
+- A SOCKS tunnel that starts with a `PROXY` line is read as text, so an MQTT or LDAP password after it **can be logged**
+  (BL-1779).
