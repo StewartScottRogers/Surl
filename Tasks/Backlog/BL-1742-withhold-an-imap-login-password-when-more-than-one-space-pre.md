@@ -1,5 +1,5 @@
 ---
-id: BL-1740
+id: BL-1742
 title: Withhold an IMAP LOGIN password when more than one space precedes the LOGIN word
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1740 — Withhold an IMAP LOGIN password when more than one space precedes the LOGIN word
+# BL-1742 — Withhold an IMAP LOGIN password when more than one space precedes the LOGIN word
 
 ## Goal
 

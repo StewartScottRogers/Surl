@@ -39,7 +39,7 @@ as `****`.
   `Redact_SpacesBeforeTheCommandWord_StillMasksTheInitialResponse`. 10 cases failed before the fix.
 - Verified: build `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests green,
   `Surl.LineProtocol.UnitLibrary` 100% line and branch, 0 failing members.
-- Filed BL-1740: the IMAP server's own `LOGIN` rule logs the password after two spaces before `LOGIN`.
+- Filed BL-1742: the IMAP server's own `LOGIN` rule logs the password after two spaces before `LOGIN`.
 
 ## Log
 
