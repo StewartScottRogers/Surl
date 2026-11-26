@@ -43,3 +43,4 @@ reports through it, what each layer holds and which logged bytes are redacted.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
