@@ -55,7 +55,7 @@ are logged as `****`.
 
 - Design (ADR-0182 amendment 16): `HttpProxyRequestOrTunnelBytesRedactor` reads HTTP request heads until a line that
   is not one starts where a request may start; from there `HttpProxyTunnelLinesRedactor` judges every line. The tunnel
-  rules are near copies of the SOCKS ones (BL-1764 shares them); the proxy library now references `Surl.LineProtocol`.
+  rules are near copies of the SOCKS ones (BL-1767 shares them); the proxy library now references `Surl.LineProtocol`.
 - The client's bytes decide where the tunnel starts, not the `200` seen through `ObserveSent` as the Context suggests:
   switching at the `200` would log tunnelled bytes sent before it. `ObserveSent` still feeds the continuation rules.
 - Pipeline: planned, tested and implemented in the session, without delegating those stages, to save tokens;
@@ -64,7 +64,7 @@ are logged as `****`.
   head declaring a body, both left the tunnel's `PASS` in clear.
 - Verified: build `-warnaserror` clean, format clean, fast tests 29551 passed, 0 failed, 3 skipped; the proxy library
   measures 100% line and branch coverage, 0 failing members.
-- Follow-ups filed: BL-1764 (share the tunnel rules), BL-1765 (MQTT and LDAP in the proxy tunnel), BL-1766 (help text).
+- Follow-ups filed: BL-1767 (share the tunnel rules), BL-1765 (MQTT and LDAP in the proxy tunnel), BL-1766 (help text).
 
 ## Log
 

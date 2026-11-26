@@ -1,5 +1,5 @@
 ---
-id: BL-1764
+id: BL-1767
 title: Move the tunnel line redaction rules the SOCKS server and the HTTP proxy each hold into a shared library
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed:
 ---
-# BL-1764 — Move the tunnel line redaction rules the SOCKS server and the HTTP proxy each hold into a shared library
+# BL-1767 — Move the tunnel line redaction rules the SOCKS server and the HTTP proxy each hold into a shared library
 
 ## Goal
 

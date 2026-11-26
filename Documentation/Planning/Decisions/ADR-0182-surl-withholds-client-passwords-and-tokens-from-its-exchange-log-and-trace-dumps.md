@@ -541,7 +541,7 @@ judged tunnelled lines only as HTTP head lines.
    A line ended by a bare line feed is judged as soon as it ends. A `334` or `+` line split between the origin's reads,
    or sent with no space after it, is a continuation (amendment 9, points 4 and 5).
 4. **Its own classes.** The rules the SOCKS library holds are written again in the proxy library, because protocol
-   libraries never reference each other (BL-1764 moves both into a shared library). The proxy library now references
+   libraries never reference each other (BL-1767 moves both into a shared library). The proxy library now references
    `Surl.LineProtocol.UnitLibrary`, one of ADR-0002 decision 3's horizontal libraries, which adds to the references
    ADR-0088 lists for it.
 5. **Unchanged.** Forwarded requests, and HTTP or RTSP carried in a tunnel, whose lines point 1 does not give to the
