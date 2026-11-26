@@ -202,8 +202,8 @@ Accepted limits:
 - A binary protocol whose first byte is a letter (AMQP's `AMQP` header, SSH's banner) goes through the line redactor: its
   later bytes are held until a `CR LF`, and past 64 KiB written as `****` (decision 6). So is TLS started inside a text
   tunnel (`STARTTLS`). That loses log detail only.
-- SASL and IMAP `LOGIN` credentials were not masked; amendment 9 masks them. Binary logins (MQTT `CONNECT`, LDAP
-  simple bind) are not masked inside a tunnel.
+- SASL and IMAP `LOGIN` credentials were not masked; amendment 9 masks them. The MQTT `CONNECT` password and the LDAP
+  bind were not masked either; amendment 10 masks them and takes `0x10` and `0x30` out of point 2's pass-through.
 - HTTP/2 in cleartext (`--http2-prior-knowledge`, or the frames after an `h2c` upgrade) carries `authorization` as an
   HPACK field, not a header line, so the line rule does not see it. Closed by amendment 7.
 - A client that sends ahead of the server's replies (greeting and login together, or tunnelled bytes with the request),
@@ -320,7 +320,44 @@ Accepted limits:
 - The answer to a synchronizing literal is not awaited, so after a refused `LOGIN` literal the next lines are withheld
   until the announced count is used up.
 - An initial response after two spaces is logged, as in the mail servers' own logs (BL-1738).
-- An IMAP tag that begins the tunnel with neither a letter nor `1`-`9` leaves the tunnel logged byte for byte.
+- An IMAP tag that begins the tunnel with neither a letter nor `1`-`9` leaves the tunnel's login unmasked. A tag
+  beginning `0` is read as LDAP (amendment 10), whose rule logs such text as received.
 - A client that answers before the continuation reaches it, which curl does not do, has that answer judged without it.
   So may a client so fast that its answer is judged between the relay's write of the continuation and its being shown
   to the redactor; that window has not been reproduced.
+
+## Amendment 10 (BL-1706, decided by Claude under Stewart's delegation)
+
+An MQTT `CONNECT` password and an LDAP simple bind password carried through a SOCKS tunnel were logged in clear.
+
+1. **Two more first bytes.** A tunnel whose first client byte is `0x10` (an MQTT `CONNECT`) is redacted by
+   `SocksTunnelMqttConnectRedactor`; `0x30` (the `SEQUENCE` every `LDAPMessage` is) by `SocksTunnelLdapBindRedactor`.
+   This narrows amendment 6, point 2: TLS (`0x16`) and every other binary tunnel still pass through unchanged and
+   unheld. The SOCKS library keeps its own small framing parsers: it may not reference the MQTT or LDAP servers
+   (ADR-0002 decision 3).
+2. **MQTT 3.1.1 and 5.** The first packet is held until whole and its password logged as `00 04 ****`, an empty one
+   too. The Remaining Length is rewritten to count what is logged, so the log never shows the password's length, for
+   3.1.1 as well (the MQTT server's own log keeps it as received). Later packets are logged as they arrive. A
+   `CONNECT` whose flags announce a password that is not the packet's last field, whole, has everything after the keep
+   alive logged as `****`. A packet declaring more than 64 KiB is one `****` and its bytes are dropped. A Remaining
+   Length past four bytes is not MQTT: the tunnel is logged as received.
+3. **LDAP.** Every `LDAPMessage` is framed. Each `BindRequest`'s authentication is logged as its tag, `04`, `****`,
+   as amendment 5 writes a simple password; the enclosing lengths stay as received, and an empty password is logged as
+   received. A SASL bind's whole credentials field is masked, mechanism name included: one rule, with nothing to miss.
+   A bind that cannot be walked to its authentication, or is cut off, has everything after its operation's tag logged
+   as `****`; one declaring more than 64 KiB is one `****` and its bytes are dropped. Every other message is logged as
+   it arrives, held no further than its operation's tag, and from bytes that do not frame as a message on (the TLS
+   records after `StartTLS`, a SASL security layer's buffers) everything is logged as received.
+4. **Raw bytes elsewhere.** The event stream and `SocksUpstreamTestCaseServer` keep raw bytes (decision 4).
+
+Accepted limits:
+
+- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1739).
+- A packet or message declaring a length that ends before its secret leaves the rest logged as received, and so does
+  a `CONNECT` whose protocol name length runs past the packet. Only a non-conforming client does this.
+- An LDAP message length written in five or more octets, legal BER that curl does not send, leaves the tunnel logged
+  as received from there on, as in the LDAP server's own log.
+- The LDAP lengths enclosing a bind still encode the password's length indirectly, as in amendment 5.
+- Another binary protocol starting `0x10` or `0x30` may have a packet held until whole, never more than 64 KiB, and
+  lose log detail to `****`. That never reveals a secret.
+- A client that sends ahead of the server's replies keeps amendment 6's limit (BL-1707).

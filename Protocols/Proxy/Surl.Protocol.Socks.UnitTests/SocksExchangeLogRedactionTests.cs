@@ -335,10 +335,9 @@ public sealed class SocksExchangeLogRedactionTests
 
     [TestMethod]
     [DataRow((byte)0x16)]
-    [DataRow((byte)0x10)]
-    [DataRow((byte)0x30)]
+    [DataRow((byte)0x00)]
     [DataRow((byte)0xFF)]
-    public void Tunnel_WhoseFirstByteIsNotALetter_IsLoggedByteForByteAndNeverHeld(byte first)
+    public void Tunnel_OfAnotherBinaryProtocol_IsLoggedByteForByteAndNeverHeld(byte first)
     {
         byte[] opening = [first, 3, 1, 0, 5];
         var later = SocksTestKit.Latin1Bytes(SecretLines + "no line end");
