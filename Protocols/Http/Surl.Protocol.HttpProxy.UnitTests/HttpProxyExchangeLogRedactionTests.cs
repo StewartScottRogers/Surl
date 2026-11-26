@@ -151,6 +151,63 @@ public sealed class HttpProxyExchangeLogRedactionTests
             Logged("CONNECT o:80 HTTP/1.1\r\n\r\n", "GET / HTTP/1.1\r\nAuthorization: Basic YWxpY2U6\r\n\r\n"));
 
     [TestMethod]
+    public void Http1RequestThroughTheProxy_ApiKeyFields_AreLoggedAsMasks()
+    {
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            const string Forwarded = "GET http://origin.test/a HTTP/1.1\r\nHost: origin.test\r\n";
+            const string Tunnelled = "GET /a HTTP/1.1\r\nHost: origin.test\r\n";
+            var sent = $"{name}: s3cret key\r\n\r\n";
+            var masked = $"{name}: ****\r\n\r\n";
+            var lower = name.ToLowerInvariant();
+
+            const string ConnectLine = "CONNECT origin.test:80 HTTP/1.1\r\n";
+
+            Assert.AreEqual(Forwarded + masked, Logged(Forwarded + sent), name);
+            Assert.AreEqual(ConnectLine + masked, Logged(ConnectLine + sent), name);
+            Assert.AreEqual(
+                HttpProxyTunnelRedactionTestKit.Connect + Tunnelled + masked,
+                HttpProxyTunnelRedactionTestKit.LoggedTunnel(Tunnelled + sent),
+                name);
+            Assert.AreEqual(
+                $"{HttpProxyTunnelRedactionTestKit.Connect}{Tunnelled}{lower}: ****\r\n\r\n",
+                HttpProxyTunnelRedactionTestKit.LoggedTunnelByteByByte($"{Tunnelled}{lower}: s3cret\r\n\r\n"),
+                name);
+        }
+    }
+
+    [TestMethod]
+    public void ConnectTunnelReadAsTextLines_ApiKeyFields_AreLoggedAsMasks()
+    {
+        // The PROXY line of curl's --haproxy-protocol makes the proxy judge the tunnel line by line.
+        const string Start = "PROXY TCP4 127.0.0.1 127.0.0.1 50000 80\r\nGET /a HTTP/1.1\r\n";
+
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var sent = $"{Start}{name}: s3cret key\r\n \tfolded s3cret\r\n{name.ToUpperInvariant()}:s3cret\r\n{name}:\r\nAccept: */*\r\n\r\n";
+            var expected = $"{HttpProxyTunnelRedactionTestKit.Connect}{Start}{name}: ****\r\n \t****\r\n{name.ToUpperInvariant()}:****\r\n{name}:\r\nAccept: */*\r\n\r\n";
+
+            Assert.AreEqual(expected, HttpProxyTunnelRedactionTestKit.LoggedTunnel(sent), name);
+            Assert.AreEqual(expected, HttpProxyTunnelRedactionTestKit.LoggedTunnelByteByByte(sent), name);
+        }
+    }
+
+    [TestMethod]
+    public void Http2RequestThroughTheProxy_ApiKeyFields_WithholdTheHeaderBlock()
+    {
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var headers = RawHeaders(name.ToLowerInvariant(), Token);
+            var start = Http2TestClient.Start();
+
+            var logged = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [Bytes(Connect).ToArray()], Established, [start, headers]);
+
+            Assert.DoesNotContain(Token, Latin1(logged), name);
+            CollectionAssert.AreEqual((byte[])[.. Bytes(Connect).Span, .. start, .. Withheld(headers)], logged, name);
+        }
+    }
+
+    [TestMethod]
     public void ConnectTunnel_FtpPassAndAcct_AreLoggedAsMasks()
     {
         string[] turns =

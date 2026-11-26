@@ -15,7 +15,10 @@ namespace Surl.Protocol.HttpProxy;
 /// or after an <c>h2c</c> upgrade), every later byte is redacted by
 /// <see cref="Http2RequestBytesRedactor"/>, which withholds the <c>DATA</c> payloads of an HTTP/2
 /// <c>CONNECT</c> stream (amendment 11); a preface anywhere else withholds every later byte
-/// (<see cref="HttpProxyWithheldBytesRedactor"/>).
+/// (<see cref="HttpProxyWithheldBytesRedactor"/>). In HTTP/1.x and HTTP/2 alike, the values of
+/// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> are withheld beside the two
+/// credential fields, in every request, because the proxy cannot tell which origin it carries
+/// (amendment 18).
 /// </summary>
 internal sealed class HttpProxyConnectionBytesRedactor : IReceivedBytesRedactor
 {
@@ -74,7 +77,7 @@ internal sealed class HttpProxyConnectionBytesRedactor : IReceivedBytesRedactor
     private static IReceivedBytesRedactor CreateFrameRedactor()
     {
         // The HTTP/2 redactor expects the preface first; it is already logged, so this copy is dropped.
-        var frames = new Http2RequestBytesRedactor();
+        var frames = new Http2RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
         frames.Redact(Http2ConnectionPreface.Preface, new ArrayBufferWriter<byte>());
 
         return frames;

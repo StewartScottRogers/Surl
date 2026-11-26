@@ -203,8 +203,9 @@ and the protocols fan out after.
   (ADR-0182): `Credentials` (`Authorization`, `Proxy-Authorization`), `ApiKeysAndSessionTokens` (five) and
   `All`. `Surl.HttpMessage`'s request head redactor, `Surl.HttpServing`'s `HttpExchangeRedaction` and
   `Surl.Authentication`'s withheld Signature Version 4 canonical request read it, and so does `Surl.Http2`'s
-  `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC and DNS over HTTPS;
-  BL-1717) and `Surl.Http3`'s `Http3RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for
+  `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC, DNS over HTTPS and
+  the HTTP proxy; BL-1717, BL-1759; the proxy also masks them in its HTTP/1.x request heads and tunnelled
+  text lines) and `Surl.Http3`'s `Http3RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for
   WebTransport; BL-1718); the SOCKS tunnel redactor still names `Authorization` and `Proxy-Authorization`
   itself.
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`

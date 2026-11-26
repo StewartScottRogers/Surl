@@ -64,7 +64,9 @@ What exists:
   (ADR-0182 Amendment 8): until the client's HTTP/2 preface it hands the bytes to
   `HttpProxyRequestOrTunnelBytesRedactor`; a preface where a request may start hands the rest to
   `Surl.Http2`'s `Http2RequestBytesRedactor`, which withholds the `DATA` payloads of a `CONNECT`
-  stream (Amendment 11).
+  stream (Amendment 11). Both it and the request head redactor are given
+  `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, so every request through the proxy has the
+  API-key and session-token fields withheld beside the credential fields (Amendment 18).
 - `HttpProxyRequestOrTunnelBytesRedactor` - masks HTTP/1.x request heads until the bytes are a
   tunnel's text: a line where a request may start that begins with a letter, `1`-`9` or a line feed
   and is no CR LF request line, a `CONNECT` head line without CR LF, or what follows a `CONNECT`
@@ -72,7 +74,9 @@ What exists:
   `HttpProxyTunnelLineRedactionRule`, which combines
   `HttpProxyTunnelPasswordAndCredentialHeaderLineRule`, `HttpProxyTunnelImapLoginLineRule` and
   `Surl.LineProtocol`'s `SaslLineRedactionRule`, so FTP and mail logins in a `CONNECT` tunnel are
-  masked (Amendment 16). Tunnelled text masks no header but `HttpWithheldHeaderNames.Credentials`.
+  masked (Amendment 16). The headers tunnelled text masks are those of
+  `HttpWithheldHeaderNames.All`: the credential fields after the scheme word, the API-key and
+  session-token fields whole (Amendment 18).
 - `HttpProxyWithheldBytesRedactor` - takes over when the preface starts anywhere else: one `****`
   for every later byte.
 - `HttpProxyExchange` - one curl connection: reads request heads with `Surl.HttpMessage`'s

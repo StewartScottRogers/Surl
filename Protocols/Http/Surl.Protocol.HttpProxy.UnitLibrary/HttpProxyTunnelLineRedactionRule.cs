@@ -9,7 +9,7 @@ namespace Surl.Protocol.HttpProxy;
 /// <c>CONNECT</c> tunnel. <c>CONNECT</c> does not say which protocol that is, so every line is judged
 /// by all of these, and what the one that withholds from earliest in the line writes is logged
 /// (ADR-0182, amendment 16): <see cref="HttpProxyTunnelPasswordAndCredentialHeaderLineRule"/>
-/// (<c>PASS</c>, <c>ACCT</c> and the credential headers),
+/// (<c>PASS</c>, <c>ACCT</c> and the credential, API-key and session-token headers),
 /// <see cref="HttpProxyTunnelImapLoginLineRule"/> (the IMAP <c>LOGIN</c> password) and two
 /// <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c> continuation and for the <c>+ </c>
 /// continuation of IMAP and POP3. A line none of them changes is written as received.

@@ -4,7 +4,8 @@ namespace Surl.Protocol.Abstractions;
 /// The HTTP header fields whose values surl withholds (ADR-0182): as <c>****</c> in the exchange log
 /// of an HTTP/1.x or RTSP request head and in the canonical request a Signature Version 4 mismatch shows,
 /// with the whole header block's payloads in the exchange log of HTTP/2
-/// (<see cref="Credentials"/> always; <see cref="ApiKeysAndSessionTokens"/> for gRPC and DNS over HTTPS),
+/// (<see cref="Credentials"/> always; <see cref="ApiKeysAndSessionTokens"/> for gRPC, DNS over HTTPS and
+/// the HTTP proxy, which also masks them in its HTTP/1.x request heads and tunnelled text lines),
 /// and with the <c>HEADERS</c> payload and the decoded header value in the exchange log of HTTP/3
 /// (<see cref="Credentials"/> always; <see cref="ApiKeysAndSessionTokens"/> for WebTransport).
 /// Field names are matched without regard to case.

@@ -8,7 +8,9 @@ namespace Surl.Protocol.HttpProxy;
 /// The <see cref="IReceivedBytesRedactor"/> for what a client sends the proxy before any HTTP/2
 /// connection preface: HTTP request heads (<see cref="HttpRequestHeadBytesRedactor"/>), until the
 /// bytes turn out to be a <c>CONNECT</c> tunnel's text. From there on, every line is redacted by
-/// <see cref="HttpProxyTunnelLinesRedactor"/> (ADR-0182, amendment 16).
+/// <see cref="HttpProxyTunnelLinesRedactor"/> (ADR-0182, amendment 16). Request heads and tunnelled
+/// lines alike lose the values of <see cref="HttpWithheldHeaderNames.Credentials"/> and
+/// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> (amendment 18).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,7 +32,8 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
     private const byte LineFeed = (byte)'\n';
     private const int RequestLineWordCount = 3;
 
-    private readonly HttpRequestHeadBytesRedactor requests = new();
+    // The proxy cannot tell which origin it carries, so every request head loses the API-key fields too.
+    private readonly HttpRequestHeadBytesRedactor requests = new(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
     private readonly HttpProxyTunnelLinesRedactor tunnelLines = new();
 
     // The start of a line not yet known to be a request head's or the tunnel's.
