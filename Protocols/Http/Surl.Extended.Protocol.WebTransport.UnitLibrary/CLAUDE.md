@@ -40,6 +40,9 @@ The server (BL-459, ADR-0117 decisions 0 to 3 and 6):
   served once it is accepted; refused, timed out, past the 16 or naming an ordinary request it gets
   `WT_BUFFERED_STREAM_REJECTED`, and naming an ended session `WT_SESSION_GONE`.
 - `WebTransportHttp3Codes` - the settings and error codepoints above.
+- `WebTransportProtocolServer` hands out `Surl.Http3`'s `Http3RequestBytesRedactor` made with
+  `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, so the exchange log withholds credentials, API keys and session
+  tokens from request header blocks and decoded header text (ADR-0182 amendment 14; BL-1718).
 
 The codecs (BL-458, ADR-0117 decisions 4 and 6), with no transport:
 

@@ -201,4 +201,47 @@ public sealed class WebTransportProtocolServerTests
         Assert.DoesNotContain("sekret", logged);
         Assert.Contains("authorization: ****", logged);
     }
+
+    [TestMethod]
+    public void CreateRedactor_EachApiKeyAndSessionTokenHeadersFrame_IsLoggedWithItsPayloadAsStars()
+    {
+        using var client = new Http3TestQuicClient();
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var frame = client.Headers((":method", "CONNECT"), (name.ToLowerInvariant(), "sekret-key"));
+
+            var logged = Redact(frame);
+
+            // The frame type and its one-byte length are logged as received.
+            byte[] expected = [.. frame[..2], .. "****"u8];
+            CollectionAssert.AreEqual(expected, logged, name);
+        }
+    }
+
+    [TestMethod]
+    public void CreateRedactor_EachDecodedApiKeyAndSessionTokenLine_IsLoggedAsStars()
+    {
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            var lowerName = name.ToLowerInvariant();
+            var text = $":method: CONNECT\r\n{lowerName}: sekret-key\r\nx-trace: abc\r\n\r\n";
+
+            var logged = Redact(System.Text.Encoding.ASCII.GetBytes(text));
+
+            Assert.AreEqual(
+                $":method: CONNECT\r\n{lowerName}: ****\r\nx-trace: abc\r\n\r\n",
+                System.Text.Encoding.ASCII.GetString(logged),
+                name);
+        }
+    }
+
+    private static byte[] Redact(byte[] received)
+    {
+        var redactor = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        redactor.Redact(received, output);
+        redactor.Flush(output);
+
+        return output.WrittenSpan.ToArray();
+    }
 }

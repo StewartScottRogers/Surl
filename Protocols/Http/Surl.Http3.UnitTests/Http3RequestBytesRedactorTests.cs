@@ -145,6 +145,35 @@ public sealed class Http3RequestBytesRedactorTests
     }
 
     [TestMethod]
+    public void Redact_AFurtherSecretFieldName_IsWithheldFromTheFrameAndTheDecodedTextWhateverItsCase()
+    {
+        var redactor = new Http3RequestBytesRedactor(["X-Secret"]);
+        var frame = Frame(Http3FrameType.Headers, Section(HpackStringCoding.Raw, ("x-secret", "key-1")));
+        var frames = new ArrayBufferWriter<byte>();
+        var text = new ArrayBufferWriter<byte>();
+
+        redactor.Redact(frame, frames);
+        redactor.Redact(":method: GET\r\nx-secret: key-1\r\nauthorization: Bearer t\r\n"u8, text);
+
+        CollectionAssert.AreEqual(Join(frame[..2], Stars), frames.WrittenSpan.ToArray());
+        Assert.AreEqual(":method: GET\r\nx-secret: ****\r\nauthorization: ****\r\n", Text(text.WrittenSpan.ToArray()));
+    }
+
+    [TestMethod]
+    public void Redact_WithNoFurtherNames_LogsAnApiKeyFieldAsReceived()
+    {
+        var frame = Frame(Http3FrameType.Headers, Section(HpackStringCoding.Raw, ("x-api-key", "key-1")));
+        var text = ":method: GET\r\nx-api-key: key-1\r\n"u8.ToArray();
+
+        CollectionAssert.AreEqual(frame, Redact(frame));
+        CollectionAssert.AreEqual(text, Redact(text));
+    }
+
+    [TestMethod]
+    public void Constructor_NullFurtherNames_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Http3RequestBytesRedactor(null!));
+
+    [TestMethod]
     public void Redact_AndFlush_RejectANullOutput()
     {
         var redactor = new Http3RequestBytesRedactor();

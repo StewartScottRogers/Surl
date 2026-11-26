@@ -453,3 +453,26 @@ Accepted limit:
 - A gRPC or DNS over HTTPS origin reached in cleartext through the HTTP proxy or a SOCKS tunnel has its API-key and
   session-token fields logged in the tunnel's log, though the origin's own log withholds them. This narrows
   amendment 7, point 2 ("the tunnel logs what the origin's own exchange logs") to the two credential fields.
+
+## Amendment 14 (BL-1718, decided by Claude under Stewart's delegation)
+
+WebTransport logged an API-key or session-token field of an HTTP/3 request in clear, though decision 7 says the
+HTTP-carried extended servers withhold them: `Http3RequestBytesRedactor` named only `authorization` and
+`proxy-authorization`.
+
+1. **The caller names the further fields**, as amendment 13 has it for HTTP/2. `Http3RequestBytesRedactor` always
+   withholds `HttpWithheldHeaderNames.Credentials` and takes any further field names from whoever makes it. Names are
+   matched without regard to case.
+2. **WebTransport** makes it with `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`. A `HEADERS` payload carrying any
+   field of `HttpWithheldHeaderNames.All`, and that field's value in the decoded header text, are logged as `****`, as
+   amendment 4 says for the two credential fields.
+3. **The http and https servers** make it with no further names, so their HTTP/3 log withholds `authorization` and
+   `proxy-authorization` only, as decision 7 and amendment 4 state. Rejected: withholding API keys there too, which
+   would make their HTTP/3 log differ from their HTTP/1.x and HTTP/2 ones.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
+
+Accepted limit, until BL-1761 closes it:
+
+- Each chunk is redacted on its own (amendment 1), so when QUIC splits a `HEADERS` frame, the chunks after the first are
+  logged as received unless they happen to read as a `HEADERS` frame, and a secret in them **can be logged**. This
+  narrows amendment 4's "never reveals a secret" to a frame that arrives in one chunk.

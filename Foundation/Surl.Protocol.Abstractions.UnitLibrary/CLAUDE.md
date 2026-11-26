@@ -204,8 +204,9 @@ and the protocols fan out after.
   `All`. `Surl.HttpMessage`'s request head redactor, `Surl.HttpServing`'s `HttpExchangeRedaction` and
   `Surl.Authentication`'s withheld Signature Version 4 canonical request read it, and so does `Surl.Http2`'s
   `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC and DNS over HTTPS;
-  BL-1717); the HTTP/3 and SOCKS tunnel redactors still name `Authorization` and `Proxy-Authorization`
-  themselves.
+  BL-1717) and `Surl.Http3`'s `Http3RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for
+  WebTransport; BL-1718); the SOCKS tunnel redactor still names `Authorization` and `Proxy-Authorization`
+  itself.
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
   returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
   `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
