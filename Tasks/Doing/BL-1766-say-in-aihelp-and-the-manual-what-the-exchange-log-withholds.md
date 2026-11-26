@@ -34,3 +34,4 @@ an HTTP proxy `CONNECT` tunnel, and which it does not.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
