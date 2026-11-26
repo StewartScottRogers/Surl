@@ -8,7 +8,7 @@ depends-on: [BL-1717]
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary/HttpWithheldHeaderNames.cs, Foundation/Surl.Protocol.Abstractions.UnitLibrary/CLAUDE.md, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
 requirement: none
 created: 2026-11-25
-completed:
+completed: 2026-11-25
 ---
 # BL-1760 — Withhold API-key and session-token fields from the SOCKS tunnel's exchange log
 
@@ -38,19 +38,34 @@ on HTTP/1.x and on cleartext HTTP/2.
 
 ## Acceptance criteria
 
-- [ ] `SocksExchangeLogRedactionTests.TunnelledHttp1Request_ApiKeyFields_AreLoggedAsMasks` passes for each name in
+- [x] `SocksExchangeLogRedactionTests.TunnelledHttp1Request_ApiKeyFields_AreLoggedAsMasks` passes for each name in
       `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, a folded continuation line included.
-- [ ] `SocksTunnelHttp2RedactionTests.PriorKnowledgeTunnel_ApiKeyFields_WithholdTheHeaderBlock` passes for each of those
+- [x] `SocksTunnelHttp2RedactionTests.PriorKnowledgeTunnel_ApiKeyFields_WithholdTheHeaderBlock` passes for each of those
       names: each `HEADERS` payload is `****`.
-- [ ] The SOCKS library reads the field names from `HttpWithheldHeaderNames` and names none of the five itself.
-- [ ] A new ADR-0182 amendment (the next free number) states the above, and the redactors' doc comments, the
+- [x] The SOCKS library reads the field names from `HttpWithheldHeaderNames` and names none of the five itself.
+- [x] A new ADR-0182 amendment (the next free number) states the above, and the redactors' doc comments, the
       `HttpWithheldHeaderNames` doc comment and both libraries' `CLAUDE.md` files agree with it.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the SOCKS library stays at 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the SOCKS library stays at 100% line and
       branch coverage.
 
 ## Notes
+
+- Plan: the task fixes the design (it mirrors BL-1759 for the HTTP proxy), so the feature stages ran in this session
+  without `protocol-architect` or `protocol-implementer`: tests first (both new tests failed), implementation, verify,
+  then a `code-reviewer` pass. No conformance run: no byte on the wire changes, only the log.
+- ADR-0182 amendment 19. `SocksTunnelPasswordAndAuthorizationLineRule` is renamed to
+  `SocksTunnelPasswordAndCredentialHeaderLineRule`; it now reads the credential names from
+  `HttpWithheldHeaderNames.Credentials` too. `Http2RequestBytesRedactor` is given `ApiKeysAndSessionTokens`.
+- Review: fixed the stale `SocksProtocolServer.CreateRedactor` doc comment, two field names, and the amendment's
+  limits. The malformed shapes that can still be logged are listed there; BL-1772 filed for two of them.
+- Help text: `AiHelpProse` and `ManualText` still say the SOCKS tunnel does not withhold these fields. The follow-up
+  is already filed: BL-1764 depends on this task.
+- Stand-in: only the levelled log and trace dumps change; the event stream keeps raw bytes.
+- Verify (2026-11-25): build 0 warnings, format clean, fast tests 29566 passed, 0 failed, 3 skipped;
+  `Surl.Protocol.Socks.UnitLibrary` 100% line, 100% branch, 0 failing members.
 
 ## Log
 
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
+- 2026-11-25: Doing -> Done. The SOCKS tunnel's exchange log withholds API-key and session-token fields on HTTP/1.x and cleartext HTTP/2
