@@ -525,7 +525,7 @@ judged tunnelled lines only as HTTP head lines.
    | The first line after a `CONNECT` head that declares a body | Always: a `CONNECT` has none |
 
    The last two rows and the bare line feed are there because the proxy accepts a head whose lines end with a bare
-   line feed, and the head redactor does not see such a head end.
+   line feed, and the head redactor does not see such a head end (until amendment 24).
 2. **The client's bytes decide.** The proxy's `200` is not waited for, so tunnelled bytes sent with the `CONNECT` head
    are masked too, and a `CONNECT` retried after a `407` is still read as a head. Rejected: switching when
    `ObserveSent` shows the `200`, which would log what a client sends before it. `ObserveSent` still shows the rules
@@ -564,7 +564,7 @@ Accepted limits:
 - A first tunnelled line of three words whose last starts `HTTP/` or `RTSP/`, ended by CR LF, is read as a request
   line, so the tunnel is read as HTTP. No FTP or mail client opens that way.
 - A request head on the proxy connection, other than a `CONNECT` head, whose later lines end with a bare line feed is
-  judged by the head redactor as before this amendment.
+  judged by the head redactor as before this amendment. Closed by amendment 24.
 - Text that only looks like these forms (a message line, an HTTP body line after a `PROXY` line sent into the tunnel,
   a line after a request line that is not three words or is ended by a bare line feed) has a secret-shaped part masked.
   That loses log detail only.
@@ -634,7 +634,7 @@ Accepted limits:
 
   | Shape | What is logged | Closed by |
   | --- | --- | --- |
-  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771 |
+  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771; closed by amendment 24 |
   | A `CONNECT` head holding a secret field followed by a folded line that ends with a bare line feed | The folded line, as received | Not planned: the proxy refuses folded lines |
   | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770 |
 
@@ -832,3 +832,46 @@ Accepted limits:
   not masked by these two redactors.
 - A SOCKS tunnel that starts with a `PROXY` line is read as text, so an MQTT or LDAP password after it **can be logged**
   (BL-1780).
+
+## Amendment 24 (BL-1771, decided by Claude under Stewart's delegation)
+
+`HttpRequestHeadBytesRedactor` ended a head line at CR LF only, though `HttpConnectionReader`, which the HTTP servers and
+the HTTP proxy read heads with, ends one at a bare line feed too. So the lines up to the next CR LF were judged as one,
+by the first one's name, and a secret field after a bare line feed was logged in clear (the first row of amendment 18's
+table of shapes; amendment 16 had it for the credential fields).
+
+1. **A line feed ends a head line**, with or without a carriage return before it. Each line is judged on its own, its
+   folded lines too, and is written with the line end it arrived with.
+2. **An empty line ended either way ends the head.** The body starts at the next byte, framed as the head declares, and
+   the head after it is redacted again. A request line ended by a bare line feed still gives the head its version.
+3. **Everywhere the redactor is used.** The `http` and `https` servers, the WebSocket and RTSP servers, the extended
+   servers answering HTTP/1.1, and the request heads the HTTP proxy's log reads with it, HTTP carried in its `CONNECT`
+   tunnel included. After a head ended with a bare line feed, the WebSocket log writes the whole head before the frames,
+   and the RTSP redactor knows an interleaved `$` frame.
+4. **Lines that are no field fail closed.** Judged line by line, a value broken by a bare line feed leaves its rest on a
+   line of its own, which was masked while the lines were judged as one. So a line with no colon after a secret field is
+   `****`, as a folded line of it is, and so are the lines like it that follow.
+5. **A secret field where the request line belongs is masked.** A line longer than 64 KiB is `****` without the head
+   rule seeing it, so after such a request line the rule takes the next line for the request line, which it writes
+   unchanged. When that line names a secret field, its value is masked as in any other place.
+6. **Where the HTTP proxy's tunnelled text starts is unchanged** (amendment 16, point 1): a request line or a `CONNECT`
+   head line without CR LF is still the tunnel's. The reason amendment 16 gives, that the head redactor does not see such
+   a head end, no longer holds. A head ended with a bare line feed is now followed by a place where a request may start,
+   as a head ended with CR LF is: tunnelled text may start there, and an HTTP/2 preface there is read as frames
+   (amendment 8) where it withheld every later byte before.
+7. **Rejected:** changing `LineBytesRedactor` (decision 6), whose CR LF line end the other line protocols share. The
+   HTTP head redactor hands it a CR LF for a bare line feed and drops the CR from what comes back.
+8. **What this closes.** The first row of amendment 18's table of shapes (its other two rows stay as they were), and
+   amendment 16's accepted limit on a request head, other than a `CONNECT` head, whose later lines end with a bare line
+   feed. `--aihelp logging` and the manual still name that limit until BL-1764 rewrites them.
+9. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- What follows an empty line is the body or the next request line, as the server reads it, however the line ended: a
+  client that puts a value there has it logged as received, unless it is a request line that names a secret field.
+- A folded line, or one with no colon, after a line longer than 64 KiB that held a secret field is logged as received.
+- A chunked body is read as before: its chunk-size and trailer lines already ended at a line feed, and a secret field in
+  its trailers is still logged (BL-1770).

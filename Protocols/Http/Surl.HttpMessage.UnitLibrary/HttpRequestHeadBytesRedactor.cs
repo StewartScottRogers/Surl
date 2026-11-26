@@ -11,11 +11,16 @@ namespace Surl.HttpMessage;
 /// <c>Authorization: Basic ****</c> (ADR-0182, decisions 1 and 7).
 /// </summary>
 /// <remarks>
-/// A head is held back one line at a time (see <see cref="LineBytesRedactor"/>). Once the blank line
-/// ends a head, the body its framing declares - a <c>Content-Length</c> count or a chunked
-/// sequence - passes through unchanged, and the next head on a persistent connection is redacted
-/// again. A head whose framing cannot be read is followed by another head, so nothing is left
-/// unredacted. A field name is compared without regard to case (RFC 9110, section 5.1).
+/// A head is held back one line at a time (see <see cref="LineBytesRedactor"/>). A line ends at a
+/// line feed, with or without a carriage return before it, as <see cref="HttpConnectionReader"/>
+/// reads it, so each line is judged on its own and an empty one ended either way ends the head; the
+/// line end is written as it arrived. A line with no colon after a secret field is masked as part of
+/// it, and a line naming a secret field is masked even where the request line belongs (ADR-0182,
+/// amendment 24). Once the blank line ends a head, the body its framing declares - a
+/// <c>Content-Length</c> count or a chunked sequence - passes through unchanged, and the next head on
+/// a persistent connection is redacted again. A head whose framing cannot be read is followed by
+/// another head, so nothing is left unredacted. A field name is compared without regard to case
+/// (RFC 9110, section 5.1).
 /// </remarks>
 public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
 {
@@ -39,6 +44,7 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     private long chunkSize;
     private bool inChunkExtension;
     private int trailerLineLength;
+    private bool previousHeadByteWasCarriageReturn;
 
     /// <summary>
     /// Creates a redactor for one connection.
@@ -81,11 +87,21 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     {
         ArgumentNullException.ThrowIfNull(output);
         lines.Flush(output);
+        previousHeadByteWasCarriageReturn = false;
     }
 
     private int RedactHeadByte(byte next, ArrayBufferWriter<byte> output)
     {
-        lines.Redact([next], output);
+        if (next == LineFeed && !previousHeadByteWasCarriageReturn)
+        {
+            EndHeadLineAtBareLineFeed(output);
+        }
+        else
+        {
+            lines.Redact([next], output);
+        }
+
+        previousHeadByteWasCarriageReturn = next == CarriageReturn;
         if (rule.HeadIsComplete)
         {
             StartBody(rule.Framing);
@@ -93,6 +109,15 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
         }
 
         return 1;
+    }
+
+    // LineBytesRedactor ends a line at CR LF only, so it is given both and the CR it writes back is dropped.
+    private void EndHeadLineAtBareLineFeed(ArrayBufferWriter<byte> output)
+    {
+        var endedLine = new ArrayBufferWriter<byte>();
+        lines.Redact("\r\n"u8, endedLine);
+        output.Write(endedLine.WrittenSpan[..^2]);
+        output.Write([LineFeed]);
     }
 
     private void StartBody(HttpRequestBodyFraming framing)

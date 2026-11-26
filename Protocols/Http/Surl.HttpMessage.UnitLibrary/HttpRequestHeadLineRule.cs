@@ -65,7 +65,9 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
         }
 
         lineCount++;
-        if (lineCount == 1)
+
+        // A secret field stands where the request line belongs after a line too long to be shown to this rule.
+        if (lineCount == 1 && !NamesSecretField(line))
         {
             minorVersion = line[^1] == (byte)'0' ? 0 : 1;
             output.Write(line);
@@ -103,12 +105,12 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
         int colon = line.IndexOf((byte)':');
         if (colon < 0)
         {
-            previousFieldWasSecret = false;
-            output.Write(line);
+            // No field of its own: after a secret field it may be the rest of that value, broken by a bare line feed.
+            RedactContinuation(line, output);
             return;
         }
 
-        string name = Encoding.Latin1.GetString(line[..colon].TrimEnd(" \t"u8));
+        string name = FieldName(line, colon);
         ReadOnlySpan<byte> afterColon = line[(colon + 1)..];
         ReadOnlySpan<byte> value = afterColon.Trim(" \t"u8);
         if (name.Equals("Content-Length", StringComparison.OrdinalIgnoreCase)
@@ -127,6 +129,15 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
         int valueStart = line.Length - afterColon.Length + (afterColon.Length - afterColon.TrimStart(" \t"u8).Length);
         output.Write(line[..valueStart]);
         WriteMaskedValue(name, value, output);
+    }
+
+    private static string FieldName(ReadOnlySpan<byte> line, int colon) =>
+        Encoding.Latin1.GetString(line[..colon].TrimEnd(" \t"u8));
+
+    private bool NamesSecretField(ReadOnlySpan<byte> line)
+    {
+        int colon = line.IndexOf((byte)':');
+        return colon >= 0 && secretFieldNames.Contains(FieldName(line, colon));
     }
 
     private static void WriteMaskedValue(string name, ReadOnlySpan<byte> value, ArrayBufferWriter<byte> output)

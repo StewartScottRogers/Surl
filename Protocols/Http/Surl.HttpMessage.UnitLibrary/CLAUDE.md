@@ -24,6 +24,7 @@ from `Surl.Protocol.Http.UnitLibrary` by BL-293 (ADR-0070 decision 2):
   heads (ADR-0182, BL-1421). It masks the credentials of `Authorization` and `Proxy-Authorization`
   (plus any extra field names it is given) as `****`, keeping the scheme word, passes a
   `Content-Length` or chunked body through unchanged and redacts the next head on the connection.
+  Its head lines end at a line feed, with or without a CR, as the reader's do (ADR-0182 Amendment 24).
   `HttpRequestHeadLineRule` is its internal line rule.
 - `HttpRequestHeadLineReader`, `HttpRequestLineParser`, `HttpFieldLineParser` and `HttpSyntax` -
   internal, visible to `Surl.HttpMessage.UnitTests` only.

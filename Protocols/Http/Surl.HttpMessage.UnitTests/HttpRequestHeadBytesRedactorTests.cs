@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Text;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.HttpMessage;
 
@@ -180,6 +181,94 @@ public sealed class HttpRequestHeadBytesRedactorTests
     }
 
     [TestMethod]
+    [DataRow("GET / HTTP/1.1\r\nHost: o\nX-Api-Key: s3cret\n\n", "GET / HTTP/1.1\r\nHost: o\nX-Api-Key: ****\n\n")]
+    [DataRow("GET / HTTP/1.1\r\nHost: o\nAuthorization: Basic YWxpY2U6czNjcmV0\n\n", "GET / HTTP/1.1\r\nHost: o\nAuthorization: Basic ****\n\n")]
+    [DataRow("\nGET / HTTP/1.1\nAuthorization: Bearer one\n two\nX-Api-Key: s3cret\r\n\n", "\nGET / HTTP/1.1\nAuthorization: Bearer ****\n ****\nX-Api-Key: ****\r\n\n")]
+    [DataRow("GET / HTTP/1.1\nX-Api-Key: s3cret\n\r\n", "GET / HTTP/1.1\nX-Api-Key: ****\n\r\n")]
+    public void Redact_HeadLinesEndedByBareLineFeeds_MasksEachSecretField(string received, string expected)
+    {
+        Assert.AreEqual(expected, Redact(received, new HttpRequestHeadBytesRedactor(["X-Api-Key"])));
+        Assert.AreEqual(expected, RedactOneByteAtATime(received, new HttpRequestHeadBytesRedactor(["X-Api-Key"])));
+    }
+
+    [TestMethod]
+    public void Redact_ABareLineFeed_EndsTheLineAsSoonAsItArrives()
+    {
+        var redactor = new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact("GET / HTTP/1.1\nAuthorization: Bearer a\n"u8, output);
+
+        Assert.AreEqual("GET / HTTP/1.1\nAuthorization: Bearer ****\n", Latin1(output));
+        Assert.IsFalse(redactor.IsAtRequestStart);
+
+        redactor.Redact("\n"u8, output);
+
+        Assert.IsTrue(redactor.IsAtRequestStart);
+    }
+
+    [TestMethod]
+    [DataRow("POST /u HTTP/1.1\nContent-Length: 20\n\n", "Authorization: x\n\nGE")]
+    [DataRow("POST /u HTTP/1.1\nTransfer-Encoding: chunked\n\n", "12\nAuthorization: x\n\n\n0\n\n")]
+    public void Redact_NextHeadAfterABareLineFeedHeadWithABody_IsRedacted(string head, string body)
+    {
+        const string next = "GET /b HTTP/1.1\nAuthorization: Basic YWxpY2U6czNjcmV0\n\n";
+        const string nextRedacted = "GET /b HTTP/1.1\nAuthorization: Basic ****\n\n";
+
+        Assert.AreEqual(head + body + nextRedacted + SampleRedacted, Redact(head + body + next + Sample));
+        Assert.AreEqual(head + body + nextRedacted + SampleRedacted, RedactOneByteAtATime(head + body + next + Sample));
+    }
+
+    [TestMethod]
+    public void Redact_ABodyEndingInACarriageReturn_ThenABareLineFeedBeforeTheNextHead_IsRedacted()
+    {
+        const string first = "POST /u HTTP/1.1\r\nContent-Length: 2\r\n\r\na\r";
+
+        Assert.AreEqual(first + "\n" + SampleRedacted, Redact(first + "\n" + Sample));
+    }
+
+    [TestMethod]
+    public void Redact_ALineTooLongToHoldEndedByABareLineFeed_IsMaskedAndTheNextLineIsJudged()
+    {
+        string tooLong = "X-Long: " + new string('a', LineBytesRedactor.DefaultMaxHeldBytes);
+
+        Assert.AreEqual(
+            "GET / HTTP/1.1\n****\nAuthorization: Bearer ****\n\n",
+            Redact($"GET / HTTP/1.1\n{tooLong}\nAuthorization: Bearer a\n\n"));
+    }
+
+    [TestMethod]
+    public void Redact_ABareLineFeedAfterAFlushThatEndedInACarriageReturn_EndsAnEmptyLine()
+    {
+        var redactor = new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+        redactor.Redact("GET / HTTP/1.1\r"u8, output);
+        redactor.Flush(output);
+
+        redactor.Redact("\nGET /b HTTP/1.1\nAuthorization: Bearer a\n"u8, output);
+
+        Assert.AreEqual("GET / HTTP/1.1\r\nGET /b HTTP/1.1\nAuthorization: Bearer ****\n", Latin1(output));
+    }
+
+    [TestMethod]
+    public void Redact_LinesWithNoColonAfterASecretField_AreMaskedAsPartOfIt()
+    {
+        Assert.AreEqual(
+            "GET / HTTP/1.1\r\nAuthorization: Bearer ****\n****\n ****\n****\r\nX: a\nplain\n\n",
+            Redact("GET / HTTP/1.1\r\nAuthorization: Bearer abc\ndef\n ghi\njkl\r\nX: a\nplain\n\n"));
+    }
+
+    [TestMethod]
+    public void Redact_ASecretFieldAfterARequestLineTooLongToHold_IsMasked()
+    {
+        string tooLong = "GET /" + new string('a', LineBytesRedactor.DefaultMaxHeldBytes) + " HTTP/1.1";
+
+        Assert.AreEqual(
+            "****\nAuthorization: Bearer ****\n  ****\n\n" + SampleRedacted,
+            Redact($"{tooLong}\nAuthorization: Bearer abc\n  def\n\n{Sample}"));
+    }
+
+    [TestMethod]
     public void Redact_AndFlush_RefuseANullOutput()
     {
         var redactor = new HttpRequestHeadBytesRedactor();
@@ -193,6 +282,19 @@ public sealed class HttpRequestHeadBytesRedactorTests
         redactor ??= new HttpRequestHeadBytesRedactor();
         var output = new ArrayBufferWriter<byte>();
         redactor.Redact(Encoding.Latin1.GetBytes(received), output);
+        redactor.Flush(output);
+        return Latin1(output);
+    }
+
+    private static string RedactOneByteAtATime(string received, HttpRequestHeadBytesRedactor? redactor = null)
+    {
+        redactor ??= new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+        foreach (byte next in Encoding.Latin1.GetBytes(received))
+        {
+            redactor.Redact([next], output);
+        }
+
         redactor.Flush(output);
         return Latin1(output);
     }
