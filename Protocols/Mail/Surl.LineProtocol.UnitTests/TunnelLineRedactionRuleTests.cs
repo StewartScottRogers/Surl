@@ -45,6 +45,24 @@ public sealed class TunnelLineRedactionRuleTests
         Assert.AreEqual(logged, Redact(new TunnelLineRedactionRule(), line));
 
     [TestMethod]
+    [DataRow("AUTH\valice\vs3cret", "AUTH\v****")]
+    [DataRow("AUTH\falice\fs3cret", "AUTH\f****")]
+    [DataRow("AUTH\ralice\rs3cret", "AUTH\r****")]
+    [DataRow("AUTH \"alice\" s3cret", "AUTH \"alice\" ****")]
+    [DataRow("\"AUTH\" alice s3cret", "\"AUTH\" ****")]
+    [DataRow("AUTH alice \v s3cret", "AUTH ****")]
+    [DataRow("AUTH \v alice s3cret", "AUTH ****")]
+    [DataRow("AUTH * \v s3cret", "AUTH ****")]
+    [DataRow("\"AUTH\" login s3cret", "\"AUTH\" ****")]
+    public void Redact_RedisAuthLineAfterAnotherLine_ShowsNoByteOfThePassword(string line, string logged)
+    {
+        var rule = new TunnelLineRedactionRule();
+        Redact(rule, "PING");
+
+        Assert.AreEqual(logged, Redact(rule, line));
+    }
+
+    [TestMethod]
     public void Redact_LineTwoRulesWithhold_IsLoggedAsTheOneWithholdingFromEarliestWritesIt() =>
         Assert.AreEqual(
             "Authorization: Login ****",

@@ -10,9 +10,11 @@ namespace Surl.LineProtocol;
 /// line writes is logged (ADR-0182, amendments 9, 16 and 20):
 /// <see cref="TunnelPasswordAndCredentialHeaderLineRule"/> (<c>PASS</c>, <c>ACCT</c>, the credential
 /// headers and the API-key and session-token headers), <see cref="TunnelImapLoginLineRule"/> (the
-/// IMAP <c>LOGIN</c> password) and two <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c>
-/// continuation and for the <c>+ </c> continuation of IMAP and POP3. A line none of them changes is
-/// written as received.
+/// IMAP <c>LOGIN</c> password), two <see cref="SaslLineRedactionRule"/>s, for SMTP's <c>334 </c>
+/// continuation and for the <c>+ </c> continuation of IMAP and POP3, and
+/// <see cref="TunnelRedisAuthLineRule"/> (an inline Redis <c>AUTH</c> line with a quoted command word
+/// or a vertical tab, form feed or carriage return; ADR-0183, amendment 8). A line none of them
+/// changes is written as received.
 /// </summary>
 /// <remarks>
 /// A line may end with the line feed that ended it, when no carriage return came before it; the line
@@ -42,6 +44,7 @@ public sealed class TunnelLineRedactionRule : ILineRedactionRule
         _imapLogin,
         new SaslLineRedactionRule(["AUTH"], "334 "),
         new SaslLineRedactionRule(["AUTH", "AUTHENTICATE"], "+ "),
+        new TunnelRedisAuthLineRule(),
     ];
 
     /// <inheritdoc />
