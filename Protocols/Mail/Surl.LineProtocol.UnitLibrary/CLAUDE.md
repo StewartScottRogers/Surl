@@ -34,8 +34,9 @@ and for binary logins (amendments 23 and 25):
   `TunnelPasswordAndCredentialHeaderLineRule` (`PASS` and `ACCT` arguments, the credentials of the
   `HttpWithheldHeaderNames.Credentials` headers after the scheme word, the whole value of the
   `ApiKeysAndSessionTokens` headers, and folded lines of either), `TunnelImapLoginLineRule` (the
-  IMAP `LOGIN` password and its literals; each line read with words separated by spaces and tabs
-  and again by spaces only, masking from the earlier password), two
+  IMAP `LOGIN` password and its literals, `LOGIN` the first word (no tag) or the second, and
+  everything after `LOGIN LOGIN` (ADR-0182, amendment 29); each line read with words separated by
+  spaces and tabs and again by spaces only, masking from the earlier password), two
   `SaslLineRedactionRule`s (`334 `, `+ `; a bare `+` or `334` line, and one split between the
   origin's reads, count) and `TunnelRedisAuthLineRule` (BL-1773 and BL-1774, ADR-0183 amendments 8
   and 9: an inline Redis `AUTH` line with a quoted command word, a VT, FF or CR, or one argument

@@ -6,8 +6,10 @@ namespace Surl.LineProtocol;
 
 /// <summary>
 /// The <see cref="ILineRedactionRule"/> for the IMAP <c>LOGIN</c> command in a tunnel: on a line
-/// whose second word is <c>LOGIN</c>, matched without regard to case, it writes everything after the
-/// user name (an atom or a quoted string) as <see cref="LineBytesRedactor.SecretMask"/>. When such a
+/// whose first or second word is <c>LOGIN</c>, matched without regard to case, it writes everything
+/// after the user name (an atom or a quoted string) as <see cref="LineBytesRedactor.SecretMask"/>.
+/// A first word <c>LOGIN</c> is a command with no tag; when the second word is <c>LOGIN</c> too, the
+/// first may be the tag or the second the user name, so everything after both is masked. When such a
 /// line ends in a literal marker (<c>{6}</c> or <c>{6+}</c>) it writes every line that holds the
 /// literal's bytes, and the rest of the command on the line that finishes them, as
 /// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 9, 16 and 20). Every other line
@@ -58,12 +60,23 @@ public sealed class TunnelImapLoginLineRule : ILineRedactionRule
         // A literal's bytes are counted from the client's lines alone.
     }
 
-    // Reads "<tag> LOGIN <user> <password>" with words ended by any of the separators. Null when the
-    // second word is not LOGIN; otherwise where the password begins, after the blanks that follow the
-    // user name, which is the line's length when nothing follows.
+    // Reads "[<tag>] LOGIN <user> <password>" with words ended by any of the separators, those before
+    // the first word skipped. Null when neither of the first two words is LOGIN. When the first is,
+    // the line is read as one with no tag, whose password begins no later than a tagged reading's.
     private static int? FindPasswordStart(ReadOnlySpan<byte> line, ReadOnlySpan<byte> separators)
     {
-        var wordStart = SkipAll(line, AtomLength(line, separators), separators);
+        var firstWordStart = SkipAll(line, 0, separators);
+        var secondWordStart = SkipAll(line, firstWordStart + AtomLength(line[firstWordStart..], separators), separators);
+
+        return FindPasswordStartAfterLogin(line, firstWordStart, separators)
+            ?? FindPasswordStartAfterLogin(line, secondWordStart, separators);
+    }
+
+    // Null when the word at wordStart is not LOGIN; otherwise where the password begins, after the
+    // blanks that follow the user name, which is the line's length when nothing follows.
+    private static int? FindPasswordStartAfterLogin(
+        ReadOnlySpan<byte> line, int wordStart, ReadOnlySpan<byte> separators)
+    {
         var argumentsStart = wordStart + AtomLength(line[wordStart..], separators);
         if (!Ascii.EqualsIgnoreCase(line[wordStart..argumentsStart], "LOGIN"u8))
         {

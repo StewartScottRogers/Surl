@@ -711,7 +711,7 @@ one could miss the other.
 
 Accepted limits:
 
-- A line neither reading takes for `LOGIN` is logged as received, one with no tag included (BL-1750).
+- A line neither reading takes for `LOGIN` is logged as received, one with no tag included (until amendment 29).
 - The limits amendments 9, 16, 18 and 19 give for these rules hold for both servers alike.
 
 ## Amendment 21 (BL-1762, decided by Claude under Stewart's delegation)
@@ -1000,3 +1000,25 @@ Accepted limits:
   held (never more than 64 KiB) and lose log detail to `****`. That never reveals a secret.
 - `--aihelp logging` and the manual still name MQTT 5 Authentication Data as logged in a tunnel, until BL-1764 rewrites
   them.
+
+## Amendment 29 (BL-1750, decided by Claude under Stewart's delegation)
+
+An IMAP `LOGIN` line with no tag, such as `LOGIN alice <password>`, was logged in clear in a SOCKS tunnel and in an HTTP
+proxy `CONNECT` tunnel (amendment 20's first accepted limit). A server refuses such a line, but the client has already
+sent the password.
+
+1. **First or second word.** In `TunnelImapLoginLineRule`, a line is a `LOGIN` line when its first or second word is
+   `LOGIN`, blanks before the first word skipped. This replaces "second word" in amendment 9, point 3. It matches what
+   the IMAP server's own log does (ADR-0183, amendment 3). Both readings of amendment 20, point 2 apply it, so words
+   may be separated by tabs, with a tag or without one.
+2. **`LOGIN LOGIN`.** When the first two words are both `LOGIN`, the first may be the tag or the second the user name of
+   a line with no tag. Everything after the second is `****`.
+3. **Blanks before the tag.** Skipping them also masks a line that starts with a space before its tag, which was logged
+   as received.
+
+Accepted limits:
+
+- A line of another protocol or a body line whose first word is `login` has everything after its second word masked.
+  That loses log detail only.
+- A line where `LOGIN` is neither the first nor the second word is logged as received.
+- Which tunnels are read as text is unchanged (amendment 9, point 1): a tunnel whose first byte is a space is not.

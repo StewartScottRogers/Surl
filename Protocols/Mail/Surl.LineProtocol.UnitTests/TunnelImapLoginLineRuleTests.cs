@@ -35,8 +35,32 @@ public sealed class TunnelImapLoginLineRuleTests
     [DataRow("a LOGIN \t s3cret-pw", "a LOGIN \t ****")]
     [DataRow("a LOGIN \t s3cret more", "a LOGIN \t ****")]
     [DataRow("a LOGIN app\t{x}s3cret", "a LOGIN app\t****")]
+    [DataRow("LOGIN app s3cret-pw", "LOGIN app ****")]
+    [DataRow("login\t\"an app\"\ts3cret pw", "login\t\"an app\"\t****")]
+    [DataRow("  LOGIN app s3cret-pw", "  LOGIN app ****")]
+    [DataRow("\tLOGIN app s3cret-pw", "\tLOGIN app ****")]
+    [DataRow(" a LOGIN app s3cret-pw", " a LOGIN app ****")]
+    [DataRow("LOGIN \t s3cret-pw", "LOGIN \t ****")]
+    [DataRow("LOGIN a\tb s3cret-pw", "LOGIN a\t****")]
     public void Redact_LoginLine_HasEverythingAfterTheUserNameMasked(string line, string logged) =>
         Assert.AreEqual(logged, Redact(new TunnelImapLoginLineRule(), line));
+
+    // The first LOGIN may be the tag, or the second the user name of a line with no tag.
+    [TestMethod]
+    [DataRow("LOGIN LOGIN alice s3cret-pw", "LOGIN LOGIN ****")]
+    [DataRow("login\tLOGIN\t\"alice\"\ts3cret-pw", "login\tLOGIN\t****")]
+    [DataRow("LOGIN LOGIN s3cret-pw", "LOGIN LOGIN ****")]
+    public void Redact_LineWhoseFirstTwoWordsAreLogin_HasEverythingAfterThemMasked(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(new TunnelImapLoginLineRule(), line));
+
+    [TestMethod]
+    [DataRow("LOGIN app {9}", "LOGIN app {9}")]
+    [DataRow("LOGIN LOGIN {9}", "LOGIN LOGIN {9}")]
+    [DataRow("LOGIN LOGIN alice {9}", "LOGIN LOGIN ****")]
+    public void Redact_LiteralAnnouncedOnALoginLineWithNoTag_MasksTheLiteral(string line, string logged) =>
+        CollectionAssert.AreEqual(
+            new[] { logged, "****", "a NOOP" },
+            RedactEach(new TunnelImapLoginLineRule(), line, "s3cret-pw", "a NOOP"));
 
     [TestMethod]
     [DataRow("x\ty LOGIN app {9}")]
@@ -50,7 +74,11 @@ public sealed class TunnelImapLoginLineRuleTests
     [DataRow("")]
     [DataRow("a")]
     [DataRow("a NOOP")]
-    [DataRow("LOGIN app s3cret-pw")]
+    [DataRow("   ")]
+    [DataRow("LOGIN")]
+    [DataRow("LOGIN app")]
+    [DataRow("LOGIN LOGIN")]
+    [DataRow("a b LOGIN app s3cret-pw")]
     [DataRow("a LOGIN")]
     [DataRow("a LOGIN app  ")]
     [DataRow("a LOGIN \"app s3cret")]
