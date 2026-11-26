@@ -44,3 +44,4 @@ One copy of the tunnel line redaction rules, in a library both the SOCKS server 
 
 - 2026-11-25: Created.
 - 2026-11-25: Priority Low -> High and made the tunnel redaction follow-ups depend on it (Stewart: 'prioritise 1767').
+- 2026-11-25: Backlog -> Doing.
