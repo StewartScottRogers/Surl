@@ -14,11 +14,12 @@ namespace Surl.Protocol.Pop3;
 /// every maildrop command.
 /// </summary>
 /// <remarks>
-/// <c>PASS</c> is matched without regard to case when a space or a tab follows it, and that
-/// separator is logged as received. The server refuses a tab-separated line, but the client has
-/// already sent the password. With no argument <c>PASS</c> holds no secret and is logged as it
-/// is. A <c>PASS</c> line that answers a pending continuation is written as the command word, the
-/// separator and the mask; the continuation counts as answered.
+/// <c>PASS</c> is matched without regard to case when a space or a tab follows it, even after
+/// leading spaces and tabs; those and the separator are logged as received. The server refuses a
+/// line that starts with a space or a tab, or that a tab separates, but the client has already
+/// sent the password. With no argument <c>PASS</c> holds no secret and is logged as it is. A
+/// <c>PASS</c> line that answers a pending continuation is written up to the separator, then the
+/// mask; the continuation counts as answered.
 /// </remarks>
 internal sealed class Pop3LineRedactionRule : ILineRedactionRule
 {
@@ -32,11 +33,13 @@ internal sealed class Pop3LineRedactionRule : ILineRedactionRule
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        if (IsPassWithArgument(line))
+        var command = line.TrimStart(" \t"u8);
+        if (IsPassWithArgument(command))
         {
             // A pending continuation still has to be consumed by the SASL rule.
             saslRule.Redact([], output);
-            output.Write(line[..(PassWordLength + 1)]);
+            var leadingLength = line.Length - command.Length;
+            output.Write(line[..(leadingLength + PassWordLength + 1)]);
             output.Write(LineBytesRedactor.SecretMask);
             return;
         }
@@ -47,8 +50,9 @@ internal sealed class Pop3LineRedactionRule : ILineRedactionRule
     /// <inheritdoc/>
     public void ObserveSent(ReadOnlySpan<byte> sent) => saslRule.ObserveSent(sent);
 
-    private static bool IsPassWithArgument(ReadOnlySpan<byte> line) =>
-        line.Length > PassWordLength + 1
-        && line[PassWordLength] is Space or Tab
-        && Ascii.EqualsIgnoreCase(line[..PassWordLength], "PASS"u8);
+    // command is a client line without its leading spaces and tabs.
+    private static bool IsPassWithArgument(ReadOnlySpan<byte> command) =>
+        command.Length > PassWordLength + 1
+        && command[PassWordLength] is Space or Tab
+        && Ascii.EqualsIgnoreCase(command[..PassWordLength], "PASS"u8);
 }

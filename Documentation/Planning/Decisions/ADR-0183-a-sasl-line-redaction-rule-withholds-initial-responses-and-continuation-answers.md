@@ -92,3 +92,12 @@ tags are not command words, and only what the log writes changes.
    words are. The SOCKS tunnel's two SASL rules (ADR-0182, amendment 9) therefore write the same line for
    `AUTH AUTHENTICATE PLAIN <response>`; had only the rule that knows both words masked the response, the tunnel's rule
    could have logged the other's output, which holds it.
+
+## Amendment 6 — a POP3 PASS line that starts with spaces or tabs (BL-1756)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. No upstream curl measurement: curl starts its lines with the
+command word, and only what the log writes changes.
+
+1. **Leading spaces and tabs.** The POP3 server's redaction rule finds `PASS` after any run of spaces and tabs at the
+   start of the line, so `<tab>PASS<tab><password>` is logged as `<tab>PASS<tab>****`. Every byte before the mask is logged
+   as received. The server refuses such a line, but the client has already sent the password.
