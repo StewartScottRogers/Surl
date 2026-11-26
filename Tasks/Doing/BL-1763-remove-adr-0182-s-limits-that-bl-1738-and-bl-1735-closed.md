@@ -37,3 +37,4 @@ ADR-0182 no longer presents the work of BL-1738 or BL-1735 as still open.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-26: Backlog -> Doing.
