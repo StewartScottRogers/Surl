@@ -53,3 +53,4 @@ on HTTP/1.x and on cleartext HTTP/2.
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
