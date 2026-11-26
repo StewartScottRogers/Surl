@@ -36,3 +36,4 @@ WebTransport logs a request header block, and its decoded header text, with ever
 ## Log
 
 - 2026-11-25: Created.
+- 2026-11-25: Backlog -> Doing.
