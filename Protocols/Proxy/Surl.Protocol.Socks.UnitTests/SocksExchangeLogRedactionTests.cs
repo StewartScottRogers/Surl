@@ -169,7 +169,6 @@ public sealed class SocksExchangeLogRedactionTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Redact([1], null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Flush(null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SocksTunnelLineRedactionRule().Redact([1], null!));
     }
 
     private const string SecretLines = "PASS s3cret-pw\r\nAuthorization: Basic YXBwOnMzY3JldC1wdw==\r\n";
@@ -290,7 +289,9 @@ public sealed class SocksExchangeLogRedactionTests
     [DataRow("Host: localhost:18080\r\n")]
     [DataRow("PASS\r\n")]
     [DataRow("PASS \r\n")]
+    [DataRow("PASS\t\r\n")]
     [DataRow("PASSIVE s3cret\r\n")]
+    [DataRow("PASSIVE\ts3cret\r\n")]
     [DataRow("Authorization:\r\n")]
     [DataRow("Authorization: \r\n")]
     [DataRow("X-Authorization: value\r\n")]
@@ -310,12 +311,98 @@ public sealed class SocksExchangeLogRedactionTests
     }
 
     [TestMethod]
+    public void TunnelledHttp1Request_ApiKeyFields_AreLoggedAsMasks()
+    {
+        foreach (var name in HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+        {
+            // Two words, so a rule that kept a scheme word would show; one line ends with a bare line feed.
+            var sent = $"GET / HTTP/1.1\r\n{name}: Key s3cret\r\n \tfolded-s3cret\r\n"
+                + $"{name.ToUpperInvariant()} :s3cret\n\tfolded-s3cret\n"
+                + $"{name.ToLowerInvariant()}:\r\n s3cret\r\n"
+                + "X-Other: shown\r\n continued\r\n\r\n";
+            var expected = $"GET / HTTP/1.1\r\n{name}: ****\r\n \t****\r\n"
+                + $"{name.ToUpperInvariant()} :****\n\t****\n"
+                + $"{name.ToLowerInvariant()}:\r\n ****\r\n"
+                + "X-Other: shown\r\n continued\r\n\r\n";
+
+            SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+                SocksTestKit.Latin1Bytes(expected),
+                SocksTestKit.Latin1Bytes(sent));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("X-Api-Key:\r\n")]
+    [DataRow("X-Api-Key-Id: shown\r\n")]
+    [DataRow("My-Api-Key: shown\r\n")]
+    public void Tunnel_AHeaderThatOnlyResemblesAnApiKeyField_IsLoggedAsReceived(string sent) =>
+        CollectionAssert.AreEqual(
+            SocksTestKit.Latin1Bytes(sent),
+            SocksTunnelRedactionTestKit.Logged(SocksTestKit.Latin1Bytes(sent)));
+
+    [TestMethod]
+    [DataRow(" X-Api-Key: s", " X-Api-Key: ****")]
+    [DataRow("\tX-Api-Key: s", "\tX-Api-Key: ****")]
+    [DataRow(" Authorization: Basic s", " Authorization: Basic ****")]
+    [DataRow("\t Proxy-Authorization: s", "\t Proxy-Authorization: ****")]
+    public void Tunnel_ASecretHeaderStartingWithASpaceOrATab_IsLoggedMasked(string sent, string logged) =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes($"GET / HTTP/1.1\r\n{logged}\r\n"),
+            SocksTestKit.Latin1Bytes($"GET / HTTP/1.1\r\n{sent}\r\n"));
+
+    [TestMethod]
+    [DataRow("X-Other: a\rX-Api-Key: s\r\n", "X-Other: a\rX-Api-Key: ****\r\n")]
+    [DataRow("X-Other: a\r Authorization: Basic s\r\n", "X-Other: a\r Authorization: Basic ****\r\n")]
+    [DataRow("Authorization: s\rX-Other: a b\r\n", "Authorization: ****\r\n")]
+    [DataRow("X-Other: a\rX-Api-Key: s\r\n s\r\n", "X-Other: a\rX-Api-Key: ****\r\n ****\r\n")]
+    [DataRow("a AUTH PLAIN b\rX-Api-Key: s\r\n", "a AUTH PLAIN ****\r\n")]
+    [DataRow("AUTHENTICATE PLAIN b\rX-Api-Key: s\r\n", "AUTHENTICATE PLAIN ****\r\n")]
+    public void Tunnel_ASecretHeaderAroundABareCarriageReturn_IsLoggedMasked(string sent, string logged) =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes(logged),
+            SocksTestKit.Latin1Bytes(sent));
+
+    [TestMethod]
     public void Tunnel_LinesEndedByABareLineFeed_AreEachJudged()
     {
         var logged = LoggedTunnel(SocksTestKit.Latin1Bytes("USER app\nPASS s3cret-pw\nQUIT\n"));
 
         Assert.AreEqual("USER app\nPASS ****\nQUIT\n", logged);
     }
+
+    [TestMethod]
+    public void Tunnel_PassSeparatedByATab_IsMaskedKeepingTheTab() =>
+        CollectionAssert.AreEqual(
+            SocksTestKit.Latin1Bytes("USER app\r\nPASS\t****\r\npass\t****\nQUIT\r\n"),
+            SocksTunnelRedactionTestKit.Logged(
+                SocksTestKit.Latin1Bytes("USER app\r\nPASS\ts3cret-pw\r\npass\t\ts3cret pw\nQUIT\r\n")));
+
+    [TestMethod]
+    public void Tunnel_AcctSeparatedByATab_IsMaskedKeepingTheTab() =>
+        CollectionAssert.AreEqual(
+            SocksTestKit.Latin1Bytes("USER app\r\nACCT\t****\r\nacct\t****\nQUIT\r\n"),
+            SocksTunnelRedactionTestKit.Logged(
+                SocksTestKit.Latin1Bytes("USER app\r\nACCT\ts3cret-account\r\nacct\t s3cret account\nQUIT\r\n")));
+
+    [TestMethod]
+    public void Tunnel_PassAfterASpace_IsLoggedMasked() =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes("USER app\r\n PASS ****\r\nQUIT\r\n"),
+            SocksTestKit.Latin1Bytes("USER app\r\n PASS s3cret-pw\r\nQUIT\r\n"));
+
+    [TestMethod]
+    public void Tunnel_AcctAfterATabAndSeparatedByATab_IsLoggedMasked() =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes("USER app\r\n\tACCT\t****\r\nQUIT\r\n"),
+            SocksTestKit.Latin1Bytes("USER app\r\n\tACCT\ts3cret-account\r\nQUIT\r\n"));
+
+    [TestMethod]
+    [DataRow("NOOP\rPASS s3cret\r\n", "NOOP\rPASS ****\r\n")]
+    [DataRow("NOOP\rACCT s3cret\r\n", "NOOP\rACCT ****\r\n")]
+    public void Tunnel_PassOrAcctAfterABareCarriageReturn_IsLoggedMasked(string sent, string logged) =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            SocksTestKit.Latin1Bytes(logged),
+            SocksTestKit.Latin1Bytes(sent));
 
     [TestMethod]
     public void Tunnel_AnUnfinishedPassLine_IsMaskedAtTheEnd() =>

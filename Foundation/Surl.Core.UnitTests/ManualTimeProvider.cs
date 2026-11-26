@@ -50,6 +50,20 @@ internal sealed class ManualTimeProvider : TimeProvider
         }
     }
 
+    /// <summary>
+    /// How many timers are still due to fire: neither fired, disposed nor set to never.
+    /// </summary>
+    public int ArmedTimerCount
+    {
+        get
+        {
+            lock (gate)
+            {
+                return timers.Count(timer => timer.DueAt is not null);
+            }
+        }
+    }
+
     public override DateTimeOffset GetUtcNow()
     {
         lock (gate)

@@ -77,6 +77,57 @@ public sealed class LineBytesRedactorTests
     }
 
     [TestMethod]
+    public void Redact_ARedactorEndingLinesOnlyAtCrLf_HoldsABareLineFeedLineUntilCrLf()
+    {
+        LineBytesRedactor redactor = new(new PassWordMaskingRule());
+        ArrayBufferWriter<byte> output = new();
+
+        redactor.Redact("PASS s3cret\n"u8, output);
+        Assert.AreEqual(0, output.WrittenCount);
+        Assert.AreEqual(12, redactor.HeldByteCount);
+        redactor.Redact("QUIT\r\n"u8, output);
+
+        Assert.AreEqual("PASS ****\r\n", Encoding.ASCII.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
+    public void Redact_EndingLinesAtABareLineFeed_WritesEachLineAsItArrivesWithItsOwnEnd()
+    {
+        LineBytesRedactor redactor = new(new PassWordMaskingRule(), endsLineAtBareLineFeed: true);
+        ArrayBufferWriter<byte> output = new();
+
+        redactor.Redact("PASS s3cret\n"u8, output);
+        Assert.AreEqual("PASS ****\n", Encoding.ASCII.GetString(output.WrittenSpan));
+        Assert.AreEqual(0, redactor.HeldByteCount);
+        output.Clear();
+
+        string written = Feed(redactor, "\n", "a\rb\r", "\nPASS x\nQUIT");
+
+        Assert.AreEqual("\na\rb\r\nPASS ****\n", written);
+        Assert.AreEqual(4, redactor.HeldByteCount);
+    }
+
+    [TestMethod]
+    public void Redact_EndingLinesAtABareLineFeed_AnOverlongLineIsDroppedUpToItsBareLineFeed()
+    {
+        LineBytesRedactor redactor = new(new PassWordMaskingRule(), maxHeldBytes: 8, endsLineAtBareLineFeed: true);
+
+        string written = Feed(redactor, "PASS aaaaaaaaaaaa", "bbb\rbb", "\nPASS c\n");
+
+        Assert.AreEqual("****\nPASS ****\n", written);
+    }
+
+    [TestMethod]
+    public void Redact_EndingLinesAtABareLineFeed_AnOverlongLineEndedByCrLfKeepsTheCrLf()
+    {
+        LineBytesRedactor redactor = new(new PassWordMaskingRule(), maxHeldBytes: 3, endsLineAtBareLineFeed: true);
+
+        string written = Feed(redactor, "abc\r", "\nabcd", "e\r\nok\n");
+
+        Assert.AreEqual("****\r\n****\r\nok\n", written);
+    }
+
+    [TestMethod]
     public void Flush_APartialLine_IsRedactedAndWrittenWithoutALineEnd()
     {
         LineBytesRedactor redactor = new(new PassWordMaskingRule());

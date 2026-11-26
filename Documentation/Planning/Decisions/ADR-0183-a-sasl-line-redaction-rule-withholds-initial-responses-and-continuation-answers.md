@@ -101,3 +101,96 @@ command word, and only what the log writes changes.
 1. **Leading spaces and tabs.** The POP3 server's redaction rule finds `PASS` after any run of spaces and tabs at the
    start of the line, so `<tab>PASS<tab><password>` is logged as `<tab>PASS<tab>****`. Every byte before the mask is logged
    as received. The server refuses such a line, but the client has already sent the password.
+
+## Amendment 7 — SASL lines with quotes (BL-1769)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Widens amendment 4, point 2. No upstream curl measurement: curl
+quotes nothing on an `AUTH` or `AUTHENTICATE` line, and only what the log writes changes.
+
+1. **Nothing after the mask.** When a `"` or a `'` is anywhere on a line that holds an initial response, nothing after the
+   first `****` is written. A SOCKS or HTTP proxy tunnel may carry Redis (ADR-0182, amendment 9), whose inline commands
+   quote an argument that holds spaces, so `AUTH alice "a b"` is logged as `AUTH alice ****`.
+2. **A quoted user name.** The words are still split at spaces and tabs, so in `AUTH "al ice" "a b"` the third word is
+   part of the user name and the line is logged as `AUTH "al ****`. Losing the rest of the user name in the log is
+   preferred to reading each dialect's quoting here; in `AUTH <user> <password>` with its arguments separated by spaces
+   or tabs, the password never precedes the first mask.
+3. **Not covered**, as before. A quoted command word (`"AUTH"`) is not a command word. A vertical tab, form feed or bare
+   carriage return does not separate words here, though Redis reads each as white space, so a password after one may be
+   logged. A quoted password given alone (`AUTH "a password"`) is split as `AUTH <user> <password>` is, so its first word
+   is logged.
+
+Rejected: reading Redis's quoting and escapes to find the password's end, which copies a parser into a rule that cannot
+know the tunnel carries Redis; and a tunnel-only rule, because a quote is in no SASL mechanism name or base64 response,
+so the SMTP, IMAP and POP3 servers lose nothing a conforming client sends.
+
+## Amendment 8 — a quoted command word and VT, FF or CR separators in a tunnel (BL-1773)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Closes amendment 7, point 3's quoted command word and VT, FF
+and CR separators for tunnels. No upstream curl measurement: curl writes neither, and only what the log writes changes.
+
+1. **A tunnel-only rule.** `TunnelRedisAuthLineRule` is the fifth rule `TunnelLineRedactionRule` shows every line to
+   (ADR-0182, amendment 9). `SaslLineRedactionRule` is unchanged, so the SMTP, IMAP and POP3 logs are too.
+2. **White space.** Space, tab, line feed, VT, FF and CR separate words. The first word is the command word. VT, FF and
+   CR count wherever they stand, whether or not a given Redis dialect would split an argument there.
+3. **Quoted command word.** The first word is `AUTH` when removing its `"` and `'` bytes leaves `AUTH`, without regard
+   to case (`"AUTH"`, `'auth'`, `A"UTH"`). A first word holding both `"` and a backslash is taken for `AUTH` too,
+   because an escape such as `\x41` may spell its letters.
+4. **Which lines.** A line whose command word is quoted `AUTH`, and a line holding a VT, FF or CR anywhere whose command
+   word is `AUTH`, quoted or not, provided something other than white space follows it. Every other line is left to the
+   other rules.
+5. **What is written.** The line up to and including the byte that ends the command word, then `****` and nothing more:
+   `"AUTH" alice s3cret` is logged as `"AUTH" ****`. This loses the user name, and masks the one-argument form
+   `AUTH<VT><password>` too. The mask starts before any `SaslLineRedactionRule` initial-response mask on the same line,
+   so that rule's output is not the one logged; alone it would log `AUTH alice <VT> s3cret` as
+   `AUTH alice **** s3cret`. A rule that masks from earlier in the line, such as a SASL continuation mask, still wins,
+   and it writes nothing after its `****`.
+6. **Still covered by amendment 7.** `AUTH "alice" s3cret` is logged as `AUTH "alice" ****`.
+
+Not covered:
+
+- A tunnel whose first byte does not make it text, a quote, space, tab, VT, FF or CR among them, does not reach the
+  line rules (ADR-0182, amendments 9 and 16). Such a first line, one starting `"AUTH"` included, is not withheld by this
+  rule; it applies once an earlier line has made the tunnel text.
+- An unquoted one-argument `AUTH <password>` line with no VT, FF or CR is logged, as before.
+
+Rejected: reading Redis's quoting to keep the user name, for amendment 7's reason.
+
+Accepted limit: a tunnelled line of another protocol whose first word holds `"` and a backslash has the rest of the line
+masked, which loses log detail only.
+
+## Amendment 9 — one-argument AUTH and HELLO ... AUTH lines in a tunnel (BL-1774)
+
+Decided by Claude under Stewart's delegation, 2026-11-25. Closes amendment 8's unquoted one-argument `AUTH <password>`
+and amendment 7, point 3's quoted password given alone, and covers Redis's `HELLO ... AUTH`. No upstream curl
+measurement: curl writes neither line, and only what the log writes changes. `SaslLineRedactionRule` is unchanged, so
+the SMTP, IMAP and POP3 logs are too.
+
+1. **Same rule.** `TunnelRedisAuthLineRule` withholds both. Amendment 8 still covers the lines it names.
+2. **One argument.** On a line whose command word is `AUTH`, with one argument and nothing but white space after it, the
+   line is written up to the byte that ends the command word, then `****`: `AUTH s3cret` is logged as `AUTH ****`.
+3. **What one argument is.** It ends at the first white space outside quotes, so `AUTH "a password"` and `AUTH a" pass"`
+   are one argument. A backslash escapes any byte between double quotes and only a single quote between single quotes, as
+   in Redis. An argument whose quote is never closed runs to the end of the line.
+4. **Mechanism names are not secrets.** The argument is logged as received when it is, unquoted and without regard to
+   case, `ANONYMOUS`, `CRAM-MD5`, `DIGEST-MD5`, `EXTERNAL`, `GSS-SPNEGO`, `GSSAPI`, `LOGIN`, `NTLM`, `OAUTHBEARER`,
+   `PLAIN`, `SCRAM-SHA-1`, `SCRAM-SHA-256`, `SCRAM-SHA-512` (each `SCRAM` name with `-PLUS` too), `XOAUTH2`, or FTP's
+   `SSL`, `TLS`, `TLS-C` or `TLS-P` (RFC 4217). `AUTH PLAIN` with no initial response holds no secret.
+5. **`HELLO`.** On a line whose command word is `HELLO`, quoted or not, the first later word that may be `AUTH` (its
+   quotes removed, or holding `"` and a backslash) and has something after it ends what is shown: the line is written up
+   to the byte that ends that word, then `****`, so `HELLO 3 AUTH alice s3cret` is logged as `HELLO 3 AUTH ****`.
+   The user name is lost, for amendment 8's reason. The protocol version is not checked, so `HELLO AUTH alice s3cret`,
+   which Redis refuses, is withheld too.
+
+Not covered:
+
+- A password of an `AUTH <password>` line that is itself one of point 4's names is logged.
+- A line Redis refuses because a closing quote is followed by other bytes, such as `"AUTH"alice s3cret` or
+  `HELLO 3 "AUTH"alice s3cret`, is not read as holding `AUTH`.
+- Amendment 8's first limit stands: a tunnel whose first byte does not make it text, a first line starting `"HELLO"`
+  included, does not reach the line rules.
+
+Accepted limit: another protocol's tunnelled `AUTH` line with one argument that is none of point 4's names, an unlisted
+SASL mechanism included, and a `HELLO` line with an `AUTH` word, are masked, which loses log detail only.
+
+Rejected: keeping the user name of a `HELLO` line, which needs Redis's splitter in a rule that cannot know the tunnel
+carries Redis; and masking every one-argument `AUTH`, which would hide the mechanism of every SASL exchange.

@@ -71,6 +71,17 @@ AUTHENTICATE_MESSAGEs carry the recording machine's workstation name, as curl se
 | `proxy-ntlm-forward` | `... -Port 18268 -ResponsesPerConnection 2 -CurlArgs '-sS','-m','10','--proxy-ntlm','-U','u:p','-x','http://127.0.0.1:18268','http://origin.test/a'` | NTLM `<407>`, `<ok>` | 0, `ok` |
 | `proxy-ntlm-connect` | `... -Port 18269 -ResponsesPerConnection 3 -CurlArgs '-sS','-m','10','-p','--proxy-ntlm','-U','u:p','-x','http://127.0.0.1:18269','http://origin.test:8080/a'` | NTLM `<407>`, `<est>`, `<tok>` | 0, `ok` |
 
+MQTT inside a `CONNECT` tunnel (BL-1765, ADR-0182 amendment 23), recorded on 2026-11-25 with the
+pinned win-x64 reference build, for the exchange log's redaction tests. The recorder's `-Raw` mode
+answered the `CONNECT` with `<est>`, the MQTT `CONNECT` with a `CONNACK` and the `SUBSCRIBE` with a
+`SUBACK`, one `PUBLISH` and a `DISCONNECT`, so there is no `response.bin`; `transcript.txt` holds
+both directions. The client identifier in `request.bin` is the one curl made for that run.
+
+| Folder | Command line | Exit, stdout or stderr |
+| --- | --- | --- |
+| `proxytunnel-mqtt-user-and-password` | `.\Record-CurlExchange.ps1 -Port 18886 -Raw -RawReply <est>,'\x20\x02\x00\x00','\x90\x03\x00\x01\x00\x31\x05\x00\x01thi\xE0\x00' -CurlArgs '-sS','-p','-x','http://127.0.0.1:18886','-u','tester:secret','mqtt://origin.test:1883/t' -OutDirectory ...\proxytunnel-mqtt-user-and-password` | 0, `00 01 74 68 69` |
+| `proxytunnel-haproxy-mqtt-user-and-password` | the same with `-Port 18887`, an empty second reply for the `PROXY` line (`<est>,'',…`) and `'-m','8','--haproxy-protocol'` before `-p`; the `PROXY` line carries the recording's own port numbers | 0, `00 01 74 68 69` |
+
 HTTP/2 inside a `CONNECT` tunnel (BL-1713, ADR-0182), recorded on 2026-11-25 with the pinned
 static 8.21.0 build (`589C8E4D…2648`, which has HTTP/2) as `-Curl`, for the exchange log's
 redaction tests. The recorder answered the `CONNECT` with `<est>`

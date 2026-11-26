@@ -5,9 +5,10 @@ using Surl.Protocol.Abstractions;
 namespace Surl.HttpMessage;
 
 /// <summary>
-/// The <see cref="ILineRedactionRule"/> for the lines of one HTTP/1.x or RTSP request head: it
-/// masks the credentials of the secret fields, notes the framing fields, and says when the blank
-/// line that ends the head has gone by (ADR-0182, decisions 1 and 7).
+/// The <see cref="ILineRedactionRule"/> for the lines of one HTTP/1.x or RTSP request head, and of
+/// the trailer section of its chunked body: it masks the credentials of the secret fields, notes the
+/// framing fields, and says when the blank line that ends the head or the trailer section has gone by
+/// (ADR-0182, decisions 1 and 7, and amendment 32).
 /// </summary>
 internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
 {
@@ -28,9 +29,10 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     }
 
     /// <summary>
-    /// Whether the blank line that ends the head has been seen since the last <see cref="StartNextHead"/>.
+    /// Whether the blank line that ends the head, or the trailer section, has been seen since the last
+    /// <see cref="StartNextHead"/> or <see cref="StartTrailerSection"/>.
     /// </summary>
-    public bool HeadIsComplete { get; private set; }
+    public bool FieldSectionIsComplete { get; private set; }
 
     /// <summary>
     /// Whether no line of a head has been read since the last <see cref="StartNextHead"/>.
@@ -48,11 +50,23 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     /// </summary>
     public void StartNextHead()
     {
-        HeadIsComplete = false;
+        FieldSectionIsComplete = false;
         lineCount = 0;
         previousFieldWasSecret = false;
         minorVersion = 1;
         framingFields.Clear();
+    }
+
+    /// <summary>
+    /// Reads the lines that follow as the trailer section of a chunked body (RFC 9112, section 7.1.2):
+    /// every line is a field, none is a request line, and the first empty one ends the section.
+    /// </summary>
+    public void StartTrailerSection()
+    {
+        StartNextHead();
+
+        // As though the request line had gone by.
+        lineCount = 1;
     }
 
     /// <inheritdoc />
@@ -60,12 +74,14 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     {
         if (line.IsEmpty)
         {
-            HeadIsComplete = lineCount > 0;
+            FieldSectionIsComplete = lineCount > 0;
             return;
         }
 
         lineCount++;
-        if (lineCount == 1)
+
+        // A secret field stands where the request line belongs after a line too long to be shown to this rule.
+        if (lineCount == 1 && !NamesSecretField(line))
         {
             minorVersion = line[^1] == (byte)'0' ? 0 : 1;
             output.Write(line);
@@ -103,12 +119,12 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
         int colon = line.IndexOf((byte)':');
         if (colon < 0)
         {
-            previousFieldWasSecret = false;
-            output.Write(line);
+            // No field of its own: after a secret field it may be the rest of that value, broken by a bare line feed.
+            RedactContinuation(line, output);
             return;
         }
 
-        string name = Encoding.Latin1.GetString(line[..colon].TrimEnd(" \t"u8));
+        string name = FieldName(line, colon);
         ReadOnlySpan<byte> afterColon = line[(colon + 1)..];
         ReadOnlySpan<byte> value = afterColon.Trim(" \t"u8);
         if (name.Equals("Content-Length", StringComparison.OrdinalIgnoreCase)
@@ -127,6 +143,15 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
         int valueStart = line.Length - afterColon.Length + (afterColon.Length - afterColon.TrimStart(" \t"u8).Length);
         output.Write(line[..valueStart]);
         WriteMaskedValue(name, value, output);
+    }
+
+    private static string FieldName(ReadOnlySpan<byte> line, int colon) =>
+        Encoding.Latin1.GetString(line[..colon].TrimEnd(" \t"u8));
+
+    private bool NamesSecretField(ReadOnlySpan<byte> line)
+    {
+        int colon = line.IndexOf((byte)':');
+        return colon >= 0 && secretFieldNames.Contains(FieldName(line, colon));
     }
 
     private static void WriteMaskedValue(string name, ReadOnlySpan<byte> value, ArrayBufferWriter<byte> output)

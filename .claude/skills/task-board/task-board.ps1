@@ -31,8 +31,12 @@
       dedupe   Renumber tasks that share an ID with another. A task file that exists
                at -Since (a git ref; the shared branch before this lane's work) keeps
                its ID; the others get the next free IDs, and the old ID is rewritten in
-               every Markdown file changed since -Since. Dark factory lanes run it
-               after rebasing, before they push.
+               every Markdown file changed since -Since, archived tasks excepted. When
+               an archived task holds the ID, it keeps it and is never edited: every
+               live task with that ID is renumbered and its Log says so. If such a
+               task already exists at -Since, only open tasks' depends-on entries are
+               rewritten to its new ID. Dark factory lanes run it after rebasing,
+               before they push.
 
     Keep this file ASCII only: Windows PowerShell 5.1 reads a script without a
     byte-order mark in the system code page, so a non-ASCII literal would be
@@ -509,35 +513,65 @@ switch ($Command) {
         $tasks = Get-Tasks
         $changed = @(& git -C $RepoRoot diff --name-only "$Since" -- '*.md' 2>$null | Where-Object { $_ } |
             ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { Test-Path -LiteralPath $_ })
+        # File names of the tasks that are live at the ref, in whatever state folder.
+        $sharedLiveNames = @(& git -C $RepoRoot ls-tree -r --name-only "$Since" -- Tasks 2>$null |
+            Where-Object { $_ -and $_ -notmatch '^Tasks/Done/[^/]+/' } | ForEach-Object { ($_ -split '/')[-1] })
         $renamed = 0
-        foreach ($group in @($tasks | Where-Object { -not $_.Archived } | Group-Object Id | Where-Object { $_.Count -gt 1 })) {
-            $shared = @(); $mine = @()
-            foreach ($task in $group.Group) {
-                $relative = $task.Path.Substring($RepoRoot.Length).TrimStart('\', '/').Replace([string][char]92, '/')
-                & git -C $RepoRoot cat-file -e "${Since}:$relative" 2>$null
-                if ($LASTEXITCODE -eq 0) { $shared += $task } else { $mine += $task }
+        foreach ($group in @($tasks | Group-Object Id | Where-Object { $_.Count -gt 1 })) {
+            $live = @($group.Group | Where-Object { -not $_.Archived })
+            $archivedHoldsId = $live.Count -lt $group.Count
+            if ($archivedHoldsId) {
+                # An archived task is never edited, so it keeps the ID and every live one
+                # moves; those not at the ref go first, taking this lane's references.
+                $renumber = @($live | Sort-Object { $sharedLiveNames -contains (Split-Path $_.Path -Leaf) })
             }
-            # With nothing shared (both new), the first keeps the ID.
-            if ($shared.Count -eq 0) { $mine = @($mine | Select-Object -Skip 1) }
-            foreach ($task in $mine) {
+            else {
+                $shared = @(); $renumber = @()
+                foreach ($task in $live) {
+                    $relative = $task.Path.Substring($RepoRoot.Length).TrimStart('\', '/').Replace([string][char]92, '/')
+                    & git -C $RepoRoot cat-file -e "${Since}:$relative" 2>$null
+                    if ($LASTEXITCODE -eq 0) { $shared += $task } else { $renumber += $task }
+                }
+                # With nothing shared (both new), the first keeps the ID.
+                if ($shared.Count -eq 0) { $renumber = @($renumber | Select-Object -Skip 1) }
+            }
+            foreach ($task in $renumber) {
                 $old = $task.Id
                 $new = Get-NextId (Get-Tasks)
+                $leaf = Split-Path $task.Path -Leaf
+                $alreadyShared = $archivedHoldsId -and ($sharedLiveNames -contains $leaf)
                 $text = Read-Text $task.Path
                 $text = [regex]::Replace($text, "(?m)^id: $old\b", "id: $new")
                 $text = [regex]::Replace($text, "(?m)^# $old\b", "# $new")
-                Write-Text $task.Path $text
-                $target = Join-Path (Split-Path $task.Path -Parent) ((Split-Path $task.Path -Leaf) -replace "^$old", $new)
-                Move-Item -LiteralPath $task.Path -Destination $target
-                # This lane's other changes that mention the old ID meant this task.
-                foreach ($file in $changed) {
-                    if ($file -eq $task.Path -or -not (Test-Path -LiteralPath $file)) { continue }
-                    $body = Read-Text $file
-                    $updated = [regex]::Replace($body, "\b$old\b", $new)
-                    if ($updated -ne $body) { Write-Text $file $updated }
+                if ($archivedHoldsId) {
+                    $text = Add-LogLine $text "- ${Today}: Renumbered from $old to $new; an archived task holds $old."
                 }
-                $changed = @($changed | ForEach-Object { if ($_ -eq $task.Path) { $target } else { $_ } })
+                Write-Text $task.Path $text
+                $target = Join-Path (Split-Path $task.Path -Parent) ($leaf -replace "^$old", $new)
+                Move-Item -LiteralPath $task.Path -Destination $target
                 Write-Output "$old -> $new  $($task.Title)"
                 $renamed++
+                if ($alreadyShared) {
+                    # Other mentions of a shared ID may mean either task, so only open
+                    # tasks' dependencies move: waiting too long is safer than looking ready.
+                    $current = Get-Tasks
+                    foreach ($waiter in @($current | Where-Object { $_.State -ne 'Done' -and $_.DependsOn -contains $old })) {
+                        $dependencies = @($waiter.DependsOn | ForEach-Object { if ($_ -eq $old) { $new } else { $_ } })
+                        Write-Text $waiter.Path (Set-FrontMatterField (Read-Text $waiter.Path) 'depends-on' "[$($dependencies -join ', ')]")
+                        Write-Output "$($waiter.Id) depends-on: $old -> $new"
+                    }
+                }
+                else {
+                    # This lane's other changes that mention the old ID meant this task.
+                    foreach ($file in $changed) {
+                        if ($file -eq $task.Path -or -not (Test-Path -LiteralPath $file)) { continue }
+                        if ($file -match '[\\/]Tasks[\\/]Done[\\/][^\\/]+[\\/]') { continue }
+                        $body = Read-Text $file
+                        $updated = [regex]::Replace($body, "\b$old\b", $new)
+                        if ($updated -ne $body) { Write-Text $file $updated }
+                    }
+                }
+                $changed = @($changed | ForEach-Object { if ($_ -eq $task.Path) { $target } else { $_ } })
             }
         }
         if ($renamed -eq 0) { Write-Output 'No duplicate IDs.' }

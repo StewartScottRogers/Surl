@@ -1,0 +1,154 @@
+using System.Buffers;
+using System.Text;
+using Surl.Protocol.Abstractions;
+
+namespace Surl.LineProtocol;
+
+/// <summary>
+/// The <see cref="ILineRedactionRule"/> for a password command or a credential header in a tunnel: it
+/// writes the argument of a <c>PASS</c> or <c>ACCT</c> command, with or without spaces or tabs before
+/// its command word and that word ended by a space or a tab, all of them logged as received, as
+/// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 30, 34 and 36), the credentials of a
+/// header named in
+/// <see cref="HttpWithheldHeaderNames.Credentials"/> as <see cref="LineBytesRedactor.SecretMask"/>
+/// after the scheme word, and the whole value of a header named in
+/// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> as
+/// <see cref="LineBytesRedactor.SecretMask"/> (ADR-0182, amendments 6, 16, 18, 19, 20 and 33). Commands
+/// and header names are matched without regard to case. Every other line is written as received.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A command and a header are each read at the start of the line and after every bare carriage return
+/// in it, with or without spaces or tabs before the command word or the header name. Of the first
+/// password command and the first withheld header so read, the one whose secret begins earlier is
+/// masked as above, and everything after that place is dropped with it, later carriage returns
+/// included. A command word ended by a carriage return is not read as a command.
+/// </para>
+/// <para>
+/// A line that begins with a space or a tab and follows a line holding a header named in
+/// <see cref="HttpWithheldHeaderNames.All"/>, or another such line, continues that header and is
+/// masked. One instance serves one tunnel.
+/// </para>
+/// </remarks>
+public sealed class TunnelPasswordAndCredentialHeaderLineRule : ILineRedactionRule
+{
+    private const int CommandPrefixLength = 5;
+    private const byte CarriageReturn = (byte)'\r';
+
+    private static ReadOnlySpan<byte> Blanks => " \t"u8;
+
+    private bool _previousLineHeldWithheldHeader;
+
+    /// <inheritdoc />
+    public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        var continuesWithheldHeader = _previousLineHeldWithheldHeader && line.Length > 0 && Blanks.Contains(line[0]);
+        var headerStart = FindWithheldHeaderStart(line);
+        var secretStart = continuesWithheldHeader ? SkipBlanks(line, 0) : FindSecretStart(line, headerStart);
+        _previousLineHeldWithheldHeader = continuesWithheldHeader || headerStart >= 0;
+        if (secretStart >= line.Length)
+        {
+            output.Write(line);
+            return;
+        }
+
+        output.Write(line[..secretStart]);
+        output.Write(LineBytesRedactor.SecretMask);
+    }
+
+    /// <inheritdoc />
+    public void ObserveSent(ReadOnlySpan<byte> sent)
+    {
+        // The secret is always on the line that names it, whatever the origin sent.
+    }
+
+    // Where the earlier of the command's and the header's secrets begins in the line; the line's
+    // length when it holds none.
+    private static int FindSecretStart(ReadOnlySpan<byte> line, int headerStart)
+    {
+        var headerSecretStart = headerStart < 0 ? line.Length : headerStart + FindHeaderSecretStart(line[headerStart..]);
+
+        return Math.Min(FindCommandSecretStart(line), headerSecretStart);
+    }
+
+    // Where the argument of the first password command begins, the command at the start of the line
+    // or after a bare carriage return; the line's length when the line holds none.
+    private static int FindCommandSecretStart(ReadOnlySpan<byte> line)
+    {
+        foreach (var segment in line.Split(CarriageReturn))
+        {
+            var commandStart = SkipBlanks(line, segment.Start.Value);
+            if (IsPasswordCommand(line[commandStart..]))
+            {
+                return commandStart + CommandPrefixLength;
+            }
+        }
+
+        return line.Length;
+    }
+
+    // Where the first withheld header begins, at the start of the line or after a bare carriage
+    // return; -1 when the line holds none.
+    private static int FindWithheldHeaderStart(ReadOnlySpan<byte> line)
+    {
+        foreach (var segment in line.Split(CarriageReturn))
+        {
+            if (IsHeaderNamedIn(line[segment], HttpWithheldHeaderNames.All))
+            {
+                return segment.Start.Value;
+            }
+        }
+
+        return -1;
+    }
+
+    // Where the secret of the withheld header that the bytes begin with starts in them.
+    private static int FindHeaderSecretStart(ReadOnlySpan<byte> fromHeader) =>
+        IsHeaderNamedIn(UpToCarriageReturn(fromHeader), HttpWithheldHeaderNames.ApiKeysAndSessionTokens)
+            ? FindValueStart(fromHeader)
+            : FindCredentialsStart(fromHeader);
+
+    private static ReadOnlySpan<byte> UpToCarriageReturn(ReadOnlySpan<byte> bytes)
+    {
+        int carriageReturn = bytes.IndexOf(CarriageReturn);
+
+        return carriageReturn < 0 ? bytes : bytes[..carriageReturn];
+    }
+
+    // Whether the bytes begin with "PASS" or "ACCT" and the space or tab that ends the command word.
+    private static bool IsPasswordCommand(ReadOnlySpan<byte> fromCommand) =>
+        fromCommand.Length >= CommandPrefixLength
+        && Blanks.Contains(fromCommand[CommandPrefixLength - 1])
+        && (Ascii.EqualsIgnoreCase(fromCommand[..(CommandPrefixLength - 1)], "PASS"u8)
+            || Ascii.EqualsIgnoreCase(fromCommand[..(CommandPrefixLength - 1)], "ACCT"u8));
+
+    private static bool IsHeaderNamedIn(ReadOnlySpan<byte> line, IReadOnlyList<string> names)
+    {
+        int colon = line.IndexOf((byte)':');
+
+        return colon >= 0 && names.Contains(
+            Encoding.Latin1.GetString(line[..colon].Trim(Blanks)),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    // After the colon and any blanks; the line's length when the header has no value.
+    private static int FindValueStart(ReadOnlySpan<byte> line) => SkipBlanks(line, line.IndexOf((byte)':') + 1);
+
+    // After the colon and the scheme word; a value of one word is all credentials. A scheme word
+    // is kept only when its credentials follow it before any bare carriage return.
+    private static int FindCredentialsStart(ReadOnlySpan<byte> line)
+    {
+        int valueStart = FindValueStart(line);
+        int space = UpToCarriageReturn(line)[valueStart..].TrimEnd(Blanks).IndexOf((byte)' ');
+
+        return space < 0 ? valueStart : SkipBlanks(line, valueStart + space);
+    }
+
+    private static int SkipBlanks(ReadOnlySpan<byte> line, int start)
+    {
+        int next = line[start..].IndexOfAnyExcept(Blanks);
+
+        return next < 0 ? line.Length : start + next;
+    }
+}

@@ -86,6 +86,12 @@ public sealed class SaslLineRedactionRuleTests
         Assert.AreEqual(logged, Redact(SmtpRule(), line));
 
     [TestMethod]
+    [DataRow("a AUTH PLAIN abc\rX-Api-Key: s3cret", "a AUTH PLAIN ****")]
+    [DataRow("AUTH PLAIN AGFsaWNlAHMzY3JldA==\rtail s3cret", "AUTH PLAIN ****")]
+    public void Redact_LineWithABareCarriageReturn_WritesNothingAfterTheMask(string line, string logged) =>
+        Assert.AreEqual(logged, Redact(SmtpRule(), line));
+
+    [TestMethod]
     public void Redact_TabSeparatedAuthWithoutInitialResponse_IsUnchanged() =>
         Assert.AreEqual("AUTH\tPLAIN\t", Redact(SmtpRule(), "AUTH\tPLAIN\t"));
 

@@ -99,9 +99,9 @@ public sealed class WsProtocolServer : IConnectionProtocolServer, IExchangeBytes
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ws"]);
 
     /// <summary>
-    /// Creates the redactor that writes the credentials of the upgrade request's <c>Authorization</c>
-    /// field as <c>****</c> in the exchange log (ADR-0182). It stops at the end of that head: the
-    /// frames after <c>101</c> are logged unchanged.
+    /// Creates the redactor that writes the credentials of every upgrade request's <c>Authorization</c>
+    /// field as <c>****</c> in the exchange log (ADR-0182, amendment 27). It stops when the server
+    /// sends <c>101</c>: the frames received after that are logged unchanged.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor used by that exchange alone.</returns>

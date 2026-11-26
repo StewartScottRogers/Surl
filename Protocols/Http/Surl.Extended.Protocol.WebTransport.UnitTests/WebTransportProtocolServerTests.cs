@@ -191,12 +191,8 @@ public sealed class WebTransportProtocolServerTests
     [TestMethod]
     public void CreateRedactor_DecodedAuthorizationLine_IsLoggedAsStars()
     {
-        var redactor = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport"));
-        var output = new System.Buffers.ArrayBufferWriter<byte>();
-
-        redactor.Redact(System.Text.Encoding.ASCII.GetBytes(":method: CONNECT\r\nauthorization: Bearer sekret-token\r\n"), output);
-        redactor.Flush(output);
-        var logged = System.Text.Encoding.ASCII.GetString(output.WrittenSpan);
+        var logged = System.Text.Encoding.ASCII.GetString(
+            RedactDecodedText(System.Text.Encoding.ASCII.GetBytes(":method: CONNECT\r\nauthorization: Bearer sekret-token\r\n")));
 
         Assert.DoesNotContain("sekret", logged);
         Assert.Contains("authorization: ****", logged);
@@ -226,13 +222,97 @@ public sealed class WebTransportProtocolServerTests
             var lowerName = name.ToLowerInvariant();
             var text = $":method: CONNECT\r\n{lowerName}: sekret-key\r\nx-trace: abc\r\n\r\n";
 
-            var logged = Redact(System.Text.Encoding.ASCII.GetBytes(text));
+            var logged = RedactDecodedText(System.Text.Encoding.ASCII.GetBytes(text));
 
             Assert.AreEqual(
                 $":method: CONNECT\r\n{lowerName}: ****\r\nx-trace: abc\r\n\r\n",
                 System.Text.Encoding.ASCII.GetString(logged),
                 name);
         }
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionStreamSentInSeveralChunks_IsLoggedByTheServersRedactorAsReceived()
+    {
+        using var client = new Http3TestQuicClient();
+        var certificate = new WebTransportServerCertificate([client.SelfSignedCertificate()], client.Key);
+        var server = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => certificate, TimeSpan.FromSeconds(30));
+        var sink = new UnitTestRedactingDecryptedBytesSink(NewStreamRedactor());
+        var context = NewContext(new ManualTimeProvider(Now), Token) with { DecryptedBytes = sink };
+        var serving = server.ServeAsync(client.Flow, context);
+        await client.OpenAsync(Token, UnitTestWebTransport.WebTransportSettings);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        // The signal 0x41's two-byte integer split after its first byte, the second arriving with the session
+        // ID, then data that reads as an HTTP/3 DATA frame and a HEADERS frame that does not decode.
+        client.Send(4, Convert.FromHexString("40"));
+        client.Send(4, Convert.FromHexString("4100"));
+        client.Send(4, Convert.FromHexString("000161"));
+        await client.UntilAsync(() => UnitTestWebTransport.SentHex(client, 4) == "000161", Token);
+        client.Send(4, Convert.FromHexString("0103FFFFFF"), fin: true);
+        await client.UntilAsync(() => client.StreamSent(4).Fin, Token);
+
+        var chunks = sink.LoggedChunks(4);
+        Assert.AreEqual("0001610103FFFFFF", UnitTestWebTransport.SentHex(client, 4));
+        Assert.IsGreaterThan(1, chunks.Length);
+        Assert.AreEqual("4041000001610103FFFFFF", Convert.ToHexString([.. chunks.SelectMany(chunk => chunk)]));
+        Assert.IsFalse(serving.IsCompleted);
+    }
+
+    [TestMethod]
+    [DataRow(4L, "404100", DisplayName = "A bidirectional stream, signal 0x41")]
+    [DataRow(14L, "405400", DisplayName = "A unidirectional stream, type 0x54")]
+    public void CreateRedactor_ASessionStreamsDataShapedLikeASecretHeadersFrame_IsLoggedAsReceived(long streamId, string headerHex)
+    {
+        using var client = new Http3TestQuicClient();
+        var redactor = NewStreamRedactor();
+        byte[] stream = [.. Convert.FromHexString(headerHex), .. client.Headers(("authorization", "Bearer session-data"))];
+
+        var logged = RedactStream(redactor, streamId, stream);
+
+        CollectionAssert.AreEqual(stream, logged);
+    }
+
+    [TestMethod]
+    public void CreateRedactor_MoreSessionStreamsThanItRemembers_StillLogsALaterRequestsFramesAsReceived()
+    {
+        using var client = new Http3TestQuicClient();
+        var redactor = NewStreamRedactor();
+        var sessionStream = Convert.FromHexString("404100000561");
+        const int SessionStreams = 4097;
+        for (var stream = 0; stream < SessionStreams; stream++)
+        {
+            CollectionAssert.AreEqual(sessionStream, RedactStream(redactor, stream * 4L, sessionStream), $"stream {stream}");
+        }
+
+        var headers = client.Headers((":method", "CONNECT"), (":path", "/echo"), ("x-trace", "abc"));
+        var data = UnitTestWebTransport.Data("68656C6C6F");
+
+        var loggedHeaders = RedactStream(redactor, SessionStreams * 4L, headers);
+        var loggedData = RedactStream(redactor, SessionStreams * 4L, data);
+
+        CollectionAssert.AreEqual(headers, loggedHeaders);
+        CollectionAssert.AreEqual(data, loggedData);
+    }
+
+    private static IStreamReceivedBytesRedactor NewStreamRedactor() => Assert.IsInstanceOfType<IStreamReceivedBytesRedactor>(
+        new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport")));
+
+    private static byte[] RedactStream(IStreamReceivedBytesRedactor redactor, long streamId, byte[] received)
+    {
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        redactor.RedactStream(streamId, received, output);
+
+        return output.WrittenSpan.ToArray();
+    }
+
+    private static byte[] RedactDecodedText(byte[] decodedText)
+    {
+        var redactor = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        Assert.IsInstanceOfType<IDecodedTextReceivedBytesRedactor>(redactor).RedactDecodedText(decodedText, output);
+
+        return output.WrittenSpan.ToArray();
     }
 
     private static byte[] Redact(byte[] received)

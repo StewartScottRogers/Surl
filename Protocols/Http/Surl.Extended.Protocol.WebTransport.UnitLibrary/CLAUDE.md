@@ -42,7 +42,10 @@ The server (BL-459, ADR-0117 decisions 0 to 3 and 6):
 - `WebTransportHttp3Codes` - the settings and error codepoints above.
 - `WebTransportProtocolServer` hands out `Surl.Http3`'s `Http3RequestBytesRedactor` made with
   `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, so the exchange log withholds credentials, API keys and session
-  tokens from request header blocks and decoded header text (ADR-0182 amendment 14; BL-1718).
+  tokens from request header blocks and decoded header text (ADR-0182 amendment 14; BL-1718), and with
+  `WebTransportStreamKind`'s `0x41` and `0x54`, so a session stream's bytes are logged as received while the redactor
+  remembers the stream (amendment 35; BL-1775, which also bounds that memory). QUIC datagrams and `DATA` payloads are
+  still read as HTTP/3 frames, so one that reads as a `HEADERS` frame can be written as `****`.
 
 The codecs (BL-458, ADR-0117 decisions 4 and 6), with no transport:
 

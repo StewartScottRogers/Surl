@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
+    <!-- The HTTP/3 redactor, to prove the engine's decrypted-bytes notes withhold a split HEADERS frame (ADR-0182). -->
+    <ProjectReference Include="..\..\Protocols\Http\Surl.Http3.UnitLibrary\Surl.Http3.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

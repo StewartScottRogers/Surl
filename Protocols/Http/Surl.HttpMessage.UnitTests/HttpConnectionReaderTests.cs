@@ -175,6 +175,18 @@ public sealed partial class HttpConnectionReaderTests
     }
 
     [TestMethod]
+    public async Task ReadRequestHeadAsync_LineAlreadyBufferedPastTheMaximum_ReturnsHeadTooLarge()
+    {
+        var bytes = Encoding.ASCII.GetBytes("a\nGET /" + new string('a', 30) + " HTTP/1.1\r\n\r\n");
+        var reader = new HttpConnectionReader(new InMemoryConnection([bytes]), 20);
+        await reader.ReadLineAsync(100, TestContext.CancellationToken);
+
+        var result = await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpRequestHeadReadOutcome.HeadTooLarge, result.Outcome);
+    }
+
+    [TestMethod]
     public async Task ReadRequestHeadAsync_BareLineFeeds_AreLineEndings()
     {
         var result = await ReadOneHeadAsync("GET / HTTP/1.1\nHost: x\n\n");

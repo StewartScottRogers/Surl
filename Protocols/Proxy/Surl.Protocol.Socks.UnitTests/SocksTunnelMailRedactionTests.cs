@@ -105,8 +105,35 @@ public sealed class SocksTunnelMailRedactionTests
     [DataRow("a LOGIN app {x}s3cret", "a LOGIN app ****")]
     [DataRow("a LOGIN app {3}s3cret}", "a LOGIN app ****")]
     [DataRow("Authorization: Login c2Vj cmV0", "Authorization: Login ****")]
+    [DataRow("a\tLOGIN\tapp\ts3cret-pw", "a\tLOGIN\tapp\t****")]
+    [DataRow("x\ty LOGIN app s3cret-pw", "x\ty LOGIN app ****")]
+    [DataRow("a LOGIN \t s3cret-pw", "a LOGIN \t ****")]
     public void Imap_EachLoginForm_IsLoggedMasked(string sent, string logged) =>
         Assert.AreEqual(logged + "\r\n", Logged(("* OK ready\r\n", sent + "\r\n")));
+
+    [TestMethod]
+    [DataRow("LOGIN app s3cret-pw", "LOGIN app ****")]
+    [DataRow("login  \"an app\"  s3cret pw", "login  \"an app\"  ****")]
+    public void Imap_LoginWithNoTag_HasThePasswordMasked(string sent, string logged) =>
+        Assert.AreEqual(logged + "\r\n", Logged(("* OK ready\r\n", sent + "\r\n")));
+
+    [TestMethod]
+    [DataRow("a\tLOGIN\tapp\ts3cret-pw", "a\tLOGIN\tapp\t****")]
+    [DataRow("LOGIN\tapp\ts3cret-pw", "LOGIN\tapp\t****")]
+    public void Imap_LoginSeparatedByTabs_HasThePasswordMasked(string sent, string logged) =>
+        Assert.AreEqual(logged + "\r\n", Logged(("* OK ready\r\n", sent + "\r\n")));
+
+    [TestMethod]
+    [DataRow("LOGIN LOGIN alice s3cret-pw", "LOGIN LOGIN ****")]
+    [DataRow("LOGIN\tLOGIN\talice\ts3cret-pw", "LOGIN\tLOGIN\t****")]
+    public void Imap_LoginWordTwiceBeforeTheUserName_HasEverythingAfterBothMasked(string sent, string logged) =>
+        Assert.AreEqual(logged + "\r\n", Logged(("* OK ready\r\n", sent + "\r\n")));
+
+    [TestMethod]
+    public void Imap_LiteralPasswordOnALoginWithNoTag_IsLoggedMasked() =>
+        Assert.AreEqual(
+            "LOGIN app {9}\r\n****\r\nb NOOP\r\n",
+            Logged(("* OK ready\r\n", "LOGIN app {9}\r\n"), ("+ Ready\r\n", "s3cret-pw\r\nb NOOP\r\n")));
 
     [TestMethod]
     [DataRow("{9}")]
@@ -222,6 +249,13 @@ public sealed class SocksTunnelMailRedactionTests
         Assert.AreEqual(
             "a LOGIN app {8+}\n****\n****\n****\n****\nb NOOP\n",
             Logged(("* OK ready\r\n", "a LOGIN app {8+}\n\n\n\nsecret\nb NOOP\n")));
+
+    [TestMethod]
+    [DataRow("AUTH alice \"a b\"", "AUTH alice ****")]
+    [DataRow("AUTH alice 'a b'", "AUTH alice ****")]
+    [DataRow("AUTH \"al ice\" \"a b\"", "AUTH \"al ****")]
+    public void Redis_InlineAuthWithAQuotedArgument_HasNothingLoggedAfterTheMask(string sent, string logged) =>
+        Assert.AreEqual(logged + "\r\n", Logged(("", sent + "\r\n")));
 
     [TestMethod]
     public void ALineEndSplitBetweenReads_IsLoggedOnce() =>

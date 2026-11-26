@@ -192,12 +192,13 @@ public sealed partial class ServingEngineTests
             OneConnection with { RefusalSettleDelay = ConnectionLimits.DefaultRefusalSettleDelay }, "http");
         harness.Listener.Connect(HeldConnection(PeerAddress(1)));
         await harness.Server.Inner.NextExchangeAsync();
+        var timersBeforeTheRefusal = harness.Time.TimerCount;
         harness.Listener.Connect(HeldConnection(PeerAddress(2)));
-        await Task.Delay(50);
+        await harness.Time.TimersCreated(timersBeforeTheRefusal + 1).WaitAsync(Patience.Timeout);
 
         harness.Time.Advance(ConnectionLimits.DefaultRefusalSettleDelay - Tick);
-        await Task.Delay(50);
 
+        Assert.AreEqual(1, harness.Time.ArmedTimerCount);
         Assert.IsFalse(harness.Server.TryTakeRefusal(out _));
 
         harness.Time.Advance(Tick);

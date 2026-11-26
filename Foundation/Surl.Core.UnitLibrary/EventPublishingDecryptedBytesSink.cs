@@ -9,28 +9,51 @@ namespace Surl.Core;
 /// wants bytes, and notes each chunk in the exchange's log (ADR-0169, decisions 3 and 4). It never touches
 /// the wire byte counts: those come from <see cref="EventPublishingExchangeLog"/> alone. The event carries
 /// the bytes raw, in both directions. When the server redacts, the log note carries received bytes alone
-/// redacted, each chunk by a fresh redactor flushed at the chunk's end; the note carries sent bytes as they
-/// are (ADR-0182, decisions 4 and 6, and amendment 1).
+/// redacted; the note carries sent bytes as they are (ADR-0182, decisions 4 and 6, and amendments 1, 21
+/// and 22). A stream's <see cref="ExchangeBytesLayer.Decrypted"/> bytes go through one
+/// <see cref="IStreamReceivedBytesRedactor"/> kept for the exchange, when the server's redactor is one.
+/// <see cref="ExchangeBytesLayer.Decoded"/> text goes to a fresh redactor's
+/// <see cref="IDecodedTextReceivedBytesRedactor.RedactDecodedText"/>, when the redactor is one.
+/// <see cref="ExchangeBytesLayer.Decrypted"/> bytes with no stream ID, and every frame payload, go to a fresh
+/// redactor's <see cref="IStreamlessAndFramePayloadReceivedBytesRedactor"/> members, when the redactor is one
+/// (ADR-0182, amendment 37). Every other received chunk or frame payload goes through a fresh redactor flushed
+/// at the chunk's end.
 /// </summary>
 /// <param name="log">The exchange's log, which receives a note naming the layer and stream per chunk.</param>
 /// <param name="events">The instance's event stream.</param>
 /// <param name="exchangeId">The exchange the bytes belong to.</param>
-/// <param name="createRedactor">Creates a redactor for one received chunk, or <see langword="null"/> when the server does not redact.</param>
+/// <param name="createRedactor">Creates a redactor for the exchange's decrypted bytes, or <see langword="null"/> when the server does not redact.</param>
 internal sealed class EventPublishingDecryptedBytesSink(
     IExchangeLog log, ISurlEventPublisher events, long exchangeId, Func<IReceivedBytesRedactor>? createRedactor = null) : IDecryptedBytesSink
 {
+    private readonly Lock streamRedaction = new();
+    private IStreamReceivedBytesRedactor? streamRedactor;
+
     /// <inheritdoc/>
-    public void Received(ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes) =>
-        Report(ExchangeDirection.Received, layer, streamId, bytes);
+    public void Received(ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes)
+    {
+        var logged = layer switch
+        {
+            ExchangeBytesLayer.Decrypted when streamId is long id => RedactedAsTheStreamsNextBytes(id, bytes),
+            ExchangeBytesLayer.Decrypted => RedactedAsStreamlessBytes(bytes),
+            ExchangeBytesLayer.Decoded => RedactedAsDecodedText(bytes),
+            _ => RedactedAlone(bytes),
+        };
+        Report(ExchangeDirection.Received, layer, streamId, bytes, logged);
+    }
+
+    /// <inheritdoc/>
+    public void ReceivedFramePayload(ExchangeBytesLayer layer, long streamId, ReadOnlySpan<byte> bytes) =>
+        Report(ExchangeDirection.Received, layer, streamId, bytes, RedactedAsFramePayload(bytes));
 
     /// <inheritdoc/>
     public void Sent(ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes) =>
-        Report(ExchangeDirection.Sent, layer, streamId, bytes);
+        Report(ExchangeDirection.Sent, layer, streamId, bytes, bytes);
 
-    private void Report(ExchangeDirection direction, ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes)
+    private void Report(
+        ExchangeDirection direction, ExchangeBytesLayer layer, long? streamId, ReadOnlySpan<byte> bytes, ReadOnlySpan<byte> logged)
     {
         var stream = streamId is long id ? $", stream {id}" : string.Empty;
-        var logged = direction == ExchangeDirection.Received ? Loggable(bytes) : bytes;
         log.Note($"{layer} bytes {direction.ToString().ToLowerInvariant()}{stream}, {logged.Length} bytes: {Convert.ToHexString(logged)}");
 
         if (events.IsPublishingBytes)
@@ -43,7 +66,49 @@ internal sealed class EventPublishingDecryptedBytesSink(
         }
     }
 
-    private ReadOnlySpan<byte> Loggable(ReadOnlySpan<byte> bytes)
+    private ReadOnlySpan<byte> RedactedAsTheStreamsNextBytes(long streamId, ReadOnlySpan<byte> bytes)
+    {
+        if (createRedactor is null)
+        {
+            return bytes;
+        }
+
+        lock (streamRedaction)
+        {
+            var redactor = streamRedactor ?? createRedactor();
+            if (redactor is not IStreamReceivedBytesRedactor followingStreams)
+            {
+                return RedactWhole(redactor, bytes);
+            }
+
+            streamRedactor = followingStreams;
+            var output = new ArrayBufferWriter<byte>();
+            followingStreams.RedactStream(streamId, bytes, output);
+
+            return output.WrittenSpan;
+        }
+    }
+
+    private ReadOnlySpan<byte> RedactedAsDecodedText(ReadOnlySpan<byte> decodedText)
+    {
+        if (createRedactor is null)
+        {
+            return decodedText;
+        }
+
+        var redactor = createRedactor();
+        if (redactor is not IDecodedTextReceivedBytesRedactor readingDecodedText)
+        {
+            return RedactWhole(redactor, decodedText);
+        }
+
+        var output = new ArrayBufferWriter<byte>();
+        readingDecodedText.RedactDecodedText(decodedText, output);
+
+        return output.WrittenSpan;
+    }
+
+    private ReadOnlySpan<byte> RedactedAsStreamlessBytes(ReadOnlySpan<byte> bytes)
     {
         if (createRedactor is null)
         {
@@ -51,6 +116,41 @@ internal sealed class EventPublishingDecryptedBytesSink(
         }
 
         var redactor = createRedactor();
+        if (redactor is not IStreamlessAndFramePayloadReceivedBytesRedactor readingStreamlessBytes)
+        {
+            return RedactWhole(redactor, bytes);
+        }
+
+        var output = new ArrayBufferWriter<byte>();
+        readingStreamlessBytes.RedactStreamlessBytes(bytes, output);
+
+        return output.WrittenSpan;
+    }
+
+    private ReadOnlySpan<byte> RedactedAsFramePayload(ReadOnlySpan<byte> payload)
+    {
+        if (createRedactor is null)
+        {
+            return payload;
+        }
+
+        var redactor = createRedactor();
+        if (redactor is not IStreamlessAndFramePayloadReceivedBytesRedactor readingFramePayloads)
+        {
+            return RedactWhole(redactor, payload);
+        }
+
+        var output = new ArrayBufferWriter<byte>();
+        readingFramePayloads.RedactFramePayload(payload, output);
+
+        return output.WrittenSpan;
+    }
+
+    private ReadOnlySpan<byte> RedactedAlone(ReadOnlySpan<byte> bytes) =>
+        createRedactor is null ? bytes : RedactWhole(createRedactor(), bytes);
+
+    private static ReadOnlySpan<byte> RedactWhole(IReceivedBytesRedactor redactor, ReadOnlySpan<byte> bytes)
+    {
         var output = new ArrayBufferWriter<byte>();
         redactor.Redact(bytes, output);
         redactor.Flush(output);

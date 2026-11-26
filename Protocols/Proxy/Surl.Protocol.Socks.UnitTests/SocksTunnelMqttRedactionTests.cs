@@ -1,8 +1,10 @@
-using System.Buffers;
-
 namespace Surl.Protocol.Socks;
 
-/// <summary>MQTT <c>CONNECT</c> passwords through a granted SOCKS tunnel, as the exchange log shows them (ADR-0182, amendment 10).</summary>
+/// <summary>
+/// MQTT <c>CONNECT</c> passwords and MQTT 5 Authentication Data through a granted SOCKS tunnel, as the
+/// exchange log shows them (ADR-0182, amendments 10, 25 and 28). <c>Surl.LineProtocol</c>'s
+/// <c>TunnelMqttLoginRedactorTests</c> cover every form of the packets.
+/// </summary>
 [TestClass]
 public sealed class SocksTunnelMqttRedactionTests
 {
@@ -23,75 +25,25 @@ public sealed class SocksTunnelMqttRedactionTests
             [.. CurlConnect, .. CurlSubscribe]);
 
     [TestMethod]
-    public void Mqtt5Connect_WithPropertiesAndWill_IsLoggedWithOnlyThePasswordMasked()
+    public void Mqtt311ConnectAfterAProxyLine_AsCurlSendsIt_IsLoggedWithThePasswordMasked()
     {
-        byte[] fields =
+        // The tunnel of `--haproxy-protocol --socks5-hostname ... -u tester:secret mqtt://...`:
+        // the PROXY line, CONNECT, SUBSCRIBE.
+        var request = SocksTestKit.Fixture("socks5h-haproxy-mqtt-user-and-password", "request.bin");
+        var tunnel = request[request.AsSpan().IndexOf("PROXY "u8)..];
+        var connectStart = tunnel.AsSpan().IndexOf((byte)'\n') + 1;
+        var connectLength = 2 + tunnel[connectStart + 1];
+        byte[] masked =
         [
-            5, 0x11, 0x00, 0x00, 0x00, 0x3C, // Session Expiry Interval
-            .. Text("cid"),
-            2, 0x01, 0x01, // Will properties
-            .. Text("w/topic"),
-            .. Text("will-payload"),
-            .. Text("alice"),
+            .. tunnel[..connectStart],
+            0x10, (byte)(tunnel[connectStart + 1] - 2),
+            .. tunnel[(connectStart + 2)..(connectStart + connectLength - 8)],
+            .. Text("****"),
+            .. tunnel[(connectStart + connectLength)..],
         ];
-        var sent = Connect(5, 0xC6, [.. fields, .. Text("s3cret-pw")]);
-        var logged = Connect(5, 0xC6, [.. fields, .. Text("****")]);
 
-        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit([.. logged, 0xE0, 0x00], [.. sent, 0xE0, 0x00]);
-    }
-
-    [TestMethod]
-    public void Mqtt5Connect_WithPasswordAndNoUserName_IsLoggedMasked() =>
-        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
-            Connect(5, 0x42, [0, .. Text("cid"), .. Text("****")]),
-            Connect(5, 0x42, [0, .. Text("cid"), .. Text("s3cret-pw")]));
-
-    [TestMethod]
-    public void Connect_WithAnEmptyPassword_IsLoggedAsFourAndTheMask() =>
-        CollectionAssert.AreEqual(
-            Connect(4, 0x42, [.. Text("cid"), .. Text("****")]),
-            SocksTunnelRedactionTestKit.Logged(Connect(4, 0x42, [.. Text("cid"), .. Text("")])));
-
-    [TestMethod]
-    public void Connect_LongEnoughForATwoByteRemainingLength_KeepsItsFraming()
-    {
-        byte[] fields = [.. Text("MQTT"), 4, 0x42, 0x00, 0x3C, .. Text(new string('c', 200))];
-        byte[] sent = [0x10, 0xDF, 0x01, .. fields, .. Text("s3cret-pw")];
-        byte[] logged = [0x10, 0xDA, 0x01, .. fields, .. Text("****")];
-
-        CollectionAssert.AreEqual(logged, SocksTunnelRedactionTestKit.Logged(sent));
-    }
-
-    [TestMethod]
-    public void Connect_WithoutAPassword_IsLoggedAsReceived()
-    {
-        var connect = Connect(4, 0x82, [.. Text("cid"), .. Text("alice")]);
-
-        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(connect, connect);
-    }
-
-    // Each row is what follows the flags and keep alive of a CONNECT announcing a password.
-    [TestMethod]
-    [DataRow((byte)4, (byte)0x42, new byte[] { }, DisplayName = "no client identifier")]
-    [DataRow((byte)4, (byte)0x42, new byte[] { 0, 9, 99 }, DisplayName = "client identifier cut short")]
-    [DataRow((byte)5, (byte)0x42, new byte[] { }, DisplayName = "no properties")]
-    [DataRow((byte)5, (byte)0x42, new byte[] { 9, 0x11 }, DisplayName = "properties cut short")]
-    [DataRow((byte)4, (byte)0x46, new byte[] { 0, 0, 0, 9, 116 }, DisplayName = "will topic cut short")]
-    [DataRow((byte)5, (byte)0x46, new byte[] { 0, 0, 0, 9 }, DisplayName = "will properties cut short")]
-    [DataRow((byte)4, (byte)0x46, new byte[] { 0, 0, 0, 0, 0 }, DisplayName = "will payload cut short")]
-    [DataRow((byte)4, (byte)0xC2, new byte[] { 0, 0, 0, 9, 97 }, DisplayName = "user name cut short")]
-    [DataRow((byte)4, (byte)0x42, new byte[] { 0, 0 }, DisplayName = "no password")]
-    [DataRow((byte)4, (byte)0x42, new byte[] { 0, 0, 0, 9, 112 }, DisplayName = "password cut short")]
-    [DataRow((byte)4, (byte)0x42, new byte[] { 0, 0, 0, 1, 112, 119 }, DisplayName = "bytes after the password")]
-    public void Connect_WhoseFieldsDoNotLeadToThePassword_HasEverythingAfterTheKeepAliveMasked(
-        byte level,
-        byte flags,
-        byte[] afterKeepAlive)
-    {
-        var sent = Connect(level, flags, afterKeepAlive);
-        byte[] logged = [0x10, 14, .. Text("MQTT"), level, flags, 0x00, 0x3C, .. "****"u8];
-
-        CollectionAssert.AreEqual(logged, SocksTunnelRedactionTestKit.Logged(sent));
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(masked, tunnel);
+        CollectionAssert.AreEqual(Text("secret"), tunnel[(connectStart + connectLength - 8)..(connectStart + connectLength)]);
     }
 
     [TestMethod]
@@ -100,76 +52,35 @@ public sealed class SocksTunnelMqttRedactionTests
             (byte[])[0x10, 14, .. CurlConnect[2..12], .. "****"u8],
             SocksTunnelRedactionTestKit.Logged(CurlConnect[..^3]));
 
-    // Cut off before the keep alive ends, nothing held is a password.
+    // MQTT 5.0 section 3.1; pinned upstream curl speaks 3.1.1 only, so the bytes are the specification's.
     [TestMethod]
-    [DataRow(1)]
-    [DataRow(2)]
-    [DataRow(7)]
-    [DataRow(11)]
-    public void Connect_CutOffBeforeTheKeepAliveEnds_IsLoggedAsReceived(int length) =>
-        CollectionAssert.AreEqual(CurlConnect[..length], SocksTunnelRedactionTestKit.Logged(CurlConnect[..length]));
+    public void Mqtt5Connect_WithAuthenticationData_IsLoggedWithItMaskedHoweverSplit() =>
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(
+            Mqtt5Connect([23, .. Method, 0x16, .. Text("****")]),
+            Mqtt5Connect([28, .. Method, 0x16, .. Text("client-fi")]));
 
+    // MQTT 5.0 section 3.15: reason code 0x18, then the properties.
     [TestMethod]
-    public void MalformedTunnel_ARemainingLengthPastFourBytes_IsLoggedAsReceivedAndNeverHeld()
+    public void Mqtt5Auth_AfterTheConnect_IsLoggedWithTheAuthenticationDataMaskedHoweverSplit()
     {
-        byte[] sent = [0x10, 0xFF, 0xFF, 0xFF, 0xFF, .. new byte[SocksTunnelMqttConnectRedactor.MaxHeldBytes + 1]];
-        var redactor = SocksTunnelRedactionTestKit.GrantedSocks5Tunnel();
-        var output = new ArrayBufferWriter<byte>();
+        var connect = Mqtt5Connect([16, .. Method]);
+        byte[] auth = [0xF0, 33, 0x18, 31, .. Method, 0x16, .. Text("client-final")];
+        byte[] masked = [0xF0, 25, 0x18, 23, .. Method, 0x16, .. Text("****")];
 
-        redactor.Redact(sent.AsSpan(0, 5), output);
-        Assert.AreEqual(5, output.WrittenCount);
-
-        redactor.Redact(sent.AsSpan(5), output);
-        CollectionAssert.AreEqual(sent, output.WrittenSpan.ToArray());
-
-        redactor.Flush(output);
-        CollectionAssert.AreEqual(sent, output.WrittenSpan.ToArray());
+        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit([.. connect, .. masked], [.. connect, .. auth]);
     }
 
-    [TestMethod]
-    public void MalformedTunnel_APacketOverTheHeldLimit_IsOneMaskAndNeverHeld()
+    // Authentication Method SCRAM-SHA-256.
+    private static byte[] Method => [0x15, .. Text("SCRAM-SHA-256")];
+
+    // A level 5 CONNECT with clean start, these properties and client identifier "cid".
+    private static byte[] Mqtt5Connect(byte[] properties)
     {
-        // Remaining Length 65,537, followed by that many bytes and one packet more.
-        byte[] header = [0x10, 0x81, 0x80, 0x04];
-        byte[] body = new byte[65537];
-        byte[] later = [0xE0, 0x00];
-        var redactor = SocksTunnelRedactionTestKit.GrantedSocks5Tunnel();
-        var output = new ArrayBufferWriter<byte>();
+        byte[] body = [.. Text("MQTT"), 0x05, 0x02, 0x00, 0x3C, .. properties, .. Text("cid")];
 
-        redactor.Redact(header, output);
-        CollectionAssert.AreEqual("****"u8.ToArray(), output.WrittenSpan.ToArray());
-
-        redactor.Redact(body.AsSpan(0, 40000), output);
-        redactor.Redact([.. body.AsSpan(40000), .. later], output);
-        redactor.Flush(output);
-
-        CollectionAssert.AreEqual((byte[])[.. "****"u8, .. later], output.WrittenSpan.ToArray());
-    }
-
-    [TestMethod]
-    public void MalformedTunnel_APacketThatIsNoConnect_IsLoggedAsReceived()
-    {
-        byte[] sent = [0x10, 0x00, .. SocksTestKit.Latin1Bytes("anything at all")];
-
-        SocksTunnelRedactionTestKit.AssertLoggedHoweverSplit(sent, sent);
-    }
-
-    [TestMethod]
-    public void MqttRedactor_NullOutput_IsRefused()
-    {
-        var redactor = new SocksTunnelMqttConnectRedactor();
-
-        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Redact([0x10], null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.Flush(null!));
+        return [0x10, (byte)body.Length, .. body];
     }
 
     // Two length bytes and the text, as MQTT writes a string.
     private static byte[] Text(string text) => [(byte)(text.Length >> 8), (byte)text.Length, .. SocksTestKit.Latin1Bytes(text)];
-
-    private static byte[] Connect(byte level, byte flags, params byte[] afterKeepAlive)
-    {
-        byte[] body = [.. Text("MQTT"), level, flags, 0x00, 0x3C, .. afterKeepAlive];
-
-        return [0x10, (byte)body.Length, .. body];
-    }
 }

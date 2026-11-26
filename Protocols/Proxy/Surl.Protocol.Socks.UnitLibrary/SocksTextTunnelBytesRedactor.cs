@@ -1,21 +1,25 @@
 using System.Buffers;
 using Surl.Http2;
+using Surl.LineProtocol;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Socks;
 
 /// <summary>
 /// The <see cref="IReceivedBytesRedactor"/> for a SOCKS tunnel that opens with text. It redacts line
-/// by line (<see cref="SocksTunnelLinesRedactor"/>) until the client sends the HTTP/2 connection
+/// by line (<see cref="TunnelLinesRedactor"/>) until the client sends the HTTP/2 connection
 /// preface, wherever it falls, because HTTP/2 carries a credential as an HPACK field no line rule
 /// sees (ADR-0182, amendment 7). After the preface, frames are redacted by
 /// <see cref="Http2RequestBytesRedactor"/> when the preface opened the tunnel (prior knowledge) or
 /// the origin had sent <c>HTTP/1.1 101</c> (an <c>h2c</c> upgrade); otherwise every later byte is
-/// withheld (<see cref="SocksWithheldBytesRedactor"/>).
+/// withheld (<see cref="SocksWithheldBytesRedactor"/>). The frame redactor withholds a header block
+/// carrying a field of <see cref="HttpWithheldHeaderNames.All"/> (amendment 19). It reads no more of a
+/// tunnel once <see cref="SocksTunnelBytesRedactor"/> finds a binary login after a <c>PROXY</c> line,
+/// so no preface after that is looked for (amendment 25).
 /// </summary>
 internal sealed class SocksTextTunnelBytesRedactor : IReceivedBytesRedactor
 {
-    private IReceivedBytesRedactor current = new SocksTunnelLinesRedactor();
+    private IReceivedBytesRedactor current = new TunnelLinesRedactor();
     private SocksHttp2PrefaceFinder? prefaceFinder = new();
     private bool originSwitchedProtocols;
 
@@ -53,7 +57,7 @@ internal sealed class SocksTextTunnelBytesRedactor : IReceivedBytesRedactor
         }
 
         // The HTTP/2 redactor expects the preface first; it is already logged, so this copy is dropped.
-        var frames = new Http2RequestBytesRedactor();
+        var frames = new Http2RequestBytesRedactor(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
         frames.Redact(Http2ConnectionPreface.Preface, new ArrayBufferWriter<byte>());
 
         return frames;

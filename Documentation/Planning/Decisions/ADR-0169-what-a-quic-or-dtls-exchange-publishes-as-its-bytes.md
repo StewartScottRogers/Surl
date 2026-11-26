@@ -10,6 +10,8 @@
   upstream curl sends or expects).
 - **Amends:** ADR-0124 decision 1 (`ExchangeBytesEvent` gains a layer and a stream identifier; a QUIC or DTLS
   exchange now publishes what the client sent, not only protected packets).
+- **Amended by:** [ADR-0182](ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md)
+  amendment 22 (decision 1's header text writes a CR or LF inside a name or value as `\r` or `\n`).
 - **Acted on by:** the follow-up tasks in decision 6.
 
 ## Context

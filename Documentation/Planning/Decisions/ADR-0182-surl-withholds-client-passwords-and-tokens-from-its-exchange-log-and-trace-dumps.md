@@ -129,6 +129,7 @@ IMAP `+`, the next client line is a secret).
   rewrite file content that happens to look like a command. They still count in `ExchangeEndedEvent` and reach the event stream.
 - **Decrypted-bytes notes** (QUIC, DTLS) are redacted per reported chunk by a fresh redactor from the same server, not by the
   exchange's wire redactor, because the wire bytes of those transports are ciphertext. Only received chunks are redacted. Events stay raw.
+  Amendment 21 replaces "per reported chunk" for a stream's bytes when the redactor follows streams.
 
 ## Amendment 2 (BL-1425, decided by Claude under Stewart's delegation)
 
@@ -162,10 +163,11 @@ IMAP `+`, the next client line is a secret).
   `authorization` or `proxy-authorization` is logged with its payload replaced by `****`, the frame type and length logged as
   received (as HTTP/2, Amendment 3). Surl advertises a QPACK table capacity of 0, so a fresh decoder reads any section.
 - **Decoded header text** (`Decoded` layer, ADR-0169 decision 1) carries the same values in clear, so a chunk starting with `:` is read as
-  `name: value` lines and those two values are written as `****`.
+  `name: value` lines and those two values are written as `****`. Amendment 22 replaces how the text is told apart.
 - **Fail closed, with one limit.** A `HEADERS` payload that does not decode or runs past its chunk is withheld. A chunk is read as
   frames from its first byte because the redactor is not told its stream; a body chunk starting mid-frame that happens to read as
-  an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret.
+  an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret. Amendment 21 tells the
+  redactor the stream and replaces this for a stream's bytes.
 
 ## Amendment 5 (BL-1610, decided by Claude under Stewart's delegation)
 
@@ -283,9 +285,7 @@ Accepted limits:
 - After a `101` to `Upgrade: h2c`, a client that sends anything but the exact preface and then `HEADERS` is not
   masked, although the origin HTTP server's redactor would have masked it. Only a non-conforming client does this.
 - A preface anywhere else loses all later log detail, an upload body that holds it included, on origin listen URLs too
-  when `--proxy` is named. Saying so in the help text is BL-1735.
-- An upgrade request declaring `Content-Length: 0` leaves `HttpRequestHeadBytesRedactor` not at a request start until
-  the next byte arrives, so the preface after it withholds the rest (BL-1736).
+  when `--proxy` is named. `--aihelp logging` and the manual say so (BL-1735).
 - FTP and mail logins in cleartext inside a `CONNECT` tunnel were still not masked. Closed by amendment 16.
 - An over-long first `HEADERS` frame relied on BL-1714 to withhold the `CONTINUATION` after it, here as in the
   origin's own log. Closed by BL-1714, as under amendment 7.
@@ -326,7 +326,8 @@ Accepted limits:
   `+` that invites an IMAP `APPEND` literal) has a client line masked. That loses log detail only.
 - The answer to a synchronizing literal is not awaited, so after a refused `LOGIN` literal the next lines are withheld
   until the announced count is used up.
-- An initial response after two spaces is logged, as in the mail servers' own logs (BL-1738).
+- An initial response after two spaces was logged, as in the mail servers' own logs. Closed by BL-1738 (ADR-0183,
+  amendment 2).
 - An IMAP tag that begins the tunnel with neither a letter nor `1`-`9` leaves the tunnel's login unmasked. A tag
   beginning `0` is read as LDAP (amendment 10), whose rule logs such text as received.
 - A client that answers before the continuation reaches it, which curl does not do, has that answer judged without it.
@@ -359,9 +360,11 @@ An MQTT `CONNECT` password and an LDAP simple bind password carried through a SO
 
 Accepted limits:
 
-- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1744).
+- MQTT 5 Authentication Data, a `CONNECT` property or in an `AUTH` packet, is logged as received (BL-1744). Closed by
+  amendment 28.
 - A packet or message declaring a length that ends before its secret leaves the rest logged as received, and so does
-  a `CONNECT` whose protocol name length runs past the packet. Only a non-conforming client does this.
+  a `CONNECT` whose protocol name length runs past the packet. Only a non-conforming client does this. This holds for
+  Authentication Data as for a password; amendment 28 says what it masks of an MQTT packet that cannot be walked.
 - An LDAP message length written in five or more octets, legal BER that curl does not send, leaves the tunnel logged
   as received from there on, as in the LDAP server's own log.
 - The LDAP lengths enclosing a bind still encode the password's length indirectly, as in amendment 5.
@@ -474,7 +477,7 @@ HTTP-carried extended servers withhold them: `Http3RequestBytesRedactor` named o
    would make their HTTP/3 log differ from their HTTP/1.x and HTTP/2 ones.
 4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
 
-Accepted limit, until BL-1762 closes it:
+Accepted limit, closed by amendment 21:
 
 - Each chunk is redacted on its own (amendment 1), so when QUIC splits a `HEADERS` frame, the chunks after the first are
   logged as received unless they happen to read as a `HEADERS` frame, and a secret in them **can be logged**. This
@@ -523,7 +526,7 @@ judged tunnelled lines only as HTTP head lines.
    | The first line after a `CONNECT` head that declares a body | Always: a `CONNECT` has none |
 
    The last two rows and the bare line feed are there because the proxy accepts a head whose lines end with a bare
-   line feed, and the head redactor does not see such a head end.
+   line feed, and the head redactor does not see such a head end (until amendment 24).
 2. **The client's bytes decide.** The proxy's `200` is not waited for, so tunnelled bytes sent with the `CONNECT` head
    are masked too, and a `CONNECT` retried after a `407` is still read as a head. Rejected: switching when
    `ObserveSent` shows the `200`, which would log what a client sends before it. `ObserveSent` still shows the rules
@@ -541,7 +544,7 @@ judged tunnelled lines only as HTTP head lines.
    A line ended by a bare line feed is judged as soon as it ends. A `334` or `+` line split between the origin's reads,
    or sent with no space after it, is a continuation (amendment 9, points 4 and 5).
 4. **Its own classes.** The rules the SOCKS library holds are written again in the proxy library, because protocol
-   libraries never reference each other (BL-1767 moves both into a shared library). The proxy library now references
+   libraries never reference each other (amendment 20 moves both into `Surl.LineProtocol`). The proxy library now references
    `Surl.LineProtocol.UnitLibrary`, one of ADR-0002 decision 3's horizontal libraries, which adds to the references
    ADR-0088 lists for it.
 5. **Unchanged.** Forwarded requests, and HTTP or RTSP carried in a tunnel, whose lines point 1 does not give to the
@@ -551,9 +554,9 @@ judged tunnelled lines only as HTTP head lines.
    listen URLs use this redactor (amendment 8, point 1), so all of this holds for them.
 6. **Raw bytes elsewhere.** The event stream and `HttpProxyUpstreamTestCaseServer` keep raw bytes (decision 4).
 
-Not masked inside a `CONNECT` tunnel: the MQTT `CONNECT` password and the LDAP bind (BL-1765); the logins of every
-other protocol, the extended servers' included; and, in tunnelled text, any header but the two credential fields of
-`HttpWithheldHeaderNames.Credentials` (BL-1759 adds the API-key fields to the proxy).
+Not masked inside a `CONNECT` tunnel: the MQTT `CONNECT` password and the LDAP bind (BL-1765; closed by amendment
+23); the logins of every other protocol, the extended servers' included; and, in tunnelled text, any header but the two
+credential fields of `HttpWithheldHeaderNames.Credentials` (BL-1759 adds the API-key fields to the proxy).
 
 Accepted limits:
 
@@ -562,7 +565,7 @@ Accepted limits:
 - A first tunnelled line of three words whose last starts `HTTP/` or `RTSP/`, ended by CR LF, is read as a request
   line, so the tunnel is read as HTTP. No FTP or mail client opens that way.
 - A request head on the proxy connection, other than a `CONNECT` head, whose later lines end with a bare line feed is
-  judged by the head redactor as before this amendment.
+  judged by the head redactor as before this amendment. Closed by amendment 24.
 - Text that only looks like these forms (a message line, an HTTP body line after a `PROXY` line sent into the tunnel,
   a line after a request line that is not three words or is ended by a bare line feed) has a secret-shaped part masked.
   That loses log detail only.
@@ -632,6 +635,627 @@ Accepted limits:
 
   | Shape | What is logged | Closed by |
   | --- | --- | --- |
-  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771 |
+  | A request head whose request line ends with CR LF and whose later lines end with a bare line feed, which the proxy accepts: forwarded, a `CONNECT` head's request line aside, or HTTP carried in a tunnel | The lines up to the next CR LF are judged as one, by the first one's name | BL-1771; closed by amendment 24 |
   | A `CONNECT` head holding a secret field followed by a folded line that ends with a bare line feed | The folded line, as received | Not planned: the proxy refuses folded lines |
-  | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770 |
+  | A field in the trailers of a chunked request body | The trailer line, as received (the HTTP/1.x head redactor, so on every HTTP server too) | BL-1770; closed by amendment 32 |
+
+## Amendment 19 (BL-1760, decided by Claude under Stewart's delegation)
+
+An origin reached in cleartext through a SOCKS tunnel had its API-key and session-token fields logged in clear in the
+tunnel's log, though the origin's own log withholds them for the HTTP-carried extended servers (amendment 13's accepted
+limit).
+
+1. **The SOCKS tunnel withholds them in every text tunnel**, because SOCKS does not say what the tunnel carries. The
+   names are read from `HttpWithheldHeaderNames.ApiKeysAndSessionTokens`, and the credential fields' names from
+   `HttpWithheldHeaderNames.Credentials`; both are matched without regard to case.
+
+   | How the tunnel reads the bytes | What is logged for such a field |
+   | --- | --- |
+   | Text lines: `SocksTunnelPasswordAndCredentialHeaderLineRule` | The whole value, and each folded line of it, as `****`; no scheme word is kept |
+   | HTTP/2 after a preface the frames are read after (`Http2RequestBytesRedactor`; amendment 7) | Each `HEADERS` and `CONTINUATION` payload of a header block carrying it, as `****` (amendment 3's form) |
+
+2. **The rule is renamed.** `SocksTunnelPasswordAndAuthorizationLineRule` (amendments 6 and 9) is now
+   `SocksTunnelPasswordAndCredentialHeaderLineRule`, because it masks more than the authorization headers.
+3. **What this replaces.** The SOCKS tunnel's part of amendment 13, point 3, and of its accepted limit, and
+   amendment 18, point 3's "the SOCKS tunnel is unchanged". The tunnel's log now withholds at least what the origin's
+   own log does of these fields; for an `http` or `https` origin, whose own redactors name no API-key field, it
+   withholds more, never less (narrowing amendment 7, point 2).
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- A line of another protocol that looks like one of these headers has its value masked, and so does a body line. That
+  loses log detail only.
+- The limits on where a tunnel is read as text or as HTTP/2 (amendments 6, 7, 9 and 10), and on bytes no SOCKS
+  handshake explains (amendment 12), hold for these fields as for the credential fields.
+- Three shapes curl does not send, where one of these fields, or a credential field, **can be logged**. Each predates
+  this amendment for the credential fields.
+
+  | Shape | What is logged | Closed by |
+  | --- | --- | --- |
+  | A folded line following a header line longer than 64 KiB, which is logged as `****` without the rule seeing it | The folded line, as received | Open |
+  | A header line that starts with a space or a tab and follows no withheld header | The line, as received | BL-1772; closed by amendment 33 |
+  | A header that follows a bare carriage return | The whole is judged as one line, by the first name in it | BL-1772; closed by amendment 33 |
+
+## Amendment 20 (BL-1767, decided by Claude under Stewart's delegation)
+
+The SOCKS server and the HTTP proxy each held its own copy of the tunnel line rules (amendment 16, point 4), so a fix to
+one could miss the other.
+
+1. **One copy, in `Surl.LineProtocol`.** Both already reference it (amendments 9 and 16), and it references
+   `Surl.Protocol.Abstractions`, where `HttpWithheldHeaderNames`, `LineBytesRedactor` and `ILineRedactionRule` are, so
+   no new library or reference is needed. Rejected: the abstractions library, because the combining rule needs
+   `SaslLineRedactionRule`, which is in `Surl.LineProtocol`. The four classes are public:
+
+   | Shared class | Replaces, in SOCKS and in the HTTP proxy |
+   | --- | --- |
+   | `TunnelLinesRedactor` | `SocksTunnelLinesRedactor`, `HttpProxyTunnelLinesRedactor` |
+   | `TunnelLineRedactionRule` | `SocksTunnelLineRedactionRule`, `HttpProxyTunnelLineRedactionRule` |
+   | `TunnelPasswordAndCredentialHeaderLineRule` | `SocksTunnelPasswordAndCredentialHeaderLineRule`, `HttpProxyTunnelPasswordAndCredentialHeaderLineRule` |
+   | `TunnelImapLoginLineRule` | `SocksTunnelImapLoginLineRule`, `HttpProxyTunnelImapLoginLineRule` |
+
+   Where amendments 6, 9, 16, 18 and 19 name a replaced class, the shared one is meant. This replaces amendment 6,
+   point 4, amendment 9, point 3's "the SOCKS library keeps its own rule", and amendment 16, point 4's "its own
+   classes".
+2. **`LOGIN` words are separated by spaces and tabs.** The copies differed in this: the proxy's rule did so, the SOCKS
+   one split on spaces only. A tab-separated `LOGIN` line through a SOCKS tunnel now has its password logged as `****`.
+   Splitting on tabs alone would have shown passwords the SOCKS rule masked (a tab inside or before the tag, or
+   standing as the user name), so the shared rule reads each line both ways: words separated by spaces and tabs, and by
+   spaces only. A line either reading takes for `LOGIN` is one, it is masked from the earlier password of the two, and a
+   literal it announces is withheld. Blanks after the user name are logged either way. Both servers therefore mask at
+   least the password either copy masked.
+3. **What stays apart.** Where each server starts reading a connection as tunnelled text, and what it does at an HTTP/2
+   preface, differ and stay in each server's library.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Accepted limits:
+
+- A line neither reading takes for `LOGIN` is logged as received, one with no tag included (until amendment 29).
+- The limits amendments 9, 16, 18 and 19 give for these rules hold for both servers alike.
+
+## Amendment 21 (BL-1762, decided by Claude under Stewart's delegation)
+
+QUIC reports each in-order piece of a stream as its own chunk, and each chunk was redacted on its own, so the later
+chunks of a split HTTP/3 `HEADERS` frame were logged as received, a secret included (amendment 14's accepted limit,
+read from the code, not recorded).
+
+1. **The redactor follows the stream.** `Surl.Protocol.Abstractions` gains `IStreamReceivedBytesRedactor`, an
+   `IReceivedBytesRedactor` with `RedactStream(streamId, received, output)`, which holds nothing back. When the
+   server's redactor is one, the engine keeps one instance per exchange and gives it every received `Decrypted` chunk
+   that has a stream ID, one call at a time. DTLS plaintext, QUIC datagrams and `Decoded` text have no stream bytes to
+   follow and are redacted alone, each by a fresh redactor, as amendment 1 says; so are the chunks of a server whose
+   redactor does not follow streams.
+2. **A frame payload is not the stream's next bytes.** HTTP/3 reports a `DATA` payload a second time, as `Decrypted`
+   bytes of the same stream (ADR-0169 decision 1). `IDecryptedBytesSink` gains `ReceivedFramePayload`, whose default
+   calls `Received`; `Surl.Http3` reports `DATA` payloads through it, and the engine redacts each alone, as before. The
+   published event is unchanged.
+3. **HTTP/3 form.** A client's bidirectional stream is read as frames from its first byte, however it is split. A frame
+   header is logged as received as its bytes arrive. A `HEADERS` payload is logged as received only when it is whole in
+   the chunk that completes its frame header, decodes and carries no secret field; otherwise it is `****` once, and every
+   further byte of it is left out. Every other frame's payload is logged as received, so a `DATA` payload is no longer
+   mistaken for a frame. A unidirectional stream carries no request, and each of its chunks is redacted alone.
+   Amendment 35 excepts a session stream of either direction from this point.
+4. **Nothing is held back.** Holding a split payload until it is whole could show a non-secret one, but needs a buffer of
+   up to 64 KiB per stream and a flush when the stream ends, which nothing reports. Rejected: a split `HEADERS` payload
+   is withheld whether or not it carries a secret, as its first chunk already was (amendment 4).
+5. **Bounded memory.** Only streams part-way through a frame are remembered, at most 4,096. When one more would be, the
+   redactor has lost a stream's place, and every later bidirectional stream chunk is `****` (fail closed, as amendment
+   11, point 4). Replaced by amendment 35.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4).
+
+Accepted limits:
+
+- A WebTransport bidirectional stream (signal `0x41`, session ID, then data) is read as frames too, so data that reads
+  as a `HEADERS` frame is withheld, now possibly across several chunks. That loses log detail only (BL-1775). Closed
+  by amendment 35.
+- A stream reset or finished part-way through a frame stays remembered until the connection ends, and counts towards the
+  4,096 (BL-1775). Closed by amendment 35.
+- `Decoded` header text is still redacted only when it starts with `:` and line by line, so a malformed request whose
+  first field is a regular one, or whose secret value holds CR LF, **can be logged** in that note. This amendment changes
+  nothing there (BL-1773). Closed by amendment 22.
+
+## Amendment 22 (BL-1773, decided by Claude under Stewart's delegation)
+
+The HTTP/3 server reports a request's decoded header list before it validates it, so a malformed request could put a
+secret in the `Decoded` note two ways (read from the code, then reproduced by unit tests, not recorded on the wire): a
+list whose first field is a regular one was read as HTTP/3 frames, and a value holding CR LF put its rest on a line of
+its own. Both were logged as received.
+
+1. **The engine says which text it is.** `Surl.Protocol.Abstractions` gains `IDecodedTextReceivedBytesRedactor`, an
+   `IReceivedBytesRedactor` with `RedactDecodedText(decodedText, output)`, which holds nothing back. The engine gives
+   every received `Decoded` chunk to a fresh redactor's `RedactDecodedText` when the redactor is one, and to `Redact`
+   when it is not. `Http3RequestBytesRedactor` is one, and no longer guesses from a leading `:`: its `Redact` reads
+   frames only. This replaces amendment 4's "a chunk starting with `:`".
+2. **One header, one line.** The decoded header text writes a CR inside a name or value as the two characters `\r`, and
+   an LF as `\n`, in the note and in the published `ExchangeBytesEvent` alike, so the whole of a secret field's value is
+   on its line and is written as `****`. RFC 9114 makes a request carrying either malformed, so a well-formed
+   request's text is unchanged, and ADR-0169 decision 1's one line per header now holds for every list. A backslash is written as it is,
+   so the text does not say whether `\r` stood in the value as two characters. This is not a change to wire bytes: the
+   `Decrypted` and wire layers keep what the client sent (decision 4).
+3. **Rejected.** Reporting the list only after validation hides what a malformed request carried from a test. Withholding
+   every line after a secret one hides the other fields of well-formed requests. Passing the redactor the field list
+   instead of text changes `IDecryptedBytesSink` for one reader.
+
+Accepted limit:
+
+- A secret field is matched by its exact name, without regard to case, in the note as in the `HEADERS` payload
+  (amendment 4). A malformed name that only resembles one, such as `authorization` followed by a space or a CR, is
+  another name, and its value **can be logged**.
+
+## Amendment 23 (BL-1765, decided by Claude under Stewart's delegation)
+
+An MQTT `CONNECT` password and an LDAP simple bind password sent through an HTTP proxy `CONNECT` tunnel were logged in
+clear: the proxy gave a tunnel starting `0x10` or `0x30` to the request head redactor, which masks header fields only.
+
+1. **One copy, in `Surl.LineProtocol`.** SOCKS's redactors move there, public, as amendment 20 did the line rules. Both
+   servers already reference it, so no new library or reference is needed. Rejected: copies in the proxy library, which a
+   fix could miss; and a new library, for two classes that sit beside the rules both servers already share.
+
+   | Shared class | Was |
+   | --- | --- |
+   | `TunnelMqttConnectRedactor` (with `TunnelMqttConnectPasswordFinder`) | `SocksTunnelMqttConnectRedactor`, `SocksMqttConnectPasswordFinder` |
+   | `TunnelLdapBindRedactor` (with `TunnelBerHeader`, `TunnelBerRead`) | `SocksTunnelLdapBindRedactor`, `SocksBerHeader`, `SocksBerRead` |
+   | `TunnelBinaryLoginRedactors`, which chooses by the first byte | `SocksTunnelBytesRedactor`'s own choice |
+
+   Where amendment 10 names a replaced class, the shared one is meant, and this replaces its point 1's "the SOCKS
+   library keeps its own small framing parsers". What each redactor writes, and amendment 10's limits, are unchanged and
+   hold for both servers.
+2. **Where the proxy's tunnel starts.** At the byte after the empty line that ends a `CONNECT` head, whether or not the
+   head declares a body. `ConnectHeadEndFinder` finds it from the lines alone: a head starts at a line holding
+   `CONNECT ` whose last word starts `HTTP/`, and lines end with a line feed, with or without a carriage return. When
+   that byte is `0x10` or `0x30`, every later byte of the connection is that redactor's. The proxy's `200` is not waited
+   for (amendment 16, point 2). The finder is apart from the line rules' own reading, so it also finds a head after a
+   leading empty line, one a request body runs into in the same read, and one retried after a `407`, however the bytes
+   are split. Rejected: relying on where the head redactor sees a request start, which each of those three defeats.
+3. **A `PROXY` line first.** curl 8.21.0 with `--haproxy-protocol -p` sends a PROXY protocol line in the tunnel before
+   the MQTT `CONNECT` (fixture `proxytunnel-haproxy-mqtt-user-and-password`). So the proxy judges the byte after a first
+   tunnel line starting `PROXY ` the same way.
+4. **What this replaces.** Amendment 16's "not masked inside a `CONNECT` tunnel" for MQTT and LDAP; for these two first
+   bytes, its point 1's "every later byte of the connection is redacted line by line" and its point 5's "a tunnel
+   starting with any other byte (TLS and other binary protocols) is too". Every other binary tunnel is redacted as
+   before.
+5. **Raw bytes elsewhere.** The event stream and `HttpProxyUpstreamTestCaseServer` keep raw bytes (decision 4).
+
+Evidence: pinned upstream curl 8.21.0 sent the MQTT 3.1.1 `CONNECT` straight after the proxy's `200` (fixture
+`proxytunnel-mqtt-user-and-password`). The LDAP test bytes are the bind it sent straight to an LDAP server
+(`Surl.Protocol.Ldap.UnitTests/Fixtures/simple-bind-base-search`); no LDAP exchange through a tunnel was recorded.
+
+Accepted limits:
+
+- A tunnel starting `0x10` or `0x30` no longer has its later lines judged by any line rule, so a secret in such a line
+  (a header field, or, where the tunnel was read as text, a `PASS`, `LOGIN` or SASL line) **can be logged**. Where it
+  was read as text this includes an IMAP tag beginning `0` (after a `PROXY` line, or a `CONNECT` head that declares a
+  body or ends a line with a bare line feed), which amendments 9 and 16 had masked or left as here.
+- Any client line holding `CONNECT ` whose last word starts `HTTP/` (another method's request line ending in
+  `CONNECT`, a header field or a body line as much as a `CONNECT` request line) starts a head for the finder. A `0x10`
+  or `0x30` after the next empty line then hands the rest of the connection to that redactor, so later header fields,
+  and the password of a tunnel opened later on that connection, **can be logged**. Only a client crafting its own bytes
+  does this. Rejected: matching only a line that begins `CONNECT `, which a body running into the request line defeats.
+- A login that does not start at either of the two places (behind a PROXY protocol version 2 header, or other bytes) is
+  not masked by these two redactors.
+- A SOCKS tunnel that starts with a `PROXY` line is read as text, so an MQTT or LDAP password after it **can be logged**
+  (BL-1780). Closed by amendment 25.
+
+## Amendment 24 (BL-1771, decided by Claude under Stewart's delegation)
+
+`HttpRequestHeadBytesRedactor` ended a head line at CR LF only, though `HttpConnectionReader`, which the HTTP servers and
+the HTTP proxy read heads with, ends one at a bare line feed too. So the lines up to the next CR LF were judged as one,
+by the first one's name, and a secret field after a bare line feed was logged in clear (the first row of amendment 18's
+table of shapes; amendment 16 had it for the credential fields).
+
+1. **A line feed ends a head line**, with or without a carriage return before it. Each line is judged on its own, its
+   folded lines too, and is written with the line end it arrived with.
+2. **An empty line ended either way ends the head.** The body starts at the next byte, framed as the head declares, and
+   the head after it is redacted again. A request line ended by a bare line feed still gives the head its version.
+3. **Everywhere the redactor is used.** The `http` and `https` servers, the WebSocket and RTSP servers, the extended
+   servers answering HTTP/1.1, and the request heads the HTTP proxy's log reads with it, HTTP carried in its `CONNECT`
+   tunnel included. After a head ended with a bare line feed, the WebSocket log writes the whole head before the frames,
+   and the RTSP redactor knows an interleaved `$` frame.
+4. **Lines that are no field fail closed.** Judged line by line, a value broken by a bare line feed leaves its rest on a
+   line of its own, which was masked while the lines were judged as one. So a line with no colon after a secret field is
+   `****`, as a folded line of it is, and so are the lines like it that follow.
+5. **A secret field where the request line belongs is masked.** A line longer than 64 KiB is `****` without the head
+   rule seeing it, so after such a request line the rule takes the next line for the request line, which it writes
+   unchanged. When that line names a secret field, its value is masked as in any other place.
+6. **Where the HTTP proxy's tunnelled text starts is unchanged** (amendment 16, point 1): a request line or a `CONNECT`
+   head line without CR LF is still the tunnel's. The reason amendment 16 gives, that the head redactor does not see such
+   a head end, no longer holds. A head ended with a bare line feed is now followed by a place where a request may start,
+   as a head ended with CR LF is: tunnelled text may start there, and an HTTP/2 preface there is read as frames
+   (amendment 8) where it withheld every later byte before.
+7. **Rejected:** changing `LineBytesRedactor` (decision 6), whose CR LF line end the other line protocols share. The
+   HTTP head redactor hands it a CR LF for a bare line feed and drops the CR from what comes back.
+8. **What this closes.** The first row of amendment 18's table of shapes (its other two rows stay as they were), and
+   amendment 16's accepted limit on a request head, other than a `CONNECT` head, whose later lines end with a bare line
+   feed. `--aihelp logging` and the manual still name that limit until BL-1764 rewrites them.
+9. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- What follows an empty line is the body or the next request line, as the server reads it, however the line ended: a
+  client that puts a value there has it logged as received, unless it is a request line that names a secret field.
+- A folded line, or one with no colon, after a line longer than 64 KiB that held a secret field is logged as received.
+- A chunked body is read as before: its chunk-size and trailer lines already ended at a line feed, and a secret field in
+  its trailers is still logged (BL-1770). Closed by amendment 32.
+
+## Amendment 25 (BL-1780, decided by Claude under Stewart's delegation)
+
+An MQTT `CONNECT` password and an LDAP bind sent through a SOCKS tunnel after a PROXY protocol line were logged in
+clear: a tunnel whose first byte is `P` was read as text to its end (amendment 23's last accepted limit).
+
+1. **One copy, in `Surl.LineProtocol`.** `TunnelBinaryLoginStartFinder` finds where a binary login starts: at the
+   tunnel's first byte, or at the byte after a first line starting `PROXY `, several such lines in a row each followed.
+   The logic was the HTTP proxy's own (amendment 23, point 3); both servers now call the one class, each keeping its
+   own instance per tunnel (the proxy: per `CONNECT` head). The byte is still chosen by `TunnelBinaryLoginRedactors`.
+   Rejected: a second copy in the SOCKS library, which a fix could miss.
+2. **SOCKS.** A text tunnel stays with the line rules (amendment 9) through its `PROXY` lines. When the byte after one
+   is `0x10` or `0x30`, that byte and every later one go to the MQTT or LDAP redactor (amendment 10). This holds from
+   the client's bytes alone, however they are split, and widens amendment 10, point 1's "first client byte".
+3. **Unchanged.** What the HTTP proxy writes, every other SOCKS tunnel, the redactors' limits, and the raw bytes of the
+   event stream and of `SocksUpstreamTestCaseServer` (decision 4).
+
+Evidence: pinned upstream curl 8.21.0 (`0E773709…8778`) with `--haproxy-protocol --socks5-hostname` sent the `PROXY`
+line in the granted tunnel and then the MQTT 3.1.1 `CONNECT` (fixture `socks5h-haproxy-mqtt-user-and-password`). For
+`ldap://` it sent the `PROXY` line and no bind: its WinLDAP binds outside the tunnel. The LDAP test joins that line to
+the bind curl sent straight to an LDAP server (`Surl.Protocol.Ldap.UnitTests/Fixtures/simple-bind-base-search`).
+
+Accepted limits:
+
+- As amendment 23 has it for the proxy, a SOCKS tunnel with a `0x10` or `0x30` (the digit `0`) after a first `PROXY`
+  line has no later line judged by any line rule. So a secret in such a line, an IMAP `LOGIN` tagged from `0` included,
+  which amendment 9 had masked there, **can be logged**. Only a client crafting its own bytes does this: curl's IMAP
+  tags begin with a letter.
+- No HTTP/2 preface is looked for after that byte either. So where one after the `PROXY` line had withheld every later
+  byte of the tunnel (amendment 7), a field sent behind it **can be logged**. Again only a client crafting its own
+  bytes does this: curl sends the preface straight after its `PROXY` line.
+- A login behind a PROXY protocol version 2 header, or any other bytes, is not masked by these two redactors.
+- `--aihelp logging` and the manual name only the first tunnelled byte as what chooses the MQTT and LDAP redactors,
+  until BL-1764 rewrites them.
+
+## Amendment 26 (BL-1781, decided by Claude under Stewart's delegation)
+
+The WebSocket redactor took an empty line before the upgrade request line for the end of the head, so every later byte,
+the `Authorization` field included, was logged in clear. The server skips such lines and accepts the request (RFC 9112,
+section 2.2).
+
+1. **The upgrade head ends at the first empty line after a non-empty one.** Empty lines before the request line, ended
+   by CR LF or a bare line feed, are written as received and end nothing. The head after them is redacted as any other
+   is, and the bytes after it pass through unchanged. This holds however the bytes are split.
+2. **A line of carriage returns alone counts as empty here.** The server refuses one before the request line that holds
+   more than the CR of its own line end, and the log still masks the head that follows it.
+3. **Rejected:** ending the WebSocket log's search where `HttpRequestHeadBytesRedactor` says a head ends, which needs
+   a new public member in `Surl.HttpMessage` for what one flag in the WebSocket redactor does.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Its two accepted limits (a later upgrade head on the connection, and a field after a line of carriage returns, logged
+as received) are closed by amendment 27, which also replaces points 1 to 3.
+
+## Amendment 27 (BL-1782, decided by Claude under Stewart's delegation)
+
+The WebSocket redactor stopped at the end of the first upgrade head. A `401` keeps the connection (ADR-0032), so the
+`Authorization` of a later upgrade request on it was logged in clear. So was a field after a line of carriage returns
+that followed the request line.
+
+1. **The server's `101` is what ends redaction, not a head's blank line.** Until the redactor sees the server send
+   bytes starting `HTTP/1.1 101 `, every received byte goes to `HttpRequestHeadBytesRedactor`, so every upgrade head
+   on the connection is redacted, however the bytes are split. This replaces amendment 26, points 1 to 3.
+2. **Bytes received after the `101` was sent are frames** and are written unchanged. A line still held back from
+   before it is written first, judged as a head line.
+3. **Fail closed before the answer.** Bytes read before the server has answered, those read together with an upgrade
+   request included, are judged as a request head: the client does not yet know the answer, so they may be its next
+   request. A frame sent that early is logged as received unless the head rules mask it: a line of it that reads as a
+   secret field, and the lines with no colon after one, have their values written as `****`, and a line longer than
+   64 KiB is `****` as far as the `101` or the end of that line.
+4. **A line of carriage returns alone ends no head**, as `HttpRequestHeadBytesRedactor` reads it, so a field after it
+   is masked.
+5. **Rejected:** masking only until a first head has ended and starting again on each `401`, because a client may send
+   its next request before the `401` reaches the redactor.
+
+Evidence: pinned upstream curl 8.21.0 (`0E773709…8778`), answered `401` on `ws://` with `--anyauth` and with
+`--digest`, closed the connection and exited 22 without sending a second request
+(`--anyauth`: fixture `anyauth-401-101` in `Surl.Protocol.Ws.UnitTests`). So the second head on one connection comes
+from another client. The redaction itself is reproduced by unit tests, not recorded on the wire.
+
+Accepted limit:
+
+- As amendment 24 has it for every user of the head redactor, what a head declares as its body is logged as received.
+  The server refuses an upgrade that declares one and closes the connection, so only a client crafting its own bytes
+  puts a login there.
+
+## Amendment 28 (BL-1744, decided by Claude under Stewart's delegation)
+
+MQTT 5 Authentication Data sent through a SOCKS tunnel or an HTTP proxy `CONNECT` tunnel, a `CONNECT` property or in an
+`AUTH` packet, was logged in clear (amendment 10's first accepted limit).
+
+1. **Every packet of the tunnel is framed.** `TunnelMqttLoginRedactor` (with `TunnelMqttLoginBodyMasker`,
+   `TunnelMqttPropertiesMasker` and `TunnelMqttFields`) replaces amendment 23's `TunnelMqttConnectRedactor` and
+   `TunnelMqttConnectPasswordFinder`. It holds each `CONNECT` and `AUTH` packet until it is whole. Of every other packet
+   only the fixed header is held until whole, and its bytes are logged as they arrive, however long it is. This replaces
+   amendment 10, point 2's "later packets are logged as they arrive" for those two packet types.
+2. **What is masked.** The password as before. Every Authentication Data value is logged as `00 04 ****`, with the
+   Property Length and the Remaining Length rewritten to count what is logged, in the `CONNECT` properties, in an
+   `AUTH` packet's, and among the Will properties, where the specification does not allow it. A packet with no secret
+   is logged as received. The protocol level is not consulted for `AUTH`: MQTT 3.1.1 reserves its packet type.
+3. **Fail closed.** A `CONNECT` that announces a password, or is level 5 or higher, whose fields do not lead exactly to
+   its end has everything after its keep alive logged as `****`. So has one with a property identifier the
+   specification's table 2-4 does not define, because nothing after it can be told apart. An `AUTH` packet whose
+   properties do not end exactly where it does is logged with `****` as its whole body. A cut-off packet is judged the
+   same way.
+4. **64 KiB.** A `CONNECT` or `AUTH` packet declaring more is one `****` and its bytes are dropped, and the packets
+   after it are framed as before. No more than 64 KiB is ever held (amendment 10).
+5. **Rejected:** framing later packets only after a level 5 `CONNECT`, which a `CONNECT` too long to be read would
+   switch off; and sharing the MQTT 5 server's `Mqtt5ClientSecretBytesRedactor`, which `Surl.LineProtocol` may not
+   reference (ADR-0002 decision 3).
+
+Evidence: pinned upstream curl speaks MQTT 3.1.1 only, so the test bytes are written from the MQTT 5.0 specification,
+sections 2.2.2, 3.1 and 3.15. The redaction is reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- As amendment 10 has them: a packet declaring a length that ends before its secret, a `CONNECT` whose protocol name
+  length runs past the packet, and everything after a Remaining Length past four bytes are logged as received. Only a
+  non-conforming client does these.
+- In another binary protocol starting `0x10`, any later run of bytes may now be read as a `CONNECT` or `AUTH` packet,
+  held (never more than 64 KiB) and lose log detail to `****`. That never reveals a secret.
+- `--aihelp logging` and the manual still name MQTT 5 Authentication Data as logged in a tunnel, until BL-1764 rewrites
+  them.
+
+## Amendment 29 (BL-1750, decided by Claude under Stewart's delegation)
+
+An IMAP `LOGIN` line with no tag, such as `LOGIN alice <password>`, was logged in clear in a SOCKS tunnel and in an HTTP
+proxy `CONNECT` tunnel (amendment 20's first accepted limit). A server refuses such a line, but the client has already
+sent the password.
+
+1. **First or second word.** In `TunnelImapLoginLineRule`, a line is a `LOGIN` line when its first or second word is
+   `LOGIN`, blanks before the first word skipped. This replaces "second word" in amendment 9, point 3. It matches what
+   the IMAP server's own log does (ADR-0183, amendment 3). Both readings of amendment 20, point 2 apply it, so words
+   may be separated by tabs, with a tag or without one.
+2. **`LOGIN LOGIN`.** When the first two words are both `LOGIN`, the first may be the tag or the second the user name of
+   a line with no tag. Everything after the second is `****`.
+3. **Blanks before the tag.** Skipping them also masks a line that starts with a space before its tag, which was logged
+   as received.
+
+Accepted limits:
+
+- A line of another protocol or a body line whose first word is `login` has everything after its second word masked.
+  That loses log detail only.
+- A line where `LOGIN` is neither the first nor the second word is logged as received.
+- Which tunnels are read as text is unchanged (amendment 9, point 1): a tunnel whose first byte is a space is not.
+
+## Amendment 30 (BL-1753, decided by Claude under Stewart's delegation)
+
+A `PASS<tab><password>` or `ACCT<tab><account>` line was logged in clear in a SOCKS tunnel and in an HTTP proxy
+`CONNECT` tunnel, because the shared rule asked for a space after the command word.
+
+1. **A space or a tab ends the command word.** `TunnelPasswordAndCredentialHeaderLineRule` reads `PASS` or `ACCT`,
+   without regard to case, followed by a space or a tab. This replaces the `PASS ` and `ACCT ` of amendment 6, point 3.
+2. **What is logged.** The command word and that one byte as received, then `****` for everything after it, further
+   spaces and tabs included. A line with nothing after that byte is logged as received. This matches what the FTP
+   server's own log does with a tab.
+
+Evidence: pinned upstream curl separates the two with a single space, so no byte it sends is logged differently. The
+redaction is reproduced by unit tests, not recorded on the wire.
+
+Accepted limit:
+
+- A `PASS` or `ACCT` line with spaces or tabs before the command word is still logged as received, unless it continues
+  a withheld header, until BL-1783. Closed by amendment 34.
+
+## Amendment 31 (BL-1761, decided by Claude under Stewart's delegation)
+
+The FTP and NATS readers end a line at a bare line feed, and `LineBytesRedactor` ended one at CR LF only. The two rules
+judged each piece on its own (BL-1755, BL-1757), so no secret was logged, but a client ending lines with a bare line
+feed had them held until a CR LF arrived or the connection closed, and past 64 KiB they were logged as `****` and
+dropped.
+
+1. **A redactor chooses its line end.** `LineBytesRedactor` takes `endsLineAtBareLineFeed`, `false` by default. When
+   `true`, a line feed ends a line with or without a carriage return before it. This widens decision 6's "one line" to
+   the line as the server reads it.
+2. **FTP and NATS pass `true`.** Each line is judged and written when its line feed arrives, followed by the line end it
+   arrived with. Their rules no longer split what they are handed.
+3. **64 KiB** now counts one such line. The rest of a longer one is dropped up to its line feed, which is written with
+   the carriage return when one came before it.
+4. **Everyone else is unchanged.** SMTP, IMAP and POP3 end a line only at CR LF (ADR-0050 decision 8), as their
+   redactors do. The HTTP head redactor (amendment 24, point 7) and the tunnels' line redactor keep their own handling.
+5. **Rejected:** a member on `ILineRedactionRule`, because where a line ends is the redactor's job, not the judgement of
+   one line; and ending every redactor's lines at a bare line feed, which would show a mail rule pieces of a line its
+   server reads as one.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+## Amendment 32 (BL-1770, decided by Claude under Stewart's delegation)
+
+`HttpRequestHeadBytesRedactor` passed the trailers of a chunked request body through unchanged, so a secret field sent
+there, such as `X-Api-Key` after the last chunk, was logged in clear (the third row of amendment 18's table of shapes;
+amendment 24's last accepted limit).
+
+1. **The trailer section is judged as field lines.** After the last chunk's size line, each line is held until its line
+   feed, with or without a carriage return before it (amendment 24, points 1 and 7), and written with the line end it
+   arrived with. A secret field has its value masked as in a head, and so have its folded lines and the lines with no
+   colon after it. Which fields are secret, and whether a scheme word is kept, are as in a head.
+2. **No trailer line is a request line.** The first one is judged as a field too.
+3. **An empty line ended either way ends the section**, and the next head on the connection is redacted. A trailer
+   section changes no framing, whatever fields it holds. A line of carriage returns alone ends no section, as the HTTP
+   servers read it (before this amendment it ended one).
+4. **Everywhere the redactor is used** (amendment 24, point 3). A size line with no hexadecimal digit other than `0`
+   before any `;` or carriage return is read as the last chunk's, as before, so the lines after it are now judged as
+   trailers up to an empty one.
+5. **What this closes.** The third row of amendment 18's table of shapes, and amendment 24's last accepted limit.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- A trailer line longer than 64 KiB is `****` without the rule seeing it, and a folded line, or one with no colon, after
+  such a line that held a secret field is logged as received, as in a head (amendment 24).
+- Chunk extensions and chunk data are logged as received: they are not fields.
+- Chunk framing is read leniently, as before: other bytes of a size line that are not hexadecimal digits are skipped. So
+  a client that breaks the framing (no line end after a chunk's data, say) can have later lines counted as chunk data
+  and logged as received. The servers refuse such a body.
+- As in a head, a trailer line that starts with a space or a tab and follows no secret field, or a field that follows a
+  bare carriage return, is logged as received. curl sends neither.
+
+## Amendment 33 (BL-1772, decided by Claude under Stewart's delegation)
+
+In a SOCKS tunnel and in an HTTP proxy `CONNECT` tunnel, a secret header's value was logged in clear when the header
+line started with a space or a tab and followed no withheld header, or when the header followed a bare carriage return
+(two of amendment 19's three shapes).
+
+1. **Blanks before a header name are skipped.** `TunnelPasswordAndCredentialHeaderLineRule` trims spaces and tabs at
+   both ends of a header name. The value is masked as for the same line without them.
+2. **A header is read after every bare carriage return too**, as well as at the start of the line, with the same
+   blanks skipped. The first withheld header so read is masked from where its secret begins to the end of the line,
+   later carriage returns and anything after them included.
+3. **A scheme word is kept only when its credentials follow it before the next bare carriage return.** Otherwise the
+   whole value is masked, so `Authorization: s<CR>X-Other: a b` shows no part of `s`.
+4. **A line holding such a header is continued** by a following line that starts with a space or a tab (amendment 19).
+5. **The SASL rule writes nothing after its first mask on a line with a bare carriage return.** Without this,
+   `a AUTH PLAIN x<CR>X-Api-Key: s` showed `s`, because the SASL rule's mask began earlier than the header rule's and
+   its output won. This adds the carriage return to the tab and the quotes of ADR-0183, amendment 7, in
+   `SaslLineRedactionRule`, so the SMTP, IMAP and POP3 servers' logs withhold it too. That withholds more, never less.
+6. **What this closes.** The second and third rows of amendment 19's table of shapes, for the SOCKS tunnel and, since
+   amendment 20 gave both one rule, for the HTTP proxy's tunnel.
+7. **Rejected:** ending a tunnelled line at a bare carriage return, which would change what the other rules judge as one
+   line and let a secret that holds a carriage return be shown in pieces.
+8. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire. curl sends neither shape.
+
+Accepted limits:
+
+- A line of another protocol, or a body line, that looks like one of these headers after blanks or a carriage return has
+  its value masked. That loses log detail only.
+- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785. Closed by
+  amendment 36.
+- A folded line following a header line longer than 64 KiB is still logged as received (amendment 19's first shape).
+
+## Amendment 34 (BL-1783, decided by Claude under Stewart's delegation)
+
+A `PASS <password>` or `ACCT <account>` line that started with spaces or tabs was logged in clear in a SOCKS tunnel
+and in an HTTP proxy `CONNECT` tunnel (amendment 30's accepted limit).
+
+1. **Blanks before a command word are skipped.** `TunnelPasswordAndCredentialHeaderLineRule` skips every space and tab
+   at the start of the line, then reads `PASS` or `ACCT` as in amendment 30. This matches what amendment 33 does before
+   a header name, and what the POP3 server's own log does (BL-1756).
+2. **What is logged.** The blanks, the command word and the one byte ending it as received, then `****`. A line with
+   nothing after that byte is logged as received.
+3. **A continuation comes first.** A line starting with a space or a tab that continues a withheld header is still
+   masked from its first other byte (amendment 19), so the command word is masked with the rest.
+4. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire. Pinned upstream curl sends no blank
+before a command word.
+
+Accepted limits:
+
+- A line of another protocol, or a body line, whose first word after blanks is `PASS` or `ACCT` has the rest masked.
+  That loses log detail only.
+- Which tunnels are read as text is unchanged (amendment 9, point 1): a line that starts with a space or a tab and is
+  the first thing a tunnel carries does not make it one.
+- A `PASS` or `ACCT` command that follows a bare carriage return is still logged as received, until BL-1785. Closed by
+  amendment 36.
+
+## Amendment 35 (BL-1775, decided by Claude under Stewart's delegation)
+
+The WebTransport server's HTTP/3 redactor read a WebTransport bidirectional stream as frames, so session data could be
+left out of the log, and a stream that ended part-way through a frame stayed remembered: after 4,096 of them every
+later bidirectional chunk was `****` (amendment 21's first two accepted limits).
+
+1. **Session streams are marked by whoever makes the redactor.** WebTransport makes `Http3RequestBytesRedactor` with
+   the bidirectional signal `0x41` and the unidirectional stream type `0x54`. A client stream of that direction whose
+   first integer, of any variable-length encoding, equals the marker is session data: it is logged as received from the
+   chunk completing that integer, while the stream is remembered, and the integer's earlier bytes are logged as
+   received too. The session ID is not parsed, since the server never reads such a stream as a request.
+2. **Only the stream's first integer counts.** So with a marker every stream of that direction is remembered from its
+   first chunk, and a later `40 41` on a bidirectional stream is still read as frames. A unidirectional stream that is
+   not a session stream is still judged chunk by chunk.
+3. **The plain HTTP/3 redactor has no marker.** The http and https servers' redactor reads `0x41` as an unknown frame
+   type, so a secret `HEADERS` frame after it is still withheld. Without a marker only bidirectional streams part-way
+   through a frame are remembered.
+4. **Bounded memory, replacing amendment 21, point 5.** At most 4,096 streams of each direction are remembered. One
+   more forgets the lowest stream ID of that direction and keeps the highest forgotten ID as a high-water mark. A
+   bidirectional stream that is not remembered and is at or below the mark is written as `****`, failing closed for it
+   alone. Such a unidirectional stream is judged chunk by chunk and not remembered again. This forgets abandoned
+   streams without any end-of-stream notification.
+5. **Rejected:** an end-of-stream notification, which needs a new contract through `Surl.Quic`, `Surl.Core` and
+   `Surl.Protocol.Abstractions`; forgetting the least recently used stream, whose mark could jump past quiet or late
+   streams and which needs more bookkeeping; and parsing the session ID.
+6. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), and no byte on the wire changes.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- A forgotten bidirectional stream is `****` from then on. That includes a long-lived `CONNECT` stream of a
+  WebTransport connection after 4,096 later bidirectional streams; its `DATA` payloads are still noted separately.
+- A bidirectional stream first seen at or below the mark is `****` too, and so is one of the plain redactor that comes
+  back after a frame boundary with an ID at or below the mark.
+- A unidirectional session stream that is forgotten, or first seen at or below the mark, is judged chunk by chunk, so
+  data that reads as a `HEADERS` frame can be withheld. That loses log detail only.
+- A stream that opens with the marker is logged as received whatever it holds.
+- QUIC datagrams and `DATA` payloads are still read as frames, so one that reads as a `HEADERS` frame can be withheld.
+  That loses log detail only; this amendment leaves it to a follow-up task (BL-1788). Closed by amendment 37.
+
+## Amendment 36 (BL-1785, decided by Claude under Stewart's delegation)
+
+A `PASS <password>` or `ACCT <account>` command that followed a bare carriage return, as in
+`NOOP<CR>PASS <password>`, was logged in clear in a SOCKS tunnel and in an HTTP proxy `CONNECT` tunnel (the second
+accepted limit of amendment 33 and the third of amendment 34).
+
+1. **A command is read after every bare carriage return too**, as well as at the start of the line, with the same
+   spaces and tabs skipped (amendment 34) and the same space or tab ending the command word (amendment 30).
+2. **What is logged.** The line as received up to and including the byte ending the first such command word, then
+   `****`, later carriage returns and anything after them included. A line with nothing after that byte is logged as
+   received.
+3. **The earlier secret wins.** On a line holding both such a command and a withheld header (amendment 33), the line is
+   masked from whichever secret begins earlier.
+4. **A header after the command still counts.** A following line that starts with a space or a tab continues it and is
+   masked (amendments 19 and 33), though the mask on the first line began at the command.
+5. **What this closes.** The limit amendments 33 and 34 left to BL-1785.
+6. **Rejected:** ending a tunnelled line at a bare carriage return, for the reason in amendment 33, point 7.
+7. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), so a test still sees what the client sent.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire. curl does not send the shape.
+
+Accepted limits:
+
+- A line of another protocol, or a body line, whose first word after a bare carriage return is `PASS` or `ACCT` has
+  the rest masked. That loses log detail only.
+- A `PASS` or `ACCT` word ended by a carriage return, as in `PASS<CR><password>`, is not read as a command, so what
+  follows it is logged as received unless another rule withholds it. curl does not send the shape.
+- Which tunnels are read as text is unchanged (amendment 9, point 1).
+
+## Amendment 37 (BL-1788, decided by Claude under Stewart's delegation)
+
+The HTTP/3 and WebTransport logs read each received QUIC datagram and `DATA` payload as HTTP/3 frames from its first
+byte, so session data or a request body that read as a `HEADERS` frame was left out of the log (amendment 35's last
+accepted limit).
+
+1. **The engine says what a chunk is.** `Surl.Protocol.Abstractions` gains
+   `IStreamlessAndFramePayloadReceivedBytesRedactor`, an `IReceivedBytesRedactor` with
+   `RedactStreamlessBytes(received, output)` and `RedactFramePayload(payload, output)`, which hold nothing back. When
+   the server's redactor is one, the engine gives a fresh instance each received `Decrypted` chunk that has no stream ID
+   through the first, and each `ReceivedFramePayload` piece through the second. A redactor that is not one gets both
+   through `Redact` and `Flush`, as before, so DTLS plaintext keeps its redaction. This replaces amendment 21, point 1
+   for QUIC datagrams and point 2 for frame payloads, for such a redactor only.
+2. **HTTP/3 form.** `Http3RequestBytesRedactor` is one, and writes both as received whatever they hold. A secret field
+   travels only in a `HEADERS` frame on a stream; a datagram is HTTP datagram or WebTransport session data, and a
+   `DATA` payload is the client's payload (decision 8). A `DATA` payload was already logged as received within its
+   stream's bytes (amendment 21, point 3), so its second note now agrees with the first.
+3. **Streams are unchanged.** A `HEADERS` frame on a stream is still withheld as amendments 21 and 35 say.
+4. **Rejected:** a new member on `IDecryptedBytesSink` for datagrams, since a chunk with no stream ID already says what
+   it is and `Surl.Quic` need not change; and having the engine log every datagram and frame payload as received, which
+   would drop the redaction of DTLS plaintext.
+5. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), and no byte on the wire changes.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- A `DATA` payload of a forgotten or never-remembered bidirectional stream (amendment 35, point 4) is `****` in the
+  stream's note and logged as received in its own. It is the client's payload, not a credential.
+- A unidirectional stream chunk is still judged as amendments 21 and 35 say, so one that is not a remembered session
+  stream's and reads as a `HEADERS` frame can be withheld. That loses log detail only.

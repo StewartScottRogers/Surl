@@ -129,7 +129,7 @@ public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWr
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for the connection, used by that exchange alone.</returns>
     public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
-        new LineBytesRedactor(new NatsConnectLineRedactionRule());
+        new LineBytesRedactor(new NatsConnectLineRedactionRule(), endsLineAtBareLineFeed: true);
 
     /// <inheritdoc/>
     public async Task ServeAsync(IConnection connection, ExchangeContext context)

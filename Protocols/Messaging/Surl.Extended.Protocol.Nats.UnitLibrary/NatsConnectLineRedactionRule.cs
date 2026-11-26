@@ -16,8 +16,8 @@ namespace Surl.Extended.Protocol.Nats;
 /// as <c>"****"</c>. A <c>CONNECT</c> argument that is not one readable JSON object may still hold
 /// a secret, so all of it is written as <c>****</c>. A line that is not <c>CONNECT</c>, or has no
 /// argument, is logged as received. <see cref="NatsControlLineReader"/> also ends a line at a bare
-/// line feed, which <see cref="LineBytesRedactor"/> does not, so each LF-separated piece of the
-/// line handed over is judged on its own and the line feeds are logged as sent.
+/// line feed, so <see cref="NatsServer"/> creates its <see cref="LineBytesRedactor"/> to end a line
+/// there too, and each line is handed over on its own as it arrives (ADR-0182, amendment 31).
 /// </remarks>
 internal sealed class NatsConnectLineRedactionRule : ILineRedactionRule
 {
@@ -29,25 +29,6 @@ internal sealed class NatsConnectLineRedactionRule : ILineRedactionRule
     public void Redact(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        var rest = line;
-        for (var end = rest.IndexOf((byte)'\n'); end >= 0; end = rest.IndexOf((byte)'\n'))
-        {
-            RedactControlLine(rest[..end], output);
-            output.Write("\n"u8);
-            rest = rest[(end + 1)..];
-        }
-
-        RedactControlLine(rest, output);
-    }
-
-    /// <inheritdoc/>
-    public void ObserveSent(ReadOnlySpan<byte> sent)
-    {
-        // NATS needs no knowledge of what the server sent: the secrets are always in CONNECT's JSON.
-    }
-
-    private static void RedactControlLine(ReadOnlySpan<byte> line, ArrayBufferWriter<byte> output)
-    {
         var start = ArgumentStart(line);
         if (start < 0)
         {
@@ -66,6 +47,12 @@ internal sealed class NatsConnectLineRedactionRule : ILineRedactionRule
         {
             output.Write(LineBytesRedactor.SecretMask);
         }
+    }
+
+    /// <inheritdoc/>
+    public void ObserveSent(ReadOnlySpan<byte> sent)
+    {
+        // NATS needs no knowledge of what the server sent: the secrets are always in CONNECT's JSON.
     }
 
     // Where CONNECT's argument starts, or -1 when the line is not a CONNECT with an argument.

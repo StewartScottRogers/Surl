@@ -81,6 +81,17 @@ public sealed class FtpExchangeLogRedactionTests
         Assert.AreEqual("PASS \nPASS\t\nPASS\r\n", Logged("PASS \nPASS\t\nPASS\r\n"));
 
     [TestMethod]
+    public void Pass_EndedByABareLineFeed_IsLoggedMaskedAsItArrivesBeforeAnyCrLfOrFlush()
+    {
+        var redactor = NewRedactor();
+        var output = new ArrayBufferWriter<byte>();
+
+        redactor.Redact("PASS s3cret\n"u8, output);
+
+        Assert.AreEqual("PASS ****\n", Encoding.ASCII.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
     public void ObserveSent_ChangesNothing()
     {
         var redactor = NewRedactor();

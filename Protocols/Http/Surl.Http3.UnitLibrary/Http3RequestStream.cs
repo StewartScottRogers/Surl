@@ -209,7 +209,7 @@ public sealed class Http3RequestStream
                 var piece = await reader.ReadPieceAsync((long)Math.Min(dataRemaining, int.MaxValue), cancellationToken);
                 dataRemaining -= (ulong)piece.Length;
                 received += piece.Length;
-                decryptedBytes.Received(ExchangeBytesLayer.Decrypted, (long)Id, piece);
+                decryptedBytes.ReceivedFramePayload(ExchangeBytesLayer.Decrypted, (long)Id, piece);
                 return piece;
             }
 

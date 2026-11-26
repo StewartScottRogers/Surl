@@ -1,0 +1,50 @@
+---
+id: BL-1781
+title: Redact a WebSocket upgrade head that starts with an empty line
+priority: Normal
+assignee: Claude
+pipeline: direct
+depends-on: []
+touches: [Protocols/Http/Surl.Protocol.Ws.UnitLibrary, Protocols/Http/Surl.Protocol.Ws.UnitTests, Documentation/Planning/Decisions/ADR-0182-surl-withholds-client-passwords-and-tokens-from-its-exchange-log-and-trace-dumps.md]
+requirement: none
+created: 2026-11-26
+completed: 2026-11-26
+---
+# BL-1781 — Redact a WebSocket upgrade head that starts with an empty line
+
+## Goal
+
+The `ws` server's exchange log withholds the upgrade request's credentials when empty lines come before the request
+line.
+
+## Context
+
+- Found by the review of BL-1771, read from the code and not reproduced.
+- `WebSocketUpgradeHeadBytesRedactor.LengthThroughHeadEnd` starts with `lineIsEmpty` set, so a leading `\r\n` or `\n`
+  is taken for the end of the head, and every later byte, `Authorization` included, passes through unredacted.
+- `HttpConnectionReader` skips empty lines before the request line (RFC 9112, section 2.2) and accepts the request.
+- `HttpRequestHeadBytesRedactor` already handles such lines; only the WebSocket redactor's own head-end search needs to
+  ignore empty lines until a non-empty one has been seen.
+- Only the levelled log and trace dumps change; the event stream keeps raw bytes (ADR-0182 decision 4).
+
+## Acceptance criteria
+
+- [x] A test in `Surl.Protocol.Ws.UnitTests` passes in which an upgrade head after a leading `\r\n`, and after a leading
+      `\n`, is logged with `Authorization: Basic ****`, also one byte at a time.
+- [x] Frames after that head still pass through unchanged, pinned by the same or another test.
+- [x] A new ADR-0182 amendment states the behaviour.
+- [x] Build with `-warnaserror` is clean, fast tests are green, and the library stays at 100% line and branch coverage.
+
+## Notes
+
+- Reproduced first: 7 new test cases in `WsExchangeLogRedactionTests` logged the credentials in clear before the fix.
+- Fix: one flag in `WebSocketUpgradeHeadBytesRedactor`; the head ends at the first empty line after a non-empty one.
+  Recorded in ADR-0182 amendment 26, with the rejected alternative.
+- Found, outside this goal, and filed as BL-1782: the redactor stops after the first head, so the request retried after
+  a `401` on the same connection is logged in clear.
+
+## Log
+
+- 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. The ws exchange log masks Authorization after empty lines before the upgrade request line (ADR-0182 amendment 26); follow-up BL-1782.

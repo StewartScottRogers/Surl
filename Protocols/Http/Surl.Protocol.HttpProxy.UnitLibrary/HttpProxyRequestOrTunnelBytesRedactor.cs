@@ -1,5 +1,6 @@
 using System.Buffers;
 using Surl.HttpMessage;
+using Surl.LineProtocol;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.HttpProxy;
@@ -7,9 +8,11 @@ namespace Surl.Protocol.HttpProxy;
 /// <summary>
 /// The <see cref="IReceivedBytesRedactor"/> for what a client sends the proxy before any HTTP/2
 /// connection preface: HTTP request heads (<see cref="HttpRequestHeadBytesRedactor"/>), until the
-/// bytes turn out to be a <c>CONNECT</c> tunnel's text. From there on, every line is redacted by
-/// <see cref="HttpProxyTunnelLinesRedactor"/> (ADR-0182, amendment 16). Request heads and tunnelled
-/// lines alike lose the values of <see cref="HttpWithheldHeaderNames.Credentials"/> and
+/// bytes turn out to be a <c>CONNECT</c> tunnel's text or binary login. From there on, text is
+/// redacted line by line by <see cref="TunnelLinesRedactor"/> (ADR-0182, amendment 16), and an MQTT
+/// <c>CONNECT</c> or an LDAP bind by the redactor <see cref="TunnelBinaryLoginRedactors"/> chooses
+/// (amendment 23). Request heads and tunnelled lines alike lose the values of
+/// <see cref="HttpWithheldHeaderNames.Credentials"/> and
 /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> (amendment 18).
 /// </summary>
 /// <remarks>
@@ -22,9 +25,18 @@ namespace Surl.Protocol.HttpProxy;
 /// which makes it the tunnel's.
 /// </para>
 /// <para>
-/// The client's bytes alone say where this happens, so tunnelled bytes sent before the proxy's
-/// <c>200</c> are redacted too. A tunnel starting with any other byte (TLS, LDAP, MQTT) stays with
-/// the request head redactor.
+/// <see cref="ConnectHeadEndFinder"/> finds where a <c>CONNECT</c> head ends, however its lines are
+/// read. When the byte after it is <c>0x10</c> or <c>0x30</c>, every later byte is that binary
+/// redactor's. So is it when one of those bytes follows a first tunnel line starting <c>PROXY </c>,
+/// which curl's <c>--haproxy-protocol</c> sends ahead of the protocol's own bytes
+/// (<see cref="TunnelBinaryLoginStartFinder"/>, which the SOCKS server shares; amendment 25). This
+/// holds even when the byte starts text a line rule would have judged, such as an IMAP tag beginning
+/// <c>0</c>.
+/// </para>
+/// <para>
+/// The client's bytes alone say where all this happens, so tunnelled bytes sent before the proxy's
+/// <c>200</c> are redacted too. A tunnel starting with any other byte that starts no text (TLS and
+/// other binary protocols) stays with the redactor its <c>CONNECT</c> head ended in.
 /// </para>
 /// </remarks>
 internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesRedactor
@@ -34,15 +46,22 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
 
     // The proxy cannot tell which origin it carries, so every request head loses the API-key fields too.
     private readonly HttpRequestHeadBytesRedactor requests = new(HttpWithheldHeaderNames.ApiKeysAndSessionTokens);
-    private readonly HttpProxyTunnelLinesRedactor tunnelLines = new();
+    private readonly TunnelLinesRedactor tunnelLines = new();
 
     // The start of a line not yet known to be a request head's or the tunnel's.
     private readonly ArrayBufferWriter<byte> undecidedLine = new();
     private bool isInConnectHead;
     private bool isTunnelledText;
 
+    private readonly ConnectHeadEndFinder connectHeads = new();
+
+    // Follows the bytes after the latest CONNECT head's empty line; null before there is one.
+    private TunnelBinaryLoginStartFinder? tunnelStart;
+    private IReceivedBytesRedactor? tunnelledBinaryLogin;
+
     /// <summary>Whether the next byte may begin a new request.</summary>
-    public bool IsAtRequestStart => !isTunnelledText && undecidedLine.WrittenCount == 0 && requests.IsAtRequestStart;
+    public bool IsAtRequestStart =>
+        !isTunnelledText && tunnelledBinaryLogin is null && undecidedLine.WrittenCount == 0 && requests.IsAtRequestStart;
 
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
@@ -74,6 +93,7 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
         undecidedLine.ResetWrittenCount();
         requests.Flush(output);
         tunnelLines.Flush(output);
+        tunnelledBinaryLogin?.Flush(output);
     }
 
     private static bool MayStartTunnel(byte first) =>
@@ -94,6 +114,27 @@ internal sealed class HttpProxyRequestOrTunnelBytesRedactor : IReceivedBytesReda
 
     // The bytes hold at most one line feed, as their last byte.
     private void RedactWithinOneLine(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
+    {
+        // A login can only start at the first of these bytes: they end at the first line feed.
+        if (tunnelStart is not null && tunnelStart.TryFind(bytes, out _, out var found))
+        {
+            tunnelledBinaryLogin = found;
+        }
+
+        if (tunnelledBinaryLogin is not null)
+        {
+            tunnelledBinaryLogin.Redact(bytes, output);
+            return;
+        }
+
+        RedactAsRequestOrText(bytes, output);
+        if (connectHeads.EndsConnectHead(bytes))
+        {
+            tunnelStart = new();
+        }
+    }
+
+    private void RedactAsRequestOrText(ReadOnlySpan<byte> bytes, ArrayBufferWriter<byte> output)
     {
         if (isTunnelledText)
         {

@@ -253,6 +253,82 @@ public sealed class HttpProxyExchangeLogRedactionTests
     }
 
     [TestMethod]
+    public void ConnectTunnel_MqttConnectPassword_IsAbsentFromTheLog()
+    {
+        // Pinned upstream curl 8.21.0 with -p: its CONNECT, then MQTT CONNECT and SUBSCRIBE in the tunnel.
+        var recorded = Fixture("proxytunnel-mqtt-user-and-password", "request.bin");
+        var headLength = recorded.AsSpan().IndexOf("\r\n\r\n"u8) + 4;
+        var head = recorded[..headLength];
+        var tunnelled = recorded[headLength..];
+        var password = tunnelled.AsSpan().IndexOf("\0\u0006secret"u8);
+        Assert.AreEqual(0x28, tunnelled[1]);
+        byte[] expected =
+        [
+            .. head,
+            0x10, 0x26, // the Remaining Length counts what is written
+            .. tunnelled[2..password],
+            .. "\0\u0004****"u8,
+            .. tunnelled[(password + 8)..],
+        ];
+
+        AssertTunnelLoggedAtOnceAndByteByByte(expected, head, tunnelled);
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_MqttConnectPasswordAfterCurlsProxyProtocolLine_IsAbsentFromTheLog()
+    {
+        // The same with --haproxy-protocol: curl sends a PROXY line in the tunnel before the CONNECT.
+        var recorded = Fixture("proxytunnel-haproxy-mqtt-user-and-password", "request.bin");
+        var headLength = recorded.AsSpan().IndexOf("\r\n\r\n"u8) + 4;
+        var head = recorded[..headLength];
+        var tunnelled = recorded[headLength..];
+        var connect = tunnelled.AsSpan().IndexOf((byte)'\n') + 1;
+        var password = tunnelled.AsSpan().IndexOf("\0\u0006secret"u8);
+        StringAssert.StartsWith(Latin1(tunnelled), "PROXY TCP4 ");
+        Assert.AreEqual(0x10, tunnelled[connect]);
+        byte[] expected =
+        [
+            .. head,
+            .. tunnelled[..(connect + 1)],
+            0x26,
+            .. tunnelled[(connect + 2)..password],
+            .. "\0\u0004****"u8,
+            .. tunnelled[(password + 8)..],
+        ];
+
+        AssertTunnelLoggedAtOnceAndByteByByte(expected, head, tunnelled);
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_LdapBindAfterALongBodyRunsIntoTheConnectLine_IsAbsentFromTheLog()
+    {
+        var upload = $"POST http://o/a HTTP/1.1\r\nHost: o\r\nContent-Length: 70000\r\n\r\n{new string('a', 70000)}";
+        byte[] bind = [0x30, 0x0F, 0x02, 0x01, 0x01, 0x60, 0x0A, 0x02, 0x01, 0x03, 0x04, 0x00, 0x80, 0x03, .. "pw!"u8, 0x42, 0x00];
+
+        var logged = Logged(upload, Connect, Latin1(bind));
+
+        Assert.DoesNotContain("pw!", logged);
+        StringAssert.EndsWith(logged, "\u0080\u0004****B\0");
+    }
+
+    [TestMethod]
+    public void ConnectTunnel_LdapSimpleBindPassword_IsAbsentFromTheLog()
+    {
+        // The bind and unbind pinned upstream curl 8.21.0 sent for `-u alice:secret ldap://...`
+        // (Surl.Protocol.Ldap.UnitTests/Fixtures/simple-bind-base-search).
+        byte[] bind =
+        [
+            0x30, 0x84, 0, 0, 0, 0x1B, 0x02, 0x01, 0x01, 0x60, 0x84, 0, 0, 0, 0x12, 0x02, 0x01, 0x03,
+            0x04, 0x05, .. "alice"u8, 0x80, 0x06, .. "secret"u8,
+        ];
+        byte[] unbind = [0x30, 0x84, 0, 0, 0, 0x05, 0x02, 0x01, 0x03, 0x42, 0x00];
+        var head = Bytes(Connect).ToArray();
+        byte[] expected = [.. head, .. bind[..^8], 0x80, 0x04, .. "****"u8, .. unbind];
+
+        AssertTunnelLoggedAtOnceAndByteByByte(expected, head, [.. bind, .. unbind]);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ForwardedAuthorization_ReachesTheOriginUnchangedWhileTheLogHoldsOnlyMaskedBytes()
     {
         var origin = Connection("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
@@ -264,6 +340,21 @@ public sealed class HttpProxyExchangeLogRedactionTests
         StringAssert.Contains(Latin1(origin.WrittenBytes), "Authorization: Bearer tok3n");
         Assert.AreEqual(new OriginConnectionRequest("origin.test", 80, ExchangeLimits.Default.HeadTimeout), origins.Requests.Single());
     }
+
+    // What is logged of a CONNECT head, the proxy's 200 and the tunnelled bytes, whether the client's
+    // bytes arrive in one chunk each or one at a time.
+    private static void AssertTunnelLoggedAtOnceAndByteByByte(byte[] expected, byte[] head, byte[] tunnelled)
+    {
+        var atOnce = HttpProxyRedactionTestBytes.Logged(ProxyRedactor(), [head], Established, [tunnelled]);
+        var byteByByte = HttpProxyRedactionTestBytes.Logged(
+            ProxyRedactor(), OneByteEach(head), Established, OneByteEach(tunnelled));
+
+        Assert.DoesNotContain("secret", Latin1(atOnce));
+        CollectionAssert.AreEqual(expected, atOnce, Latin1(atOnce));
+        CollectionAssert.AreEqual(expected, byteByByte, Latin1(byteByByte));
+    }
+
+    private static byte[][] OneByteEach(byte[] bytes) => [.. bytes.Select(value => new[] { value })];
 
     // Proves a recording holds the credential, Huffman-coded, in the HEADERS frame at headersStart,
     // and returns where that frame's header block ends.

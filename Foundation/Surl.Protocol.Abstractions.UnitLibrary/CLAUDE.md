@@ -183,8 +183,10 @@ and the protocols fan out after.
 
 - The decrypted-bytes contract (ADR-0169, decisions 2 and 3; BL-1266): `ExchangeBytesLayer` (`Wire` = 0,
   `Decrypted`, `Decoded`), `ExchangeBytesEvent.Layer` (default `Wire`) and `StreamId` (default `null`), and
-  `IDecryptedBytesSink` (`Received`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
-  `DiscardingDecryptedBytesSink.Instance`. `Surl.Core`'s `ServingEngine` sets its own sink, which notes each chunk in
+  `IDecryptedBytesSink` (`Received`, `ReceivedFramePayload`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
+  `DiscardingDecryptedBytesSink.Instance`. `ReceivedFramePayload` (BL-1762; default: calls `Received`) takes a frame
+  payload read out of a stream whose bytes are also reported through `Received`, so it is not the stream's next bytes.
+  `Surl.Core`'s `ServingEngine` sets its own sink, which notes each chunk in
   the exchange log (received bytes redacted when the server redacts) and, while the publisher wants bytes, publishes
   it unredacted as an `ExchangeBytesEvent` with its layer and stream. The sink is called by `Surl.Dtls`'s
   `DtlsServerSession` (application-data plaintext), `Surl.Quic`'s `QuicServerConnection` (`DATAGRAM` payloads) and
@@ -203,15 +205,27 @@ and the protocols fan out after.
   (ADR-0182): `Credentials` (`Authorization`, `Proxy-Authorization`), `ApiKeysAndSessionTokens` (five) and
   `All`. `Surl.HttpMessage`'s request head redactor, `Surl.HttpServing`'s `HttpExchangeRedaction` and
   `Surl.Authentication`'s withheld Signature Version 4 canonical request read it, and so does `Surl.Http2`'s
-  `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC, DNS over HTTPS and
-  the HTTP proxy; BL-1717, BL-1759; the proxy also masks them in its HTTP/1.x request heads and tunnelled
-  text lines) and `Surl.Http3`'s `Http3RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for
-  WebTransport; BL-1718); the SOCKS tunnel redactor still names `Authorization` and `Proxy-Authorization`
-  itself.
+  `Http2RequestBytesRedactor` (`Credentials`, plus `ApiKeysAndSessionTokens` for gRPC, DNS over HTTPS, the
+  HTTP proxy and the SOCKS tunnel; BL-1717, BL-1759, BL-1760) and `Surl.Http3`'s `Http3RequestBytesRedactor`
+  (`Credentials`, plus `ApiKeysAndSessionTokens` for WebTransport; BL-1718). The HTTP proxy also masks all
+  seven in its tunnelled text lines (and the API keys and session tokens in its HTTP/1.x request heads), and
+  the SOCKS tunnel masks them in its text lines too (BL-1760); both use `Surl.LineProtocol`'s
+  `TunnelPasswordAndCredentialHeaderLineRule`, which reads `Credentials` and `ApiKeysAndSessionTokens` from here
+  (BL-1767).
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
-  returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
-  `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
+  returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves line protocols through an
+  `ILineRedactionRule`, holding at most 64 KiB. It ends a line at CR LF; created with `endsLineAtBareLineFeed` (the FTP and
+  NATS servers, whose readers do), it ends one at a bare line feed too, and writes each line end as it arrived (ADR-0182,
+  amendment 31; BL-1761). Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
   SMTP, IMAP, POP3 and NATS servers return a `LineBytesRedactor` with their own rule, others an `IReceivedBytesRedactor`
   of their own or of a shared library (gRPC's is `Surl.Http2`'s `Http2RequestBytesRedactor`), and `Surl.Composition`'s
   wrapping servers hand on a redactor too. `Surl.Core`'s `ServingEngine` writes the redacted bytes to the exchange log
   and feeds the event stream the bytes as received; a server that does not implement it is logged byte for byte.
+  `IStreamReceivedBytesRedactor` (ADR-0182, amendment 21; BL-1762) adds `RedactStream(streamId, received, output)`,
+  which holds nothing back: the engine keeps one per exchange for the decrypted bytes of its streams.
+  `IDecodedTextReceivedBytesRedactor` (ADR-0182, amendment 22; BL-1773) adds `RedactDecodedText(decodedText, output)`,
+  which holds nothing back: the engine calls it for received `Decoded` text, so a redactor never guesses from the first
+  bytes which it was given. `IStreamlessAndFramePayloadReceivedBytesRedactor` (ADR-0182, amendment 37; BL-1788) adds
+  `RedactStreamlessBytes(received, output)` and `RedactFramePayload(payload, output)`, which hold nothing back: the
+  engine calls them for received `Decrypted` bytes with no stream ID and for `ReceivedFramePayload` pieces. `Surl.Http3`'s
+  `Http3RequestBytesRedactor` implements all three.

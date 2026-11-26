@@ -11,25 +11,35 @@ namespace Surl.HttpMessage;
 /// <c>Authorization: Basic ****</c> (ADR-0182, decisions 1 and 7).
 /// </summary>
 /// <remarks>
-/// A head is held back one line at a time (see <see cref="LineBytesRedactor"/>). Once the blank line
-/// ends a head, the body its framing declares - a <c>Content-Length</c> count or a chunked
-/// sequence - passes through unchanged, and the next head on a persistent connection is redacted
-/// again. A head whose framing cannot be read is followed by another head, so nothing is left
-/// unredacted. A field name is compared without regard to case (RFC 9110, section 5.1).
+/// A head is held back one line at a time (see <see cref="LineBytesRedactor"/>). A line ends at a
+/// line feed, with or without a carriage return before it, as <see cref="HttpConnectionReader"/>
+/// reads it, so each line is judged on its own and an empty one ended either way ends the head; the
+/// line end is written as it arrived. A line with no colon after a secret field is masked as part of
+/// it, and a line naming a secret field is masked even where the request line belongs (ADR-0182,
+/// amendment 24). Once the blank line ends a head, the body its framing declares - a
+/// <c>Content-Length</c> count or a chunked sequence - passes through, its chunk sizes and data
+/// unchanged. The trailer section of a chunked body (RFC 9112, section 7.1.2) is held back and
+/// judged line by line as a head's field lines are, so a secret field in it, and each folded line of
+/// one, is masked; its framing fields change nothing (ADR-0182, amendment 32, which closes the limit
+/// amendments 18 and 24 give, that a secret in the trailers is logged). The next head on a
+/// persistent connection is then redacted again. A head whose framing cannot be read is followed by
+/// another head, so nothing is left unredacted. A field name is compared without regard to case
+/// (RFC 9110, section 5.1).
 /// </remarks>
 public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
 {
     private const byte CarriageReturn = 0x0D;
     private const byte LineFeed = 0x0A;
 
+    // Ordered by how their bytes are read: as field lines, as counted data, then as chunk framing.
     private enum State
     {
         Head,
-        ContentLengthBody,
-        ChunkSizeLine,
-        ChunkData,
-        ChunkDataEnd,
         Trailers,
+        ContentLengthBody,
+        ChunkData,
+        ChunkSizeLine,
+        ChunkDataEnd,
     }
 
     private readonly HttpRequestHeadLineRule rule;
@@ -38,7 +48,7 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     private long remaining;
     private long chunkSize;
     private bool inChunkExtension;
-    private int trailerLineLength;
+    private bool previousFieldLineByteWasCarriageReturn;
 
     /// <summary>
     /// Creates a redactor for one connection.
@@ -51,8 +61,8 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     }
 
     /// <summary>
-    /// Whether the next byte begins a new request: no body or framing is being passed through and
-    /// no byte of a head line is held back. A protocol that interleaves its own frames between
+    /// Whether the next byte begins a new request: no body, chunk framing or trailer section is
+    /// being read and no byte of a head line is held back. A protocol that interleaves its own frames between
     /// requests (RTSP's <c>$</c> frames) uses this to tell where one may start.
     /// </summary>
     public bool IsAtRequestStart => state == State.Head && lines.HeldByteCount == 0 && rule.NoHeadLineRead;
@@ -66,7 +76,7 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
         {
             index += state switch
             {
-                State.Head => RedactHeadByte(received[index], output),
+                State.Head or State.Trailers => RedactFieldLineByte(received[index], output),
                 State.ContentLengthBody or State.ChunkData => PassThroughBody(received[index..], output),
                 _ => PassThroughFramingByte(received[index], output),
             };
@@ -81,18 +91,52 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     {
         ArgumentNullException.ThrowIfNull(output);
         lines.Flush(output);
+        previousFieldLineByteWasCarriageReturn = false;
     }
 
-    private int RedactHeadByte(byte next, ArrayBufferWriter<byte> output)
+    // A byte of a head line or of a trailer line.
+    private int RedactFieldLineByte(byte next, ArrayBufferWriter<byte> output)
     {
-        lines.Redact([next], output);
-        if (rule.HeadIsComplete)
+        if (next == LineFeed && !previousFieldLineByteWasCarriageReturn)
         {
-            StartBody(rule.Framing);
-            rule.StartNextHead();
+            EndFieldLineAtBareLineFeed(output);
+        }
+        else
+        {
+            lines.Redact([next], output);
+        }
+
+        previousFieldLineByteWasCarriageReturn = next == CarriageReturn;
+        if (rule.FieldSectionIsComplete)
+        {
+            EndFieldSection();
         }
 
         return 1;
+    }
+
+    // A head is followed by the body it declares; a trailer section by the next head.
+    private void EndFieldSection()
+    {
+        if (state == State.Head)
+        {
+            StartBody(rule.Framing);
+        }
+        else
+        {
+            state = State.Head;
+        }
+
+        rule.StartNextHead();
+    }
+
+    // LineBytesRedactor ends a line at CR LF only, so it is given both and the CR it writes back is dropped.
+    private void EndFieldLineAtBareLineFeed(ArrayBufferWriter<byte> output)
+    {
+        var endedLine = new ArrayBufferWriter<byte>();
+        lines.Redact("\r\n"u8, endedLine);
+        output.Write(endedLine.WrittenSpan[..^2]);
+        output.Write([LineFeed]);
     }
 
     private void StartBody(HttpRequestBodyFraming framing)
@@ -128,21 +172,13 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     private int PassThroughFramingByte(byte next, ArrayBufferWriter<byte> output)
     {
         output.Write([next]);
-        switch (state)
+        if (state == State.ChunkSizeLine)
         {
-            case State.ChunkSizeLine:
-                ReadChunkSizeByte(next);
-                break;
-            case State.ChunkDataEnd:
-                if (next == LineFeed)
-                {
-                    StartChunkSizeLine();
-                }
-
-                break;
-            default:
-                ReadTrailerByte(next);
-                break;
+            ReadChunkSizeByte(next);
+        }
+        else if (next == LineFeed)
+        {
+            StartChunkSizeLine();
         }
 
         return 1;
@@ -159,9 +195,7 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
     {
         if (next == LineFeed)
         {
-            remaining = chunkSize;
-            trailerLineLength = 0;
-            state = chunkSize == 0 ? State.Trailers : State.ChunkData;
+            EndChunkSizeLine();
         }
         else if (next is (byte)';' or CarriageReturn)
         {
@@ -174,20 +208,18 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
         }
     }
 
-    private void ReadTrailerByte(byte next)
+    // The last chunk, of size 0, is followed by the trailer section; any other by its data.
+    private void EndChunkSizeLine()
     {
-        if (next == LineFeed)
+        if (chunkSize == 0)
         {
-            if (trailerLineLength == 0)
-            {
-                state = State.Head;
-            }
-
-            trailerLineLength = 0;
+            rule.StartTrailerSection();
+            state = State.Trailers;
         }
-        else if (next != CarriageReturn)
+        else
         {
-            trailerLineLength++;
+            remaining = chunkSize;
+            state = State.ChunkData;
         }
     }
 }

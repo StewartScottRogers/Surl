@@ -58,6 +58,16 @@ public sealed class DecryptedBytesContractTests
     }
 
     [TestMethod]
+    public void ReceivedFramePayload_ASinkThatDoesNotImplementIt_TakesTheBytesAsReceived()
+    {
+        var sink = new RecordingSink();
+
+        ((IDecryptedBytesSink)sink).ReceivedFramePayload(ExchangeBytesLayer.Decrypted, 4, new byte[3]);
+
+        Assert.AreEqual("R Decrypted 4 3", sink.Calls.Single());
+    }
+
+    [TestMethod]
     public void ExchangeContext_DecryptedBytes_DefaultsToDiscardingAndCarriesAGivenSink()
     {
         var context = new ExchangeContext(

@@ -118,9 +118,9 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
     /// credentials of the client's <c>Proxy-Authorization</c> and <c>Authorization</c> fields where
     /// it reads them (ADR-0182, amendment 8), and the values of the fields in
     /// <see cref="HttpWithheldHeaderNames.ApiKeysAndSessionTokens"/> (amendment 18). In HTTP/1.x
-    /// request heads, those inside an HTTP/1.1 <c>CONNECT</c> tunnel included, the credentials and
-    /// those values are written as <c>****</c> (amendment 18 lists the heads and trailers where they
-    /// can still be logged). Once the bytes are taken as a tunnel's text (a line where a request may start that is no request line, among the
+    /// request heads and chunked trailers, those inside an HTTP/1.1 <c>CONNECT</c> tunnel included,
+    /// the credentials and those values are written as <c>****</c> (amendment 18 lists a head where
+    /// they can still be logged; amendment 32 closed its trailers). Once the bytes are taken as a tunnel's text (a line where a request may start that is no request line, among the
     /// cases amendment 16 lists), then, line by line, the argument of <c>PASS</c> and <c>ACCT</c>,
     /// the password of an IMAP <c>LOGIN</c>, SASL <c>AUTH</c> and <c>AUTHENTICATE</c> responses,
     /// the lines answering <c>334</c> or <c>+</c>, those two fields' credentials and the API-key and
