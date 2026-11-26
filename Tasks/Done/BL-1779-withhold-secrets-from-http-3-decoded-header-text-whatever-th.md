@@ -1,5 +1,5 @@
 ---
-id: BL-1773
+id: BL-1779
 title: Withhold secrets from HTTP/3 decoded header text whatever the field order and whatever bytes a value holds
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-25
 completed: 2026-11-25
 ---
-# BL-1773 — Withhold secrets from HTTP/3 decoded header text whatever the field order and whatever bytes a value holds
+# BL-1779 — Withhold secrets from HTTP/3 decoded header text whatever the field order and whatever bytes a value holds
 
 ## Goal
 
@@ -57,3 +57,4 @@ No secret field value of an HTTP/3 request is logged in clear in the `Decoded` h
 - 2026-11-25: Created.
 - 2026-11-25: Backlog -> Doing.
 - 2026-11-25: Doing -> Done. HTTP/3 decoded header text notes withhold secret field values whatever the field order and whatever CR or LF a value holds
+- 2026-11-26: Renumbered from BL-1773 to BL-1779; an archived task holds BL-1773.
