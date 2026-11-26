@@ -61,6 +61,18 @@ function Get-RecentDispatchCount {
     return $n
 }
 
+# The newest run in `gh run list --json databaseId,createdAt,url` output created no earlier than
+# 15 seconds before $StartedUtc, or nothing.
+function Select-DispatchedRun {
+    param([string]$RunListJson, [datetime]$StartedUtc)
+    # Windows PowerShell 5.1 pipes a parsed JSON array on as one object; @() enumerates it only from a variable.
+    $parsed = $RunListJson | ConvertFrom-Json
+    $earliest = $StartedUtc.AddSeconds(-15)
+    # 5.1 leaves createdAt as text, which casts to local time; pwsh parses it as a UTC DateTime.
+    @($parsed) | Where-Object { $_ -and ([datetime]$_.createdAt).ToUniversalTime() -ge $earliest } |
+        Sort-Object createdAt -Descending | Select-Object -First 1
+}
+
 $repo = (git rev-parse --show-toplevel).Trim()
 $common = (git rev-parse --path-format=absolute --git-common-dir).Trim()
 $mainRoot = Split-Path (Resolve-Path $common).Path -Parent
@@ -87,8 +99,8 @@ Add-Content $countFile "$($started.ToString('o'))`t$Id`t$name`t$Ref"
 
 for ($try = 0; $try -lt 12; $try++) {
     Start-Sleep -Seconds 5
-    $runs = @(gh run list --workflow $name --branch $Ref --event workflow_dispatch --limit 5 --json databaseId,createdAt,url | ConvertFrom-Json)
-    $mine = $runs | Where-Object { [datetime]$_.createdAt -ge $started.AddSeconds(-15) } | Sort-Object createdAt -Descending | Select-Object -First 1
+    $json = (gh run list --workflow $name --branch $Ref --event workflow_dispatch --limit 5 --json databaseId,createdAt,url) -join "`n"
+    $mine = Select-DispatchedRun -RunListJson $json -StartedUtc $started
     if ($mine) { Write-Output "run:$($mine.databaseId) $name $Ref $($mine.url)"; exit 0 }
 }
 Write-Error "dispatched $name on $Ref but could not find its run; read it with: gh run list --workflow $name --branch $Ref"
