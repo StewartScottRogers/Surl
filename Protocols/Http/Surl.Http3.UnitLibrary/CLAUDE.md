@@ -74,9 +74,11 @@ Public, what a server uses:
   `DATA` frame; like every write it waits while more than `QuicApplicationConnection.MaxUnsentLength`
   would wait unsent for the client's credit, BL-710), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
   `ResetResponseAsync` (`RESET_STREAM` alone, for an answer that cannot be finished).
-- Plaintext notes of received bytes are redacted by `Http3RequestBytesRedactor` (ADR-0182 Amendments 4, 14, 21, 22 and
-  35, BL-1424, BL-1718, BL-1762, BL-1773 and BL-1775): a `HEADERS` payload carrying a secret field, and that field's value in decoded
-  header text, are written as `****`. It is an `IDecodedTextReceivedBytesRedactor`: the engine gives decoded header text
+- Plaintext notes of received bytes are redacted by `Http3RequestBytesRedactor` (ADR-0182 Amendments 4, 14, 21, 22,
+  35 and 37, BL-1424, BL-1718, BL-1762, BL-1773, BL-1775 and BL-1788): a `HEADERS` payload carrying a secret field, and that field's value in decoded
+  header text, are written as `****`. It is an `IStreamlessAndFramePayloadReceivedBytesRedactor`: a QUIC datagram
+  (`RedactStreamlessBytes`) and a `DATA` payload (`RedactFramePayload`) can carry no secret field, so both are written
+  as received, whatever they hold. It is an `IDecodedTextReceivedBytesRedactor`: the engine gives decoded header text
   to `RedactDecodedText`, so it is redacted whatever field comes first, and `Redact` reads its bytes as frames only. The secret fields are `HttpWithheldHeaderNames.Credentials` plus any further names the
   redactor is made with: none from `Surl.Protocol.Http`'s `Http3ProtocolServer`, `ApiKeysAndSessionTokens` from the
   WebTransport server. It is an `IStreamReceivedBytesRedactor`: `RedactStream` follows each client bidirectional

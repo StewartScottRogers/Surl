@@ -691,6 +691,37 @@ public sealed class Http3RequestBytesRedactorTests
     }
 
     [TestMethod]
+    public void RedactStreamlessBytes_ADatagramShapedLikeASecretHeadersFrame_WritesItAsReceived()
+    {
+        var datagram = Frame(Http3FrameType.Headers, Section(HpackStringCoding.Raw, ("authorization", "Bearer tok-datagram")));
+        var output = new ArrayBufferWriter<byte>();
+
+        NewSessionRedactor().RedactStreamlessBytes(datagram, output);
+
+        CollectionAssert.AreEqual(datagram, output.WrittenSpan.ToArray());
+    }
+
+    [TestMethod]
+    public void RedactFramePayload_ADataPayloadShapedLikeASecretHeadersFrame_WritesItAsReceived()
+    {
+        var payload = Frame(Http3FrameType.Headers, Section(HpackStringCoding.Raw, ("authorization", "Bearer tok-data")));
+        var output = new ArrayBufferWriter<byte>();
+
+        new Http3RequestBytesRedactor().RedactFramePayload(payload, output);
+
+        CollectionAssert.AreEqual(payload, output.WrittenSpan.ToArray());
+    }
+
+    [TestMethod]
+    public void RedactStreamlessBytesAndRedactFramePayload_ANullOutput_Throw()
+    {
+        var redactor = new Http3RequestBytesRedactor();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.RedactStreamlessBytes([], null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => redactor.RedactFramePayload([], null!));
+    }
+
+    [TestMethod]
     public void RedactStream_NoBytes_WritesNothing() =>
         Assert.IsEmpty(RedactStream(new Http3RequestBytesRedactor(), 0, []));
 

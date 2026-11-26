@@ -84,19 +84,78 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_Http3DecodedTextAndStreamlessBytes_AreEachRedactedAlone()
+    public async Task ServeAsync_Http3DecodedTextReportedWithinASplitStream_IsRedactedByTheDecodedTextRules()
     {
-        var secret = AuthorizationHeadersFrame("Bearer tok-datagram");
+        var secret = AuthorizationHeadersFrame("Bearer tok-decoded");
 
         var (notes, _) = await ServeDecryptedReportsAsync(sink =>
         {
             sink.Received(ExchangeBytesLayer.Decrypted, 0, secret.AsSpan(0, 8));
             sink.Received(ExchangeBytesLayer.Decoded, 0, ":method: GET\r\nauthorization: Bearer t\r\n"u8);
-            sink.Received(ExchangeBytesLayer.Decrypted, null, secret);
         });
 
         CollectionAssert.AreEqual(":method: GET\r\nauthorization: ****\r\n"u8.ToArray(), notes[1]);
+    }
+
+    // A QUIC datagram is session data, never an HTTP/3 frame (ADR-0182, amendment 37; BL-1788).
+    [TestMethod]
+    public async Task ServeAsync_WebTransportDatagramShapedLikeAHeadersFrame_IsNotedAsReceived()
+    {
+        var datagram = AuthorizationHeadersFrame("Bearer tok-datagram");
+
+        var (notes, published) = await ServeDecryptedReportsAsync(
+            sink => sink.Received(ExchangeBytesLayer.Decrypted, null, datagram));
+
+        CollectionAssert.AreEqual(datagram, notes[0]);
+        CollectionAssert.AreEqual(datagram, published[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Http3DataPayloadShapedLikeAHeadersFrame_IsNotedAsReceived()
+    {
+        var payload = AuthorizationHeadersFrame("Bearer tok-data");
+
+        var (notes, published) = await ServeDecryptedReportsAsync(
+            sink => sink.ReceivedFramePayload(ExchangeBytesLayer.Decrypted, 0, payload));
+
+        CollectionAssert.AreEqual(payload, notes[0]);
+        CollectionAssert.AreEqual(payload, published[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Http3SecretHeadersFrameOnARequestStreamAfterADatagramAndADataPayload_IsStillWithheld()
+    {
+        var secret = AuthorizationHeadersFrame("Bearer tok-request-stream");
+
+        var (notes, _) = await ServeDecryptedReportsAsync(sink =>
+        {
+            sink.Received(ExchangeBytesLayer.Decrypted, null, secret);
+            sink.ReceivedFramePayload(ExchangeBytesLayer.Decrypted, 0, secret);
+            sink.Received(ExchangeBytesLayer.Decrypted, 0, secret);
+        });
+
         CollectionAssert.AreEqual(Withholding(secret), notes[2]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ServerWhoseRedactorHasNoStreamlessOrFramePayloadRules_RedactsBothLikeAnyChunk()
+    {
+        var logs = new FakeExchangeLogFactory();
+        var server = new FakeRedactingConnectionServer(
+            (connection, context) =>
+            {
+                context.DecryptedBytes.Received(ExchangeBytesLayer.Decrypted, null, "pw secret\n"u8);
+                context.DecryptedBytes.ReceivedFramePayload(ExchangeBytesLayer.Decrypted, 0, "pw secret\n"u8);
+                return Task.CompletedTask;
+            },
+            "http");
+
+        await ServeOneAsync(server, logs, new SurlEventStream(new ManualTimeProvider()), new InMemoryConnection([]));
+
+        var notes = logs.LogOf(1).Entries.Select(entry => entry.Text).Where(text => text.Contains("bytes ")).ToArray();
+        Assert.HasCount(2, notes);
+        StringAssert.EndsWith(notes[0], "8 bytes: " + Convert.ToHexString("pw ****\n"u8));
+        StringAssert.EndsWith(notes[1], "8 bytes: " + Convert.ToHexString("pw ****\n"u8));
     }
 
     [TestMethod]
@@ -150,6 +209,36 @@ public sealed partial class ServingEngineTests
         StringAssert.EndsWith(notes[0], "stream 0, 2 bytes: 6162");
         StringAssert.EndsWith(notes[1], "2 bytes: 6364");
         StringAssert.EndsWith(notes[2], "2 bytes: 6566");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Http3WireBytesReportedToTheSink_AreRedactedAsAWholeUnit()
+    {
+        var secret = AuthorizationHeadersFrame("Bearer tok-wire");
+
+        var (notes, published) = await ServeDecryptedReportsAsync(
+            sink => sink.Received(ExchangeBytesLayer.Wire, null, secret));
+
+        CollectionAssert.AreEqual(Withholding(secret), notes[0]);
+        CollectionAssert.AreEqual(secret, published[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ServerThatDoesNotRedactReportsWireBytesToTheSink_NotesThemAsReceived()
+    {
+        var logs = new FakeExchangeLogFactory();
+        var server = new FakeConnectionProtocolServer(
+            (connection, context) =>
+            {
+                context.DecryptedBytes.Received(ExchangeBytesLayer.Wire, null, "gh"u8);
+                return Task.CompletedTask;
+            },
+            "http");
+
+        await ServeOneAsync(server, logs, new SurlEventStream(new ManualTimeProvider()), new InMemoryConnection([]));
+
+        var note = logs.LogOf(1).Entries.Select(entry => entry.Text).Single(text => text.Contains("bytes "));
+        StringAssert.EndsWith(note, "2 bytes: 6768");
     }
 
     // Serves one exchange whose server redacts with the HTTP/3 redactor and makes the given reports, and

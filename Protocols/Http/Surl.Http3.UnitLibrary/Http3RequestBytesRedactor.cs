@@ -7,7 +7,7 @@ namespace Surl.Http3;
 
 /// <summary>
 /// An <see cref="IStreamReceivedBytesRedactor"/> for the plaintext notes of an HTTP/3 connection
-/// (ADR-0182, decisions 1, 6 and 7, and amendments 4, 14, 21, 22 and 35).
+/// (ADR-0182, decisions 1, 6 and 7, and amendments 4, 14, 21, 22, 35 and 37).
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
@@ -33,6 +33,9 @@ namespace Surl.Http3;
 /// <item><see cref="Redact"/> treats its bytes as a whole unit, read as HTTP/3 frames from its first byte by
 /// the same rules, whatever the session markers; a <c>HEADERS</c> payload that runs past it is written as
 /// <c>****</c>.</item>
+/// <item><see cref="RedactStreamlessBytes"/> takes a QUIC datagram, and <see cref="RedactFramePayload"/> a
+/// piece of a <c>DATA</c> payload. A secret field travels only in a <c>HEADERS</c> frame on a stream, so
+/// neither is read as frames: both are written as received, whatever they hold (amendment 37).</item>
 /// <item><see cref="RedactDecodedText"/> takes the decoded header text of a request (<c>name: value</c> lines,
 /// ADR-0169 decision 1), whatever its first field: the value of a secret field's line is written as
 /// <c>****</c>. A line ends only where the text's renderer ended a header, because it writes a CR or LF
@@ -44,7 +47,8 @@ namespace Surl.Http3;
 /// header block. Surl advertises a QPACK dynamic table capacity of 0 (ADR-0082 decision 8), so every field
 /// section is self-contained and a fresh decoder reads it.
 /// </remarks>
-public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor, IDecodedTextReceivedBytesRedactor
+public sealed class Http3RequestBytesRedactor :
+    IStreamReceivedBytesRedactor, IDecodedTextReceivedBytesRedactor, IStreamlessAndFramePayloadReceivedBytesRedactor
 {
     /// <summary>
     /// The most streams of one direction <see cref="RedactStream"/> remembers before it forgets the lowest
@@ -157,6 +161,20 @@ public sealed class Http3RequestBytesRedactor : IStreamReceivedBytesRedactor, ID
         {
             RedactBidirectionalStream(streamId, received, output);
         }
+    }
+
+    /// <inheritdoc />
+    public void RedactStreamlessBytes(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        output.Write(received);
+    }
+
+    /// <inheritdoc />
+    public void RedactFramePayload(ReadOnlySpan<byte> payload, ArrayBufferWriter<byte> output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        output.Write(payload);
     }
 
     /// <inheritdoc />

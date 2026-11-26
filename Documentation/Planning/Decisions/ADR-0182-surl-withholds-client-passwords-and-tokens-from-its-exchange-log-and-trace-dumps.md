@@ -1197,7 +1197,7 @@ Accepted limits:
   data that reads as a `HEADERS` frame can be withheld. That loses log detail only.
 - A stream that opens with the marker is logged as received whatever it holds.
 - QUIC datagrams and `DATA` payloads are still read as frames, so one that reads as a `HEADERS` frame can be withheld.
-  That loses log detail only; this amendment leaves it to a follow-up task (BL-1788).
+  That loses log detail only; this amendment leaves it to a follow-up task (BL-1788). Closed by amendment 37.
 
 ## Amendment 36 (BL-1785, decided by Claude under Stewart's delegation)
 
@@ -1227,3 +1227,35 @@ Accepted limits:
 - A `PASS` or `ACCT` word ended by a carriage return, as in `PASS<CR><password>`, is not read as a command, so what
   follows it is logged as received unless another rule withholds it. curl does not send the shape.
 - Which tunnels are read as text is unchanged (amendment 9, point 1).
+
+## Amendment 37 (BL-1788, decided by Claude under Stewart's delegation)
+
+The HTTP/3 and WebTransport logs read each received QUIC datagram and `DATA` payload as HTTP/3 frames from its first
+byte, so session data or a request body that read as a `HEADERS` frame was left out of the log (amendment 35's last
+accepted limit).
+
+1. **The engine says what a chunk is.** `Surl.Protocol.Abstractions` gains
+   `IStreamlessAndFramePayloadReceivedBytesRedactor`, an `IReceivedBytesRedactor` with
+   `RedactStreamlessBytes(received, output)` and `RedactFramePayload(payload, output)`, which hold nothing back. When
+   the server's redactor is one, the engine gives a fresh instance each received `Decrypted` chunk that has no stream ID
+   through the first, and each `ReceivedFramePayload` piece through the second. A redactor that is not one gets both
+   through `Redact` and `Flush`, as before, so DTLS plaintext keeps its redaction. This replaces amendment 21, point 1
+   for QUIC datagrams and point 2 for frame payloads, for such a redactor only.
+2. **HTTP/3 form.** `Http3RequestBytesRedactor` is one, and writes both as received whatever they hold. A secret field
+   travels only in a `HEADERS` frame on a stream; a datagram is HTTP datagram or WebTransport session data, and a
+   `DATA` payload is the client's payload (decision 8). A `DATA` payload was already logged as received within its
+   stream's bytes (amendment 21, point 3), so its second note now agrees with the first.
+3. **Streams are unchanged.** A `HEADERS` frame on a stream is still withheld as amendments 21 and 35 say.
+4. **Rejected:** a new member on `IDecryptedBytesSink` for datagrams, since a chunk with no stream ID already says what
+   it is and `Surl.Quic` need not change; and having the engine log every datagram and frame payload as received, which
+   would drop the redaction of DTLS plaintext.
+5. **Raw bytes elsewhere.** The event stream keeps raw bytes (decision 4), and no byte on the wire changes.
+
+Evidence: read from the code and reproduced by unit tests, not recorded on the wire.
+
+Accepted limits:
+
+- A `DATA` payload of a forgotten or never-remembered bidirectional stream (amendment 35, point 4) is `****` in the
+  stream's note and logged as received in its own. It is the client's payload, not a credential.
+- A unidirectional stream chunk is still judged as amendments 21 and 35 say, so one that is not a remembered session
+  stream's and reads as a `HEADERS` frame can be withheld. That loses log detail only.

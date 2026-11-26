@@ -225,4 +225,7 @@ and the protocols fan out after.
   which holds nothing back: the engine keeps one per exchange for the decrypted bytes of its streams.
   `IDecodedTextReceivedBytesRedactor` (ADR-0182, amendment 22; BL-1773) adds `RedactDecodedText(decodedText, output)`,
   which holds nothing back: the engine calls it for received `Decoded` text, so a redactor never guesses from the first
-  bytes which it was given. `Surl.Http3`'s `Http3RequestBytesRedactor` implements both.
+  bytes which it was given. `IStreamlessAndFramePayloadReceivedBytesRedactor` (ADR-0182, amendment 37; BL-1788) adds
+  `RedactStreamlessBytes(received, output)` and `RedactFramePayload(payload, output)`, which hold nothing back: the
+  engine calls them for received `Decrypted` bytes with no stream ID and for `ReceivedFramePayload` pieces. `Surl.Http3`'s
+  `Http3RequestBytesRedactor` implements all three.
