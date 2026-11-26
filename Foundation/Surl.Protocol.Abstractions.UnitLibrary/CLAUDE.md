@@ -199,4 +199,8 @@ and the protocols fan out after.
   SOCKS tunnel redactors still name `Authorization` and `Proxy-Authorization` themselves.
 - The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
   returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
-  `ILineRedactionRule`, holding at most 64 KiB. Nothing implements them yet.
+  `ILineRedactionRule`, holding at most 64 KiB. Many protocol servers implement `IExchangeBytesRedactingServer`: the FTP,
+  SMTP, IMAP, POP3 and NATS servers return a `LineBytesRedactor` with their own rule, others an `IReceivedBytesRedactor`
+  of their own or of a shared library (gRPC's is `Surl.Http2`'s `Http2RequestBytesRedactor`), and `Surl.Composition`'s
+  wrapping servers hand on a redactor too. `Surl.Core`'s `ServingEngine` writes the redacted bytes to the exchange log
+  and feeds the event stream the bytes as received; a server that does not implement it is logged byte for byte.
