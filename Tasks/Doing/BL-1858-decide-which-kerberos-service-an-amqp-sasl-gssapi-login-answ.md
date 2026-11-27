@@ -44,3 +44,4 @@ service principal an ADR names, or does not offer `GSSAPI`.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
