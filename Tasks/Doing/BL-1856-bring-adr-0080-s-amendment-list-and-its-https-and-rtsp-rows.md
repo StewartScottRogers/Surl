@@ -45,3 +45,4 @@ Add dated amendments; leave the decision text as it is.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
