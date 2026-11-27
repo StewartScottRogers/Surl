@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary/CLAUDE.md, Cryptography/Surl.Tls13Stream.UnitLibrary/CLAUDE.md, Documentation/Product/Product-Overview.md, README.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1837 — Correct the TLS statements in the Networking and Tls13Stream CLAUDE.md files and the product overview, and the README Conformance row
 
@@ -27,14 +27,24 @@ Found by BL-1811. Check each against the code before editing:
 
 ## Acceptance criteria
 
-- [ ] The two `CLAUDE.md` files agree on whether `Surl.Networking` sets the client-certificate delegate, and agree with the code.
-- [ ] The opening paragraph of the Networking `CLAUDE.md` places no proxy protocol server in that library.
-- [ ] The product overview's "Architecture" section names the TLS-SRP and hand-built TLS 1.3 server paths beside `SslStream`.
-- [ ] The README `Conformance/` row names what the projects in that folder hold.
+- [x] The two `CLAUDE.md` files agree on whether `Surl.Networking` sets the client-certificate delegate, and agree with the code.
+- [x] The opening paragraph of the Networking `CLAUDE.md` places no proxy protocol server in that library.
+- [x] The product overview's "Architecture" section names the TLS-SRP and hand-built TLS 1.3 server paths beside `SslStream`.
+- [x] The README `Conformance/` row names what the projects in that folder hold.
 
 ## Notes
+
+- The code sets the delegate: `ServerTlsSettings.CreateTls13Options` sets
+  `TrustsClientCertificateChain` to `ClientCertificateVerifier.IsChainTrusted` when there are
+  trust anchors. The Tls13Stream `CLAUDE.md` was the stale one; the Networking text on BL-1470
+  was already right.
+- Delivered by `align-and-document`; diff checked against `ServerTlsHandshake.cs`. No `.cs` or
+  project file changed. `dotnet build` clean (0 warnings), fast tests green in every test project
+  (0 failed).
+- Other stale statements outside this task's criteria are filed as BL-1849.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Networking and Tls13Stream CLAUDE.md files, the product overview Architecture section and the README Conformance row describe the code as it is
