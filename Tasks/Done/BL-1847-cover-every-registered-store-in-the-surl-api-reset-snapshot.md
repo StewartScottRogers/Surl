@@ -73,7 +73,7 @@ executable line changes. No store, event or fault changes. Paths below under `Co
   are copied, without queued deliveries; through `SurlServer` a content store on disk is first and refuses, so
   reset leaves every store as it was.
 - Follow-ups: the combiner's uploads-only name is BL-1848 (already filed); the `ComposedStores.cs`
-  `cancellationToken` comments are BL-1859 (filed by this run).
+  `cancellationToken` comments are BL-1872 (filed by this run).
 - Verified 2026-11-27: `dotnet build -warnaserror` of the solution 0 warnings, `dotnet format
   --verify-no-changes` clean, fast tests all passed (3 skipped, in Surl.Content and Surl.Networking).
   No Integration run: comments and prose only.

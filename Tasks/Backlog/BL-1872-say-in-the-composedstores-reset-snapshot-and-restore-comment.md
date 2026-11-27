@@ -1,5 +1,5 @@
 ---
-id: BL-1859
+id: BL-1872
 title: Say in the ComposedStores reset, snapshot and restore comments everything the cancellation token cancels
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1859 — Say in the ComposedStores reset, snapshot and restore comments everything the cancellation token cancels
+# BL-1872 — Say in the ComposedStores reset, snapshot and restore comments everything the cancellation token cancels
 
 ## Goal
 
