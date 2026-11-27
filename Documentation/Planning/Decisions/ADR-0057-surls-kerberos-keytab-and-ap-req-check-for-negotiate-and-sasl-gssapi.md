@@ -663,3 +663,39 @@ The AMQP servers keep offering `GSSAPI`, and decision 2's table gains a row:
   [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md)'s BL-1884 amendment
   (2026-11-27): surl now reads an AMQP 1.0 SASL frame up to 65536 bytes (or `--max-message`), so
   such a ticket is checked.
+
+## Amendment 5 - the replay cache is one per started instance (BL-1827, 2026-11-27)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in
+BL-1827. It amends decision 7's "There is one replay cache, shared by every listener" in what "one"
+counts: the started instance, not the process.
+
+### Context
+
+- `Surl.Api` starts several instances in one process, and no state is static (root `CLAUDE.md`,
+  "Surl is a stand-in for tests";
+  [ADR-0099](ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md)
+  decision 8). A cache for the whole process would make one test's login refuse another's.
+- Read in the source on 2026-11-27: a start with `--keytab` read the file twice and built two
+  acceptors with a cache each, one for the authentication policy (HTTP Negotiate, SASL `GSSAPI`,
+  LDAP `GSS-SPNEGO`) and one for the SOCKS5 GSS-API login. An AP-REQ accepted by one was not
+  held by the other.
+
+### Decision
+
+- Each started instance has one replay cache, used by every listener of that instance that checks
+  an AP-REQ, whatever its protocol. Two instances never share one, with the same keytab or not.
+- A start reads the `--keytab` file once, before the data-directory lock, and builds one
+  `KerberosAcceptor` over it. The authentication policy holds it
+  (`AuthenticationSettings.KerberosAcceptor`), and the SOCKS5 GSS-API login is built over that same
+  acceptor with the service `rcmd`.
+- A keytab file changed after that read has no effect until the next start.
+- No byte on the wire changes. The cache's key, lifetime and 65536-entry limit are decision 7's;
+  the limit now counts every listener's authenticators together.
+
+### Alternatives considered
+
+- **Two acceptors over one cache.** Rejected: both would be built from the same keytab, clock and
+  random source, so the second adds nothing.
+- **One static cache for the process.** Rejected: static mutable state, which a stand-in must not
+  have.

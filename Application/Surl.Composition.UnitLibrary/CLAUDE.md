@@ -227,7 +227,7 @@ The ordered start lives here (ADR-0099 decision 2, BL-614); which project runs e
 | Step | Run by |
 | --- | --- |
 | Parse the command line, answer help and version, read `SURL_EXTENSIONS` | the host (`Surl.Console`'s `CommandLineRunner`) |
-| With `--control`: read the token file (37, 2), the last start file read before the data-directory lock. With or without `--control`, these are read after the lock, in this order, each only when given: the `--keytab` file again (`ComposeSocksGssApiLogin`), then, only when a listen URL needs TLS, the server TLS files `--cacert`, `--cert` and `--key`, or under TLS-SRP `--srp-groups`, `--srp-verifiers`, `--cert` and `--key` | `SurlServerComposition.ComposeAsync` through `ControlComposition.ReadToken` |
+| With `--control`: read the token file (37, 2), the last start file read before the data-directory lock. With or without `--control`, these are read after the lock, only when a listen URL needs TLS, each only when given: the server TLS files `--cacert`, `--cert` and `--key`, or under TLS-SRP `--srp-groups`, `--srp-verifiers`, `--cert` and `--key` | `SurlServerComposition.ComposeAsync` through `ControlComposition.ReadToken` |
 | `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content file system (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication, groups and host keys, the shares and buckets (2, 37) and the content store, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77, and 37 for an `--srp-groups` or `--srp-verifiers` file) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
 | Open the log streams (`--log-file`, trace file) | the host, which disposes the `ComposedServing` on failure to release the lock |
 | With `--control`: bind the control listener first (45, 6 before any other line), then the start-up warnings (the control one after the `--fault` one), the protocol listeners, and the control status line after the `Listening on` lines | `ComposedServing.ServeAsync` |
@@ -307,7 +307,10 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   (`None` without one). `ComposedServing` writes `WriteWarnings`' `@everyone` warning after the share one and
   `WriteStartLines`' `-v` notes after the shares', both read from `Stores.Bus.Configuration`.
 - `KeytabComposition` - the `--keytab` file and its `KerberosAcceptor` (ADR-0057 decision 1),
-  with `RandomKerberosRandomSource`; `WriteStartLines`.
+  with `RandomKerberosRandomSource`; `WriteStartLines`. A start reads the file once, in
+  `AuthenticationComposition.Compose`, and the SOCKS5 GSS-API login is built over that policy's
+  acceptor, so each instance has one replay cache (ADR-0057 amendment 5, BL-1827). Tests:
+  `SocksGssApiLoginCompositionTests`.
 - `SshHostKeyComposition` - the `--hostkey`, `--throwaway-hostkey` and `--hostcert` host keys
   (ADR-0051 decision 4); `WriteStartLines`.
 - `SshAlgorithmComposition` - the SSH algorithm offer and the `--ssh-ciphers`/`--ssh-macs`

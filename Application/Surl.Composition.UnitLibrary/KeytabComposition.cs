@@ -29,8 +29,10 @@ public static class KeytabComposition
 
     /// <summary>
     /// Reads the <c>--keytab</c> file through <paramref name="readFile"/> when given, and builds the
-    /// acceptor over its keys, one replay cache for the process, <paramref name="timeProvider"/>
-    /// and <see cref="RandomKerberosRandomSource"/>.
+    /// acceptor over its keys, a new replay cache, <paramref name="timeProvider"/>
+    /// and <see cref="RandomKerberosRandomSource"/>. A start calls it once and gives the acceptor to
+    /// every listener that checks an AP-REQ, so the replay cache is one per started instance
+    /// (ADR-0057, amendment 5).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readFile">Reads a file's bytes, given its path as given.</param>

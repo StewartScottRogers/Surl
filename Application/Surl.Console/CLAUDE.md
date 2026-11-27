@@ -55,9 +55,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`KeytabComposition.Read`, ADR-0057 decision 1), read by
   `Surl.Kerberos`'s `KerberosKeytab.Read` (37 `Could not read keytab <path>`, 2 `Keytab <path>
   is malformed at byte <offset>` or `holds no key surl can use`), whose keys become a
-  `KerberosAcceptor` (one `KerberosReplayCache` per process, the one clock and
-  `RandomKerberosRandomSource`) on `AuthenticationSettings.KerberosAcceptor`, `null` without
-  `--keytab`, where SASL `GSSAPI` reads it (ADR-0057 decisions 6 and 9); then the `--user-ldap`
+  `KerberosAcceptor` (one `KerberosReplayCache` per started instance, ADR-0057 amendment 5, the one
+  clock and `RandomKerberosRandomSource`) on `AuthenticationSettings.KerberosAcceptor`, `null` without
+  `--keytab`, where SASL `GSSAPI` reads it (ADR-0057 decisions 6 and 9) and which the SOCKS5 GSS-API
+  login is built over; then the `--user-ldap`
   `bind-password-file` (37 or 2) and `ca-file` (77) (`LdapAccountSourceComposition.Compose`,
   ADR-0149). Once the groups and shared folders are expanded, the `--proxy-user-file` follows
   (`AuthenticationComposition.ComposeProxyPolicy`, ADR-0088 decision 5); then the SSH host keys

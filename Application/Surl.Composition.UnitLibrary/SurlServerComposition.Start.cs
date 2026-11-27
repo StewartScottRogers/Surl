@@ -13,6 +13,7 @@ using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.Redis;
 using Surl.Extended.Protocol.S3;
+using Surl.Kerberos;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -302,7 +303,7 @@ public static partial class SurlServerComposition
         }
 
         // The control token file, the last start file read before the data-directory lock (ADR-0124 decision 7).
-        // After the lock, ComposeSocksGssApiLogin reads --keytab again and ComposeServing reads the server TLS files.
+        // After the lock, ComposeServing reads the server TLS files.
         var (controlToken, controlExitCode, controlFailureMessage) = ControlComposition.ReadToken(commandLine, readStartFile);
         return controlFailureMessage is not null
             ? (null, new SurlStartFailure(controlExitCode, [controlFailureMessage]))
@@ -401,18 +402,11 @@ public static partial class SurlServerComposition
         public void Dispose() => ReleaseAll(held);
     }
 
-    // A field, not a method group at the call: the compiler caches a method group in one static shared by every use of File.ReadAllBytes, so which use created it would decide this method's branch coverage (BL-1350).
-    private static readonly Func<string, byte[]> ReadKeytabFromDisk = File.ReadAllBytes;
-
-    // The SOCKS5 server's GSS-API login (BL-1066): over its own acceptor on the --keytab, the
-    // service name rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab. The
-    // keytab was already read and accepted by AuthenticationComposition.Compose, so a read that
-    // fails now (the file changed between) leaves SOCKS5 without the method rather than failing a start.
-    internal static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
-    {
-        var (acceptor, _, _, _) = KeytabComposition.Read(commandLine, seams.ReadStartFile ?? ReadKeytabFromDisk, seams.TimeProvider);
-        return acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
-    }
+    // The SOCKS5 server's GSS-API login (BL-1066): over the authentication policy's --keytab acceptor, so the
+    // keytab is read once and the instance has one replay cache (ADR-0057 amendment 5), and the service name
+    // rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab.
+    private static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(KerberosAcceptor? acceptor) =>
+        acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
 
     private static async Task<SurlServerStart> ComposeUnderTheLockAsync(
         SurlCommandLine commandLine,
@@ -480,7 +474,7 @@ public static partial class SurlServerComposition
             KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
-            SocksGssApiLogin = ComposeSocksGssApiLogin(commandLine, seams),
+            SocksGssApiLogin = ComposeSocksGssApiLogin(authentication.Policy.Settings.KerberosAcceptor),
             MailDomains = commandLine.MailDomains,
             IdentifiersForServer = commandLine.RandomSeed is { } seed
                 ? new SeededIdentifierRandom(seed).ForServer
