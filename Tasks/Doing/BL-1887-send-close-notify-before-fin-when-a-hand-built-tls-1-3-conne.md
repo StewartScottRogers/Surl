@@ -57,3 +57,4 @@ Found during BL-1849 by reading the code on 2026-11-27; not reproduced by a test
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
