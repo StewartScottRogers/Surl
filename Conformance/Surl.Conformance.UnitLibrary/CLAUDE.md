@@ -186,7 +186,10 @@ build it. Parsing is built (BL-388):
 Selection is built (BL-389):
 
 - `UpstreamTestCaseServers` is decision 2's table: each `<server>` name's `UpstreamTestCaseServer`
-  row - its scheme and whether its server half is built - and `NoServerHalf` (`file`, `none`).
+  row - its scheme and its `IsBuilt` flag, which lets a case naming the server past the selector's
+  `server-not-built:<name>` skip - and `NoServerHalf` (`file`, `none`). `IsBuilt` true does not by
+  itself mean the upstream test-case run composes a server half: it composes none for the `rtsp`
+  and `rtsp-ipv6` rows, which are true (ADR-0080's 2026-11-27 amendment).
 - `UpstreamCurlBuildFeatures.For(pin)` derives a pin's features as runtests'
   `checksystemfeatures` does: the `Features:` words runtests reads (`PinnedUpstreamCurlBuild.Features`,
   from the pin's `features` line), the TLS backend and libraries of the version line, `win32`,
