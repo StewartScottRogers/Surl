@@ -35,3 +35,4 @@ Found by BL-1837. Check each against the code before editing:
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
