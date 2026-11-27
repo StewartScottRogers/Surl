@@ -85,8 +85,9 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <param name="authenticationPolicy">Decides whether a session may send mail without a login.</param>
     /// <param name="mailAuthenticationPolicy">
     /// Says which SASL mechanisms <c>EHLO</c> advertises in the connection's TLS state, and runs
-    /// each <c>AUTH</c> exchange (ADR-0049, section 6). <c>Surl.Console</c> passes the same object
-    /// as <paramref name="authenticationPolicy"/>.
+    /// each <c>AUTH</c> exchange (ADR-0049, section 6). <c>Surl.Composition</c> passes the
+    /// <c>smtp</c> scheme's one <c>AuthenticationPolicy</c> both here and as
+    /// <paramref name="authenticationPolicy"/>.
     /// </param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">

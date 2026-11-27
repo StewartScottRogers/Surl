@@ -1,29 +1,30 @@
 # Surl.Protocol.Smtp.UnitLibrary
 
 Phase 3. The SMTP server (RFC 5321) that receives the mail upstream curl sends, built as
-[ADR-0053](../Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)
+[ADR-0053](../../../Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)
 decides, on the mail store and line machinery of
-[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+[ADR-0050](../../../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
 with the logins of
-[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
+[ADR-0049](../../../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
 and a limit told from shutdown as
-[ADR-0059](../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
+[ADR-0059](../../../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
 decides. Terms (mail store, owner, anonymous owner, discarded recipient, trace fields, CRLF
 line, reply line, dot-stuffing, STARTTLS discard, SASL mechanism, SASL exchange) are the
 glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-**URL schemes answered:** `smtp`, and `smtps` through `Surl.Console`'s
-`ImplicitTlsSchemeServer`: the server claims `smtp` only and tells implicit TLS apart by
-`IConnection.TlsSession`, never by the scheme.
+**URL schemes answered:** `smtp`, and `smtps`, which `Surl.Composition` registers as an
+`ImplicitTlsSchemeServer` over the `smtp` server: the server claims `smtp` only and tells
+implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
 - `SmtpProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
   (`421 4.3.2 surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
-  `AuthenticationPolicy` as both), the shared `MailboxStore`, and `isTlsUpgradeAvailable`, which
-  `Surl.Composition` sets with a certificate (`--cert` or `--self-signed`) or under TLS-SRP
-  (ADR-0122 decision 5; `ServerTlsComposition.IsTlsUpgradeAvailable`).
+  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the `smtp`
+  scheme's one `AuthenticationPolicy` as both), the shared `MailboxStore`, and
+  `isTlsUpgradeAvailable`, which `Surl.Composition` sets with a certificate (`--cert` or
+  `--self-signed`) or under TLS-SRP (ADR-0122 decision 5;
+  `ServerTlsComposition.IsTlsUpgradeAvailable`).
 - `SmtpSession`: one connection. The greeting, then each CRLF line read with `CrlfLineReader`
   and answered with `ReplyLineWriter` (`Surl.LineProtocol`) from the fixed lines in
   `SmtpReplies`, split by `SmtpCommandLine`: `EHLO` (`SIZE`, `8BITMIME`, `SMTPUTF8`,
