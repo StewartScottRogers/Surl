@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1830 — Say in the Surl.Composition docs that whole-instance reset, snapshot and restore cover every registered store
 
@@ -42,18 +42,29 @@ executable line changes. No store, event or fault changes.
 
 ## Acceptance criteria
 
-- [ ] The "Store control per instance" bullet says whole-instance reset, snapshot and restore cover every store in
+- [x] The "Store control per instance" bullet says whole-instance reset, snapshot and restore cover every store in
       `RegisteredStoreOrder`, that `StoreOrder` is its first four, and that others can follow them.
-- [ ] The DNS zones bullet places `StoreKind.Zones` before the uploads entry and no longer calls it last.
-- [ ] No XML doc comment in `ComposedStores.cs` or `ComposedSnapshot.cs` says a whole-instance operation or a
+- [x] The DNS zones bullet places `StoreKind.Zones` before the uploads entry and no longer calls it last.
+- [x] No XML doc comment in `ComposedStores.cs` or `ComposedSnapshot.cs` says a whole-instance operation or a
       snapshot covers only `StoreOrder` or only content, mail, bus and accounts.
-- [ ] The class summary of `Amqp0ExchangeStoreRegistration` places the exchanges after the accounts.
-- [ ] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean, and the only changed lines in
+- [x] The class summary of `Amqp0ExchangeStoreRegistration` places the exchanges after the accounts.
+- [x] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean, and the only changed lines in
       `.cs` files are comments.
 
 ## Notes
+
+- 2026-11-27: Delivered by `align-and-document`. Also corrected, in the same library, comments on the same subject:
+  `ComposedServing.Stores`, the account stores' place in the order, the Redis, DNS and broker-store comments in
+  `SurlServerComposition.Start.cs`, one-event-per-store claims (`Sessions` and `Uploads` publish one per server
+  kind), which stores a disk-backed instance refuses, and the one-store overloads' exception text.
+- 2026-11-27: Verified: `dotnet build -warnaserror` 0 warnings, 0 errors; `dotnet format --verify-no-changes`
+  exit 0; fast tests 0 failed, 3 skipped. No changed `.cs` line is other than a comment. Integration tests not
+  run: comments and prose only.
+- 2026-11-27: Left outside this task: `SurlServer.cs` in `Surl.Api` (BL-1847), the `UploadStoreRegistrations`
+  name and summary (BL-1848), the ADRs' order statements (BL-1850, filed from this run).
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Surl.Composition CLAUDE.md and XML docs say whole-instance reset, snapshot and restore cover every registered store in RegisteredStoreOrder
