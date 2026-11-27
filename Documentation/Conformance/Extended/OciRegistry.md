@@ -142,7 +142,7 @@ specifications leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, `--cert` or `--self-signed` required (58 without), ALPN `http/1.1` only. | BL-1028 |
+| OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, secured by `--cert`, `--self-signed` or TLS-SRP (`--tlsauthtype SRP` or `--tlsuser`; 58 with none of the three; ADR-0122 Amendment 5), ALPN `http/1.1` only. | BL-1028 |
 | OCI:Surl-Tls-2 | MUST | `--oci-plaintext` serves plain HTTP/1.1 and is warned on start. | `SurlServerCompositionTests.ComposeAsync_OciWithOciPlaintext_ServesItPlainWithNoTlsSettingsAndWarns`, `OciPlaintextCompositionTests.MarkOciListenUrlsPlain_WithTheOption_MarksEveryOciListenUrlPlainAndLeavesTheOthers` |
 | OCI:Surl-Tls-3 | MUST | Over plain text without `--allow-plaintext-auth`, credentials and tokens are `403 DENIED`. | credentials: `OciTokenEndpointTests.AnswerAsync_CredentialsOverPlainTextRefused_Returns403Denied`; tokens: `OciAccessCheckTests.CheckAsync_BearerTokenOverPlainTextRefusingIt_Returns403DeniedWithThePlaintextMessage` |
 | OCI:Surl-Limits-1 | MUST | A blob past `--max-filesize` is `413 SIZE_INVALID` and its session ended. | BL-437 |
