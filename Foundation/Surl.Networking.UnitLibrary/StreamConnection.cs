@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using Surl.Protocol.Abstractions;
+using Surl.Tls13Stream;
 using Surl.TlsSrp;
 
 namespace Surl.Networking;
@@ -13,7 +14,7 @@ namespace Surl.Networking;
 /// transport failures into <see cref="IOException"/>; the transport is the caller's, so
 /// this runs without a socket in the fast tests. With a <see cref="ServerTlsHandshake"/> it
 /// can be upgraded to TLS (ADR-0010, section 1), after which it reads and writes through the
-/// <see cref="SslStream"/> and so still carries plaintext.
+/// secured stream the handshake returns and so still carries plaintext.
 /// </summary>
 /// <remarks>Not safe for concurrent reads, or concurrent writes; one read and one write may run at once.</remarks>
 internal sealed class StreamConnection : IConnection
@@ -340,11 +341,13 @@ internal sealed class StreamConnection : IConnection
         await transportStream.DisposeAsync();
     }
 
-    // The TLS close_notify, from whichever secured stream the handshake returned (ADR-0122 decision 5).
+    // The TLS close_notify, from whichever secured stream the handshake returned (ADR-0122
+    // decision 5, ADR-0157); an unsecured connection has none to send.
     private Task SendCloseNotifyAsync(CancellationToken cancellationToken) => securedStream switch
     {
         SslStream sslStream => sslStream.ShutdownAsync(),
         TlsSrpStream tlsSrpStream => tlsSrpStream.ShutdownAsync(cancellationToken),
+        Tls13ServerStream tls13Stream => tls13Stream.ShutdownAsync(cancellationToken),
         _ => Task.CompletedTask,
     };
 

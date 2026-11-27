@@ -239,5 +239,7 @@ protocol server.
   client certificate and `ClientCertificateVerifier.IsChainTrusted` verifies it, the chain's
   intermediates as extra store only (BL-1470). Without TLS-SRP, where any of the three
   conditions for reading the first record is false, the handshake is `SslStream`'s and nothing is
-  read ahead. This is why the project references `Surl.Tls13Stream.UnitLibrary`; tests use
+  read ahead. On such a connection `CompleteWritesAsync` sends close_notify through
+  `Tls13ServerStream.ShutdownAsync` before FIN (BL-1887; `StreamConnectionTls13Tests`). This is
+  why the project references `Surl.Tls13Stream.UnitLibrary`; tests use
   `ClientHelloBytes` and fake `ITls13Support`.
