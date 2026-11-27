@@ -8,7 +8,7 @@ depends-on: [BL-1916]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1921 — State in --manual that QUIC and DTLS listeners need a certificate under TLS-SRP
 
@@ -22,12 +22,15 @@ Found in BL-1916, which corrected the same statement on the `surl --aihelp tls` 
 
 ## Acceptance criteria
 
-- [ ] The `TLS-SRP OPTIONS` section limits the certificate-free case to TCP listeners and names `webtransport`, `--dns-transport quic` and `coaps` with no account as needing `--cert` or `--self-signed` (58), citing no behaviour ADR-0122 Amendment 5 does not state.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests of `Application/Surl.Cli.UnitTests` pass.
+- [x] The `TLS-SRP OPTIONS` section limits the certificate-free case to TCP listeners and names `webtransport`, `--dns-transport quic` and `coaps` with no account as needing `--cert` or `--self-signed` (58), citing no behaviour ADR-0122 Amendment 5 does not state.
+- [x] `dotnet build -warnaserror` is clean and the fast tests of `Application/Surl.Cli.UnitTests` pass.
 
 ## Notes
+- Changed the `TLS-SRP OPTIONS` lines in `ManualText.cs` and their pins in `ManualTextTests.cs`, using the wording BL-1916 gave the `surl --aihelp tls` page. "No certificate is sent there" now refers to TCP listeners only.
+- Verified: build `-warnaserror` 0 warnings, format check passed, fast tests 30327 passed, 0 failed, 3 skipped (`Surl.Cli.UnitTests` 2007 passed). No Integration run: text only.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. surl --manual says which listen URLs still need --cert or --self-signed under TLS-SRP
