@@ -10,10 +10,12 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// The container never speaks first: each header the client sends decides the next layer. A SASL
 /// header is answered in kind and runs SASL; a plain AMQP header is let through only under
 /// <see cref="Amqp1SecurityNegotiationOptions.AllowsAnonymous"/>; a TLS header on a plaintext
-/// connection with a certificate is answered in kind and upgraded, and the client starts again
-/// inside TLS. Every other header is answered <c>AMQP 3 1 0 0</c> and closed. After a successful
-/// <c>sasl-outcome</c> only <c>AMQP 0 1 0 0</c> is accepted; anything else - a further SASL frame
-/// included - is answered <c>AMQP 0 1 0 0</c> and closed. A SASL frame is read up to
+/// connection is answered in kind and upgraded under
+/// <see cref="Amqp1SecurityNegotiationOptions.CanUpgradeToTls"/> (a certificate is configured or
+/// TLS-SRP is served), and the client starts again inside TLS. Every other header is answered
+/// <c>AMQP 3 1 0 0</c> and closed. After a successful <c>sasl-outcome</c> only
+/// <c>AMQP 0 1 0 0</c> is accepted; anything else - a further SASL frame included - is answered
+/// <c>AMQP 0 1 0 0</c> and closed. A SASL frame is read up to
 /// <see cref="Amqp1FrameLimits.LargestSaslFrameSizeRead"/>; a larger one, an AMQP frame, or one
 /// out of order closes the connection with no bytes, since the SASL layer has no error frame. Headers and frames are read exactly, never a byte past them, so
 /// pipelined bytes are kept for the next layer. A failed TLS handshake throws
