@@ -528,7 +528,7 @@ public static partial class SurlServerComposition
             state.MailStore,
             state.MessageBus,
             authentication.Policy.Settings.Accounts,
-            additionalRegistrations: [.. redis, .. (ldap is null ? new List<ComposedStoreRegistration>() : [LdapDirectoryStoreRegistration.For(ldap)]), .. ControlledBrokerStores(servers, instruments.Events), .. dns, .. ControlledUploads(servers, contentStore, instruments.Events)],
+            additionalRegistrations: [.. redis, .. (ldap is null ? new List<ComposedStoreRegistration>() : [LdapDirectoryStoreRegistration.For(ldap)]), .. ControlledBrokerAndSessionStores(servers, instruments.Events), .. dns, .. ControlledUploads(servers, contentStore, instruments.Events)],
             ldapServer: ldap,
             redisKeyspace: redis.Count > 0 ? services.RedisKeyspace : null,
             dnsZones: dns.Count > 0 ? state.DnsZones : null,
@@ -540,7 +540,7 @@ public static partial class SurlServerComposition
     private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, bool isServed, ComposedProtocolServices services) =>
         isServed && servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
 
-    // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) and before the uploads, when a dns server is composed and a dns listen URL is served (ADR-0158 decision 5).
+    // The DNS zones join the order after the broker and session stores (BL-1165: the exchanges already follow the directory) and before the uploads, when a dns server is composed and a dns listen URL is served (ADR-0158 decision 5).
     private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, bool isServed, DnsZoneSet zones) =>
         isServed && IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
 
@@ -548,7 +548,8 @@ public static partial class SurlServerComposition
     private static List<ComposedStoreRegistration> ControlledUploads(IProtocolServer[] servers, ContentStore content, SurlEventStream events) =>
         [.. new[]
         {
-            UploadStoreRegistrations.Combine(
+            SameKindStoreRegistrations.Combine(
+                StoreKind.Uploads,
                 S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
                 AzureStagedUploadStoreRegistration.For([.. servers.OfType<AzureStorageProtocolServer>()], content, events),
                 GcsStagedUploadStoreRegistration.For([.. servers.OfType<GoogleCloudStorageProtocolServer>()], content, events),
@@ -563,14 +564,15 @@ public static partial class SurlServerComposition
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
         servers.OfType<DnsDatagramRoutingProtocolServer>().Any();
 
-    // The stores the composed servers hold beside the bus (ADR-0159 decision 3, ADR-0167): the AMQP 0-9-1 exchanges, the
-    // Kafka producers, then the one sessions entry (MQTT 5 sessions, OCI tokens, MCP OAuth state and sessions, in that order).
-    private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>
+    // The broker and session stores the composed servers hold beside the bus (ADR-0159 decision 3, ADR-0167), each only when
+    // its server is composed: the AMQP 0-9-1 exchanges, the Kafka producers, then the one sessions entry (MQTT 5 sessions,
+    // OCI tokens, MCP OAuth state and sessions, in that order).
+    private static List<ComposedStoreRegistration> ControlledBrokerAndSessionStores(IProtocolServer[] servers, SurlEventStream events) =>
         [.. new[]
         {
             Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
             KafkaBrokerStoreRegistration.For([.. servers.OfType<KafkaBroker>()], events),
-            UploadStoreRegistrations.CombineOf(
+            SameKindStoreRegistrations.Combine(
                 StoreKind.Sessions,
                 Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
                 OciTokenStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], events),

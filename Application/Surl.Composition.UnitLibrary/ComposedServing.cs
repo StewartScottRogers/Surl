@@ -96,8 +96,9 @@ public sealed class ComposedServing : IAsyncDisposable
 
     /// <summary>
     /// The instance's stores, every one in <see cref="ComposedStores.RegisteredStoreOrder"/>, as a
-    /// test seeds, resets, snapshots and restores them, one at a time or all together (ADR-0124,
-    /// decision 3). Every change they make is published on <see cref="Events"/>.
+    /// test controls them: reset, snapshot and restore, one at a time or all together, and seeding
+    /// for those <see cref="ComposedStores"/> has a seed or add method for (ADR-0124, decision 3).
+    /// Every change they make is published on <see cref="Events"/>.
     /// </summary>
     public ComposedStores Stores { get; }
 
