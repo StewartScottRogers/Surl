@@ -32,3 +32,4 @@ Found by BL-1806. In `Documentation/Product/Product-Overview.md`, Layers rows le
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
