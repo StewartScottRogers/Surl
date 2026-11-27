@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1875 — Add the Compression, Cookies and WebSocket rows to the allowed-library isolation test
 
@@ -28,15 +28,21 @@ file; keep them.
 
 ## Acceptance criteria
 
-- [ ] The test has `[DataRow(Compression)]`, `[DataRow(Cookies)]` and `[DataRow(WebSocket)]`.
-- [ ] Every key of `HorizontalLibraries` has exactly one `DataRow` on that test, and the `Abstractions` row stays.
-- [ ] No other assertion, allow-list entry or `DataRow` in the file changes.
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitTests -warnaserror` is clean and that project's tests
+- [x] The test has `[DataRow(Compression)]`, `[DataRow(Cookies)]` and `[DataRow(WebSocket)]`.
+- [x] Every key of `HorizontalLibraries` has exactly one `DataRow` on that test, and the `Abstractions` row stays.
+- [x] No other assertion, allow-list entry or `DataRow` in the file changes.
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitTests -warnaserror` is clean and that project's tests
       pass without `TestCategory=Integration`.
 
 ## Notes
+
+- Added the three rows in `HorizontalLibraries` order. The diff is three added lines and nothing else.
+- Checked by script: the test's rows are `Abstractions` followed by all 33 dictionary keys, in order.
+- Verified: project build clean with `-warnaserror`, its 648 fast tests pass; solution build 0 warnings,
+  `dotnet format --verify-no-changes` clean, solution fast tests pass.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The allowed-library isolation test now has a DataRow for every horizontal library, including Compression, Cookies and WebSocket.

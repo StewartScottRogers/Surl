@@ -226,7 +226,9 @@ public sealed class ProtocolIsolationTests
 
     [TestMethod]
     [DataRow(Abstractions)]
+    [DataRow(Compression)]
     [DataRow(Content)]
+    [DataRow(Cookies)]
     [DataRow(Cryptography)]
     [DataRow(BcryptPbkdf)]
     [DataRow(Blowfish)]
@@ -256,6 +258,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Quic)]
     [DataRow(Tls13)]
     [DataRow(TlsSrp)]
+    [DataRow(WebSocket)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
     {
         Assert.IsEmpty(ForbiddenProtocolReferences([referenced]));
