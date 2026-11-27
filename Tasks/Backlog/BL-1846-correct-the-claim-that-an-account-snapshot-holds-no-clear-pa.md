@@ -1,5 +1,5 @@
 ---
-id: BL-1838
+id: BL-1846
 title: Correct the claim that an account snapshot holds no clear password in the authentication docs, glossary and ADRs
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1838 — Correct the claim that an account snapshot holds no clear password in the authentication docs, glossary and ADRs
+# BL-1846 — Correct the claim that an account snapshot holds no clear password in the authentication docs, glossary and ADRs
 
 ## Goal
 
@@ -51,7 +51,7 @@ Where the claim is made (find each by its text; line numbers move):
 
 An ADR's decision text is not rewritten: each gets a dated amendment, "Decided by Claude under Stewart's
 delegation", and an "Amended by" line in its header, as the earlier amendments of ADR-0124 and ADR-0132 do.
-`Application/Surl.Api/README.md` makes the same claim and is BL-1839's.
+`Application/Surl.Api/README.md` makes the same claim and is BL-1847's.
 
 ## Acceptance criteria
 

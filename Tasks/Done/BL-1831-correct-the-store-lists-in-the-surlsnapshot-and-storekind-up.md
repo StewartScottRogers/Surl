@@ -60,8 +60,8 @@ No behaviour changes: doc comments only.
   (`S3UploadStoreRegistration.cs:51-57`).
 - Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean,
   fast tests pass. Integration tests not run: only doc comments changed.
-- False statements found outside this task's `touches` are filed as BL-1838 (clear-password claim) and
-  BL-1839 (`SurlServer` store docs, `StoreKind.Sessions`), BL-1840 (store registration combiner names);
+- False statements found outside this task's `touches` are filed as BL-1846 (clear-password claim) and
+  BL-1847 (`SurlServer` store docs, `StoreKind.Sessions`), BL-1848 (store registration combiner names);
   the Composition comments are already BL-1830.
 
 ## Log

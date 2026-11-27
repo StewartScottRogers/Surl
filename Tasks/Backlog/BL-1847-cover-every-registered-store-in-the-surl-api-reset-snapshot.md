@@ -1,5 +1,5 @@
 ---
-id: BL-1839
+id: BL-1847
 title: Cover every registered store in the Surl.Api reset, snapshot and restore docs and the StoreKind.Sessions comment
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1839 — Cover every registered store in the Surl.Api reset, snapshot and restore docs and the StoreKind.Sessions comment
+# BL-1847 — Cover every registered store in the Surl.Api reset, snapshot and restore docs and the StoreKind.Sessions comment
 
 ## Goal
 
@@ -45,7 +45,7 @@ executable line changes. No store, event or fault changes. Paths below under `Co
   included) is kept with the password's UTF-8 bytes (`AccountStore.DeriveNamed` in
   `Foundation/Surl.Authentication.UnitLibrary`); TLS-SRP accounts keep verifiers.
 - BL-1831 puts the same facts in the class summary of `Application/Surl.Api/SurlSnapshot.cs`. BL-1830 corrects
-  the Composition library's docs and BL-1838 the authentication library's, the glossary's and the ADRs'.
+  the Composition library's docs and BL-1846 the authentication library's, the glossary's and the ADRs'.
 
 ## Acceptance criteria
 

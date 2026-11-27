@@ -1,5 +1,5 @@
 ---
-id: BL-1840
+id: BL-1848
 title: Rename the store registration combiner and its caller so their names and comments cover sessions as well as uploads and brokers
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1840 — Rename the store registration combiner and its caller so their names and comments cover sessions as well as uploads and brokers
+# BL-1848 — Rename the store registration combiner and its caller so their names and comments cover sessions as well as uploads and brokers
 
 ## Goal
 
