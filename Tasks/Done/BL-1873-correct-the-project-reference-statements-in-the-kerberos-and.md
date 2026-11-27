@@ -49,7 +49,7 @@ Found by BL-1836 and checked against the project files on 2026-11-27. Prose only
 - The Kerberos paragraph now names all five production referrers, as the `.csproj` search found them on
   2026-11-27: Authentication, Kerberos.TestKdc, Protocol.Socks, Composition and Console.
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: every test project passed, 0 failed.
-- Filed BL-1877: the Tls13 file's first paragraph still says "It has no record layer", which its record
+- Filed BL-1878: the Tls13 file's first paragraph still says "It has no record layer", which its record
   protection section contradicts.
 
 ## Log

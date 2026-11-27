@@ -1,5 +1,5 @@
 ---
-id: BL-1877
+id: BL-1878
 title: Correct the no record layer statement at the top of the Tls13 library CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1877 — Correct the no record layer statement at the top of the Tls13 library CLAUDE.md
+# BL-1878 — Correct the no record layer statement at the top of the Tls13 library CLAUDE.md
 
 ## Goal
 
