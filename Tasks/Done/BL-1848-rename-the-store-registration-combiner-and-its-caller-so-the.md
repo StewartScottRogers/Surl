@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1848 — Rename the store registration combiner and its caller so their names and comments cover sessions as well as uploads and brokers
 
@@ -42,20 +42,33 @@ store order and published events do not change. All in `Application/Surl.Composi
 
 ## Acceptance criteria
 
-- [ ] `SameKindStoreRegistrations.Combine(StoreKind, ...)` replaces `UploadStoreRegistrations.Combine` and
+- [x] `SameKindStoreRegistrations.Combine(StoreKind, ...)` replaces `UploadStoreRegistrations.Combine` and
       `CombineOf`, its summary names uploads and sessions as what it joins, and neither old name appears in any
       `.cs` file or in the library's `CLAUDE.md`.
-- [ ] `ControlledBrokerStores` is `ControlledBrokerAndSessionStores`, and its comment names the OCI tokens and MCP
+- [x] `ControlledBrokerStores` is `ControlledBrokerAndSessionStores`, and its comment names the OCI tokens and MCP
       state, with the order the code runs, without saying ordinal order of scheme.
-- [ ] The `ComposedServing.Stores` summary says the instance's stores are every registered one and does not list
+- [x] The `ComposedServing.Stores` summary says the instance's stores are every registered one and does not list
       only content, mail, message bus and accounts.
-- [ ] The existing `Surl.Composition.UnitTests` tests pass with no `TestCategory=Integration`, changed only for
+- [x] The existing `Surl.Composition.UnitTests` tests pass with no `TestCategory=Integration`, changed only for
       the new names.
-- [ ] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean.
+- [x] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- Delivered by `align-and-document`: renames and comments only; store order and published events unchanged.
+- Already true before this run: the `ComposedServing.Stores` summary named every registered store, and the
+  renamed method's comment named the OCI tokens and MCP state with no "ordinal order of scheme" wording.
+- Also corrected in the `Stores` summary: it implied every store can be seeded; seeding exists only for those
+  `ComposedStores` has a seed or add method for.
+- BL-1857 (Backlog) still names `ControlledBrokerStores` in its Context; it is now
+  `ControlledBrokerAndSessionStores`. Archived tasks keep the old names.
+- Left as is: the two `Combine_*` tests stay in `AzureStagedUploadStoreTests`, since this task changes tests only
+  for the new names.
+- Verify: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests of the whole solution green
+  (`Surl.Composition.UnitTests` 935 passed). No integration-level code changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The store registration combiner is SameKindStoreRegistrations.Combine and its caller ControlledBrokerAndSessionStores; names and comments cover uploads, brokers and sessions
