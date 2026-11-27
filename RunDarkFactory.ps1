@@ -95,9 +95,21 @@
     that waits on something outside the shift (a merge, a CI run) should be Blocked, not
     requeued.
 
-    The reset time comes from the run's rate_limit_event. Time spent waiting is added
-    to the shift, so -Hours is always working time. With lanes, every lane waits on its
-    own and the coordinator makes the announcements, once for all of them.
+    The reset time comes from the run's rate_limit_event. Time spent waiting for the usage
+    limit is added to the shift, so it costs no working time. With lanes, every lane waits
+    on its own, and the coordinator makes the announcements, once for all of them, and adds
+    the wait to the shift's end. A wait for the API without a named limit is added only to a
+    single runner's shift; in a lane shift it counts against -Hours.
+
+    THE SHIFT'S END
+
+    -Hours bounds the whole shift. The coordinator hands each lane it starts - at the start,
+    added by -Lanes Auto, restarted after it died, or adopted from a stopped shift - the
+    hours left until the shift's end, and publishes that end as
+    <repo>.logs\lanes-<stamp>\shift-end.txt, which every lane reads before it claims. So no
+    lane claims a task after the end; each finishes and integrates what it holds and logs
+    "shift end (time up)". -Restart starts a new shift, with -Hours of its own.
+    -TestShiftEnd rehearses this.
 
     PARALLEL LANES (-Lanes 2 or more, 16 at most)
 
@@ -206,10 +218,13 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -ProbeMachine
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestMachineProbe
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestHeartbeat
+    powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestShiftEnd
 #>
 [CmdletBinding()]
 param(
-    # Wall-clock length of the shift. No new task is claimed after it runs out.
+    # Wall-clock length of the whole shift, lanes added later included. No new task is
+    # claimed after it runs out. Waits for the usage limit are added to it. The coordinator
+    # hands each lane it starts the hours still left.
     [double]$Hours = 8,
     # Stop after this many tasks. 0 means no limit.
     [int]$MaxTasks = 0,
@@ -266,6 +281,9 @@ param(
     [switch]$TestRestart,
     # Prove how failing test names are read from dotnet test output, and exit.
     [switch]$TestFlakyTests,
+    # Prove that lanes end at the shift's end - the hours handed to a lane, the published
+    # end and rehearsal lanes that claim nothing - and exit.
+    [switch]$TestShiftEnd,
     # How often, in minutes, the lanes' heartbeats are published as status.json on the
     # force-pushed board branch, plus once at shift end. 0 = never publish.
     [ValidateRange(0, 60)][int]$HeartbeatMinutes = 3,
@@ -2392,12 +2410,15 @@ function Get-DoingCount { return @(Get-ChildItem (Join-Path $Root 'Tasks\Doing')
 function Invoke-Claim {
     # Returns @{ Id = 'BL-###' } on success, or @{ Wait = $true } when every ready task
     # overlaps work in progress (or nothing is ready but other lanes may unlock more), or
-    # @{ None = $true } when the board has nothing left for this shift.
+    # @{ None = $true } when the board has nothing left for this shift, or
+    # @{ TimeUp = $true } when the shift's end came before it could claim.
     param([string[]]$Skip)
     $lock = Enter-Lock
     try {
         foreach ($attempt in 1..5) {
             if (-not (Sync-Lane)) { Start-Sleep -Seconds 10; continue }
+            # Waiting for the lock and syncing can outlast the shift's last minutes.
+            if (Test-ShiftTimeUp) { return @{ TimeUp = $true } }
             $requeued = @(Invoke-Requeue)
             if ($requeued.Count) {
                 Invoke-Git @('add', '-A', 'Tasks') | Out-Null
@@ -2548,6 +2569,53 @@ function Get-LaneState {
     $path = Get-LaneStatePath $N $Kind $ForStamp
     if (Test-Path $path) { return "$(Get-Content $path -TotalCount 1)".Trim() }
     return ''
+}
+
+# The shift's end. The coordinator of a lane shift owns it: it hands each lane it starts the
+# hours left until it, publishes it as lanes-<stamp>\shift-end.txt, and moves it while the
+# shift waits for tokens. A lane takes it from there and never moves it itself.
+function Get-HoursLeft {
+    # The hours from -Now to -Until, never below 0, to a ten-thousandth (0.36 s).
+    param([datetime]$Until, [datetime]$Now = (Get-Date))
+    return [math]::Round([math]::Max(0.0, ($Until - $Now).TotalHours), 4)
+}
+
+function Get-LaneArguments {
+    # The arguments of lane <n>, started now in a shift on -Branch that ends at -Until.
+    param([int]$N, [string]$Branch, [datetime]$Until)
+    $hoursLeft = (Get-HoursLeft -Until $Until).ToString([Globalization.CultureInfo]::InvariantCulture)
+    return @('-Lane', $N, '-Branch', $Branch, '-Hours', $hoursLeft, '-MaxTasks', $MaxTasks,
+        '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-EscalationModel', "`"$EscalationModel`"", '-LogRoot', "`"$LogDir`"", '-ShiftStamp', $Stamp,
+        # Each lane decides for itself when the tokens are low, so it needs the shift's
+        # stop levels; without them it stopped at the defaults, 85% and 97%.
+        '-StopAtUsage', $StopAtUsage, '-StopAtWeeklyUsage', $StopAtWeeklyUsage)
+}
+
+function Get-ShiftEndPath { return (Join-Path (Join-Path $LogDir "lanes-$Stamp") 'shift-end.txt') }
+
+function Publish-ShiftEnd {
+    # Writes the shift's end for its lanes, through a temporary file and a rename.
+    param([datetime]$Until)
+    $path = Get-ShiftEndPath
+    try {
+        New-Item -ItemType Directory -Force -Path (Split-Path $path) -ErrorAction Stop | Out-Null
+        [IO.File]::WriteAllText("$path.tmp", $Until.ToString('o'))
+        Move-Item -LiteralPath "$path.tmp" -Destination $path -Force -ErrorAction Stop
+    } catch { Write-Trace '-' 'shift' "end not published: $(Get-Short $_.Exception.Message 80)" 'DarkYellow' }
+}
+
+function Update-LaneShiftEnd {
+    # Sets this lane's end to the published one; keeps it when none can be read.
+    try {
+        $text = [IO.File]::ReadAllText((Get-ShiftEndPath)).Trim()
+        $script:shiftEnd = [datetime]::Parse($text, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind)
+    } catch { }
+}
+
+function Test-ShiftTimeUp {
+    # True once the shift's end has come; no task is claimed from then on.
+    if ($Lane) { Update-LaneShiftEnd }
+    return ((Get-Date) -ge $script:shiftEnd)
 }
 
 function Test-LaneAlive {
@@ -2911,6 +2979,55 @@ if ($Restart) {
     exit 0
 }
 
+if ($TestShiftEnd -and -not $Lane) {
+    # The lane arguments and the published end, then rehearsal lanes in processes of their
+    # own with those arguments, logging to a temporary folder.
+    $LogDir = Join-Path ([IO.Path]::GetTempPath()) "DarkFactoryShiftEnd-$Stamp-$PID"
+    $failures = 0
+    function Assert-ShiftEnd {
+        param([bool]$Ok, [string]$What)
+        Write-Host "$(if ($Ok) { 'PASS' } else { 'FAIL' }) $What" -ForegroundColor $(if ($Ok) { 'Green' } else { 'Red' })
+        if (-not $Ok) { $script:failures++ }
+    }
+    function Invoke-RehearsalLane {
+        # Starts lane <n> as a coordinator would for a shift ending at -Until, and returns its trace.
+        param([int]$N, [datetime]$Until)
+        $laneArgs = @(Get-LaneArguments -N $N -Branch 'factory/rehearsal' -Until $Until)
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath @laneArgs -TestShiftEnd | Out-Null
+        return @(Get-Content (Join-Path $LogDir "DarkFactory-$Stamp-L$N.log") -ErrorAction SilentlyContinue)
+    }
+    try {
+        $now = Get-Date
+        $half = Get-HoursLeft -Until $now.AddMinutes(150) -Now $now
+        Assert-ShiftEnd ($half -eq 2.5) "150 minutes before the end, 2.5 hours are left: $half"
+        $past = Get-HoursLeft -Until $now.AddMinutes(-5) -Now $now
+        Assert-ShiftEnd ($past -eq 0) "past the end, 0 hours are left: $past"
+
+        $until = (Get-Date).AddMinutes(137)
+        Publish-ShiftEnd $until
+        $trace = Invoke-RehearsalLane -N 1 -Until $until
+        $trace | ForEach-Object { Write-Host "     $_" }
+        $shown = [regex]::Match(($trace -join "`n"), 'shift +start .* until (\d\d:\d\d)').Groups[1].Value
+        $near = @(-1, 0, 1 | ForEach-Object { $until.AddMinutes($_).ToString('HH:mm') })
+        Assert-ShiftEnd ($near -contains $shown) "a lane started mid-shift ends with the shift, $($until.ToString('HH:mm')): $shown"
+
+        # The coordinator waited an hour for tokens after the lane's arguments were built.
+        $extended = $until.AddHours(1)
+        Publish-ShiftEnd $extended
+        $trace = Invoke-RehearsalLane -N 2 -Until $until
+        $trace | ForEach-Object { Write-Host "     $_" }
+        Assert-ShiftEnd (($trace -join "`n") -match "would claim; shift ends $($extended.ToString('HH:mm'))") "a lane follows the coordinator's extended end, $($extended.ToString('HH:mm'))"
+
+        $until = (Get-Date).AddMinutes(-5)
+        Publish-ShiftEnd $until
+        $trace = Invoke-RehearsalLane -N 3 -Until $until
+        $trace | ForEach-Object { Write-Host "     $_" }
+        $text = $trace -join "`n"
+        Assert-ShiftEnd ($text -match 'shift +end \(time up\)' -and $text -notmatch ' claim ') 'a lane started after the end claims nothing and ends (time up)'
+    } finally { Remove-Item $LogDir -Recurse -Force -ErrorAction SilentlyContinue }
+    exit $(if ($failures) { 1 } else { 0 })
+}
+
 # ---------------------------------------------------------------------------- shift
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
@@ -3015,14 +3132,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     Write-Trace '-' 'shift' "start  $LaneCount lanes$(if ($AutoLanes) { ' (auto)' })  branch=$branch model=$Model until $($shiftEnd.ToString('HH:mm'))" 'Cyan'
     New-Item -ItemType Directory -Force -Path $LanesDir | Out-Null
     New-Item -ItemType Directory -Force -Path (Join-Path $LogDir "lanes-$Stamp") | Out-Null
-    $laneArgsFor = {
-        param([int]$N)
-        @('-Lane', $N, '-Branch', $branch, '-Hours', $Hours, '-MaxTasks', $MaxTasks,
-          '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-EscalationModel', "`"$EscalationModel`"", '-LogRoot', "`"$LogDir`"", '-ShiftStamp', $Stamp,
-          # Each lane decides for itself when the tokens are low, so it needs the shift's
-          # stop levels; without them it stopped at the defaults, 85% and 97%.
-          '-StopAtUsage', $StopAtUsage, '-StopAtWeeklyUsage', $StopAtWeeklyUsage)
-    }
+    Publish-ShiftEnd $shiftEnd
     $procs = @()
     $laneTabs = @{}
     $summaries = Join-Path $LogDir "lanes-$Stamp"
@@ -3054,7 +3164,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
             git -C $dir checkout -q -B "factory/lane-$N" "origin/$branch" 2>&1 | Out-Null
             git -C $dir reset -q --hard "origin/$branch" 2>&1 | Out-Null
         }
-        $started = Start-Detached -Label (Get-LaneTabLabel $N $Label) -Dir $dir -ScriptArgs (& $laneArgsFor $N)
+        $started = Start-Detached -Label (Get-LaneTabLabel $N $Label) -Dir $dir -ScriptArgs (Get-LaneArguments -N $N -Branch $branch -Until $shiftEnd)
         $script:procs += $started
         $laneTabs[$N] = $started.Tab
         $closedTabs.Remove($N)
@@ -3179,11 +3289,16 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     $nextMergeCheck = Get-Date
     $masterAtShiftStart = Get-MasterSha
     while ((Get-Date) -lt $giveUp) {
-        # The coordinator announces the usage limit for every lane, and lanes waiting for a
-        # new session add that wait to their shift, so the coordinator waits longer too.
+        # The coordinator announces the usage limit for every lane, and adds the wait for a
+        # new session to the shift's end, which its lanes follow, and to its own patience.
         Update-LimitNotice
         Invoke-LimitProbe
-        if (Test-WaitingForSession) { $giveUp = $giveUp.Add((Get-Date) - $tick) }
+        if (Test-WaitingForSession) {
+            $waitedTick = (Get-Date) - $tick
+            $giveUp = $giveUp.Add($waitedTick)
+            $shiftEnd = $shiftEnd.Add($waitedTick)
+            Publish-ShiftEnd $shiftEnd
+        }
         $tick = Get-Date
         $finished = @(Get-ChildItem $summaries -Filter 'lane-*.txt' -ErrorAction SilentlyContinue |
             ForEach-Object { [int]($_.BaseName -replace '^lane-', '') })
@@ -3328,6 +3443,13 @@ if ($Lane) {
 
 Write-Trace '-' 'shift' "start  branch=$branch model=$Model until $($shiftEnd.ToString('HH:mm'))" 'Cyan'
 
+if ($TestShiftEnd) {
+    # -TestShiftEnd's rehearsal lane stops here: no heartbeat, board, git or Claude.
+    if (Test-ShiftTimeUp) { Write-Trace '-' 'shift' 'end (time up)' }
+    else { Write-Trace '-' 'shift' "would claim; shift ends $($shiftEnd.ToString('HH:mm'))" }
+    exit 0
+}
+
 $done = 0; $blocked = 0; $requeued = 0; $stalls = @(); $failStreak = 0; $attempted = @{}
 $stopWhy = ''
 # The task to run again once the usage limit resets; it is still claimed.
@@ -3371,7 +3493,7 @@ while ($true) {
     # A task cut off by the usage limit is finished first, whatever else says stop.
     $resuming = [bool]$resumeId
     if (-not $resuming) {
-        if ((Get-Date) -gt $shiftEnd) { $stopWhy = 'time up'; break }
+        if (Test-ShiftTimeUp) { $stopWhy = 'time up'; break }
         if ($MaxTasks -gt 0 -and ($done + $blocked + $stalls.Count) -ge $MaxTasks) { $stopWhy = 'max tasks'; break }
         if ($failStreak -ge 2) { $stopWhy = 'runs failing'; break }
         # The coordinator asked this lane to retire; its last task is already integrated.
@@ -3388,6 +3510,7 @@ while ($true) {
         Set-OwnTabLabel 'empty'
         Write-Heartbeat 'claim'
         $claim = Invoke-Claim -Skip @($attempted.Keys)
+        if ($claim.TimeUp) { $stopWhy = 'time up'; break }
         if ($claim.None) { $stopWhy = 'nothing ready'; break }
         if ($claim.Wait) { Write-Trace '-' 'wait' $claim.Why 'DarkGray'; Write-Heartbeat 'wait' (Get-Short $claim.Why 80); Start-Sleep -Seconds 60; continue }
         $id = $claim.Id
@@ -3419,11 +3542,12 @@ while ($true) {
 
     # Out of tokens is not a stall. The task keeps its claim and its partial work - nothing
     # is stashed or blocked - the shift waits for the new session and runs it again, and
-    # the wait is added to the shift so it costs no working time.
+    # the wait is added to the shift so it costs no working time (in a lane shift the
+    # coordinator adds it, and the lane reads the new end).
     $until = if ($run.TimedOut) { $null } else { Get-OutOfTokensUntil }
     if ($until -and $state -in 'Doing', 'Backlog') {
         $waited = Wait-ForNewSession -Id $id -Until $until
-        $shiftEnd = $shiftEnd.Add($waited)
+        if ($Lane) { Update-LaneShiftEnd } else { $shiftEnd = $shiftEnd.Add($waited) }
         Write-Trace '-' 'shift' "waited $(Format-Span $waited) for tokens; shift now ends $($shiftEnd.ToString('HH:mm'))" 'Cyan'
         $resumeId = $id
         continue
@@ -3433,7 +3557,8 @@ while ($true) {
     if ($state -eq 'Doing' -and (Test-ApiFailure $run) -and $apiRetries -lt 3) {
         $apiRetries++
         $waited = Wait-ForTokensByProbe -Id $id
-        $shiftEnd = $shiftEnd.Add($waited)
+        # Only the single runner gets this wait back: a lane never moves the shift's end.
+        if (-not $Lane) { $shiftEnd = $shiftEnd.Add($waited) }
         $resumeId = $id
         continue
     }

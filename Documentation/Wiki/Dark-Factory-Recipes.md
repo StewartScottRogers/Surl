@@ -31,6 +31,10 @@ The factory stays busy only while the board holds ready, independent work. One r
 
 - **`-NewTab`** opens the shift in a herdr tab in the `Surl` workspace (a console window
   outside herdr). Never start a shift with `Start-Process` or a bare background command.
+- **`-Hours`** (default 8) bounds the whole shift, lanes added later included: a lane
+  added by `-Lanes Auto`, restarted or adopted gets only the hours left. After the end no
+  lane claims a task; each finishes and pushes what it holds. Waits for the usage limit
+  are added to the end. `-Restart` begins a new shift with `-Hours` of its own.
 - **`-Continuous`** starts the next shift itself when one ends with work still ready. A
   shift that ends with nothing ready closes; filing new tasks later needs a new start.
   It does so only if the ending shift finished a task or `master` moved: otherwise it
@@ -146,3 +150,4 @@ Each checks one part and exits without starting a shift.
 | The machine probe's pass rule | `RunDarkFactory.cmd -TestMachineProbe` |
 | Heartbeats and `status.json`, without pushing | `RunDarkFactory.cmd -TestHeartbeat` |
 | Which lanes `-Restart` may stop | `RunDarkFactory.cmd -TestRestart` |
+| Lanes ending at the shift's end | `RunDarkFactory.cmd -TestShiftEnd` |
