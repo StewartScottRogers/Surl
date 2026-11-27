@@ -39,3 +39,4 @@ A start that serves a `socks5` or `socks5h` listener with `--keytab` no longer w
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
