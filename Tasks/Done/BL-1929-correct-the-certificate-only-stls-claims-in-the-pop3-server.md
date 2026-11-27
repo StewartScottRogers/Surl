@@ -8,7 +8,7 @@ depends-on: [BL-1924]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1929 — Correct the certificate-only STLS claims in the POP3 server's comments and notes
 
@@ -35,14 +35,22 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `isTlsUpgradeAvailable` param of `Pop3ProtocolServer` names both a certificate and TLS-SRP.
-- [ ] `CLAUDE.md` says `Surl.Composition` sets `isTlsUpgradeAvailable` with a certificate or under TLS-SRP, and that `-ERR STLS not available` answers only when no upgrade is available.
-- [ ] No comment or `CLAUDE.md` line in the library says `STLS` depends on a certificate alone.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] The `isTlsUpgradeAvailable` param of `Pop3ProtocolServer` names both a certificate and TLS-SRP.
+- [x] `CLAUDE.md` says `Surl.Composition` sets `isTlsUpgradeAvailable` with a certificate or under TLS-SRP, and that `-ERR STLS not available` answers only when no upgrade is available.
+- [x] No comment or `CLAUDE.md` line in the library says `STLS` depends on a certificate alone.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- Changed: the `isTlsUpgradeAvailable` XML doc in `Pop3ProtocolServer.cs` and two passages in the library's `CLAUDE.md`.
+  Checked against `ServerTlsComposition.IsTlsUpgradeAvailable` and `Pop3Session.AnswerStlsAsync`. No new decision, so no ADR.
+- 2026-11-27 verify: build with `-warnaserror` 0 warnings, format check clean, fast tests 30366 passed, 3 skipped,
+  0 failed. `Integration` tests not run: comment and notes text only.
+- Follow-ups filed: BL-1941 (this library's `Surl.Console` ownership claims and broken ADR links) and BL-1942 to
+  BL-1945 (the same defects in sibling libraries).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The POP3 library's comments and CLAUDE.md say STLS is available with a certificate or under TLS-SRP

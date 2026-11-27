@@ -21,8 +21,9 @@ timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authent
   (`-ERR surl Too many connections, closing`). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
   `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
-  `isTlsUpgradeAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given, and an
-  optional `RandomNumberGenerator` for the `APOP` timestamp.
+  `isTlsUpgradeAvailable`, which `Surl.Composition` sets when a certificate is configured (`--cert`
+  or `--self-signed`) or TLS-SRP is served (ADR-0122 decision 5), and an optional
+  `RandomNumberGenerator` for the `APOP` timestamp.
 - `Pop3Session`: one connection, in the AUTHORIZATION state until a login and the TRANSACTION
   state after it. It greets `+OK surl ready`, followed by an `APOP` timestamp only when the
   offer's `IsApopOffered` holds as the connection opens (`--auth apop`), then answers each CRLF
@@ -51,8 +52,8 @@ timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authent
   rule with no reply answers `-ERR Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). When the client half-closed or reset during a `Delay` hold, nothing is sent and the session ends, a reset aborting the connection (ADR-0141 amendment 3, BL-1546).
 - `STLS` (decision 8): `+OK Begin TLS negotiation`, then `CrlfLineReader.DiscardBuffered`, then
   `IConnection.UpgradeToTlsAsync`, and the session starts over with the `USER` forgotten;
-  `-ERR STLS not available` without a certificate, `-ERR Already using TLS` on a TLS
-  connection.
+  `-ERR STLS not available` only when no upgrade is available (`isTlsUpgradeAvailable` false:
+  neither a certificate nor TLS-SRP), `-ERR Already using TLS` on a TLS connection.
 - Limits (decision 9): `-ERR Command line too long, closing` past `--max-line` and
   `-ERR Timeout waiting for a command, closing` past `--head-timeout`, each written within
   `LimitReplyWriteDeadline`, then a close; the idle timeout and maximum duration close the

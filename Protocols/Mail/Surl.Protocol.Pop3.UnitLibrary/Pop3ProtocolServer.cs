@@ -86,11 +86,12 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <paramref name="authenticationPolicy"/>.</param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">
-    /// Whether a plaintext connection can be upgraded with <c>STLS</c>: <see langword="true"/> when
-    /// a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so <c>CAPA</c>
-    /// advertises it and <c>STLS</c> is answered <c>+OK</c> and upgraded; when
-    /// <see langword="false"/>, <c>STLS</c> is answered <c>-ERR STLS not available</c> (ADR-0056,
-    /// decision 8).
+    /// Whether a plaintext connection can be upgraded with <c>STLS</c>. <c>Surl.Composition</c>
+    /// passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>: <see langword="true"/> when a
+    /// server certificate is configured (<c>--cert</c> or <c>--self-signed</c>) or TLS-SRP is served
+    /// (ADR-0122, decision 5), so <c>CAPA</c> advertises it and <c>STLS</c> is answered <c>+OK</c>
+    /// and upgraded; when <see langword="false"/>, <c>STLS</c> is answered
+    /// <c>-ERR STLS not available</c> (ADR-0056, decision 8).
     /// </param>
     /// <param name="timestampRandom">
     /// The source of the 8 random bytes in each greeting's <c>APOP</c> timestamp (ADR-0056,
