@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1945 — Name TLS-SRP in the XMPP server's refused starttls log note
 
@@ -22,13 +22,18 @@ Found while working BL-1931 (2026-11-27), read from source. `Protocols/Messaging
 
 ## Acceptance criteria
 
-- [ ] The note says neither a certificate nor TLS-SRP is available, and the test in `XmppServerStartTlsTests` pins the new text.
-- [ ] The bytes the server sends for the refused `<starttls/>` are unchanged (the existing assertions on them still pass).
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] The note says neither a certificate nor TLS-SRP is available, and the test in `XmppServerStartTlsTests` pins the new text.
+- [x] The bytes the server sends for the refused `<starttls/>` are unchanged (the existing assertions on them still pass).
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- New note text: "A <starttls/> arrived and neither a certificate nor TLS-SRP is available; answered the TLS failure and closed." The updated pin failed against the old text before the production string was changed.
+- The XMPP `CLAUDE.md` already names both, and nothing under `Documentation/` quotes the note, so no document changed. No ADR: only a log note's wording changed.
+- Verify: build 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests 30368 passed, 0 failed, 3 skipped. Integration tests not run: no network, file system or database code changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The XMPP server's refused starttls log note names both a certificate and TLS-SRP.

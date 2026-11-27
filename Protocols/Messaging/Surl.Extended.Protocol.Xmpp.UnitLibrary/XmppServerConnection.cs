@@ -388,7 +388,7 @@ internal sealed class XmppServerConnection
         }
 
         context.Log.Note(connection.TlsSession is null
-            ? "A <starttls/> arrived and no certificate is configured; answered the TLS failure and closed."
+            ? "A <starttls/> arrived and neither a certificate nor TLS-SRP is available; answered the TLS failure and closed."
             : "A <starttls/> arrived on a connection already TLS; answered the TLS failure and closed.");
         await WriteAsync(XmppStreamText.TlsFailureAndClose);
         return ElementOutcome.EndStream;

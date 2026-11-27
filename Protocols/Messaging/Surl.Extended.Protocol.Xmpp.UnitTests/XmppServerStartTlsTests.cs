@@ -113,7 +113,7 @@ public sealed class XmppServerStartTlsTests
             answers);
         Assert.IsFalse(connection.UpgradeRequested);
         Assert.IsTrue(connection.WritesCompleted);
-        CollectionAssert.Contains(log.Notes.ToList(), "A <starttls/> arrived and no certificate is configured; answered the TLS failure and closed.");
+        CollectionAssert.Contains(log.Notes.ToList(), "A <starttls/> arrived and neither a certificate nor TLS-SRP is available; answered the TLS failure and closed.");
     }
 
     [TestMethod]
