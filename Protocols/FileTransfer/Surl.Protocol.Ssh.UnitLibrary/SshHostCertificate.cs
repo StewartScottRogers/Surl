@@ -75,8 +75,9 @@ public sealed class SshHostCertificate
     public ReadOnlyMemory<byte> CertifiedPublicKeyBlob => certifiedPublicKeyBlob;
 
     /// <summary>
-    /// Reads one host certificate from a <c>--hostcert</c> file's bytes. Reading the file from
-    /// disk is <c>Surl.Console</c>'s.
+    /// Reads one host certificate from a <c>--hostcert</c> file's bytes. Reading the file is
+    /// <c>Surl.Composition</c>'s (<c>SshHostKeyComposition</c>), from disk unless the host gives
+    /// another reader.
     /// </summary>
     /// <param name="fileBytes">The file's bytes.</param>
     /// <returns>The certificate, or the refusal.</returns>

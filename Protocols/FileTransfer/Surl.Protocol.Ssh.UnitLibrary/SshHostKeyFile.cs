@@ -9,8 +9,9 @@ namespace Surl.Protocol.Ssh;
 /// Reads a <c>--hostkey</c> file's bytes as ADR-0051 decision 4 says: one PEM block holding
 /// one private key, recognised by its label - <c>OPENSSH PRIVATE KEY</c> (<c>openssh-key-v1</c>),
 /// <c>PRIVATE KEY</c> (PKCS #8), <c>ENCRYPTED PRIVATE KEY</c> (PKCS #8 under PBES2),
-/// <c>RSA PRIVATE KEY</c> (PKCS #1) or <c>EC PRIVATE KEY</c> (SEC 1). Reading the file from
-/// disk is <c>Surl.Console</c>'s (BL-171).
+/// <c>RSA PRIVATE KEY</c> (PKCS #1) or <c>EC PRIVATE KEY</c> (SEC 1). Reading the file is
+/// <c>Surl.Composition</c>'s (<c>SshHostKeyComposition</c>), from disk unless the host gives
+/// another reader.
 /// </summary>
 /// <remarks>
 /// RSA keys of at least 2048 bits, ECDSA keys on P-256, P-384 and P-521, and Ed25519 keys (in
