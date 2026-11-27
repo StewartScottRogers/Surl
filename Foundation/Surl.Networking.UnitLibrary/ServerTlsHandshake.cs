@@ -48,9 +48,22 @@ internal sealed class ServerTlsHandshake
         settings is null ? null : new ServerTlsHandshake(settings, TlsApplicationProtocols.ForListener(listenUrl));
 
     /// <summary>
-    /// Runs the handshake over <paramref name="transport"/>: TLS-SRP when the settings carry
-    /// <see cref="ServerTlsSettings.TlsSrpAccounts"/> (ADR-0122 decision 5), otherwise
-    /// <see cref="SslStream"/>. A failed handshake leaves the transport open.
+    /// Runs the handshake over <paramref name="transport"/> by one of three paths, chosen in this
+    /// order. A failed handshake leaves the transport open.
+    /// <list type="number">
+    /// <item><description>TLS-SRP, through <see cref="TlsSrpServer"/>, when the settings carry
+    /// <see cref="ServerTlsSettings.TlsSrpAccounts"/> (ADR-0122 decision 5).</description></item>
+    /// <item><description>The hand-built TLS 1.3 stream, <see cref="Tls13ServerStream"/>, only when
+    /// the settings serve a certificate and accept TLS 1.3 and <see cref="ITls13Support"/> says
+    /// <see cref="SslStream"/> has no TLS 1.3 server (ADR-0157 decision 1 and amendment 1). The first
+    /// record is read, and this stream serves a ClientHello that offers TLS 1.3 and nothing lower.
+    /// When the lowest accepted version is TLS 1.3, it serves every ClientHello that offers TLS 1.3,
+    /// and a parsed one that does not is refused with a fatal <c>protocol_version</c>
+    /// alert.</description></item>
+    /// <item><description><see cref="SslStream"/> for every other handshake, including, after a first
+    /// record was read, any other ClientHello not refused above and any bytes that do not parse as one
+    /// whole ClientHello record; the bytes read are replayed to it.</description></item>
+    /// </list>
     /// </summary>
     /// <param name="transport">The connection's plaintext stream.</param>
     /// <param name="cancellationToken">Cuts the handshake off.</param>
@@ -59,10 +72,14 @@ internal sealed class ServerTlsHandshake
     /// an <see cref="SslStream"/> or TLS 1.3 handshake never calls it. <see langword="null"/> for none.
     /// </param>
     /// <returns>
-    /// The secured stream - an <see cref="SslStream"/> or a <see cref="TlsSrpStream"/> - which the
-    /// caller disposes before the transport, and the negotiated session.
+    /// The secured stream - a <see cref="TlsSrpStream"/>, a <see cref="Tls13ServerStream"/> or an
+    /// <see cref="SslStream"/> - which the caller disposes before the transport, and the negotiated
+    /// session.
     /// </returns>
-    /// <exception cref="TlsHandshakeException">The handshake failed: an alert, a rejected client certificate, or the peer closing.</exception>
+    /// <exception cref="TlsHandshakeException">
+    /// The handshake failed: an alert, a rejected client certificate, the peer closing, or a
+    /// ClientHello refused for not offering TLS 1.3.
+    /// </exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the handshake off.</exception>
     public Task<(Stream Stream, TlsSession Session)> AuthenticateAsync(
         Stream transport, CancellationToken cancellationToken, ITlsLoginJudge? loginJudge = null) =>

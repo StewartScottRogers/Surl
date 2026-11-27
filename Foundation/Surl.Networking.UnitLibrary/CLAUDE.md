@@ -214,15 +214,30 @@ protocol server.
   `HandshakeFailed`); messages name host, port and reason, never bytes the caller sent. A failed
   or cancelled handshake drops the transport. Tests: `TlsClientConnectorTests`, over in-memory
   pipes with one loopback-socket case.
-- TLS 1.3 where `SslStream` cannot serve it (ADR-0157 decisions 1 to 3; BL-1147). When
-  `ITls13Support` (`PlatformTls13Support`: macOS only) says `SslStream` has no TLS 1.3 server, the
-  settings serve a certificate and `AcceptedVersions` includes
-  TLS 1.3, `ServerTlsHandshake` reads the first record (`ClientHelloPeek`). A ClientHello whose
-  `supported_versions` lists TLS 1.3 and nothing from SSL 3.0 to TLS 1.2 goes to
-  `Surl.Tls13Stream`'s `Tls13ServerStream` (the bytes read replayed through its `alreadyRead`;
-  `TlsSession` filled from the stream, its client certificate the verified leaf; with `--cacert` the stream requests a client
-  certificate and `ClientCertificateVerifier.IsChainTrusted` verifies it, the chain's intermediates as extra store only,
-  BL-1470); anything else goes to `SslStream` with the bytes replayed by
-  `ReplayedPrefixStream`, whose zero-length read returns at once while bytes remain (SslStream starts
-  with one). Where the predicate is false nothing is read ahead. This is why the project references
-  `Surl.Tls13Stream.UnitLibrary`; tests use `ClientHelloBytes` and fake `ITls13Support`.
+- TLS 1.3 where `SslStream` cannot serve it (ADR-0157 decisions 1 to 3 and amendment 1;
+  BL-1147). `ServerTlsHandshake` looks for TLS-SRP first: settings with `TlsSrpAccounts` go to
+  `TlsSrpServer` and none of this applies. Otherwise, when `ITls13Support`
+  (`PlatformTls13Support`: macOS only) says `SslStream` has no TLS 1.3 server, the settings serve
+  a certificate and `AcceptedVersions` includes TLS 1.3, it reads the first record
+  (`ClientHelloPeek`) and chooses by it:
+  - A parsed ClientHello whose `supported_versions` lists TLS 1.3 and nothing from SSL 3.0 to
+    TLS 1.2 goes to `Surl.Tls13Stream`'s `Tls13ServerStream`.
+  - On a listener limited to TLS 1.3 (`AcceptedVersions.Lowest` is TLS 1.3), every parsed
+    ClientHello that lists TLS 1.3 goes to `Tls13ServerStream`, whatever else it lists. A parsed
+    one that does not (one with no `supported_versions` included) gets a fatal
+    `protocol_version` alert and the handshake is `TlsHandshakeException`.
+  - Everything else goes to `SslStream` with the bytes read replayed by `ReplayedPrefixStream`,
+    whose zero-length read returns at once while bytes remain (SslStream starts with one).
+    Whether or not the listener is limited to TLS 1.3, that includes whatever `ClientHelloPeek`
+    cannot parse, with no alert from this project first: another record type, a record over 16384
+    bytes, a record cut short, or a fragment `Surl.Tls13`'s `ClientHello.Read` refuses (such as
+    a ClientHello split across records, a `legacy_version` other than `0x0303`, or compression
+    other than null).
+
+  `Tls13ServerStream` gets the bytes read through its `alreadyRead`; `TlsSession` is filled from
+  the stream, its client certificate the verified leaf; with `--cacert` the stream requests a
+  client certificate and `ClientCertificateVerifier.IsChainTrusted` verifies it, the chain's
+  intermediates as extra store only (BL-1470). Without TLS-SRP, where any of the three
+  conditions for reading the first record is false, the handshake is `SslStream`'s and nothing is
+  read ahead. This is why the project references `Surl.Tls13Stream.UnitLibrary`; tests use
+  `ClientHelloBytes` and fake `ITls13Support`.

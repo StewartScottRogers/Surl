@@ -509,11 +509,11 @@ run each case against a live `surl` on loopback.
 ### Built for Phase 6: HTTP/2, HTTP/3, upstream's test cases and native publishing
 
 Phase 6 has four parts: `surl` serves HTTP/2 and, with `--http3`, HTTP/3 over a QUIC it builds
-by hand; `Surl.Conformance` plays the server half of upstream curl's own test cases; and a
-published native `surl` is proven on six runtime identifiers. The terms below are defined in
-the [glossary](../Wiki/Glossary.md), sections "HTTP/2", "HTTP/3 and QUIC", "Upstream test
-cases" and "Native publishing". Phase 6 is built and proven in part: "What is not proven" below
-lists the gaps.
+by hand; upstream curl's own test cases run with Surl as the server (see "Upstream's test
+cases" below); and a published native `surl` is proven on six runtime identifiers. The terms
+below are defined in the [glossary](../Wiki/Glossary.md), sections "HTTP/2", "HTTP/3 and
+QUIC", "Upstream test cases" and "Native publishing". Phase 6 is built and proven in part:
+"What is not proven" below lists the gaps.
 
 **HTTP/2** ([ADR-0081](../Planning/Decisions/ADR-0081-how-surl-serves-http-2.md), with
 [ADR-0090](../Planning/Decisions/ADR-0090-how-the-http-2-prior-knowledge-connection-reads-ends-and-answers.md)
@@ -562,16 +562,38 @@ for loss detection and congestion control):
   NTLM or Negotiate is reset `H3_VERSION_FALLBACK`.
 
 **Upstream's test cases** ([ADR-0080](../Planning/Decisions/ADR-0080-how-surl-plays-the-server-half-of-upstream-curls-test-cases.md)):
-`Surl.Conformance` parses each of the 2,013 cases at tag `curl-8_21_0`, skips each one a
-platform's pinned reference build cannot run with one named reason, and runs the rest with
-that build as the client against Surl's own protocol server for the case's scheme
-(`UpstreamTestCasesAgainstSurlTests`, categories `Integration` and `UpstreamTestCases`). The
-server halves are composed in the test project, never in `Surl.Composition`, so the shipped
-`surl` has no replay mode. Every server name in `UpstreamTestCaseServers`' table is marked
-built: the HTTP and HTTPS family (mutual TLS, IPv6 and Unix-socket forms included), RTSP, FTP
-and FTPS, IMAP, POP3 and SMTP in plaintext and behind implicit TLS (BL-1120), DICT, Gopher,
-TELNET, MQTT, TFTP, SCP, SFTP, SMB, the HTTP and HTTPS proxies, SOCKS, `httptls+srp`, `dns`,
-and the `http/2` and `http/3` gateway halves that play upstream's nghttpx
+`Surl.Conformance` (`Surl.Conformance.UnitLibrary`) parses each of the 2,013 cases at tag
+`curl-8_21_0`, selects those a platform can run, naming one reason for each it skips, and
+checks a run case's verify section. It holds no server half. `Surl.Conformance.UnitTests`
+runs the cases (`UpstreamTestCasesAgainstSurlTests`, categories `Integration` and
+`UpstreamTestCases`) with the platform's pinned reference build as the client, except that SMB
+cases use a supplementary build where the reference build has no SMB, and `linux-x64` uses a
+`Debug` build and upstream's libtest programs for the cases admitted to them (ADR-0030,
+ADR-0173, ADR-0174).
+
+The server halves are in three places:
+
+- **The protocol libraries**, each through an upstream test-case seam of its own:
+  `Surl.Protocol.Http` (HTTP and the `http/2` and `http/3` gateways), `Surl.Protocol.HttpProxy`,
+  `Surl.Protocol.Ftp`, `Surl.Protocol.Tftp`, `Surl.Protocol.Gopher`, `Surl.Protocol.Mqtt`,
+  `Surl.Protocol.Imap`, `Surl.Protocol.Pop3` and `Surl.Protocol.Smtp` (the three mail halves
+  share `Surl.LineProtocol`'s scripted replies), `Surl.Protocol.Socks`,
+  `Surl.Protocol.Telnet` and `Surl.Extended.Protocol.DnsQuery`.
+- **Surl's ordinary servers**, for DICT (`Surl.Protocol.Dict`), SCP and SFTP
+  (`Surl.Protocol.Ssh`) and SMB (`Surl.Protocol.Smb`).
+- **The test project itself**, for `httptls+srp` (`UpstreamTestCaseTlsSrpServerHalf`, over
+  `Surl.TlsSrp`).
+
+`Surl.Conformance.UnitTests` composes them (`UpstreamTestCaseServerHalves`,
+`UpstreamTestCaseFileServers` and `UpstreamTestCaseTlsSrpServerHalf`), never
+`Surl.Composition`, so the shipped `surl` has no replay mode. Every server name in
+`UpstreamTestCaseServers`' table is marked built, `rtsp` among them, although no RTSP server
+half is composed: every case naming an RTSP server at the tag is a libtest, and none is among
+the admitted ones. The names are the HTTP and HTTPS family (mutual TLS, IPv6 and
+Unix-socket forms included), RTSP, FTP and FTPS, IMAP, POP3 and SMTP in plaintext and behind
+implicit TLS (BL-1120), DICT, Gopher, TELNET, MQTT, TFTP, SCP, SFTP, SMB, the HTTP and HTTPS
+proxies, SOCKS, `httptls+srp`, `dns`, and the `http/2` and `http/3` gateway halves that play
+upstream's nghttpx
 ([ADR-0154](../Planning/Decisions/ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md)).
 Of the 16 cases whose server is `http/2` or `http/3`, 1700, 1701, 1702, 2403, 2500 and 2503
 pass on `linux-x64` and `osx-arm64`. The other ten need a `Debug` build or are libtests; all
@@ -773,8 +795,9 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   curl's `--cert`, ALPN.
 - **Cookies:** setting cookies with every attribute curl parses, and recording what curl
   sends back.
-- **Scripted exchanges:** the server half of upstream curl's own test cases
-  (`Surl.Conformance`), so curl's suite, not Surl's, decides what correct means.
+- **Scripted exchanges:** the server halves of upstream curl's own test cases, mostly in the
+  protocol libraries and composed by `Surl.Conformance.UnitTests` (see "Upstream's test
+  cases" under Phase 6), so curl's suite, not Surl's, decides what correct means.
 - **Seeing the exchange:** curl-shaped output from the server's side
   ([ADR-0033](../Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md)).
   Built today: five log levels - `none` (`-s`), `error` (`-s -S`), `info` (the default,

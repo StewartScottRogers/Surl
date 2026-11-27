@@ -51,8 +51,11 @@ been proven and what is not.
 
 1. **Phase 6: everything upstream curl asks.** Built, and proven in part. `surl` serves
    HTTP/2 on `https` (ALPN `h2`) and on `http` (prior knowledge and `Upgrade: h2c`), and with
-   `--http3` HTTP/3 over a hand-built QUIC. `Surl.Conformance` plays the server half of
-   upstream curl's own test cases, and the
+   `--http3` HTTP/3 over a hand-built QUIC. Upstream curl's own test cases run with Surl as
+   the server. Most server halves are in the protocol libraries; DICT, SCP, SFTP and SMB
+   cases run against Surl's ordinary servers, and the TLS-SRP half is in the test project.
+   `Surl.Conformance.UnitTests` composes the halves and runs the cases, and `Surl.Conformance`
+   parses, selects and checks them. The
    [pass-rate file](Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md) records every
    runnable case passing: 1,185 on `win-x64` (2026-11-14), 1,326 on `linux-x64` (2026-11-17)
    and 1,316 on `osx-arm64` (2026-11-14). Skipped cases are not counted as passed. Of the 16
