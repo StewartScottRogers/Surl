@@ -54,7 +54,7 @@ saw. If the work is too big for one run, split it.
 - Pipeline: plan, tests and implementation were done in the session to save tokens; `code-reviewer` reviewed. Its
   findings (a racy test, the HTTP/3 test cutting before the request, a connection's own close counting towards N) are
   fixed.
-- Follow-up filed: BL-1802 (DNS over QUIC and WebTransport).
+- Follow-up filed: BL-1815 (DNS over QUIC and WebTransport).
 - Gates: build clean, `dotnet format` clean, 30145 fast tests passed (3 skipped), HTTP/3 and cut-download integration
   tests 26 passed (4 skipped), `Measure-CodeQuality.ps1` 0 failing members for Core, Quic and Protocol.Http.
 

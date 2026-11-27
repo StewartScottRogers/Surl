@@ -1,5 +1,5 @@
 ---
-id: BL-1802
+id: BL-1815
 title: Close DNS over QUIC and WebTransport connections gracefully on a close=graceful drop fault
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1802 — Close DNS over QUIC and WebTransport connections gracefully on a close=graceful drop fault
+# BL-1815 — Close DNS over QUIC and WebTransport connections gracefully on a close=graceful drop fault
 
 ## Goal
 
@@ -39,3 +39,4 @@ engine only for flows that are QUIC. A test uses this to cut a DNS-over-QUIC or 
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Renumbered from BL-1802 to BL-1815; an archived task holds BL-1802.
