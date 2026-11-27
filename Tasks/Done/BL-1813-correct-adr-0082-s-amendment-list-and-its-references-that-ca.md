@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0082-how-surl-serves-http-3-over-quic.md, Protocols/Http/Surl.Quic.UnitLibrary/CLAUDE.md]
 requirement: FR-055
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1813 — Correct ADR-0082's amendment list and its references that call BL-867's Amendment 6 amendment 5
 
@@ -46,18 +46,27 @@ rewritten. No stand-in store, event or fault applies: this task changes prose on
 
 ## Acceptance criteria
 
-- [ ] ADR-0082's header has one "Amended by" mention for each `## Amendment` heading in the file,
+- [x] ADR-0082's header has one "Amended by" mention for each `## Amendment` heading in the file,
       each with that heading's number, date and task, and no mention that pairs "Amendment 5" with
       BL-867.
-- [ ] The header still names ADR-0147 and ADR-0086 with what each amends.
-- [ ] Amendment 2 item 5 says amendment 6 does BL-867's work.
-- [ ] `Protocols/Http/Surl.Quic.UnitLibrary/CLAUDE.md` cites "ADR-0082 amendment 6" for BL-867 and
+- [x] The header still names ADR-0147 and ADR-0086 with what each amends.
+- [x] Amendment 2 item 5 says amendment 6 does BL-867's work.
+- [x] `Protocols/Http/Surl.Quic.UnitLibrary/CLAUDE.md` cites "ADR-0082 amendment 6" for BL-867 and
       still cites Amendment 5 for BL-741.
 
 ## Notes
+
+- The header's seven amendment entries are in number order, one bullet each. The ADR-0086 entry has
+  its own bullet; its text is unchanged. Amendment 4's entry keeps "written by BL-739".
+- Checked on 2026-11-26: `git grep -i "amendment 5"` outside `Tasks` shows no other place that means
+  BL-867. The archived task BL-739 calls BL-384's amendment "Amendment 2"; its Notes say it was
+  written as Amendment 4, and archived tasks are never edited, so nothing is filed.
+- Gates on 2026-11-26: `dotnet build -warnaserror` clean, `dotnet format --verify-no-changes` clean,
+  fast tests green (no failures). Prose only, so no ADR and no upstream curl measurement.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Renumbered from BL-1806 to BL-1813; an archived task holds BL-1806.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. ADR-0082's header lists all seven amendments with the right number and task, and every reference to BL-867's amendment says Amendment 6
