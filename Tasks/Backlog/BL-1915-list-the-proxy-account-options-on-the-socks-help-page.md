@@ -1,5 +1,5 @@
 ---
-id: BL-1913
+id: BL-1915
 title: List the proxy account options on the SOCKS help page
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1913 — List the proxy account options on the SOCKS help page
+# BL-1915 — List the proxy account options on the SOCKS help page
 
 ## Goal
 

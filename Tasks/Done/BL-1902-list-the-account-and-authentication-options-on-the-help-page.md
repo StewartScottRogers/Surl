@@ -58,7 +58,7 @@ Decisions, and why:
   fails when a new server topic has no row.
 - Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests green
   (`Surl.Cli.UnitTests` 2004 passed). No integration tests run: only help categories changed.
-- Filed: BL-1913 (proxy account options on the SOCKS page), BL-1914 (explanations name only some servers).
+- Filed: BL-1915 (proxy account options on the SOCKS page), BL-1914 (explanations name only some servers).
 
 ## Log
 
