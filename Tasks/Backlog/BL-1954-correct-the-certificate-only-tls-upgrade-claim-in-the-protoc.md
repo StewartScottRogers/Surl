@@ -1,5 +1,5 @@
 ---
-id: BL-1952
+id: BL-1954
 title: Correct the certificate-only TLS upgrade claim in the ProtocolServerRegistrations remarks
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1952 — Correct the certificate-only TLS upgrade claim in the ProtocolServerRegistrations remarks
+# BL-1954 — Correct the certificate-only TLS upgrade claim in the ProtocolServerRegistrations remarks
 
 ## Goal
 

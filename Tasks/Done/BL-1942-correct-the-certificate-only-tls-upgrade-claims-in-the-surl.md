@@ -43,7 +43,7 @@ No store, event or fault is involved: comments only.
 - The LDAP summary also cites ADR-0122 decision 5, because its ADR-0072 citation covered only the certificate half.
 - Verified 2026-11-27: line-ending script rewrote 0 files, `dotnet build -warnaserror` 0 warnings, `dotnet format
   --verify-no-changes` clean, fast tests 30366 passed, 0 failed, 3 skipped. No integration tests: comments only.
-- Filed for what is outside this task: BL-1952 (same claim in the `ProtocolServerRegistrations` remarks) and BL-1953
+- Filed for what is outside this task: BL-1954 (same claim in the `ProtocolServerRegistrations` remarks) and BL-1953
   (the "one policy" and "opener the runner creates" wording in the FTP and LDAP summaries).
 
 ## Log
