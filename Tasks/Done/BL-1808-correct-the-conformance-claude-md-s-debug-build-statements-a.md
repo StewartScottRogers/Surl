@@ -50,8 +50,8 @@ Found during BL-1805 (2026-11-26).
   `%RTSP6PORT`, `%SMBSPORT` or `%TFTP6PORT`.
 - Also corrected in the same `CLAUDE.md`: the `Libtest` pin kind, `LocateDebug` and `LocateLibtest`,
   and the passing-list guard's tolerated skips.
-- Found and left alone, filed as BL-1816 (libtest skip filter, comments and refusal message in code)
-  and BL-1817 (certificate statement; ADR-0080 rows still marked "not built").
+- Found and left alone, filed as BL-1834 (libtest skip filter, comments and refusal message in code)
+  and BL-1835 (certificate statement; ADR-0080 rows still marked "not built").
 
 ## Log
 

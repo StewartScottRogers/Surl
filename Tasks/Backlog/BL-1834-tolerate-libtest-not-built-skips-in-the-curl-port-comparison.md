@@ -1,5 +1,5 @@
 ---
-id: BL-1816
+id: BL-1834
 title: Tolerate libtest-not-built skips in the Curl port comparison and correct the conformance runner's libtest wording
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-053
 created: 2026-11-26
 completed:
 ---
-# BL-1816 — Tolerate libtest-not-built skips in the Curl port comparison and correct the conformance runner's libtest wording
+# BL-1834 — Tolerate libtest-not-built skips in the Curl port comparison and correct the conformance runner's libtest wording
 
 ## Goal
 

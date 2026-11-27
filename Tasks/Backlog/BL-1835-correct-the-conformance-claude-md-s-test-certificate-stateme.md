@@ -1,5 +1,5 @@
 ---
-id: BL-1817
+id: BL-1835
 title: Correct the conformance CLAUDE.md's test certificate statement and note in ADR-0080 that every server half is built
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-053
 created: 2026-11-26
 completed:
 ---
-# BL-1817 — Correct the conformance CLAUDE.md's test certificate statement and note in ADR-0080 that every server half is built
+# BL-1835 — Correct the conformance CLAUDE.md's test certificate statement and note in ADR-0080 that every server half is built
 
 ## Goal
 
