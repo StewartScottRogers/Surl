@@ -1,5 +1,5 @@
 ---
-id: BL-1927
+id: BL-1938
 title: Correct the certificate-only STARTTLS claims in the SMTP server's comments and notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1927 — Correct the certificate-only STARTTLS claims in the SMTP server's comments and notes
+# BL-1938 — Correct the certificate-only STARTTLS claims in the SMTP server's comments and notes
 
 ## Goal
 

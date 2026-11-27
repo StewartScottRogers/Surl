@@ -1,5 +1,5 @@
 ---
-id: BL-1926
+id: BL-1937
 title: Correct the certificate-only TLS upgrade claims in Surl.Composition's registration list and notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1926 — Correct the certificate-only TLS upgrade claims in Surl.Composition's registration list and notes
+# BL-1937 — Correct the certificate-only TLS upgrade claims in Surl.Composition's registration list and notes
 
 ## Goal
 
