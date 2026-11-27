@@ -8,7 +8,7 @@ depends-on: [BL-1823]
 touches: [Application/Surl.Mcp/README.md, Application/Surl.Mcp.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1832 — Correct three incomplete or false statements in the surl-mcp host README plus library CLAUDE.md
 
@@ -46,18 +46,27 @@ No store, event or fault changes: this task changes prose only.
 
 ## Acceptance criteria
 
-- [ ] The README's `get_events` bullet covers every kept kind, including `consumer_group_changed` and
+- [x] The README's `get_events` bullet covers every kept kind, including `consumer_group_changed` and
       `cookie_received`.
-- [ ] The README's read-back bullet says bytes come back as `text` only when they are well-formed UTF-8 with no
+- [x] The README's read-back bullet says bytes come back as `text` only when they are well-formed UTF-8 with no
       control character other than tab, CR and LF, and as `base64` otherwise.
-- [ ] The library `CLAUDE.md` gives the warning `remove_proxy_account` adds, as a `warning` member and a second
+- [x] The library `CLAUDE.md` gives the warning `remove_proxy_account` adds, as a `warning` member and a second
       text block, when it removes the last proxy account.
-- [ ] The library `CLAUDE.md` gives both not-held texts, `server <id> has no proxy account <user>` and
+- [x] The library `CLAUDE.md` gives both not-held texts, `server <id> has no proxy account <user>` and
       `server <id> has no TLS-SRP account <user>`.
 
 ## Notes
+
+- Checked against `EventToolFilter.cs`, `EventRecordBook.cs`, `ReadBackJson.cs`, `RemoveProxyAccountTool.cs`
+  and `RemoveTlsSrpAccountTool.cs`; the code agrees with every point under Context.
+- The README's `get_events` bullet also says exchange bytes are never kept as events and `get_exchanges` gives them.
+- The library `CLAUDE.md` remove-account sentences are now their own bullet, apart from the add tools', and also
+  give both texts for a server without such accounts.
+- Findings outside this task are filed: BL-1838 (`add_tls_srp_account` refusal text, `get_events` description)
+  and BL-1839 (account tool refusals in the README and library `CLAUDE.md`).
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The surl-mcp host README and library CLAUDE.md state the kept event kinds, the text-or-base64 rule and the remove-account answers as the code has them
