@@ -39,7 +39,7 @@ Found while working BL-1809. Docs only; no `.cs` file changes.
 - The "Unix domain sockets" bullet also gains the `--proxy` refusal (`RefuseProxy`, which runs first).
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: all 83 test assemblies reported, none failed. Only
   Markdown changed.
-- Other stale statements in the same two files, outside these criteria, are filed as BL-1822.
+- Other stale statements in the same two files, outside these criteria, are filed as BL-1828.
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1822
+id: BL-1828
 title: Correct the remaining stale library lists and Surl.Console attributions in the Surl.Cli and Surl.Composition CLAUDE.md files
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1822 — Correct the remaining stale library lists and Surl.Console attributions in the Surl.Cli and Surl.Composition CLAUDE.md files
+# BL-1828 — Correct the remaining stale library lists and Surl.Console attributions in the Surl.Cli and Surl.Composition CLAUDE.md files
 
 ## Goal
 
