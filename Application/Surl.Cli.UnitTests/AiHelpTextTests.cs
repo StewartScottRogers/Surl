@@ -710,10 +710,23 @@ public sealed partial class AiHelpTextTests
         var page = AiHelpText.Answer("auth").Output;
         var manual = string.Join(' ', ManualText.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-        StringAssert.Contains(page, "and for SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka and XMPP servers each mechanism by its lower-case name,");
+        StringAssert.Contains(page, "and for SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5.0 servers each mechanism by its lower-case name,");
+        StringAssert.Contains(page, "(the MQTT 5.0 server runs only scram-sha-256 and scram-sha-1, and only when `--auth` names them; see the mqtt5 topic)");
         StringAssert.Contains(page, "external and aws-sigv4, and the Kafka and XMPP servers accept SCRAM too.");
-        StringAssert.Contains(manual, "For SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka and XMPP servers, each mechanism by its name in lower case,");
+        StringAssert.Contains(manual, "For SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5.0 servers, each mechanism by its name in lower case,");
+        StringAssert.Contains(manual, "The MQTT 5.0 server (mqtt5, mqtt5s and mqtt5+ws) runs only scram-sha-256 and scram-sha-1, as a CONNECT's Authentication Method, and only when --auth names them.");
         StringAssert.Contains(manual, "external and aws-sigv4, and the Kafka and XMPP servers accept SCRAM too.");
+    }
+
+    [TestMethod]
+    public void Answer_Mqtt5_ListsAuthAndSaysWhenEnhancedAuthenticationLogsIn()
+    {
+        var page = AiHelpText.Answer("mqtt5").Output;
+
+        StringAssert.Contains(page, "an Authentication Method of `SCRAM-SHA-256` or `SCRAM-SHA-1` logs in as an account (`--user`, `--user-file`) when `--auth` names `scram-sha-256` or `scram-sha-1`");
+        StringAssert.Contains(page, "answered CONNACK `0x8C` Bad authentication method.");
+        StringAssert.Contains(page, "--auth <methods>");
+        StringAssert.Contains(HelpText.Answer("mqtt5").Output, "--auth <methods>");
     }
 
     [TestMethod]
