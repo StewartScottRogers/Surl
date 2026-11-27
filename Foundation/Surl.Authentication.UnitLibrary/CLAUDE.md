@@ -439,6 +439,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `pop` there and refused every LDAP ticket. ADR-0078's OpenLDAP build of upstream curl proves it
   on CI's Linux leg (`Surl.Conformance.UnitTests`).
 
+## SASL `GSSAPI` over AMQP (BL-1858)
+
+- `GssapiSaslExchange` checks the ticket for the service `amqp` on `amqp`, `amqps`, `amqp1` and
+  `amqp1s` (ADR-0057 Amendment 4); before BL-1858 it answered `pop` there, so an `amqp/<host>`
+  ticket was refused. Kafka, XMPP and MQTT 5 start SASL exchanges too but never offer `GSSAPI`.
+
 ## SASL `SCRAM-SHA-1` and `SCRAM-SHA-256` (BL-416)
 
 - `ScramSaslExchange` is RFC 5802 and RFC 7677 without channel binding, the mechanism ADR-0084

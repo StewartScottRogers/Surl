@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text;
 using Surl.Kerberos;
 using Surl.Protocol.Abstractions;
@@ -8,7 +9,7 @@ namespace Surl.Authentication;
 /// SASL <c>GSSAPI</c>, RFC 4752 with Kerberos V5 (ADR-0049, section 4; ADR-0057, decisions 9 and
 /// 10): one empty challenge when no initial response was sent, then the client's
 /// <c>InitialContextToken</c> checked by the <c>--keytab</c> acceptor for the service the scheme
-/// names (<c>smtp</c>, <c>imap</c>, <c>pop</c> or <c>ldap</c>); the AP-REP token when the client asked for
+/// names (<c>smtp</c>, <c>imap</c>, <c>pop</c>, <c>ldap</c> or <c>amqp</c>); the AP-REP token when the client asked for
 /// mutual authentication, which the client must answer empty; then the wrapped security-layer offer
 /// <c>01 00 00 00</c>, no layer and no maximum size. The client's wrapped answer must choose no
 /// layer, and the authorization identity after it must be empty or the ticket's client principal
@@ -25,6 +26,20 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
     private const int SecurityLayerLength = 4;
 
     private static readonly byte[] SecurityLayerOffer = [NoSecurityLayer, 0x00, 0x00, 0x00];
+
+    private static readonly FrozenDictionary<string, string> ServicesOfSchemesBesidesPop3 = new Dictionary<string, string>
+    {
+        ["smtp"] = "smtp",
+        ["smtps"] = "smtp",
+        ["imap"] = "imap",
+        ["imaps"] = "imap",
+        ["ldap"] = "ldap",
+        ["ldaps"] = "ldap",
+        ["amqp"] = "amqp",
+        ["amqps"] = "amqp",
+        ["amqp1"] = "amqp",
+        ["amqp1s"] = "amqp",
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     private KerberosSecurityContext? securityContext;
 
@@ -49,16 +64,12 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
             : CheckSecurityLayerChoiceAsync(accepted, token.Span, cancellationToken);
     }
 
-    // The Kerberos service each scheme answers (ADR-0057, decision 2; ldap/<host> for LDAP, as
-    // ADR-0078 measured upstream curl ask): only the mail and LDAP servers start a SASL exchange,
-    // so what is not SMTP, IMAP or LDAP is POP3.
-    private static string ServiceOf(string scheme) => scheme.ToLowerInvariant() switch
-    {
-        "smtp" or "smtps" => "smtp",
-        "imap" or "imaps" => "imap",
-        "ldap" or "ldaps" => "ldap",
-        _ => "pop",
-    };
+    // The Kerberos service each scheme answers (ADR-0057 decision 2; its amendment 2 for
+    // ldap/<host>, which ADR-0078 measured upstream curl ask for, and its amendment 4 for
+    // amqp/<host> on both AMQP versions). The servers that start a SASL exchange are SMTP, IMAP,
+    // POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5; the last three never offer GSSAPI,
+    // so a scheme this table does not name is POP3's.
+    private static string ServiceOf(string scheme) => ServicesOfSchemesBesidesPop3.GetValueOrDefault(scheme, "pop");
 
     private ValueTask<SaslLoginStep> AcceptTicketAsync(ReadOnlySpan<byte> token, CancellationToken cancellationToken)
     {

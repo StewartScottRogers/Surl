@@ -8,7 +8,8 @@
   of [ADR-0065](ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md);
   both hold. Amendment 2 below (BL-351): decision 2's table gains `ldap`. Amendment 3 below
   (BL-1817): no unused `--keytab` warning when a `socks5` or `socks5h` listen URL is served
-  (decision 1).
+  (decision 1). Amendment 4 below (BL-1858): decision 2's table gains `amqp` for `amqp`,
+  `amqps`, `amqp1` and `amqp1s`.
 - **Amends:** [ADR-0040](ADR-0040-http-negotiate-carrying-ntlm-bare-or-in-spnego.md) decision 3
   (a Kerberos token inside Negotiate is no longer refused once a keytab is configured, decision 8
   below); [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
@@ -598,3 +599,64 @@ this amendment.
 - **Making SOCKS5 GSS-API depend on `--auth` naming `gssapi`.** Rejected: it would change what
   ADR-0121 amendment 2 decides, and `--auth` would have to name a word, replacing its default set,
   to turn on a method that a keytab turns on by itself.
+
+## Amendment 4 - decision 2's table gains `amqp` (BL-1858, 2026-11-27)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in
+BL-1858.
+
+### Context
+
+Both AMQP servers (extended servers,
+[ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)) offer every
+mechanism `ISaslAuthenticationPolicy.GetSaslMechanisms` returns
+([ADR-0112](ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md) decision 2,
+[ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 2), so with
+`--auth gssapi --keytab` they offer `GSSAPI`. Decision 2's table had no AMQP row, and
+`GssapiSaslExchange` answered the service `pop` for every scheme that was not SMTP, IMAP or LDAP:
+an AMQP login needed a ticket for `pop/<host>`. Found by reading the code in BL-1819's review.
+
+The other servers that start a SASL exchange are SMTP, IMAP, POP3 and LDAP, which the table
+covers, and Kafka, XMPP and MQTT 5, which offer only `PLAIN` and SCRAM mechanisms and refuse a
+mechanism they did not offer.
+
+What names the service (read 2026-11-27):
+
+- RFC 4752 section 3.1 takes the service name from the application protocol's SASL profile.
+- OASIS AMQP 1.0 Part 5 (Security) names no SASL service, and the IANA registry
+  "GSSAPI/Kerberos/SASL Service Names" has no `amqp` entry (it has `smtp`, `imap`, `pop` and
+  `ldap`).
+- Apache Qpid Proton C passes `"amqp"` to both `sasl_client_new` and `sasl_server_new`
+  (`c/src/sasl/cyrus_sasl.c`: `static const char amqp_service[] = "amqp";`).
+- Apache Qpid JMS documents `sasl.options.protocol`, "The protocol value used during the GSSAPI
+  SASL process. Default is "amqp"."
+
+### Decision
+
+The AMQP servers keep offering `GSSAPI`, and decision 2's table gains a row:
+
+| Schemes | Service |
+| --- | --- |
+| `amqp`, `amqps`, `amqp1`, `amqp1s` | `amqp` |
+
+- One name for both protocol versions: a client asks for the service by the job (`amqp`), not by
+  the wire version, and `amqp1` is a scheme name of the Curl port's, not a Kerberos service.
+- The rest of decisions 2, 9 and 10 applies unchanged: any host and realm the keytab names, the
+  same RFC 4752 steps, an account named as the client principal.
+- A `pop/<host>` ticket is now refused on an AMQP listener.
+
+### Alternatives considered
+
+- **Offering no `GSSAPI` on AMQP**, as Kafka, XMPP and MQTT 5 do. Rejected: AMQP clients that
+  speak Kerberos exist and name `amqp`, and a stand-in broker should take their logins (root
+  `CLAUDE.md`, "Decisions": nothing is left out).
+- **`amqp1/<host>` for AMQP 1.0.** Rejected: no source read names it.
+
+### Consequences
+
+- A keytab for an AMQP listener holds `amqp/<host>@<REALM>`.
+- A ticket still has to fit the frame that carries it. AMQP 1.0 limits a SASL frame to 512 bytes
+  (ADR-0107 decision 2), which the AP-REQs measured in Amendment 1 (635 bytes or more) exceed, so
+  such a ticket closes an `amqp1` or `amqp1s` connection before it is checked. AMQP 0-9-1 limits a
+  frame before `connection.tune-ok` to 4096 bytes (ADR-0112). Whether surl accepts larger AMQP 1.0
+  SASL frames is a follow-up task's decision, not this one's.
