@@ -43,9 +43,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
   `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. Their option rows in `CommandLineOptions`
   are `-x`/`--proxy` (category `proxy`), `-U`/`--proxy-user` (`ArgumentHoldsSecret`) and `--proxy-user-file`
-  (each `auth`, `proxy` and `socks`), and `--proxy-allow-origin` (`proxy` and `security`) (BL-1004).
-  The `socks` category also holds `--keytab`, which SOCKS5 GSS-API reads, and not `--proxy-auth`, which the
-  SOCKS server never applies (BL-1915).
+  (each `auth`, `proxy` and `socks`), and `--proxy-allow-origin` (`proxy`, `security` and `socks`) (BL-1004).
+  The `socks` category also holds `--keytab`, which SOCKS5 GSS-API reads, and `--head-timeout`, which bounds the
+  SOCKS handshake and the origin's connect (BL-1920), and not `--proxy-auth`, which the SOCKS server never
+  applies (BL-1915).
   `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
   `GivenProxyAuthenticationMethods`, apart from `--auth`; `AcceptedProxyAuthenticationMethods` defaults to
   `digest`, `basic`.

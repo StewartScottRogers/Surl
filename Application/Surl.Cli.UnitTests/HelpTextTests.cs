@@ -967,20 +967,23 @@ public sealed class HelpTextTests
             "telnet: TELNET protocol",
             "     --max-line <bytes>  Longest command line accepted");
 
-    // The SOCKS server reads the proxy accounts and the --keytab, and never --proxy-auth (BL-1915).
+    // The SOCKS server reads the proxy accounts, the --keytab, the --proxy-allow-origin ranges and the
+    // --head-timeout, and never --proxy-auth (BL-1915, BL-1920).
     [TestMethod]
-    public void Answer_Socks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth() =>
+    public void Answer_Socks_ListsItsOptionsButNotProxyAuth() =>
         AssertOutput(
             HelpText.Answer("socks"),
             "socks: SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
-            Row(36, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(36, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
-            Row(36, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
-            Row(36, "    --proxy-user-file <file>", "Read proxy accounts from a file"));
+            Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
+            Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
+            Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"));
 
     [TestMethod]
-    public void Answer_AiHelpSocks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth()
+    public void Answer_AiHelpSocks_ListsItsOptionsButNotProxyAuth()
     {
         var optionRows = AiHelpText.Answer("socks").Output.ReplaceLineEndings("\n").Split('\n')
             .Where(line => line.StartsWith("| `-", StringComparison.Ordinal))
@@ -991,7 +994,9 @@ public sealed class HelpTextTests
             {
                 "--allow-anonymous",
                 "--allow-plaintext-auth",
+                "--head-timeout <seconds>",
                 "--keytab <file>",
+                "--proxy-allow-origin <address>",
                 "-U, --proxy-user <user:password>",
                 "--proxy-user-file <file>",
             },
