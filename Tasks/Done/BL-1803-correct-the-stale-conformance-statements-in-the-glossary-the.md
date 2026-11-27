@@ -68,7 +68,7 @@ BL-1802. No stand-in store, event or fault applies: this task changes prose only
   skipped as not composed (second and third criteria). It now lists every name in `ServerFamilies`.
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: all pass.
   `UpstreamTestCasePassRateStatementTests`: 5 passed.
-- Other stale statements found are filed as BL-1804.
+- Other stale statements found are filed as BL-1805.
 
 ## Log
 

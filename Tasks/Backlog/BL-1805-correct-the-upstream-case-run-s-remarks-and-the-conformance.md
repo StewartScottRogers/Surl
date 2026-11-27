@@ -1,5 +1,5 @@
 ---
-id: BL-1804
+id: BL-1805
 title: Correct the upstream-case run's remarks and the conformance CLAUDE.md's intent list
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-053
 created: 2026-11-26
 completed:
 ---
-# BL-1804 — Correct the upstream-case run's remarks and the conformance CLAUDE.md's intent list
+# BL-1805 — Correct the upstream-case run's remarks and the conformance CLAUDE.md's intent list
 
 ## Goal
 
