@@ -37,3 +37,4 @@ timer is counting on it, so it cannot time out under load.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
