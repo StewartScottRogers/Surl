@@ -1,5 +1,5 @@
 ---
-id: BL-1939
+id: BL-1943
 title: Name Surl.Composition, not Surl.Console, as the composer in the IMAP server's comments and notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1939 — Name Surl.Composition, not Surl.Console, as the composer in the IMAP server's comments and notes
+# BL-1943 — Name Surl.Composition, not Surl.Console, as the composer in the IMAP server's comments and notes
 
 ## Goal
 

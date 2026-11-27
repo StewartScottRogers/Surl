@@ -49,7 +49,7 @@ No store, event or fault is involved: documentation only.
 - Verified 2026-11-27: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30334 passed, 0 failed,
   3 skipped. No Integration run: only comments and notes changed.
 - The same claims elsewhere already have their own tasks (BL-1927, BL-1929 to BL-1932, BL-1935 to BL-1938). Filed
-  BL-1939 for the library's remaining `Surl.Console` attributions, which are outside this task's certificate wording.
+  BL-1943 for the library's remaining `Surl.Console` attributions, which are outside this task's certificate wording.
 
 ## Log
 
