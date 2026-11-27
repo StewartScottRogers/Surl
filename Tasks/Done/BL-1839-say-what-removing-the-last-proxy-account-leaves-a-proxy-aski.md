@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0132-how-the-account-book-changes-while-the-server-runs.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1839 — Decide what removing the last proxy account leaves a proxy asking for, and what the warning says
 
@@ -27,12 +27,26 @@ An ADR states what a proxy asks for after its last proxy account is removed whil
 
 ## Acceptance criteria
 
-- [ ] An amendment to ADR-0132, marked "Decided by Claude under Stewart's delegation", states what an HTTP proxy `GET`, an HTTP proxy `CONNECT`, a SOCKS4 request and each SOCKS5 method get after the last proxy account is removed, and the warning's text on the control endpoint, `Surl.Api` and `surl-mcp`.
-- [ ] The code and text tasks the decision needs are filed in `Tasks/Backlog`, or the amendment says none is needed.
+- [x] An amendment to ADR-0132, marked "Decided by Claude under Stewart's delegation", states what an HTTP proxy `GET`, an HTTP proxy `CONNECT`, a SOCKS4 request and each SOCKS5 method get after the last proxy account is removed, and the warning's text on the control endpoint, `Surl.Api` and `surl-mcp`.
+- [x] The code and text tasks the decision needs are filed in `Tasks/Backlog`, or the amendment says none is needed.
 
 ## Notes
+
+- 2026-11-27: Confirmed in the source (no test run). One statement in Context is incomplete: after the removal the
+  HTTP proxy challenges only writes, so a `GET` or `HEAD` without `Proxy-Authorization` is forwarded. That is the
+  proxy opening unasked.
+- Decided (ADR-0132 amendment 4): the proxy stays closed, `GET` and `HEAD` get the `407` too, through a new
+  `AuthenticationSettings.RequiresLoginWithoutAccounts`; `--allow-anonymous` unchanged; one warning text true with
+  and without it. Rejected: keeping the opening and only rewording, refusing the removal, calling every proxy method
+  a write.
+- Nothing measured: no byte changes; ADR-0088 amendment 3 already measured curl against the proxy's `407`.
+- Filed with the board script: BL-1850, BL-1851, BL-1852, BL-1853 (code and text), BL-1854 (the same question for
+  the server accounts, out of this task's scope).
+- Edited in the session rather than through `align-and-document`: two files, and the decision was already read out of
+  the source here. No `.cs` or project file changed.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0132 amendment 4: a proxy composed with proxy accounts stays closed when the last is removed, GET and HEAD included; warning text decided; BL-1850 to BL-1854 filed
