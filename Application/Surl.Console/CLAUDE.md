@@ -162,8 +162,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `--allow-plaintext-auth` and `--auth` lines, in that order, then
   `KeytabComposition.WriteStartLines` writes `surl: warning: --keytab: skipped the <enctype
   name> key of <principal>` for each keytab entry of an enctype surl does not accept, and
-  `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when that
-  is so, never a key byte, then `ComposedServing`
+  `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when
+  `--auth` accepts neither word and no listen URL, positional or from `-x`/`--proxy`, has the
+  scheme `socks5` or `socks5h`, whose SOCKS5 GSS-API login reads the keytab (ADR-0057
+  amendment 3), never a key byte, then `ComposedServing`
   writes the `--self-signed` line when a throwaway certificate was made, and from the
   verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
   section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the

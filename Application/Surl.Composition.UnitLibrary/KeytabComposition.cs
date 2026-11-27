@@ -74,8 +74,11 @@ public static class KeytabComposition
 
     /// <summary>
     /// Writes, from the info level up, a warning line for each keytab entry skipped for its enctype,
-    /// in file order, then the unused warning when <c>--keytab</c> is given and <c>--auth</c> accepts
-    /// neither <c>negotiate</c> nor <c>gssapi</c> (ADR-0057, decision 1; ADR-0032, section 9's form).
+    /// in file order, then the unused warning when <c>--keytab</c> is given, <c>--auth</c> accepts
+    /// neither <c>negotiate</c> nor <c>gssapi</c>, and no listen URL, positional or from
+    /// <c>-x</c>/<c>--proxy</c>, has the scheme <c>socks5</c> or <c>socks5h</c>, whose SOCKS5 GSS-API
+    /// login reads the keytab whatever <c>--auth</c> names (ADR-0057, decision 1 and amendment 3;
+    /// ADR-0032, section 9's form).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="skippedEntries">The entries <see cref="Read"/> skipped.</param>
@@ -92,7 +95,7 @@ public static class KeytabComposition
             log.WriteLine(WarningPrefix + $"--keytab: skipped the {NameEncryptionType(skipped.EncryptionTypeNumber)} key of {skipped.Principal}");
         }
 
-        if (!AcceptsAKerberosMethod(commandLine))
+        if (!AcceptsAKerberosMethod(commandLine) && !ServesASocks5ListenUrl(commandLine))
         {
             log.WriteLine(WarningPrefix + "--keytab is unused: --auth accepts neither negotiate nor gssapi");
         }
@@ -116,4 +119,7 @@ public static class KeytabComposition
 
     private static bool AcceptsAKerberosMethod(SurlCommandLine commandLine) =>
         commandLine.AcceptedAuthenticationMethods.Contains("negotiate") || commandLine.AcceptedAuthenticationMethods.Contains("gssapi");
+
+    private static bool ServesASocks5ListenUrl(SurlCommandLine commandLine) =>
+        commandLine.ListenUrls.Concat(commandLine.ProxyListenUrls).Any(listenUrl => listenUrl.Scheme is "socks5" or "socks5h");
 }
