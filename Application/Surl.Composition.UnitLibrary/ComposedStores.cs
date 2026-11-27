@@ -684,7 +684,11 @@ public sealed partial class ComposedStores
         return removed;
     }
 
-    /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
+    /// <summary>
+    /// Whether any account is held; <see langword="false"/> means no account is held. It does not say whether a login
+    /// is asked for: removing the last account leaves the server asking for a login wherever it did (ADR-0132
+    /// amendment 5).
+    /// </summary>
     public bool HasAccounts => accounts.HasAccounts;
 
     /// <summary>

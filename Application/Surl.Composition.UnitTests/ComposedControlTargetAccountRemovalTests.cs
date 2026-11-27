@@ -12,37 +12,30 @@ namespace Surl.Composition;
 [TestClass]
 public sealed class ComposedControlTargetAccountRemovalTests
 {
-    private const string AccountWarning = "surl: warning: no account left; the server now needs no login";
+    private const string AccountWarning =
+        "surl: warning: no local account left; the server still asks for a login wherever it did";
     private const string ProxyWarning =
         "surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through";
 
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public async Task RemoveAccountAsync_TheLastAccount_WritesTheWarningOnce()
+    [DataRow(new[] { "-u", "alice:secret" }, DisplayName = "Without --user-ldap")]
+    [DataRow(
+        new[] { "-u", "alice:secret", "--user-ldap", "ldaps://dir.example.com/dc=example,dc=com" },
+        DisplayName = "With --user-ldap")]
+    public async Task RemoveAccountAsync_TheLastAccount_WritesTheWarningOnce(string[] options)
     {
-        await using var serving = await ComposeAsync("-u", "alice:secret");
+        await using var serving = await ComposeAsync(options);
         var log = new StringWriter();
-
-        var removed = await TargetOf(serving, log).RemoveAccountAsync("alice", TestContext.CancellationToken);
-
-        Assert.IsTrue(removed);
-        Assert.AreEqual(AccountWarning + Environment.NewLine, log.ToString());
-    }
-
-    [TestMethod]
-    public async Task RemoveAccountAsync_TheLastLocalAccountWithADirectory_WritesTheDirectoryWarning()
-    {
-        await using var serving = await ComposeAsync("-u", "alice:secret");
-        var log = new StringWriter();
-        var target = new ComposedControlTarget(serving.Events, serving.Faults, serving.Stores, log, hasDirectory: true);
+        var target = TargetOf(serving, log);
 
         var removed = await target.RemoveAccountAsync("alice", TestContext.CancellationToken);
+        var removedAgain = await target.RemoveAccountAsync("alice", TestContext.CancellationToken);
 
         Assert.IsTrue(removed);
-        Assert.AreEqual(
-            "surl: warning: no local account left; logins are now checked against the directory only" + Environment.NewLine,
-            log.ToString());
+        Assert.IsFalse(removedAgain);
+        Assert.AreEqual(AccountWarning + Environment.NewLine, log.ToString());
     }
 
     [TestMethod]

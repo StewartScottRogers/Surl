@@ -175,8 +175,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   refuses an invalid address `BadRequest`, no such account or a recipient outside the mail domains `NotFound`, a
   failed delivery `Conflict`; a file path a request may not name is `BadRequest`; a bus refusal maps by
   `RefusalKindOf`; a store on disk refused reset, snapshot or restore is `Conflict`. `ReadEventsAsync` reads its own
-  subscription, bytes included, and ends without throwing when cancelled.
-  Tests: `ComposedControlTargetTests`, `FaultItemTextTests`.
+  subscription, bytes included, and ends without throwing when cancelled. A removal that leaves no account writes
+  `surl: warning: no local account left; the server still asks for a login wherever it did` to the log, with or
+  without `--user-ldap`; one that leaves an account writes nothing. `ComposedStores.HasAccounts` `false` means no
+  account is held: removing the last one does not open the server (ADR-0132 amendment 5, BL-1865).
+  Tests: `ComposedControlTargetTests`, `ComposedControlTargetAccountRemovalTests`, `FaultItemTextTests`.
 - Serving the control endpoint (ADR-0124 decision 7, BL-977): with `--control`, `ControlComposition.ReadToken` has read
   the token (`ComposedAuthentication.ControlToken`), and `ComposedServing.ServeAsync` first binds the control listener
   through the same `IListenerFactory`, on its own `ServingEngine` over a `ControlProtocolServer` (a `ControlEndpoint`
