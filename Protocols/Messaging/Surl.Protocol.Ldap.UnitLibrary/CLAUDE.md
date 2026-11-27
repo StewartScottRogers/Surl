@@ -69,15 +69,23 @@ public `LdapDirectoryLoadException` carrying the file path and `line <n>: <what>
 `SurlServerComposition.LoadLdapServerAsync` turns into `(37) Could not read <file>: <message>`,
 and its start into `CouldNotReadFile` (37), before any listener binds (BL-310).
 
-What this library does not hold: the SASL mechanisms, the NTLM and `DIGEST-MD5` security layers
-and the password check live in `Surl.Authentication`, reached only through the
-`Surl.Protocol.Abstractions` contracts. Kerberos inside `GSS-SPNEGO` is answered with NTLM
-selected (ADR-0040's rule); BL-327 is to decide and build Kerberos there.
+What this library does not hold: the SASL mechanisms, the NTLM, `DIGEST-MD5` and Kerberos
+security layers and the password check live in `Surl.Authentication`, reached only through the
+`Surl.Protocol.Abstractions` contracts. That includes Kerberos inside `GSS-SPNEGO` (ADR-0072
+Amendment 1): with `--keytab`, a bind whose token selects Kerberos is accepted in one leg by
+`GssSpnegoSaslExchange` for the service `ldap` - Kerberos must be the client's first mechanism
+and the AP-REQ its optimistic token, the ticket good, and its principal an account unless
+`--allow-anonymous` - with an RFC 4121 security layer (`KerberosSaslSecurityLayer`) when the
+client asks for confidentiality or integrity; without `--keytab` such a token is answered by
+ADR-0040's rule, NTLM selected.
 
 `UpstreamCurlSearchesSurlOverLdapTests` in `Surl.Conformance.UnitTests` proves the server against
-the pinned Windows build over `WinLDAP` (ADR-0072 decision 10). Nothing yet proves it against the
-OpenLDAP-backed build ADR-0076 pins - `STARTTLS`, the root-DSE SASL discovery, SASL binds and
-the anonymous bind; that is BL-312's.
+the pinned Windows build over `WinLDAP` (ADR-0072 decision 10), and
+`UpstreamCurlBindsToSurlOverLdapWithKerberosTests` there proves the Kerberos bind and a search
+through its sealed layer against that build. `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests`,
+also there, proves the server against the OpenLDAP-backed build ADR-0076 pins - `STARTTLS`,
+`ldaps`, the root-DSE SASL discovery, SASL binds and the anonymous bind. That build is pinned
+for `linux-x64` only; elsewhere those tests are Inconclusive.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`
 (for `IContentFileSystem`), one of the horizontal libraries in ADR-0002 decision 3's table, as
