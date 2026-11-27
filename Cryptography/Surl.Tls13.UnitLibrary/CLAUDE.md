@@ -37,10 +37,14 @@ And the server handshake (BL-376):
   the client-certificate check (below). An empty ALPN list means ALPN is neither checked nor
   answered; null transport parameters mean the extension is neither required nor sent.
   - QUIC (`Surl.Quic`'s `QuicServerConnection`) always passes transport parameters, and the ALPN
-    list of its `QuicServerConnectionOptions`: `h3` by default, `doq` for DNS over QUIC.
+    list of its `QuicServerConnectionOptions`: `h3` by default, `doq` for DNS over QUIC. With
+    transport parameters set, a ClientHello with no ALPN extension is refused (RFC 9001
+    section 8.1).
   - TCP (`ServerTlsSettings.CreateTls13Options` in `Surl.Networking`) leaves the transport
     parameters null, adds no extensions, and passes the listener's ALPN list
-    (`TlsApplicationProtocols`), which is empty for a listener that offers none.
+    (`TlsApplicationProtocols`), which is empty for a listener that offers none. With transport
+    parameters null, a ClientHello with no ALPN extension is served without ALPN (ADR-0010
+    section 4), as the `SslStream` path serves it.
 - Choices, all ADR-0082 decision 3: the client's first supported suite; groups in the order
   X25519MLKEM768, x25519, secp256r1, secp384r1, secp521r1; with no share for one of them, a
   HelloRetryRequest for the first the client's `supported_groups` lists. X25519MLKEM768
@@ -127,7 +131,7 @@ The table holds over both, except where a row says otherwise:
 | no TLS 1.3 in `supported_versions` | `protocol_version` |
 | no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own (QUIC only: TCP passes none) | `missing_extension` |
 | no shared cipher suite, no offered scheme for the certificate key, no group the server serves | `handshake_failure` |
-| when the server's ALPN list is not empty, none of it offered (or no ALPN at all): over QUIC `h3`, or `doq` for DNS over QUIC; over TCP the listener's list | `no_application_protocol` |
+| when the server's ALPN list is not empty, an ALPN extension offering none of it: over QUIC `h3`, or `doq` for DNS over QUIC; over TCP the listener's list. A hello with no ALPN extension too, over QUIC only: over TCP it is served without ALPN | `no_application_protocol` |
 | a malformed key share, an ML-KEM encapsulation key failing FIPS 203's modulus check, a NIST or curveSM2 point off its curve, an x25519 or x448 low-order point, an ffdhe Y outside 1 < Y < p - 1; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
 | a client Finished that does not verify | `decrypt_error` |
 | an empty client Certificate when one is required | `certificate_required` |

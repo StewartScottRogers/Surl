@@ -369,6 +369,33 @@ public sealed partial class TlsServerHandshakeTests
     }
 
     [TestMethod]
+    public void Receive_NoAlpnAndNoQuicTransportParameters_ServesWithoutAlpn()
+    {
+        // ADR-0010 section 4: over TCP a client offering no ALPN is served without it (RFC 7301).
+        var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var options = UnitTestCertificates.QuicOptions(key);
+        using var handshake = new TlsServerHandshake(
+            new TlsServerHandshakeOptions { CertificateChain = options.CertificateChain, CertificateKey = key, ApplicationProtocols = ["h2", "http/1.1"] },
+            RandomNumberGenerator.Create());
+        var client = UnitTestTlsClient.WithX25519Share();
+        var clientHello = new UnitTestClientHelloBuilder
+        {
+            ApplicationProtocols = null,
+            QuicTransportParameters = null,
+            KeyShares = [(0x001D, client.PublicShare)],
+        }.Write();
+
+        var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
+        var verified = client.VerifyServerFlight([clientHello], output.Initial, output.Handshake);
+        handshake.Receive(TlsEncryptionLevel.Handshake, verified.ClientFinished);
+
+        Assert.IsTrue(handshake.IsComplete);
+        Assert.IsNull(handshake.ApplicationProtocol);
+        // RFC 8446 section 4.3.1: EncryptedExtensions with an empty extension list, so no ALPN (0x0010).
+        CollectionAssert.AreEqual(Convert.FromHexString("08000002" + "0000"), verified.EncryptedExtensions);
+    }
+
+    [TestMethod]
     public void Receive_NoSharedCipherSuite_FailsWithHandshakeFailure()
     {
         using var handshake = EcdsaHandshake();

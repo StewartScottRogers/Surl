@@ -8,7 +8,7 @@ depends-on: [BL-1894]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1906 — Serve a client that offers no ALPN in the TLS 1.3 handshake over TCP
 
@@ -44,23 +44,38 @@ TLS 1.3, on the path that uses `Surl.Tls13Stream`). `--no-alpn` is listed in htt
 
 ## Acceptance criteria
 
-- [ ] `Receive_NoAlpnAndNoQuicTransportParameters_ServesWithoutAlpn` in `TlsServerHandshakeTests` fails before the
+- [x] `Receive_NoAlpnAndNoQuicTransportParameters_ServesWithoutAlpn` in `TlsServerHandshakeTests` fails before the
       fix and passes after it: with the server list `h2`, `http/1.1`, null `QuicTransportParameters` and a hello with
       no ALPN and no `quic_transport_parameters`, `Receive` returns the server's flight, `ApplicationProtocol` is null
       and EncryptedExtensions carries no ALPN extension (type `0x0010`).
-- [ ] `Receive_ClientHelloWithoutAlpn_FailsWithNoApplicationProtocol` (QUIC options) and
+- [x] `Receive_ClientHelloWithoutAlpn_FailsWithNoApplicationProtocol` (QUIC options) and
       `Receive_OptionsNameDoqAndTheClientOffersOnlyH3_FailsWithNoApplicationProtocol` (a list with nothing in common,
       no transport parameters) pass unchanged.
-- [ ] The library `CLAUDE.md`'s QUIC and TCP `TlsServerHandshakeOptions` bullets and the `no_application_protocol`
+- [x] The library `CLAUDE.md`'s QUIC and TCP `TlsServerHandshakeOptions` bullets and the `no_application_protocol`
       alert table row say that a hello with no ALPN is refused over QUIC and served without ALPN over TCP.
-- [ ] The XML docs on `TlsServerNegotiation.Choose` and `TlsServerHandshakeOptions.ApplicationProtocols` say the same.
-- [ ] `dotnet build -warnaserror` is clean, and `Surl.Tls13.UnitTests`, `Surl.Tls13Stream.UnitTests` and
+- [x] The XML docs on `TlsServerNegotiation.Choose` and `TlsServerHandshakeOptions.ApplicationProtocols` say the same.
+- [x] `dotnet build -warnaserror` is clean, and `Surl.Tls13.UnitTests`, `Surl.Tls13Stream.UnitTests` and
       `Surl.Quic.UnitTests` pass with `--filter "TestCategory!=Integration"`.
-- [ ] `Surl.Tls13.UnitLibrary` keeps 100% line and branch coverage.
+- [x] `Surl.Tls13.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Fix: `TlsServerNegotiation.ChooseApplicationProtocol` returns null when the hello has no ALPN extension and
+  `QuicTransportParameters` is null. No new option, no change outside the library. No new decision, so no ADR:
+  ADR-0010 section 4 already decides the behaviour.
+- The new test failed before the fix with `TlsAlertException` ("The client offers no ALPN protocol the server agrees
+  (h2, http/1.1)."), and passes after it.
+- Gates: `dotnet build -warnaserror` clean (0 warnings); all fast tests passed; `Surl.Tls13.UnitTests` 225,
+  `Surl.Tls13Stream.UnitTests` 48, `Surl.Quic.UnitTests` 514; format check clean on the two changed projects;
+  `Surl.Tls13.UnitLibrary` line-rate 1, branch-rate 1 (cobertura).
+- Pipeline: the change is a few lines and the task names the plan and the test, so planning, test, implementation and
+  docs were done in the session; review was by `code-reviewer` (no Must fix; its one Should fix, qualifying the
+  `Choose` remarks with "when the server's ALPN list is not empty", is applied).
+- Conformance stage skipped: **no upstream curl measurement was made**. This path serves only where `SslStream` has no
+  TLS 1.3 server (macOS), so a pinned Windows build cannot reach it.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. A TLS 1.3 ClientHello with no ALPN is served without ALPN over TCP; QUIC still refuses it

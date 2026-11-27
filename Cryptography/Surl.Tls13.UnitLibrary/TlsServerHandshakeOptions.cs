@@ -17,8 +17,11 @@ public sealed class TlsServerHandshakeOptions
 
     /// <summary>
     /// The ALPN protocols the server agrees, in its order of preference; for HTTP/3, just <c>h3</c>.
-    /// A ClientHello offering none of them ends with <see cref="TlsAlert.NoApplicationProtocol"/>
-    /// (RFC 9001 section 8.1). Empty means ALPN is not negotiated.
+    /// A ClientHello whose ALPN extension offers none of them ends with
+    /// <see cref="TlsAlert.NoApplicationProtocol"/>. A ClientHello with no ALPN extension ends with
+    /// the same alert over QUIC (<see cref="QuicTransportParameters"/> set, RFC 9001 section 8.1)
+    /// and is served without ALPN over TCP (null, ADR-0010 section 4). Empty means ALPN is not
+    /// negotiated.
     /// </summary>
     public IReadOnlyList<string> ApplicationProtocols { get; init; } = [];
 
