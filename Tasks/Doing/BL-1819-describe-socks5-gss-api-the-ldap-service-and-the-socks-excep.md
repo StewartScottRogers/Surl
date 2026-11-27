@@ -47,3 +47,4 @@ Found while working BL-1809. Both texts are in `Application/Surl.Cli.UnitLibrary
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
