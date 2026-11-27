@@ -23,4 +23,6 @@ references only `Surl.Tls13.UnitLibrary`.
   `AcceptAsync` request and verify one (the handshake is `Surl.Tls13`'s, BL-600); the verified DER
   chain is `ClientCertificateChain`. A missing, untrusted or wrongly signed certificate sends
   `certificate_required`, `bad_certificate` or `decrypt_error` under the handshake keys and throws.
-  `Surl.Networking` does not yet set the delegate (BL-1470).
+  `Surl.Networking` sets the delegate when `--cacert` gives it trust anchors
+  (`ServerTlsSettings.CreateTls13Options` sets it to
+  `ClientCertificateVerifier.IsChainTrusted`; BL-1470).

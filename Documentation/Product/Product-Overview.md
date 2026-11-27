@@ -2,7 +2,7 @@
 
 - **Status:** Draft. Written for the Phase 0 shell and kept true as the phases are built; the
   numbers below are measured, not estimated. No section is awaiting a decision.
-- **Last updated:** 2026-11-26
+- **Last updated:** 2026-11-27
 - **Measured against:** upstream curl 8.21.0 (released 2026-06-24), tag `curl-8_21_0` of
   https://github.com/curl/curl, and the builds pinned in `UpstreamCurlBuilds.json`
 
@@ -890,9 +890,26 @@ a protocol server implements `IConnectionProtocolServer` (or `IDatagramProtocolS
 for TFTP), receives an `IConnection` (or an `IDatagramFlow`) and an `ExchangeContext`,
 and its tests replay byte scripts through `InMemoryConnection`.
 
-TLS on the server side uses the base class library's `SslStream`. How a protocol server
-receives a secured connection or upgrades one, where the certificate comes from, ALPN and
-client-certificate verification are decided in
+Server-side TLS on a TCP or Unix domain socket connection is run by `Surl.Networking`,
+which picks one of three paths for each handshake:
+
+- **TLS-SRP.** When any of `--tlsauthtype`, `--tlsuser`, `--tlspassword`,
+  `--srp-verifiers` or `--srp-groups` is given, every such handshake is run by
+  `Surl.TlsSrp`'s hand-built TLS 1.2 server
+  ([ADR-0122](../Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md)).
+- **Hand-built TLS 1.3.** Otherwise, on a platform whose `SslStream` has no TLS 1.3 server
+  (macOS), when TLS 1.3 is accepted, `Surl.Tls13Stream`'s `Tls13ServerStream` serves a
+  client whose ClientHello offers TLS 1.3 and nothing lower. On a listener there that is
+  limited to TLS 1.3, it serves every ClientHello that offers TLS 1.3, and one that does
+  not is refused with a `protocol_version` alert
+  ([ADR-0157](../Planning/Decisions/ADR-0157-how-surl-serves-tls-1-3-where-sslstream-cannot-so-macos-passes-upstream-test-4001.md)
+  and its amendment 1).
+- **`SslStream`.** Every other handshake uses the base class library's `SslStream`.
+
+QUIC and DTLS do not take these paths: QUIC's TLS 1.3 handshake is `Surl.Quic`'s use of
+`Surl.Tls13` (ADR-0082), and `coaps` is DTLS 1.2 from `Surl.Dtls` (ADR-0084). How a
+protocol server receives a secured connection or upgrades one, where the certificate comes
+from, ALPN and client-certificate verification are decided in
 [ADR-0010](../Planning/Decisions/ADR-0010-the-server-side-tls-contract.md). What the BCL has no
 primitive for on some platform - QUIC for HTTP/3, the SSH ciphers - is built by hand, each
 in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").

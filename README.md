@@ -671,7 +671,7 @@ Each `.UnitTests` project sits beside the library it tests.
 | `Protocols/Messaging/` | LDAP and MQTT, and the shared message bus |
 | `Protocols/Lookup/`, `Protocols/Terminal/` | DICT and Gopher, and TELNET |
 | `Protocols/Proxy/` | the SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy server (the HTTP proxy is in `Protocols/Http/`) |
-| `Conformance/` | the tests that run pinned upstream curl against a live `surl` |
+| `Conformance/` | `Surl.Conformance.UnitLibrary` (locating and running the pinned upstream curl builds; parsing, selecting and verifying upstream curl's own test cases; running the pinned Curl port client and comparing the port with upstream curl) and `Surl.Conformance.UnitTests` (its unit tests; the tests that run pinned upstream curl against a live `surl`; the imported upstream test cases and the run that composes the protocol libraries' server halves to play them; the Curl port runs; and the stand-in recipe tests) |
 
 An extended protocol server is named `Surl.Extended.Protocol.<Name>`. It sits in the folder
 for its job beside the original servers.
