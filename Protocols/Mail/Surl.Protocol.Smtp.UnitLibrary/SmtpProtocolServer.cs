@@ -14,8 +14,14 @@ namespace Surl.Protocol.Smtp;
 /// <para>
 /// <b>Replies.</b> Each is fixed text, never an echo of the peer's bytes: the greeting
 /// <c>220 surl ESMTP ready</c>; <c>EHLO</c>'s capabilities <c>SIZE</c> (<c>--max-filesize</c>),
-/// <c>8BITMIME</c>, <c>SMTPUTF8</c>, <c>PIPELINING</c> and <c>ENHANCEDSTATUSCODES</c>; enhanced
-/// status codes on every reply but the greeting and <c>EHLO</c>'s and <c>HELO</c>'s. <c>VRFY</c>
+/// <c>8BITMIME</c>, <c>SMTPUTF8</c>, <c>PIPELINING</c> and <c>ENHANCEDSTATUSCODES</c>. Every
+/// reply of the server's own carries an enhanced status code except these: the greeting
+/// <c>220</c>; <c>EHLO</c>'s multi-line <c>250</c>; <c>HELO</c>'s <c>250 surl Hello</c>; the
+/// <c>501 Syntax</c> reply to an <c>EHLO</c> or <c>HELO</c> with no argument or one holding a
+/// control character; <c>DATA</c>'s <c>354</c>; and <c>AUTH</c>'s <c>334</c> continuation. A
+/// fault rule's reply is sent as the rule gives it. <see cref="SmtpUpstreamTestCaseServer"/>
+/// sends its case's text as written, and its own <c>501 Invalid address</c> and
+/// <c>552 Message size too large</c> carry no enhanced status code either. <c>VRFY</c>
 /// and <c>EXPN</c> answer <c>252</c> whatever is asked, so no peer can enumerate accounts.
 /// </para>
 /// <para>
@@ -49,9 +55,13 @@ namespace Surl.Protocol.Smtp;
 /// discarded. The stored message is <c>Return-Path</c> and <c>Received</c> trace fields, then the
 /// body as unstuffed, streamed as it is read into a <see cref="PendingMessage"/> - the store's
 /// pending file - and <c>--max-filesize</c> bounds the whole. A message the store refuses is
-/// answered <c>452 4.3.1</c> when the store is full, <c>552</c> when it is too large, and
+/// answered <c>452 4.3.1 Insufficient system storage</c> when the store is full;
+/// <c>452 4.2.2 Mailbox full</c> when a recipient's mailbox would pass its quota, or an
+/// out-of-space fault rule refuses the write, both found only after the body, never at
+/// <c>RCPT</c> (ADR-0102, decision 1.4); <c>552 5.3.4 Message exceeds the size limit</c> when it
+/// is past the store's <see cref="MailboxStore.MaxMessageBytes"/>; and
 /// <c>451 4.3.0 Local error in processing</c> when its file cannot be written, the reason in a
-/// note; nothing is stored and the session goes on.
+/// note. Nothing is stored, for any recipient, and the session goes on.
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/> is
