@@ -7,7 +7,7 @@
   restore; accounts as a store), ADR-0032 section 8 (constant-time checks and the refusal delay), ADR-0102
   decision 4.3 (per-scheme views), [ADR-0128](ADR-0128-how-surl-authentication-publishes-judged-logins-and-applies-refuse-login.md).
 - **Acted on by:** BL-802; BL-805 exposes it through `ComposedStores`, BL-810 through `Surl.Api`.
-- **Amended by:** [Amendment 4 below](#amendment-4-2026-11-27-bl-1839-removing-the-last-proxy-account-does-not-open-the-proxy) (removing the last proxy account leaves the proxy asking every client for a login, a `GET` or `HEAD` included, and the warning says so), [Amendment 3 below](#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (decision 5: a snapshot of a named account holds the password's bytes among its derived credentials, so "no clear password" is withdrawn), [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
+- **Amended by:** [Amendment 5 below](#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server) (a scheme that has had an account to log in to keeps asking for a login when the last one is removed, so no read opens; a reset or restore returns it with the accounts; the warning says so), [Amendment 4 below](#amendment-4-2026-11-27-bl-1839-removing-the-last-proxy-account-does-not-open-the-proxy) (removing the last proxy account leaves the proxy asking every client for a login, a `GET` or `HEAD` included, and the warning says so), [Amendment 3 below](#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (decision 5: a snapshot of a named account holds the password's bytes among its derived credentials, so "no clear password" is withdrawn), [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
 
 ## Context
 
@@ -374,4 +374,155 @@ reset, lets it back in.
 3. BL-1852: `Surl.Api`: the line, the XML documents, the README and the library's `CLAUDE.md`.
 4. BL-1853: `Surl.Mcp.UnitLibrary`: the warning, the tool description and the library's documents.
 5. BL-1854 decides the same question for the server accounts, whose warning ("the server now needs no login") this
-   amendment does not change.
+   amendment does not change. [Amendment 5 below](#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)
+   is that decision.
+
+## Amendment 5 (2026-11-27, BL-1854): removing the last account does not open the server
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in BL-1854.
+- **Why now:** the control endpoint, `Surl.Api` and `surl-mcp` say a server with its last account removed "now needs
+  no login" (found by BL-1839). That is true of some reads only, and letting those reads through is a defect.
+- **Status of the rule:** it is the rule the code is to follow. BL-1855 to BL-1859 build it. Until then the code does
+  what the next section and each "today" entry below say.
+- **Supersedes:** the sentence of amendment 4 decision 7 that servers which are not proxies keep today's behaviour,
+  and the "Removal" and "Alternative rejected" bullets of
+  [ADR-0097](ADR-0097-how-the-coap-server-answers-coap-and-coaps.md) amendment 3.
+
+### What the source does (read on 2026-11-27, not run)
+
+- The policy stays an `AuthenticationPolicy` over the now empty account book. Every login checked against the book is
+  refused; with `--user-ldap` the directory may still accept a password login.
+- `HttpAuthenticationSession.JudgeWithoutCredentials` challenges a request with no credentials only when it is a write
+  or `AuthenticationSettings.HasAccountToLogInTo` finds an account in the server's scheme view, or a directory serving
+  the scheme. `CoapAccessRules` asks the same about `coap` before a read. So the reads an account protected are served
+  to anybody over `http`, `https`, `ws`, `wss`, `rtsp`, `gs`, DNS over HTTPS, `coap` and `coaps`, all but those in a
+  share with `--share-access` rows, which stays closed to anonymous callers (ADR-0102).
+- It is asked of a scheme view, so removing the last account allowed on a scheme opens that scheme's reads while
+  accounts restricted to other schemes remain, and no warning is written: the warnings look at the whole book.
+- On the removal that empties the book, the control endpoint and `Surl.Api` write
+  `surl: warning: no account left; the server now needs no login`, or, with `--user-ldap`,
+  `surl: warning: no local account left; logins are now checked against the directory only`, which is not so on a
+  scheme the directory does not serve. `surl-mcp` writes `server <id> has no account left and now needs no login`,
+  with `--user-ldap` too.
+- ADR-0097 amendment 3 says CoAP opens "as ADR-0132 decides for the other servers". ADR-0132 had decided no such
+  thing before this amendment.
+
+### The decision
+
+1. **A scheme that has had an account to log in to keeps asking for a login when none is left.** It has had one when
+   an account allowed on it was configured, or was added while the server ran. This is judged per scheme, whether or
+   not accounts for other schemes remain. Neither a removal nor a password change takes it away.
+2. **Reset and restore return it with the accounts.** A reset returns to what the configured accounts give; a restore
+   returns to what held when the snapshot was taken. So a scheme with an account at start never serves an anonymous
+   read for want of an account again. A scheme with none at start gets its anonymous reads back by a reset, or by
+   restoring a snapshot taken before the first account was added, with no warning, since that is the state the test
+   asked for. What a start gives is unchanged: with no account, an empty `--user-file` included, reads need no login
+   (ADR-0032 section 4). A proxy is amendment 4's: an empty `--proxy-user-file` keeps it closed.
+3. **Requests with no credentials**, without `--allow-anonymous`, on a scheme that has had an account and that no
+   `--user-ldap` directory serves, after its last account is removed. "`401` or `403`" is `401` with the offered
+   challenges, or `403` when no accepted method can be offered on the connection.
+
+   | Request with no credentials | Today | After BL-1855 |
+   | --- | --- | --- |
+   | HTTP `GET` or `HEAD` (`http`, `https`; HTTP/1.x, HTTP/2, h2c and HTTP/3) | served as an anonymous read | `401` or `403` |
+   | HTTP write: every other method, known or not, a `PUT` under `--allow-uploads` included ([ADR-0180](ADR-0180-an-http-server-judges-the-login-before-the-method.md)) | `401` or `403` | same |
+   | WebSocket upgrade (`ws`, `wss`) | accepted | `401` or `403` |
+   | RTSP request but `ANNOUNCE`, `RECORD` and a `SETUP` to record | served | `401` or `403` |
+   | RTSP `ANNOUNCE`, `RECORD` or a `SETUP` to record | `401` or `403` | same |
+   | `gs` `GET` or `HEAD` | served as an anonymous read | `401` `AuthenticationRequired` |
+   | `gs` write | `401` `AuthenticationRequired` | same |
+   | DNS over HTTPS query | answered | `401` or `403` |
+   | `mcp` or `mcps` `GET` of the MCP endpoint, which serves no `GET` | `405` | `401` |
+   | `coap` or `coaps` `GET`, `/.well-known/core` included, from an unauthenticated peer | served | `4.01` |
+   | `coap` or `coaps` write from an unauthenticated peer | `4.01` | same |
+
+   A connection NTLM or Negotiate logged in keeps being served as that account (decision 8). A `coaps` peer with a
+   certificate verified against `--cacert` stays authenticated, reads and writes, since no account makes it so.
+4. **Every other login and request**, without `--allow-anonymous` or a directory, after the last account is removed.
+   BL-1855 changes none of these answers but the one marked.
+
+   | Login or request | Answer after the removal |
+   | --- | --- |
+   | No login where one is needed: FTP, SSH `none`, SMTP `MAIL`, an IMAP mailbox command, a POP3 maildrop command, SMB, an LDAP search but the root DSE's, MQTT, AMQP, XMPP, STOMP, NATS, Kafka, Redis, Socket.IO, a gRPC call, SignalR, WebTransport `CONNECT`, `oci` `/v2/`, an MCP `POST` or `DELETE`, S3, Azure Storage | refused, as before the removal |
+   | Password: FTP (curl's anonymous login included), IMAP `LOGIN`, POP3 `USER`/`PASS`, MQTT, LDAP simple bind, Redis `AUTH`, STOMP, NATS, Socket.IO, `oci` `/token`, the MCP authorization endpoints, HTTP Basic, SASL `PLAIN` and `LOGIN`, SSH `password` and `keyboard-interactive` | refused as a wrong password is. A clear password the connection may not carry is refused unchecked, as before |
+   | Token: HTTP, Azure Storage and `gs` Bearer, SASL `OAUTHBEARER` and `XOAUTH2`, a server's token login | refused |
+   | Challenge and response: HTTP Digest, NTLM and Negotiate carrying NTLM; SASL `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, `GSS-SPNEGO` and `SCRAM`; `APOP`; SMB NTLMv1 | the exchange may run; the answer is refused |
+   | An identity that must name an account: a Kerberos ticket (Negotiate, SASL `GSSAPI` and `GSS-SPNEGO`), SASL `EXTERNAL` | refused: no account has the name |
+   | Signature: AWS Signature Version 4 (header, presigned URL, S3 chunks), Azure Storage Shared Key and shared access signature, `gs` V4 HMAC | refused: no such account |
+   | `coaps` pre-shared key | the handshake fails: unknown identity |
+   | An HTTP read carrying credentials of a method `--auth` does not accept, which counts as none | **changes with BL-1855:** served today, `401` or `403` after |
+   | A token issued before: an `oci` token, an MCP access or refresh token | refused: its account is gone |
+   | SSH `publickey` with a key `--authorized-keys` gives the user name | **still accepted** (decision 9): it logs in under that name, and a share granted to the name still admits it. A key is configuration, not an account |
+   | A session already logged in, a DTLS session included | runs on (decision 8) |
+   | TFTP, Gopher, DICT, TELNET, DNS but over HTTPS, `mcp+stdio:` | no login before or after; a share with `--share-access` rows stays closed to them (ADR-0102) |
+
+   The proxy accounts (amendment 4) and the TLS-SRP accounts are other stores, which this removal does not touch.
+5. **`--allow-anonymous` is unchanged.** Before and after the removal every request without credentials proceeds and
+   logins are accepted unchecked. What is checked even under it refuses the removed account: an S3 signature, Azure
+   Storage credentials, a `gs` V4 HMAC signature, a `coaps` pre-shared key, and an LDAP bind that sets up a security
+   layer.
+6. **`--user-ldap` is unchanged on the schemes the directory serves:** reads already need a login there, and a
+   password login (HTTP Basic, SASL `PLAIN` and `LOGIN`, SSH password and the servers' password logins) naming a user
+   the book does not hold is checked against the directory (ADR-0149 decision 6). The removed name is now such a name,
+   so where the directory holds it, the directory's password logs in. That is kept: the operator named the directory.
+   Every other login is answered as decision 4's table says. A scheme the directory does not serve behaves as
+   decisions 3 and 4 say.
+7. **How the instance then differs from one started with no account.** Its reads stay closed on the schemes that had
+   an account (decision 1). A `coaps` listener started on pre-shared keys alone, with no certificate (which a start
+   given neither `--user` nor `--user-file` refuses), completes no handshake. The mail store has retired the removed
+   account ([ADR-0185](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md)).
+   Upload permission comes from `--allow-uploads` alone and never from whether accounts exist.
+8. **The warning.** Written on the condition that writes one today, a removal that leaves the book with no account,
+   and never by a reset, a restore or a password change. A scheme losing its last account while others remain writes
+   none, since nothing opens.
+
+   | Host | Text (after BL-1857 to BL-1859) |
+   | --- | --- |
+   | control endpoint (the line goes to the log; the `DELETE` still answers `204`) | `surl: warning: no local account left; the server still asks for a login wherever it did` |
+   | `Surl.Api` (`SurlServerOptions.Log`; `Remove` still returns `true`) | the same line |
+   | `surl-mcp` (`remove_account`: the `warning` member and the second text block) | `server <id> has no local account left; it still asks for a login wherever it did` |
+
+   One text is true with and without `--user-ldap` and `--allow-anonymous`, so it replaces the directory line too, and
+   `surl-mcp` need not learn whether a directory was given. In the `remove_account` description, the sentence about
+   the last account becomes: "Removing the last account does not open the server: it still asks for a login wherever
+   it did; the result then carries a warning, and add_account lets that account in." The documents of `HasAccounts`
+   say that `false` means no account is held, not that the server needs no login.
+9. **The seam.** The account book remembers which schemes the accounts it has held may log in on, keeping no
+   credential of a removed account for it, and an `AccountSnapshot` records it. `HasAccountToLogInTo` is renamed
+   `IsLoginRequiredToRead`: `true` when the book or view has held such an account, or the directory serves the scheme.
+   `HttpAuthenticationSession` and the CoAP rules ask it, and `CoapAccessRules.HasAccounts` takes the same name
+   (BL-1856). `AccountBook.HasAccounts` keeps its meaning, an account is held now. `RequiresLoginWithoutAccounts`
+   (amendment 4) is still what keeps a proxy given an empty `--proxy-user-file` closed.
+10. **Upstream curl.** No new byte: the `401`, `403` and `4.01` are the ones a server with accounts already sends.
+
+### Options weighed
+
+- **Keep a scheme closed once it has had an account.** Chosen: removing an account, which a test does to take access
+  away, never gives access to anybody, and one rule covers every server.
+- **Keep today's behaviour and correct only the warning.** Rejected: content would be served to anybody, unasked,
+  because a test revoked access.
+- **Close only the schemes that had an account at start** (amendment 4's switch, set at composition). Rejected:
+  removing an account a test added would still open reads to everybody it had just kept out.
+- **Never return to anonymous reads, not even by reset.** Rejected: a reset returns to the configured state (ADR-0124
+  decision 3). With decision 2 this also answers ADR-0097 amendment 3's two objections: every server changes
+  together, and a reset gives the starting behaviour back.
+- **Refuse to remove the last account.** Rejected: a test needs the state in which every account is revoked.
+
+### How a test uses it
+
+Start with an account, make an exchange, remove the account through `Surl.Api`, `surl-mcp` or the control endpoint,
+and the next exchange is refused; the log carries the warning. Adding the account again, or a reset, lets it back in.
+A test that starts with no account, adds one and removes it stays refused until it resets. A server with `--directory`
+refuses a whole-instance reset, the only reset the three hosts offer, so there the scheme stays closed until a
+restart. A test that wants anonymous reads throughout adds no account, or gives `--allow-anonymous`.
+
+### Consequences
+
+1. BL-1855: `Surl.Authentication`: the book's memory, the snapshot's, `IsLoginRequiredToRead` and its one call in
+   `Surl.Composition`.
+2. BL-1856: `Surl.Extended.Protocol.Coap`: the rename of `CoapAccessRules.HasAccounts`.
+3. BL-1857: `Surl.Composition`: the control endpoint's line and the documents of `ComposedStores.HasAccounts`.
+4. BL-1858: `Surl.Api`: the line, the XML documents, the README and the library's `CLAUDE.md`.
+5. BL-1859: `Surl.Mcp.UnitLibrary`: the warning, the tool description and the library's documents.
+6. BL-1860: the `--aihelp` and manual text. BL-1861 and BL-1862: pointers from the decisions that open reads with "no
+   account configured", and the product documents, wiki, root README and DNS comments that say so.
