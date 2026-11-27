@@ -48,7 +48,7 @@ Stand-in: a test that runs HTTPS over TLS-SRP beside WebTransport, CoAP or DNS o
 - Not separately observed: the `InvalidOperationException` on a first DNS over QUIC flow. It follows from the null `QuicCertificate`, which the failing composition test showed.
 - No upstream curl measurement: no byte Surl sends or expects changed.
 - Pipeline: planned, implemented and reviewed in the session without subagents; the change is one method group in one library.
-- Filed BL-1914: the `--aihelp tls` page still says TLS-SRP needs no certificate on every TLS listen URL (`Surl.Cli` was in BL-1902's `touches`).
+- Filed BL-1916: the `--aihelp tls` page still says TLS-SRP needs no certificate on every TLS listen URL (`Surl.Cli` was in BL-1902's `touches`).
 
 ## Log
 

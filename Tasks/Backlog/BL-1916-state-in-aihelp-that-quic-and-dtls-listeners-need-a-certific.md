@@ -1,5 +1,5 @@
 ---
-id: BL-1914
+id: BL-1916
 title: State in --aihelp that QUIC and DTLS listeners need a certificate under TLS-SRP
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1914 — State in --aihelp that QUIC and DTLS listeners need a certificate under TLS-SRP
+# BL-1916 — State in --aihelp that QUIC and DTLS listeners need a certificate under TLS-SRP
 
 ## Goal
 
