@@ -39,3 +39,4 @@ Compare `UpstreamCurlBuilds.json`, `.github/workflows/release.yml` and the Roadm
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
