@@ -3,10 +3,11 @@ using System.Security.Cryptography;
 namespace Surl.Tls13;
 
 /// <summary>
-/// The worked handshakes of RFC 8448, "Example Handshake Traces for TLS 1.3": section 3 (Simple
-/// 1-RTT Handshake) and the messages of section 5 (HelloRetryRequest), copied byte for byte from
-/// https://www.rfc-editor.org/rfc/rfc8448.txt. Every expected value in this project's RFC tests
-/// comes from here (ADR-0003: the specification, never the Curl port).
+/// Values from RFC 8448, "Example Handshake Traces for TLS 1.3", copied byte for byte from
+/// https://www.rfc-editor.org/rfc/rfc8448.txt: from section 3 (Simple 1-RTT Handshake),
+/// handshake messages, secrets, transcript hashes, keys, an IV and the certificate; from
+/// section 2, the server certificate's RSA private key; and from section 5 (HelloRetryRequest),
+/// the two ClientHellos, the HelloRetryRequest, the ServerHello and a transcript hash.
 /// </summary>
 internal static class Rfc8448
 {

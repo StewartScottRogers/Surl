@@ -3,8 +3,9 @@ namespace Surl.Tls13;
 /// <summary>
 /// Thrown when a handshake message or a record cannot be accepted. <see cref="Alert"/> is the
 /// RFC 8446 section 6 alert that ends the handshake, or the connection after it. Throwing it
-/// sends nothing. Over QUIC, <c>Surl.Quic</c> sends no alert record: it closes the connection
-/// with <c>CONNECTION_CLOSE</c>, error <c>0x0100</c> plus the alert (RFC 9001 section 4.8). Over
+/// sends nothing: the caller reports the alert. Over QUIC it is a connection error:
+/// <c>Surl.Quic</c> sends no alert record but closes the connection with
+/// <c>CONNECTION_CLOSE</c>, error <c>0x0100</c> plus the alert (RFC 9001 section 4.8). Over
 /// TCP, <c>Surl.Tls13Stream</c> writes it as a fatal alert record, in plaintext before the
 /// handshake keys are installed and protected after, ignoring a connection already gone; the
 /// exception then reaches the stream's caller.
