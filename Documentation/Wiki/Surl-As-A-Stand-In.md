@@ -142,7 +142,9 @@ control-endpoint routes, below.
 A `SurlFault` is one `--fault` item: `Delay`, `DropConnection`, `RefuseLogin`, `ProtocolError`, `OutOfSpace`,
 narrowed by `Listener`, `Scheme`, `Account`, `Path`, `Command`, `Stage`, `AfterBytes` and `Times`. A `drop` with `after-bytes` takes `close=reset` (the default, an abort) or
 `close=graceful` (a clean close after the N-th byte, so a client sees a short body, not a reset), as in
-`--fault "drop;after-bytes=4000000;close=graceful"`; `close` needs `after-bytes` above 0. Give them
+`--fault "drop;after-bytes=4000000;close=graceful"`; `close` needs `after-bytes` above 0. Over HTTP/3,
+`graceful` closes the QUIC connection with `CONNECTION_CLOSE` `NO_ERROR` (upstream curl 8.21.0 exits 56 at
+once) and `reset` only stops answering (curl waits for its own timeout; ADR-0188 amendment 5). Give them
 at start in `Faults`, or at run time with `server.Faults.Add`, `Remove`, `Clear` and `List`. `surl --aihelp`
 documents the `--fault` grammar; `Surl.Mcp` has `add_fault`, `list_faults` and `remove_fault`, and the
 control endpoint has `POST /v1/faults`. Recipe: `StandInFaultRecipeTests`

@@ -190,7 +190,10 @@ A test makes one listener, account or path misbehave on purpose with a `SurlFaul
 scheme's error shape) or `OutOfSpace`, narrowed with `Listener`, `Scheme`, `Account`, `Path`,
 `Command`, `Stage`, `AfterBytes`, `Close` and `Times`. `Close` (`FaultClose`, default `Reset`) says how a
 drop ends the connection: `Reset` aborts it, `Graceful` closes it so the peer sees an ordinary end of
-stream (ADR-0188 decision 4); it is written after `after-bytes` only when it is not `Reset`. Give rules at start in `Faults`, or change them while
+stream (ADR-0188 decision 4); it is written after `after-bytes` only when it is not `Reset`. Over HTTP/3
+(`--http3`), `Reset` only stops answering and `Graceful` closes the QUIC connection with `CONNECTION_CLOSE`
+`NO_ERROR`, which pinned upstream curl reports at once as exit 56 (ADR-0188 amendment 5); every other datagram
+protocol only stops answering. Give rules at start in `Faults`, or change them while
 the server runs:
 
 ```csharp
