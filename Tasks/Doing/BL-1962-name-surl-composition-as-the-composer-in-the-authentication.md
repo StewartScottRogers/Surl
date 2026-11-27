@@ -51,3 +51,4 @@ No store, event or fault is involved: comments only.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
