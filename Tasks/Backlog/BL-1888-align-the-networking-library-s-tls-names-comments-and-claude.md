@@ -1,16 +1,16 @@
 ---
-id: BL-1860
+id: BL-1888
 title: Align the Networking library's TLS names, comments and CLAUDE.md with its three handshake paths
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1849, BL-1859]
+depends-on: [BL-1849, BL-1887]
 touches: [Foundation/Surl.Networking.UnitLibrary]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1860 — Align the Networking library's TLS names, comments and CLAUDE.md with its three handshake paths
+# BL-1888 — Align the Networking library's TLS names, comments and CLAUDE.md with its three handshake paths
 
 ## Goal
 
@@ -20,7 +20,7 @@ The Networking library's names, comments and `CLAUDE.md` say which of `TlsSrpStr
 ## Context
 
 Found during BL-1849 (checked against the code on 2026-11-27). BL-1849 already corrects the XML comment on
-`ServerTlsHandshake.AuthenticateAsync` and the `CLAUDE.md` TLS 1.3 bullet; BL-1859 makes `close_notify` true of the
+`ServerTlsHandshake.AuthenticateAsync` and the `CLAUDE.md` TLS 1.3 bullet; BL-1887 makes `close_notify` true of the
 hand-built stream. All paths are in `Foundation/Surl.Networking.UnitLibrary`. Comments, prose and one private
 method name only; no behaviour changes.
 

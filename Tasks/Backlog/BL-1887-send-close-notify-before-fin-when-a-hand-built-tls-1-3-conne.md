@@ -1,5 +1,5 @@
 ---
-id: BL-1859
+id: BL-1887
 title: Send close_notify before FIN when a hand-built TLS 1.3 connection completes its writes
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1859 — Send close_notify before FIN when a hand-built TLS 1.3 connection completes its writes
+# BL-1887 — Send close_notify before FIN when a hand-built TLS 1.3 connection completes its writes
 
 ## Goal
 

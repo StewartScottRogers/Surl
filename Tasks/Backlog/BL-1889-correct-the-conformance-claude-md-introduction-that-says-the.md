@@ -1,5 +1,5 @@
 ---
-id: BL-1861
+id: BL-1889
 title: Correct the Conformance CLAUDE.md introduction that says the library plays the server half
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1861 — Correct the Conformance CLAUDE.md introduction that says the library plays the server half
+# BL-1889 — Correct the Conformance CLAUDE.md introduction that says the library plays the server half
 
 ## Goal
 

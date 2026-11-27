@@ -1,5 +1,5 @@
 ---
-id: BL-1862
+id: BL-1890
 title: Correct the Output CLAUDE.md statements about -w output and the start-up warnings
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1862 — Correct the Output CLAUDE.md statements about -w output and the start-up warnings
+# BL-1890 — Correct the Output CLAUDE.md statements about -w output and the start-up warnings
 
 ## Goal
 

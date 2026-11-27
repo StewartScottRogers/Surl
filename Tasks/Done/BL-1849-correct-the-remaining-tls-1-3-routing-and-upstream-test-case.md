@@ -38,8 +38,8 @@ Found by BL-1837. Check each against the code before editing:
   `Surl.Conformance.UnitTests` composes them; `Surl.Conformance.UnitLibrary` holds none.
 - Verified 2026-11-27: build with 0 warnings, format check clean, fast tests 30,202 passed,
   0 failed, 3 skipped.
-- Filed, outside this task: BL-1859 (no `close_notify` before FIN on the hand-built TLS 1.3
-  path, found by reading), BL-1860, BL-1861, BL-1862. The stale TLS-SRP listener remark in
+- Filed, outside this task: BL-1887 (no `close_notify` before FIN on the hand-built TLS 1.3
+  path, found by reading), BL-1888, BL-1889, BL-1890. The stale TLS-SRP listener remark in
   `UpstreamTestCaseTlsSrpServerHalf` is already BL-1855.
 
 ## Log
