@@ -1,5 +1,5 @@
 ---
-id: BL-1982
+id: BL-1985
 title: Retry the next shift a -Continuous handover starts when it refuses because a lane is still running
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1982 — Retry the next shift a -Continuous handover starts when it refuses because a lane is still running
+# BL-1985 — Retry the next shift a -Continuous handover starts when it refuses because a lane is still running
 
 ## Goal
 
