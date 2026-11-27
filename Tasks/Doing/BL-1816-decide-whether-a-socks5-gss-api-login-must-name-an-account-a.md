@@ -36,3 +36,4 @@ and ADR-0165 already decide. BL-1819 changes the same help text.
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
