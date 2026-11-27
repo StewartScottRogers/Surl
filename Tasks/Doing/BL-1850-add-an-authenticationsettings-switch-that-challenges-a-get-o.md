@@ -41,3 +41,4 @@ request with no credentials even when there is no account to log in to and the r
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
