@@ -1,5 +1,5 @@
 ---
-id: BL-1898
+id: BL-1902
 title: List the account and authentication options on the help pages of every server that reads them
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1898 — List the account and authentication options on the help pages of every server that reads them
+# BL-1902 — List the account and authentication options on the help pages of every server that reads them
 
 ## Goal
 

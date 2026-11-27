@@ -1,5 +1,5 @@
 ---
-id: BL-1899
+id: BL-1903
 title: Give the composed MQTT 5 broker its SASL policy so surl serves enhanced authentication
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1899 — Give the composed MQTT 5 broker its SASL policy so surl serves enhanced authentication
+# BL-1903 — Give the composed MQTT 5 broker its SASL policy so surl serves enhanced authentication
 
 ## Goal
 

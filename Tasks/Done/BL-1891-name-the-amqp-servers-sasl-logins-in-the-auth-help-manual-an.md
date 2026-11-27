@@ -32,9 +32,9 @@ The `--auth` option page, manual paragraph and AI help paragraph say that `--aut
 ## Notes
 
 - Servers whose SASL mechanisms `--auth` sets, read from the code: SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka (of PLAIN and SCRAM-SHA-256/512) and XMPP (of SCRAM-SHA-256, SCRAM-SHA-1 and PLAIN). The sentence names all eight, so it is not true of only some.
-- MQTT 5.0 is left out: `Surl.Composition` builds `Mqtt5Broker` with no SASL policy, so `surl` serves no enhanced authentication (BL-1899).
+- MQTT 5.0 is left out: `Surl.Composition` builds `Mqtt5Broker` with no SASL policy, so `surl` serves no enhanced authentication (BL-1903).
 - Naming Kafka and XMPP made "Without it they are ..." incomplete, so the manual and AI help paragraphs now add that those two accept SCRAM too (ADR-0179). The option page's explanation has no such sentence.
-- Only `amqp` was added to the `--auth` help categories. `kafka` and `xmpp` list none of the account options, a wider gap filed as BL-1898.
+- Only `amqp` was added to the `--auth` help categories. `kafka` and `xmpp` list none of the account options, a wider gap filed as BL-1902.
 - Tests: `AiHelpTextTests.Answer_Auth_SaysAuthSetsTheSaslMechanismsOfEveryServerThatReadsItForSaslTheAmqpOnesIncluded` (AI help and manual), `HelpTextTests.Answer_Auth_IsItsPageWithItsDefaultWrappedAndItsExplanation` (option page), `HelpTextTests.Answer_AmqpCategory_ListsAuth`.
 - Verify: build 0 warnings, format clean, fast tests 30275 passed, 3 skipped, 0 failed.
 
