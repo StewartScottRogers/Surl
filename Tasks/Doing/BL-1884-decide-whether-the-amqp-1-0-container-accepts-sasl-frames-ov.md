@@ -34,3 +34,4 @@ An ADR-0107 amendment states the largest SASL frame the AMQP 1.0 container reads
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
