@@ -8,7 +8,7 @@ depends-on: []
 touches: [Cryptography/Surl.Kerberos.UnitLibrary, Cryptography/Surl.Tls13.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1873 — Correct the project reference statements in the Kerberos and Tls13 library CLAUDE.md files
 
@@ -34,17 +34,26 @@ Found by BL-1836 and checked against the project files on 2026-11-27. Prose only
 
 ## Acceptance criteria
 
-- [ ] The Kerberos `CLAUDE.md` says in the present tense that `Surl.Authentication.UnitLibrary` references the
+- [x] The Kerberos `CLAUDE.md` says in the present tense that `Surl.Authentication.UnitLibrary` references the
       library, and no "will reference" remains in the file.
-- [ ] Any list in that file that claims to give every project referencing the library matches the `ProjectReference`
+- [x] Any list in that file that claims to give every project referencing the library matches the `ProjectReference`
       entries of the production projects.
-- [ ] The Tls13 `CLAUDE.md`'s "It references" paragraph names exactly the six projects of the
+- [x] The Tls13 `CLAUDE.md`'s "It references" paragraph names exactly the six projects of the
       `ProjectReference` entries in `Surl.Tls13.UnitLibrary.csproj` and cites ADR-0157 beside ADR-0082 and ADR-0147.
-- [ ] The only files changed outside `Tasks/` are those two `CLAUDE.md` files.
+- [x] The only files changed outside `Tasks/` are those two `CLAUDE.md` files.
 
 ## Notes
+
+- The two paragraphs were edited in the lane's own session, without delegating to `align-and-document`: the task
+  named both statements and the check was two project-file searches.
+- The Kerberos paragraph now names all five production referrers, as the `.csproj` search found them on
+  2026-11-27: Authentication, Kerberos.TestKdc, Protocol.Socks, Composition and Console.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: every test project passed, 0 failed.
+- Filed BL-1877: the Tls13 file's first paragraph still says "It has no record layer", which its record
+  protection section contradicts.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Kerberos and Tls13 CLAUDE.md files now state project references as the project files have them
