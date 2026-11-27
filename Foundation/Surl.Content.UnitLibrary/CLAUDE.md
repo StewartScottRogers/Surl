@@ -1,7 +1,5 @@
 # Surl.Content.UnitLibrary
 
-Phase 1.
-
 The content store every file-serving protocol server shares (ADR-0002): maps a request
 path onto the served root (the data directory with `--directory`, an in-memory file
 system without it, ADR-0031), lists directories, names media types, reads byte ranges,
