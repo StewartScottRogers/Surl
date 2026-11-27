@@ -1,5 +1,5 @@
 ---
-id: BL-1903
+id: BL-1907
 title: Correct the remaining QUIC only or too narrow comments in the Tls13 library and tests
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1903 — Correct the remaining QUIC only or too narrow comments in the Tls13 library and tests
+# BL-1907 — Correct the remaining QUIC only or too narrow comments in the Tls13 library and tests
 
 ## Goal
 
@@ -26,7 +26,7 @@ drives this handshake, for TLS 1.3 over TCP (ADR-0157). BL-1895 covers `TlsAlert
 - `Cryptography/Surl.Tls13.UnitLibrary/TlsAlertException.cs` justifies the caller reporting the alert only by "TLS
   over QUIC sends no alert record". Over TCP the caller, `Tls13ServerStream`, writes a fatal alert record.
 - `Cryptography/Surl.Tls13.UnitLibrary/TlsServerHandshakeOptions.cs`, `ApplicationProtocols`, gives only the HTTP/3
-  case. QUIC also serves DNS over QUIC (`doq`), and TCP passes the listener's list. BL-1902 changes what a hello with
+  case. QUIC also serves DNS over QUIC (`doq`), and TCP passes the listener's list. BL-1906 changes what a hello with
   no ALPN gets; describe `TlsServerNegotiation.ChooseApplicationProtocol` as it is when this task runs.
 - `Cryptography/Surl.Tls13.UnitTests/Rfc8448.cs` says every expected value in the project's RFC tests comes from that
   file. The "expected values" list at the end of the library's `CLAUDE.md` names other sources too.

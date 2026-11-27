@@ -1,5 +1,5 @@
 ---
-id: BL-1902
+id: BL-1906
 title: Serve a client that offers no ALPN in the TLS 1.3 handshake over TCP
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1902 — Serve a client that offers no ALPN in the TLS 1.3 handshake over TCP
+# BL-1906 — Serve a client that offers no ALPN in the TLS 1.3 handshake over TCP
 
 ## Goal
 

@@ -43,10 +43,10 @@ handshake, for TLS 1.3 over TCP (ADR-0157). In `Cryptography/Surl.Tls13.UnitLibr
 - `align-and-document` made the edit and read every test file for sources of expected values; the sentence became a
   list. It also corrected the `Receive` bullet, which described the `ClientHello` property and byte levels as QUIC only.
 - Prose only. `dotnet build`: 0 warnings, 0 errors. Fast tests: every test project passed.
-- Follow-ups: BL-1902 (the hand-built handshake refuses a TCP ClientHello with no ALPN when the listener offers a
-  list, against ADR-0010; found by reading code, not measured) and BL-1903 (XML and test comments that read as
+- Follow-ups: BL-1906 (the hand-built handshake refuses a TCP ClientHello with no ALPN when the listener offers a
+  list, against ADR-0010; found by reading code, not measured) and BL-1907 (XML and test comments that read as
   QUIC only). BL-1895, already filed, covers `TlsAlert.cs` and `TlsServerHandshake.cs`.
-- The `CLAUDE.md` describes today's ALPN refusal over TCP, so BL-1902 has to update that table row.
+- The `CLAUDE.md` describes today's ALPN refusal over TCP, so BL-1906 has to update that table row.
 
 ## Log
 
