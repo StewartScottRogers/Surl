@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1925 — Correct the implicit TLS scheme and TLS upgrade entries in the glossary
 
@@ -35,14 +35,24 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `implicit TLS scheme` entry either names exactly the schemes in `TlsSchemes.ImplicitTlsSchemes` or points to that set without a partial list.
-- [ ] Its sentence on second registrations is true of both `ProtocolServerRegistrations.Original` and `ExtendedProtocolServers.Registrations`.
-- [ ] The `TLS upgrade` entry says the upgrade is offered with a certificate or under TLS-SRP, and names `ServerTlsComposition.IsTlsUpgradeAvailable` as the source of `isTlsUpgradeAvailable`.
-- [ ] The `TLS upgrade` entry either covers every scheme in `ServerTlsComposition.UpgradableSchemes` or points to that set without a partial list.
+- [x] The `implicit TLS scheme` entry either names exactly the schemes in `TlsSchemes.ImplicitTlsSchemes` or points to that set without a partial list.
+- [x] Its sentence on second registrations is true of both `ProtocolServerRegistrations.Original` and `ExtendedProtocolServers.Registrations`.
+- [x] The `TLS upgrade` entry says the upgrade is offered with a certificate or under TLS-SRP, and names `ServerTlsComposition.IsTlsUpgradeAvailable` as the source of `isTlsUpgradeAvailable`.
+- [x] The `TLS upgrade` entry either covers every scheme in `ServerTlsComposition.UpgradableSchemes` or points to that set without a partial list.
 
 ## Notes
+
+- Edited in the session rather than through `align-and-document`: two table rows, so a second agent would only re-read
+  the same sources.
+- `implicit TLS scheme` points to `TlsSchemes.ImplicitTlsSchemes` with no list, so a new scheme cannot make it stale.
+- `TLS upgrade` points to the set and also names each of its seven schemes' commands. It adds two facts read from
+  source: the AMQP 1.0 container discards nothing after the TLS header (it reads exactly 8 bytes), and `natss`
+  upgrades with TLS required and is not in `UpgradableSchemes`.
+- The certificate-only code comments found on the way are already filed as BL-1924. No new task.
+- No `.cs` file changed. `dotnet build`: 0 warnings, 0 errors. Fast tests: every test project passed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The implicit TLS scheme and TLS upgrade glossary entries match the code
