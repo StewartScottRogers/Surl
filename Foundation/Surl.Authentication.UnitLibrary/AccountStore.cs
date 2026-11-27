@@ -63,7 +63,8 @@ internal sealed class AccountStore
     /// Adds <paramref name="account"/>, deriving its credentials exactly as for an account read at start.
     /// </summary>
     /// <param name="account">The account.</param>
-    /// <exception cref="ArgumentException">An account of that user name exists.</exception>
+    /// <exception cref="ArgumentException">An account of that user name exists; the message names the user, or the
+    /// Bearer-token account when the name is empty.</exception>
     public void Add(Account account)
     {
         var derived = Derive(account);
@@ -71,7 +72,10 @@ internal sealed class AccountStore
         {
             if (current.PasswordHashes.ContainsKey(account.UserName))
             {
-                throw new ArgumentException($"User {account.UserName} already has an account.", nameof(account));
+                var conflict = account.UserName.Length == 0
+                    ? "The Bearer-token account already exists."
+                    : $"User {account.UserName} already has an account.";
+                throw new ArgumentException(conflict, nameof(account));
             }
 
             Swap([.. current.Accounts, derived], StoreChange.AccountAdded, account.UserName);

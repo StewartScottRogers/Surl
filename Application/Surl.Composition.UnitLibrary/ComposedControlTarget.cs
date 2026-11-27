@@ -195,7 +195,8 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         }
         catch (ArgumentException)
         {
-            throw new ControlRefusalException(ControlRefusalKind.Conflict, $"user {user} already has an account");
+            var conflict = user.Length == 0 ? "the Bearer-token account already exists" : $"user {user} already has an account";
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, conflict);
         }
 
         return Task.CompletedTask;

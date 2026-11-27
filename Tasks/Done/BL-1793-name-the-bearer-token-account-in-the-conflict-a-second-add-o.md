@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Composition.UnitLibrary, Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1793 — Name the Bearer-token account in the conflict a second add of it answers
 
@@ -49,21 +49,35 @@ clashed.
 
 ## Acceptance criteria
 
-- [ ] `AccountStore.Add` of an `Account("", …)` when the Bearer-token account exists throws `ArgumentException` whose
+- [x] `AccountStore.Add` of an `Account("", …)` when the Bearer-token account exists throws `ArgumentException` whose
       message is `The Bearer-token account already exists.`; a regression test in `Surl.Authentication.UnitTests`
       (beside the duplicate-name tests in `AccountBookTests.Changes.cs`) pins it, and the named-account message
       `User <name> already has an account.` stays pinned.
-- [ ] `ComposedControlTarget.AddAccountAsync("", …)` a second time throws `ControlRefusalException` with
+- [x] `ComposedControlTarget.AddAccountAsync("", …)` a second time throws `ControlRefusalException` with
       `ControlRefusalKind.Conflict` and message `the Bearer-token account already exists`; a new test in
       `ComposedControlTargetTests` pins it, and the existing `user alice already has an account` test still passes.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` and
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` and
       `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` are clean.
-- [ ] `dotnet test --filter "TestCategory!=Integration"` passes; no new test needs `TestCategory=Integration`.
-- [ ] Both changed libraries keep 100% line and branch coverage.
+- [x] `dotnet test --filter "TestCategory!=Integration"` passes; no new test needs `TestCategory=Integration`.
+- [x] Both changed libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Plan: a conditional message at each of the two throw sites; a named account's text, the exception type, the
+  `paramName`, the 409 status and the `conflict` code are unchanged. No new `SurlExitCode`, no project, no ADR:
+  ADR-0132 amendment 2's table already gives the control endpoint's text, which the code did not match.
+- `ArgumentException.Message` is the criterion's sentence followed by .NET's ` (Parameter 'account')`, as the
+  named-account message already was; both tests pin the whole string. Kept `paramName` so the two refusals of one
+  method have the same shape.
+- Pipeline: for a change of this size the plan, tests (seen failing with the blank name first), implementation and
+  documentation check were done in the session; only the review was delegated (`code-reviewer`: no Must fix, no doc
+  made false). No conformance audit: upstream curl does not decide the control endpoint's refusal text.
+- Start-time duplicates already name the Bearer token (`CommandLineParser`), so nothing to file.
+- Verified: build `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30128 passed,
+  0 failed, 3 skipped; `Measure-CodeQuality.ps1` for the two libraries: 0 failing members.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. A second add of the Bearer-token account is refused with a message that names it, through Surl.Api and the control endpoint.

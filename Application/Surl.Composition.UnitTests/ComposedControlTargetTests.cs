@@ -298,6 +298,21 @@ public sealed class ComposedControlTargetTests
     }
 
     [TestMethod]
+    public async Task AddAccountAsync_ASecondBearerTokenAccount_IsAConflictThatNamesItAndKeepsTheFirst()
+    {
+        await using var serving = await ComposeAsync("-u", "alice:secret");
+        var target = TargetOf(serving);
+        await target.AddAccountAsync("", "first", TestContext.CancellationToken);
+
+        var refusal = await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddAccountAsync("", "second", TestContext.CancellationToken));
+
+        Assert.AreEqual(ControlRefusalKind.Conflict, refusal.Kind);
+        Assert.AreEqual("the Bearer-token account already exists", refusal.Message);
+        CollectionAssert.AreEqual(new[] { "alice", "" }, serving.Stores.Accounts.UserNames.ToArray());
+        Assert.IsTrue(serving.Stores.Accounts.CheckBearerToken("first"u8));
+    }
+
+    [TestMethod]
     public async Task SetAccountPasswordAsync_KnownAndUnknownUserAndEmptyPassword_ChangesAnswersAndRefuses()
     {
         await using var serving = await ComposeAsync("-u", "alice:secret");
