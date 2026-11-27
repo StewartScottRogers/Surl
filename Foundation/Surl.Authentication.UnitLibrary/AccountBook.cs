@@ -201,8 +201,9 @@ public sealed class AccountBook
 
     /// <summary>
     /// Takes the accounts as they are now: each password's SHA-256 and, for a named account, the
-    /// credentials derived from its password, some of which are the password's bytes, so treat the
-    /// snapshot as holding every named account's password. The empty-name Bearer-token account is
+    /// credentials derived from its password, the password's UTF-8 bytes among them, so the
+    /// snapshot holds secrets: treat it as holding every named account's password. The
+    /// <see cref="Account.Password"/> string is not kept. The empty-name Bearer-token account is
     /// taken as its SHA-256 only (ADR-0132, amendment 3). A later change to the book leaves the
     /// snapshot as it was.
     /// </summary>
