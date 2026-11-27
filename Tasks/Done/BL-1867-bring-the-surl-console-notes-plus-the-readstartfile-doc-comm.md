@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Console/CLAUDE.md, Application/Surl.Console/CommandLineRunner.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1867 — Bring the Surl.Console notes plus the readStartFile doc comment up to date with the start composition
 
@@ -29,15 +29,21 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The extended-servers bullet no longer says "none yet", and what it says `ExtendedProtocolServers.Compose` builds and is given agrees with `ExtendedProtocolServers.cs` and `ExtendedProtocolServerServices.cs`.
-- [ ] The start-up warnings bullet names every writer `ComposedServing.WriteStartUpLines` calls, in the order it calls them, the `--fault` warning included.
-- [ ] Every list of schemes in the `ServerTlsComposition` bullet agrees with `ServerTlsComposition.NeedsTls`, `UpgradableSchemes` and `UpgradeRequiredSchemes`.
-- [ ] The `readStartFile` doc comment names every file listed in Context, or states that it reads every file the composition reads at start through `ReadStartFile` without giving a partial list.
-- [ ] `dotnet build Application/Surl.Console -warnaserror` is clean and the diff of `CommandLineRunner.cs` changes comment lines only.
+- [x] The extended-servers bullet no longer says "none yet", and what it says `ExtendedProtocolServers.Compose` builds and is given agrees with `ExtendedProtocolServers.cs` and `ExtendedProtocolServerServices.cs`.
+- [x] The start-up warnings bullet names every writer `ComposedServing.WriteStartUpLines` calls, in the order it calls them, the `--fault` warning included.
+- [x] Every list of schemes in the `ServerTlsComposition` bullet agrees with `ServerTlsComposition.NeedsTls`, `UpgradableSchemes` and `UpgradeRequiredSchemes`.
+- [x] The `readStartFile` doc comment names every file listed in Context, or states that it reads every file the composition reads at start through `ReadStartFile` without giving a partial list.
+- [x] `dotnet build Application/Surl.Console -warnaserror` is clean and the diff of `CommandLineRunner.cs` changes comment lines only.
 
 ## Notes
+
+- `readStartFile` comment: took the criterion's second form (every file read through the seam, no list), so a new start file does not make it stale.
+- The start-up warnings bullet numbers the 17 calls of `ComposedServing.WriteStartUpLines`; the extended-servers bullet points to the composition `CLAUDE.md` and repeats no server list.
+- Verify 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests green. No integration tests: comment and document text only.
+- Drift outside `touches` found on the way is filed as follow-up tasks, not fixed here.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Surl.Console notes and the readStartFile doc comment now describe the extended servers, start-up warnings, server TLS and start files as composed; follow-ups BL-1873 to BL-1876

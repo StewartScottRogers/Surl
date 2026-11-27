@@ -149,36 +149,82 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   status lines once the last listener, connection or datagram, has bound, hands the bound
   listen URLs to `SurlServingOutputs.AllListenersBound` (`surl` ignores them), and keeps a bind
   failure for the `(45)` or `(6)` message.
-- `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
-  TLS from the first byte, or can be upgraded (`smtp` and `imap` for `STARTTLS`, `pop3` for `STLS`, `ftp` for `AUTH TLS`, `ldap` for `StartTLS`) and `--cert` or
-  `--self-signed` is given: the `--cert`/`--key` certificate or, with `--self-signed`, a
-  throwaway one, the `--cacert` trust anchors and the accepted TLS versions. A bad file ends
-  surl with 58, 2 or 77 before any listener binds (ADR-0020). A listen URL TLS from the first byte with neither
-  `--cert` nor `--self-signed` ends surl with 58 before any listener binds
-  (`ServerTlsComposition.FindListenUrlWithoutCertificate`, ADR-0032 section 10); a start
-  with `--self-signed` and neither such a listen URL nor an `smtp`, `imap`, `pop3`, `ftp` or `ldap` one makes no certificate.
-- Once the log streams are open, the startup warnings go to the log stream, unstamped:
-  `AuthenticationComposition.WriteLooseningWarnings` writes the `--allow-anonymous`,
-  `--allow-plaintext-auth` and `--auth` lines, in that order, then
-  `KeytabComposition.WriteStartLines` writes `surl: warning: --keytab: skipped the <enctype
-  name> key of <principal>` for each keytab entry of an enctype surl does not accept, and
-  `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when
-  `--auth` accepts neither word and no listen URL, positional or from `-x`/`--proxy`, has the
-  scheme `socks5` or `socks5h`, whose SOCKS5 GSS-API login reads the keytab (ADR-0057
-  amendment 3), never a key byte, then `ComposedServing`
-  writes the `--self-signed` line when a throwaway certificate was made, and from the
-  verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
-  section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the
-  `--throwaway-hostkey` warning (with the key's `--hostpubsha256` value) when the key was made,
-  then `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
-  Diffie-Hellman SSH algorithms are offered` whenever that option is given, and from the verbose level up, when an `scp` or `sftp` URL is served,
-  `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>` per key
-  (ADR-0051 decisions 8 and 11).
+- `ServerTlsComposition` builds the process's `ServerTlsSettings` when at least one listen
+  URL needs TLS (`NeedsTls`), which is any of these:
+  - it requires a certificate: it is TLS from the first byte (`ListenUrl.IsImplicitTls`,
+    which `--s3-plaintext`, `--oci-plaintext`, `--az-plaintext` and `--gs-plaintext` set to
+    `false` for their scheme); its scheme is in `UpgradeRequiredSchemes` (`natss`,
+    `webtransport`); it is `coaps` with no `-u` account and no `--user-file`; or it is
+    `xmpp` with neither `--allow-plaintext-auth` nor `--allow-anonymous`;
+  - its scheme is in `UpgradableSchemes` (`amqp1`, `ftp`, `imap`, `ldap`, `pop3`, `smtp`,
+    `xmpp`) and a TLS upgrade is available (`IsTlsUpgradeAvailable`: `--cert`,
+    `--self-signed` or TLS-SRP);
+  - it is `coaps` and `--cert` or `--self-signed` is given.
+
+  Without TLS-SRP the settings hold the `--cert`/`--key` certificate or, with
+  `--self-signed`, a throwaway one, the `--cacert` trust anchors and the accepted TLS
+  versions. Under TLS-SRP (`SurlCommandLine.ServesTlsSrp`) they are
+  `ServerTlsSettings.ForTlsSrp` over `TlsSrpAccountsComposition`'s accounts, with the
+  `--cert` or throwaway certificate only when one of those options is given. A start where
+  no listen URL needs TLS reads no server TLS or TLS-SRP file and makes no certificate. A
+  listen URL that requires a certificate, with neither `--cert` nor `--self-signed`, ends
+  surl with 58 (`FindListenUrlWithoutCertificate`, ADR-0032 section 10); under TLS-SRP only
+  a `webtransport` or `coaps` one does. A `--cert`, `--key` or `--cacert` file that cannot
+  be used ends surl with 58, 2 or 77 (ADR-0020), a TLS-SRP file that cannot be read or
+  parsed with 37, and a TLS-SRP user given twice with 2. Without TLS-SRP, a `coaps` listen
+  URL whose certificate has a key DTLS cannot use for signing also ends surl with 58
+  (`CoapsDtlsCertificate`). Each of these comes before any listener binds.
+- Once the log streams are open, `ComposedServing.WriteStartUpLines`, in `Surl.Composition`,
+  writes the startup warnings and notes to the log stream, unstamped: warnings from the info
+  level up, notes from the verbose level up. With `--control` it runs only after the control
+  listener has bound. It calls these writers, in this order:
+  1. `AuthenticationComposition.WriteLooseningWarnings`: the `--allow-anonymous`,
+     `--allow-plaintext-auth`, `--user-ldap` `;plaintext`, `--auth`, `--proxy-auth`,
+     `--s3-plaintext`, `--oci-plaintext`, `--az-plaintext` and `--gs-plaintext` lines, in
+     that order, each when its option is given (ADR-0032 section 9);
+  2. `ProxyComposition.WriteLooseningWarning`: `--proxy-allow-origin '*'`;
+  3. `FaultPlanComposition.WriteWarning`: one line counting the rules when any `--fault` is
+     given;
+  4. `ControlComposition.WriteWarning`, with `--control` only: names the bound control URL;
+  5. `ContentShareComposition.WriteWarnings`: each share granting `@everyone`;
+  6. `MessageBusComposition.WriteWarnings`: each topic filter granting `@everyone`;
+  7. `MailboxComposition.WriteWarnings`: each `--mail-catch-all`;
+  8. `ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords`: each `-K` file (never
+     `-`), then the `--user-file`, whose Unix mode lets group or others read it;
+  9. `KeytabComposition.WriteStartLines`: `surl: warning: --keytab: skipped the <enctype
+     name> key of <principal>` for each keytab entry of an enctype surl does not accept, and
+     `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when
+     `--auth` accepts neither word and no listen URL, positional or from `-x`/`--proxy`, has
+     the scheme `socks5` or `socks5h`, whose SOCKS5 GSS-API login reads the keytab
+     (ADR-0057 amendment 3), never a key byte;
+  10. `ComposedServing`'s own `WriteThrowawayCertificateLines`, when a throwaway certificate
+      was made: the `--self-signed` warning, and the note `* Serving a throwaway
+      certificate, SHA-256 <fingerprint>` (ADR-0032 section 9, ADR-0033 section 7);
+  11. `ServerTlsComposition.WriteStartLines`: a note for each `--srp-groups` group outside
+      RFC 5054 Appendix A;
+  12. `SshHostKeyComposition.WriteStartLines`: the `--throwaway-hostkey` warning (with the
+      key's `--hostpubsha256` value) when the key was made, then `surl: warning:
+      --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman
+      SSH algorithms are offered` whenever that option is given, then, when an `scp` or
+      `sftp` URL is served, the note `* Serving SSH host key <key type>, --hostpubsha256
+      <base64> --hostpubmd5 <hex>` per key (ADR-0051 decisions 8 and 11);
+  13. `LdapAccountSourceComposition.WriteStartLine`: the `--user-ldap` `Account source:`
+      note, after which `DirectoryNoteSink.Attach` gives the log to the per-login notes;
+  14. `AccountGroupExpansion.WriteStartLines`: the group notes;
+  15. `MailboxComposition.WriteStartLines`: the mail domain, mailbox and shared folder
+      notes;
+  16. `ContentShareComposition.WriteStartLines`: the share and bucket notes;
+  17. `MessageBusComposition.WriteStartLines`: the topic, queue, topic map and topic access
+      notes.
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 - Extended protocol servers (ADR-0083 decisions 6 to 8): `ExtendedProtocolServers.Compose`, in `Surl.Composition`, is
-  the one place they are built (none yet; each `Surl.Extended.Protocol.*` server joins with one
-  line), from an `ExtendedProtocolServerServices` (content store, policy, TLS upgrade). The
+  the one place they are built: one server for each `ProtocolServerRegistration` in
+  `ExtendedProtocolServers.Registrations`, in that order, which is where a
+  `Surl.Extended.Protocol.*` server joins (composition notes on the servers are in
+  `Application/Surl.Composition.UnitLibrary/CLAUDE.md`). It is given an
+  `ExtendedProtocolServerServices`, which wraps the start's whole `ComposedProtocolServices`,
+  the same the original servers are built from. The
   switch `SURL_EXTENSIONS` is read once, when `CommandLineRunner` is constructed (the host reads
   it and passes it to `Surl.Composition`, ADR-0099 decision 2), through its
   `IEnvironmentVariableReader` seam (`ProcessEnvironmentVariableReader` in `surl`,
