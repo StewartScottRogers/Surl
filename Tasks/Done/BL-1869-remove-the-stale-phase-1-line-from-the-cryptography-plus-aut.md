@@ -8,7 +8,7 @@ depends-on: []
 touches: [Cryptography/Surl.Cryptography.UnitLibrary/CLAUDE.md, Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1869 — Remove the stale Phase 1 line from the cryptography plus authentication library notes
 
@@ -27,13 +27,21 @@ Remove the line only; add no replacement phase list. `Phase N.` lines followed b
 
 ## Acceptance criteria
 
-- [ ] Neither file contains a line that reads only "Phase 1.".
-- [ ] Each file's title is followed by one blank line and then its first descriptive paragraph.
-- [ ] No other line of either file changes.
+- [x] Neither file contains a line that reads only "Phase 1.".
+- [x] Each file's title is followed by one blank line and then its first descriptive paragraph.
+- [x] No other line of either file changes.
 
 ## Notes
+
+- Edited directly instead of delegating to `align-and-document`: the change is one line
+  and its blank line per file, and a subagent would cost tokens for nothing.
+- `git diff --stat`: 2 files, 4 deletions, no insertions. A search for `^Phase 1\.$` in
+  both files finds nothing.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: no failures. The `verify` skill was
+  not run, since no `.cs` or project file changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The cryptography and authentication CLAUDE.md files no longer open with a bare Phase 1. line
