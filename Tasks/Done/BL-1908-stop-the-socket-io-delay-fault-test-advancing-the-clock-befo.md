@@ -39,7 +39,7 @@ timer is counting on it, so it cannot time out under load.
   observes the timer itself.
 - No separate failing test first: the race depends on scheduling and cannot be forced without a production hook.
 - Verified 2026-11-27 on Windows: project tests 291 of 291; build 0 warnings; format check clean. The first full fast
-  run had one unrelated failure in `Surl.Protocol.Ws.UnitTests` (filed as BL-1909); the second passed (30275 passed,
+  run had one unrelated failure in `Surl.Protocol.Ws.UnitTests` (filed as BL-1910); the second passed (30275 passed,
   0 failed, 3 skipped).
 
 ## Log

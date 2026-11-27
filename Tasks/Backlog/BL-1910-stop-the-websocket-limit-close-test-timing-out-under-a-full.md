@@ -1,5 +1,5 @@
 ---
-id: BL-1909
+id: BL-1910
 title: Stop the WebSocket limit-close test timing out under a full test run
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1909 — Stop the WebSocket limit-close test timing out under a full test run
+# BL-1910 — Stop the WebSocket limit-close test timing out under a full test run
 
 ## Goal
 
