@@ -1,5 +1,5 @@
 ---
-id: BL-1955
+id: BL-1958
 title: Make the remaining --allow-anonymous summaries true of the checks that stay
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1955 — Make the remaining --allow-anonymous summaries true of the checks that stay
+# BL-1958 — Make the remaining --allow-anonymous summaries true of the checks that stay
 
 ## Goal
 

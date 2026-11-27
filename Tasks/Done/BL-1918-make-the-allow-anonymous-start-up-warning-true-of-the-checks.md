@@ -42,7 +42,7 @@ The `--allow-anonymous` start-up warning, its doc comment and `README.md` no lon
 - Added ADR-0046 to `touches`: its example table row 17 quotes the warning. No task in `Doing` names it.
 - Verified 2026-11-27: build 0 warnings, 0 errors; fast tests pass in all 83 test assemblies; `dotnet format
   --verify-no-changes` on the changed `.cs` files exits 0; `surl --help --allow-anonymous` writes the option page.
-- Follow-up BL-1955: the short help, `SurlServerOptions` and `AuthenticationSettings` still say "any login" or
+- Follow-up BL-1958: the short help, `SurlServerOptions` and `AuthenticationSettings` still say "any login" or
   "every request and login".
 
 ## Log
