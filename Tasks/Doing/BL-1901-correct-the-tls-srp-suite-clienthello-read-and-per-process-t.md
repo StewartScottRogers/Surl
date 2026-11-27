@@ -46,3 +46,4 @@ Found during BL-1888 (checked against the code on 2026-11-27). Comments and pros
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
