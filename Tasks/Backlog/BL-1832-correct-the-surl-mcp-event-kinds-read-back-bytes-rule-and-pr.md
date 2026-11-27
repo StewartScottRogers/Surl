@@ -1,5 +1,5 @@
 ---
-id: BL-1826
+id: BL-1832
 title: Correct three incomplete or false statements in the surl-mcp host README plus library CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1826 — Correct three incomplete or false statements in the surl-mcp host README plus library CLAUDE.md
+# BL-1832 — Correct three incomplete or false statements in the surl-mcp host README plus library CLAUDE.md
 
 ## Goal
 
@@ -40,7 +40,7 @@ same two files. Find each place by its text; line numbers move.
   - `remove_tls_srp_account` adds no warning.
 
 The tool list in `Documentation/Wiki/Surl-As-A-Stand-In.md` is BL-1822's, not this task's. The matching
-statements in the tool descriptions in the `.cs` files are BL-1827's.
+statements in the tool descriptions in the `.cs` files are BL-1833's.
 
 No store, event or fault changes: this task changes prose only.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1827
+id: BL-1833
 title: Correct the byte rules in the surl-mcp tool descriptions for set_key plus the read-back tools
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1827 — Correct the byte rules in the surl-mcp tool descriptions for set_key plus the read-back tools
+# BL-1833 — Correct the byte rules in the surl-mcp tool descriptions for set_key plus the read-back tools
 
 ## Goal
 
@@ -33,7 +33,7 @@ Found while running BL-1823 (checked against the code on 2026-11-26).
   `tools/list` with each `Description` constant. `StartServerToolTests` shows how a test asserts that a
   description names a limit.
 - `event_name`'s `\xHH` spelling of non-UTF-8 bytes (`SetKeyTool.NameOf`) is true as written and stays.
-- The host README and the library `CLAUDE.md` are BL-1823's and BL-1826's.
+- The host README and the library `CLAUDE.md` are BL-1823's and BL-1832's.
 
 No store, event or fault changes, and no tool's behaviour changes: this task changes description and doc
 comment text, with tests that pin it.

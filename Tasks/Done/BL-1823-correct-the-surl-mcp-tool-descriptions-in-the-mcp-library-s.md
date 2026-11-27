@@ -44,7 +44,7 @@ No store, event or fault applies: this task changes prose only.
   library `CLAUDE.md` (checked by script on 2026-11-26).
 - The README also says `key_base64` is answered for a key holding a control character other than tab, CR and
   LF, because `SetKeyTool` writes the key through `ReadBackJson.WriteBytes`, which does so.
-- Follow-ups filed: BL-1826 (other statements in these two files) and BL-1827 (byte rules and `set_key`'s
+- Follow-ups filed: BL-1832 (other statements in these two files) and BL-1833 (byte rules and `set_key`'s
   16 MiB limit in the tool descriptions). The stand-in wiki's missing tool names are already BL-1822's.
 - Prose only. `dotnet build`: 0 warnings, 0 errors. Fast tests: exit 0, no failures.
 
