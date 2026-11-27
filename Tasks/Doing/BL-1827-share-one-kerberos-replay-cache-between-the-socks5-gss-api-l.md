@@ -41,3 +41,4 @@ Each started instance has one Kerberos replay cache, used by every listener that
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
