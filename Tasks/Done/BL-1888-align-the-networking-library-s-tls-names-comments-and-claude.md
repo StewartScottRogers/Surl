@@ -8,7 +8,7 @@ depends-on: [BL-1849, BL-1887]
 touches: [Foundation/Surl.Networking.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1888 — Align the Networking library's TLS names, comments and CLAUDE.md with its three handshake paths
 
@@ -49,20 +49,31 @@ method name only; no behaviour changes.
 
 ## Acceptance criteria
 
-- [ ] The method is renamed to a name that covers its three outcomes (hand-built stream, `SslStream`, refusal), and
+- [x] The method is renamed to a name that covers its three outcomes (hand-built stream, `SslStream`, refusal), and
       the comment above it states each, the TLS-1.3-only listener included.
-- [ ] The `ClientHelloPeek` summary says it reports both `OffersOnlyTls13` and `OffersTls13`.
-- [ ] The summaries of `ServerTlsSettings`, `ServerTlsSettings.TlsSrpAccounts` and `StreamConnection` name every
+- [x] The `ClientHelloPeek` summary says it reports both `OffersOnlyTls13` and `OffersTls13`.
+- [x] The summaries of `ServerTlsSettings`, `ServerTlsSettings.TlsSrpAccounts` and `StreamConnection` name every
       stream that can serve under them.
-- [ ] The `CLAUDE.md` TLS-SRP and "TLS minimums" bullets give the optional certificate and say which statements
+- [x] The `CLAUDE.md` TLS-SRP and "TLS minimums" bullets give the optional certificate and say which statements
       hold for `SslStream` only.
-- [ ] The `CLAUDE.md` file-reading bullet names `Surl.Composition` as what maps the failures to exit codes.
-- [ ] `dotnet build Foundation/Surl.Networking.UnitTests -warnaserror` is clean, the fast tests are green, and the
+- [x] The `CLAUDE.md` file-reading bullet names `Surl.Composition` as what maps the failures to exit codes.
+- [x] `dotnet build Foundation/Surl.Networking.UnitTests -warnaserror` is clean, the fast tests are green, and the
       only changed `.cs` lines are comments and the method's name.
 
 ## Notes
+
+- Method renamed to `AuthenticateByClientHelloAsync`, the name the Context suggested: it says the ClientHello picks
+  the outcome, which covers the hand-built stream, `SslStream` and the refusal.
+- `StreamConnection`'s summary already said "the secured stream the handshake returns"; the three stream names were
+  added to it.
+- The `ServerTlsSettings` summary's "Every handshake Surl runs over TCP uses one instance" was also corrected:
+  `TlsClientConnector`'s client handshakes do not use these settings, and Unix domain socket handshakes do.
+- Verified 2026-11-27: `dotnet build -warnaserror` and `dotnet format --verify-no-changes` clean; fast tests 30270
+  passed, 3 skipped, 0 failed; Networking `Integration` tests 27 passed.
+- Filed BL-1898 for three stale statements outside this task's criteria.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Networking library's TLS method name, comments and CLAUDE.md say which of TlsSrpStream, Tls13ServerStream and SslStream serves a handshake.
