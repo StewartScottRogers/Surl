@@ -110,6 +110,37 @@ public sealed class DnsOverQuicCompositionTests
     }
 
     [TestMethod]
+    public async Task ComposeAsync_QuicUnderTlsSrpWithoutACertificate_IsRefusedCertificateProblem()
+    {
+        var seams = new StartTestSeams(new FakeListenerFactory()).Seams with { AreExtensionsTurnedOn = true };
+
+        var start = await SurlServerComposition.ComposeAsync(
+            Parse("--tlsuser", "u", "--tlspassword", "p", "--dns-transport", "quic", "https://127.0.0.1:0/", "dns://127.0.0.1:5300"),
+            seams,
+            TestContext.CancellationToken);
+
+        Assert.IsNull(start.Serving);
+        Assert.AreEqual(SurlExitCode.CertificateProblem, start.Failure!.ExitCode);
+        Assert.AreEqual(
+            "(58) dns://127.0.0.1:5300/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
+            start.Failure.Lines.Single());
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_TlsUnderTlsSrpWithoutACertificate_IsNotRefused()
+    {
+        var seams = new StartTestSeams(new FakeListenerFactory()).Seams with { AreExtensionsTurnedOn = true };
+
+        var start = await SurlServerComposition.ComposeAsync(
+            Parse("--tlsuser", "u", "--tlspassword", "p", "--dns-transport", "tls", "https://127.0.0.1:0/", "dns://127.0.0.1:5300"),
+            seams,
+            TestContext.CancellationToken);
+
+        Assert.IsNull(start.Failure);
+        await start.Serving!.DisposeAsync();
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_QuicWithSelfSigned_BindsADatagramListenerThatIsTlsFromTheFirstByteOn853()
     {
         var seams = new StartTestSeams(new FakeListenerFactory()).Seams with { AreExtensionsTurnedOn = true };

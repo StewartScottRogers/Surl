@@ -309,6 +309,44 @@ public sealed class ServerTlsCompositionTests
             ParseTlsSrp(files.GarbageFile, null), TimeProvider.System));
     }
 
+    [TestMethod]
+    [DataRow("webtransport://127.0.0.1:0/", DisplayName = "webtransport")]
+    [DataRow("dns://127.0.0.1:5300", "--dns-transport", "quic", DisplayName = "DNS over QUIC")]
+    public void Compose_TlsSrpWithSelfSignedAndAQuicListenUrl_HasTheThrowawayCertificateForQuic(string listenUrl, params string[] options)
+    {
+        var commandLine = CommandLineParser.Parse(
+            ["--tlsuser", "u", "--tlspassword", "p", "--self-signed", .. options, "https://127.0.0.1:0/", listenUrl],
+            ["dns", "webtransport"]).CommandLine!;
+
+        using var composition = ServerTlsComposition.Compose(DnsTransportComposition.ExpandDnsListenUrls(commandLine), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNotNull(composition.QuicCertificate);
+        Assert.AreEqual(composition.ThrowawayCertificateFingerprint, Convert.ToHexString(SHA256.HashData(composition.QuicCertificate.Chain[0].Span)));
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpWithSelfSignedAndNoQuicOrDtlsListenUrl_HasNoQuicCertificate()
+    {
+        using var composition = ServerTlsComposition.Compose(ParseTlsSrp(selfSigned: true), TimeProvider.System);
+
+        Assert.IsNull(composition.QuicCertificate);
+    }
+
+    [TestMethod]
+    public void Dispose_TlsSrpWithAQuicCertificate_DisposesItsKey()
+    {
+        var composition = ServerTlsComposition.Compose(
+            ParseWithWebTransport(
+                "--tlsuser", "u", "--tlspassword", "p", "--self-signed", "https://127.0.0.1:0/", "webtransport://127.0.0.1:0/"),
+            TimeProvider.System);
+        var key = (RSA)composition.QuicCertificate!.Key;
+
+        composition.Dispose();
+
+        Assert.ThrowsExactly<ObjectDisposedException>(() => key.ExportParameters(false));
+    }
+
     private sealed class ScriptedRandomNumberGenerator(byte[][] draws) : RandomNumberGenerator
     {
         private int next;
@@ -462,7 +500,7 @@ public sealed class ServerTlsCompositionTests
         Assert.AreEqual(expected, ServerTlsComposition.MapKeyFormat(given));
     }
 
-    // The parser still refuses --cert and --self-signed beside TLS-SRP (BL-1099), so set them on the parsed command line.
+    // Set on the parsed command line, so one helper serves each certificate case.
     private static SurlCommandLine ParseTlsSrp(string? certificateFile = null, string? keyFile = null, bool selfSigned = false) =>
         Parse("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/") with { CertificateFile = certificateFile, KeyFile = keyFile, SelfSigned = selfSigned };
 

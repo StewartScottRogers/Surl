@@ -169,11 +169,15 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   no listen URL needs TLS reads no server TLS or TLS-SRP file and makes no certificate. A
   listen URL that requires a certificate, with neither `--cert` nor `--self-signed`, ends
   surl with 58 (`FindListenUrlWithoutCertificate`, ADR-0032 section 10); under TLS-SRP only
-  a `webtransport` or `coaps` one does. A `--cert`, `--key` or `--cacert` file that cannot
+  what TLS-SRP does not secure does: a `webtransport` one, a DNS over QUIC one
+  (`--dns-transport quic`), or a `coaps` one with no account. With `--cert` or
+  `--self-signed`, those listeners serve that certificate under TLS-SRP as without it
+  (ADR-0122 Amendment 5). A `--cert`, `--key` or `--cacert` file that cannot
   be used ends surl with 58, 2 or 77 (ADR-0020), a TLS-SRP file that cannot be read or
-  parsed with 37, and a TLS-SRP user given twice with 2. Without TLS-SRP, a `coaps` listen
+  parsed with 37, and a TLS-SRP user given twice with 2. A `coaps` listen
   URL whose certificate has a key DTLS cannot use for signing also ends surl with 58
-  (`CoapsDtlsCertificate`). Each of these comes before any listener binds.
+  (`CoapsDtlsCertificate`; under TLS-SRP its RSA-only check refuses such a key first).
+  Each of these comes before any listener binds.
 - Once the log streams are open, `ComposedServing.WriteStartUpLines`, in `Surl.Composition`,
   writes the startup warnings and notes to the log stream, unstamped: warnings from the info
   level up, notes from the verbose level up. With `--control` it runs only after the control

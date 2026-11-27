@@ -114,8 +114,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `FindRefusal` (another or proxy listen URL beside it, `--trace`/`--trace-ascii`/`--log-file` to `-`, `--fault` or `--control` (BL-1191, ADR-0162), each `FailedInit`)
   and `ServeAsync`, which serves `McpStdioSession` over the content store on the streams it is given, writing the
   `Listening on mcp+stdio:` line (info up) to the log only. `SURL_EXTENSIONS=0` leaves the scheme unregistered.
-- DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58).
-- DNS over QUIC (ADR-0092 decision 5, BL-1019): `--dns-transport quic` expands a `dns` listen URL to a datagram-only one with `IsImplicitTls` on 853 (`DnsTransportComposition`; refused beside `udp` on one explicit port and on port 53, exit 2); the `dns` datagram registration is a `DnsDatagramRoutingProtocolServer` sending that listen URL to a `DnsOverQuicProtocolServer` (built on its first flow from `QuicCertificate`) and every other to `DnsUdpProtocolServer`. It needs `--cert` or `--self-signed` (58).
+- DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58), except under TLS-SRP.
+- DNS over QUIC (ADR-0092 decision 5, BL-1019): `--dns-transport quic` expands a `dns` listen URL to a datagram-only one with `IsImplicitTls` on 853 (`DnsTransportComposition`; refused beside `udp` on one explicit port and on port 53, exit 2); the `dns` datagram registration is a `DnsDatagramRoutingProtocolServer` sending that listen URL to a `DnsOverQuicProtocolServer` (built on its first flow from `QuicCertificate`) and every other to `DnsUdpProtocolServer`. It needs `--cert` or `--self-signed` (58), under TLS-SRP too (ADR-0122 Amendment 5).
 - `ComposeRegisteredSchemes` and `ComposeExtendedSchemes` list the registered schemes, built over
   `ComposeUnservedProtocolServers` with a policy of no accounts and no HTTP method
   (`ComposePolicyWithoutAccounts`), since nothing is served through them: `--version`'s
@@ -321,7 +321,11 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   that cannot be read is `TlsSrpAccountsException` `(37)`, a user given twice `(2)`. Each
   `--srp-groups` group outside RFC 5054 Appendix A lands in `SrpGroupIndexesOutsideRfc5054`, and
   `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). With `--cert` or `--self-signed` (BL-1098) the certificate and its RSA key go to `ForTlsSrp` for the certificate-signed suites, a non-RSA key being `TlsFileLoadException` (58). No certificate is
-  needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
+  needed then except for what TLS-SRP does not secure (ADR-0122 Amendment 5, BL-1880): `webtransport`,
+  DNS over QUIC (`--dns-transport quic`), and `coaps` with no account; without one each is
+  `(58)`. With one, `QuicCertificate` holds it for those listeners as without TLS-SRP, its key disposed with
+  the composition, and `CoapsDtlsCertificate`'s refusal is asked as ever (it is never reached: TLS-SRP
+  already refuses a non-RSA key, `(58)`, and the loader an RSA key under 2048 bits). `IsTlsUpgradeAvailable` (a certificate, or
   TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`
   probe and its `.surl/lock` (ADR-0031 decision 7). The start takes the same lock, through the same

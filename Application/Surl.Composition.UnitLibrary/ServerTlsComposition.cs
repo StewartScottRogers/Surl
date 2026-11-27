@@ -78,8 +78,10 @@ public sealed class ServerTlsComposition : IDisposable
     public string? ThrowawayCertificatePem { get; }
 
     /// <summary>
-    /// The same certificate as QUIC's TLS 1.3 serves it, with <c>--http3</c> (ADR-0082, decision 6);
-    /// <see langword="null"/> without it or when no TLS is served.
+    /// The same certificate as QUIC's TLS 1.3 and <c>coaps</c>' DTLS serve it, with <c>--http3</c>
+    /// (ADR-0082, decision 6) or a <c>webtransport</c>, <c>coaps</c> or DNS over QUIC listen URL,
+    /// under TLS-SRP too (ADR-0122 Amendment 5); <see langword="null"/> otherwise, and when no
+    /// certificate is served.
     /// </summary>
     public QuicServerCertificate? QuicCertificate { get; }
 
@@ -116,19 +118,19 @@ public sealed class ServerTlsComposition : IDisposable
     /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
     /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6; <c>xmpp</c> unless <c>--allow-plaintext-auth</c> or <c>--allow-anonymous</c> is given, ADR-0114 decision 2), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
-    /// given (ADR-0032, section 10).
+    /// given (ADR-0032, section 10). Under TLS-SRP only a <c>webtransport</c>, <c>coaps</c> or DNS over QUIC listen URL can be that one (ADR-0122 Amendment 5).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl) && !IsSecuredByTlsSrp(commandLine, listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl) && !IsSecuredByTlsSrp(commandLine, listenUrl))
             : null;
 
     // Under TLS-SRP every TCP listener is secured without a certificate (ADR-0122 decisions 2 and 5);
-    // QUIC (webtransport) and DTLS (coaps) are not TLS-SRP's, so they still need one.
-    private static bool IsSecuredByTlsSrp(SurlCommandLine commandLine, string scheme) =>
-        commandLine.ServesTlsSrp && scheme is not (WebTransportScheme or CoapsScheme);
+    // QUIC (webtransport, DNS over QUIC) and DTLS (coaps) are not TLS-SRP's, so they still need one.
+    private static bool IsSecuredByTlsSrp(SurlCommandLine commandLine, ListenUrl listenUrl) =>
+        commandLine.ServesTlsSrp && !NeedsQuicCertificate(listenUrl);
 
     /// <summary>
     /// Whether a server that can upgrade a plaintext connection to TLS offers it: a certificate is
@@ -198,7 +200,8 @@ public sealed class ServerTlsComposition : IDisposable
     // TLS-SRP settings (ADR-0122 decisions 4 and 5): the accounts, and one random source for them and
     // every handshake, owned by the composition.
     // With --cert or --self-signed the certificate and its RSA key ride along, for the certificate-signed
-    // SRP suites (ADR-0122 decision 6).
+    // SRP suites (ADR-0122 decision 6), and QUIC and DTLS listeners serve the same certificate
+    // (ADR-0122 Amendment 5).
     private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile)
     {
         var random = RandomNumberGenerator.Create();
@@ -206,9 +209,9 @@ public sealed class ServerTlsComposition : IDisposable
         try
         {
             var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
-            var (certificate, fingerprint, pem) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
+            var (certificate, quicCertificate, fingerprint, pem) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
             return new ServerTlsComposition(
-                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, null, owned, pem, null, composed.GroupIndexesOutsideRfc5054);
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, quicCertificate, owned, pem, null, composed.GroupIndexesOutsideRfc5054);
         }
         catch (Exception failure) when (failure is TlsSrpAccountsException or TlsFileLoadException)
         {
@@ -217,7 +220,7 @@ public sealed class ServerTlsComposition : IDisposable
         }
     }
 
-    private static (TlsSrpServerCertificate? Certificate, string? ThrowawayFingerprint, string? ThrowawayPem) ComposeTlsSrpCertificate(
+    private static (TlsSrpServerCertificate? Certificate, QuicServerCertificate? QuicCertificate, string? ThrowawayFingerprint, string? ThrowawayPem) ComposeTlsSrpCertificate(
         SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile, List<IDisposable> owned)
     {
         if (commandLine.CertificateFile is { } certificateFile)
@@ -230,17 +233,30 @@ public sealed class ServerTlsComposition : IDisposable
                 commandLine.KeyPassphrase,
                 readFile);
             owned.Add(loaded);
-            return (TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned), null, null);
+            var signing = TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned);
+            return (signing, ComposeOwnedQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates, owned), null, null);
         }
 
         if (!commandLine.SelfSigned)
         {
-            return (null, null, null);
+            return (null, null, null, null);
         }
 
         var throwaway = ThrowawayServerCertificate.Create(timeProvider, commandLine.ListenUrls.Select(listenUrl => listenUrl.Host));
         owned.Add(throwaway);
-        return (TlsSrpCertificateOf(throwaway, [], owned), ThrowawayServerCertificate.Sha256FingerprintOf(throwaway), throwaway.ExportCertificatePem());
+        return (
+            TlsSrpCertificateOf(throwaway, [], owned),
+            ComposeOwnedQuicCertificate(commandLine, throwaway, [], owned),
+            ThrowawayServerCertificate.Sha256FingerprintOf(throwaway),
+            throwaway.ExportCertificatePem());
+    }
+
+    private static QuicServerCertificate? ComposeOwnedQuicCertificate(
+        SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediates, List<IDisposable> owned)
+    {
+        var quicCertificate = ComposeQuicCertificate(commandLine, certificate, intermediates);
+        owned.AddRange(OwnedKey(quicCertificate));
+        return quicCertificate;
     }
 
     private static TlsSrpServerCertificate TlsSrpCertificateOf(

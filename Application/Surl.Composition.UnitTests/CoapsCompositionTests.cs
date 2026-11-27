@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Authentication;
 using Surl.Cli;
@@ -228,6 +229,44 @@ public sealed class CoapsCompositionTests
 
         Assert.IsNull(composition.QuicCertificate);
         Assert.IsNull(composition.Settings);
+    }
+
+    [TestMethod]
+    public void Compose_CoapsUnderTlsSrpWithSelfSigned_HasTheThrowawayCertificate()
+    {
+        using var composition = ServerTlsComposition.Compose(
+            Parse("--tlsuser", "u", "--tlspassword", "p", "--self-signed", "https://127.0.0.1:0/", "coaps://127.0.0.1:0/"),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.QuicCertificate);
+        Assert.AreEqual(composition.ThrowawayCertificateFingerprint, Convert.ToHexString(SHA256.HashData(composition.QuicCertificate.Chain[0].Span)));
+    }
+
+    [TestMethod]
+    public void Compose_CoapsUnderTlsSrpWithCertAndKey_HasThatCertificate()
+    {
+        using var files = TestCertificateFiles.Create();
+        using var expected = X509Certificate2.CreateFromPemFile(files.CertificateFile, files.KeyFile);
+
+        using var composition = ServerTlsComposition.Compose(
+            Parse(
+                "--tlsuser", "u", "--tlspassword", "p", "--cert", files.CertificateFile, "--key", files.KeyFile,
+                "https://127.0.0.1:0/", "coaps://127.0.0.1:0/"),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.QuicCertificate);
+        CollectionAssert.AreEqual(expected.RawData, composition.QuicCertificate.Chain.Single().ToArray());
+    }
+
+    [TestMethod]
+    public void Compose_CoapsUnderTlsSrpWithAnAccountAndNoCertificate_ServesNoCertificate()
+    {
+        using var composition = ServerTlsComposition.Compose(
+            Parse("--tlsuser", "u", "--tlspassword", "p", "--user", "alice:pw", "https://127.0.0.1:0/", "coaps://127.0.0.1:0/"),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNull(composition.QuicCertificate);
     }
 
     private static SurlCommandLine Parse(params string[] args) =>

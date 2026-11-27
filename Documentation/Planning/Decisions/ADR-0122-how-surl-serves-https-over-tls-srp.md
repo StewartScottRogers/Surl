@@ -5,7 +5,8 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05,
   in BL-563. Built by BL-564 (decision 1's SRP-6a library and decision 4's verifier files),
   BL-565 (decision 1's record layer and key derivation), BL-566 (decisions 2, 3 and 6's alerts),
-  BL-567 (decisions 4, 5 and 6's command line) and BL-568 (decision 7).
+  BL-567 (decisions 4, 5 and 6's command line) and BL-568 (decision 7). Amendments 1 to 5 below are
+  dated where they stand.
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table gains
   decision 1's two rows. [ADR-0010](ADR-0010-the-server-side-tls-contract.md) sections 3 and 4, and
   [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)'s need for
@@ -448,3 +449,28 @@ Decided by Claude under Stewart's delegation, in BL-1879.
 - **Against the composition.** The list is `ServerTlsComposition`'s `UpgradableSchemes` plus
   `natss` from its `UpgradeRequiredSchemes`; `webtransport`, the other scheme there, is QUIC, which
   TLS-SRP does not secure.
+
+## Amendment 5 (2026-11-27): the QUIC and DTLS listeners under TLS-SRP
+
+Decided by Claude under Stewart's delegation, in BL-1880.
+
+- **The rule.** TLS-SRP secures TCP listeners only. A QUIC or DTLS listener beside it is secured as
+  it is without TLS-SRP, by the `--cert` or `--self-signed` certificate; the TLS-SRP accounts are
+  never asked there, and they do not become `coaps` pre-shared keys.
+- **`webtransport`** needs `--cert` or `--self-signed`, else `(58) ... needs a certificate`. With
+  one it serves that certificate over QUIC's TLS 1.3.
+- **`coaps`** with `--cert` or `--self-signed` serves that certificate over DTLS, beside the
+  pre-shared keys of the `--user` and `--user-file` accounts; with accounts and no certificate it
+  serves pre-shared keys only; with neither it is `(58)`.
+- **DNS over QUIC** (`--dns-transport quic`, ADR-0092 decision 5) needs `--cert` or
+  `--self-signed`, else `(58)` before any listener binds, and serves that certificate. DNS over TLS
+  and DNS over HTTPS are TCP listeners: TLS-SRP secures them and they need no certificate.
+- **The certificate's key.** TLS-SRP signs with RSA only, so under TLS-SRP a `--cert` with any
+  other key is `(58)` even where QUIC or DTLS alone could use it. Every RSA key the loader accepts
+  is one DTLS accepts, so a key DTLS cannot use ends the start with 58 here too, by that earlier
+  check. `--http3` and `--cacert` stay refused (decision 6), so no QUIC or DTLS listener asks for a
+  client certificate.
+- **What was wrong.** The composition gave QUIC and DTLS no certificate under TLS-SRP: a
+  `webtransport` listener started and answered nothing, `coaps` offered pre-shared keys only, and a
+  DNS over QUIC listener was not refused without a certificate and failed on its first flow, with or
+  without one. A test standing HTTPS over TLS-SRP beside any of them now gets a working listener.
