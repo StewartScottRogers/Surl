@@ -502,6 +502,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   step that accepted, through `RefuseByFaultAsync`, which `BearerTokenSaslExchange` and `ScramSaslExchange`
   override). The tests are `LoginJudgementPolicyTests`, with `SpendingFaultPlan` spending `times`.
 
+- `JudgeKerberosLoginAsync` (SOCKS5 GSS-API, ADR-0165; BL-1225) publishes mechanism `gssapi` and, since
+  BL-1838 (ADR-0165 amendment 1), accepts an accepted token only when an account of exactly the client
+  principal's name exists in the policy's book at that moment, or under `--allow-anonymous`; a principal with
+  no account is refused after the delay without asking the fault plan. Only the proxy policy is asked today,
+  and a proxy given no proxy account has `AnonymousAuthenticationPolicy`, which accepts any ticket. The tests
+  are `KerberosLoginJudgementPolicyTests`.
 - A `PasswordLogin` with `IsToken` (BL-1586; NATS `auth_token`, Socket.IO `token`) is checked by
   `CheckPasswordLoginAsync` with `AccountBook.CheckBearerToken` against the empty-name account's password, after
   the same `--allow-anonymous` and plain-text rules, and noted as `bearer token` (mechanism `password`); an empty

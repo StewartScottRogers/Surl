@@ -21,6 +21,13 @@ server its keys. `Surl.Composition`'s `ComposeSocksGssApiLogin` reads it
 (`SurlCommandLine.KeytabFile`) and builds a `SocksGssApiLogin` over its own
 `KerberosAcceptor` for the service `rcmd` (`SocksGssApiLogin.DefaultService`; no option
 changes it), whatever `--auth` names. Without `--keytab`, method `01` is never selected.
+When the proxy policy was composed with proxy accounts (`-U`, `--proxy-user-file`, an empty
+file included) and without `--allow-anonymous`, a GSS-API login is accepted only when a proxy
+account has exactly the client principal's name (`user@EXAMPLE.COM`, compared ordinally; its
+password unused), read at the moment of the login; any other principal is refused `01 FF` with no
+AP-REP (ADR-0165 amendment 1, BL-1838). With no proxy account, or under `--allow-anonymous`, any
+principal the keytab's keys accept gets through. The policy decides this
+(`IAuthenticationPolicy.JudgeKerberosLoginAsync`), not this library.
 
 **Listen URL schemes:** `socks4`, `socks4a` - both serve SOCKS4 and SOCKS4a alike, and answer a
 SOCKS5 greeting `05 FF`; `socks5`, `socks5h` - both serve SOCKS5 with every address type, and

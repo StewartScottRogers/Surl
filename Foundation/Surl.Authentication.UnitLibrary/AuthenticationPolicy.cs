@@ -218,16 +218,27 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// </summary>
     public const string GssapiMechanism = "gssapi";
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// A SOCKS5 GSS-API login (ADR-0165, decisions 7 to 9 and amendment 1). An accepted token is
+    /// accepted only when an account of exactly the client principal's name (<c>user@EXAMPLE.COM</c>,
+    /// compared ordinally; its password unused) exists at the moment of the login, so an empty account
+    /// book refuses every principal; under <c>--allow-anonymous</c> no account is asked for. A refused
+    /// token, and an accepted token naming no account, never ask the fault plan; any other login is
+    /// refused when a <see cref="FaultKind.RefuseLogin"/> rule matches the principal. Every login
+    /// publishes a <see cref="LoginJudgedEvent"/> naming the principal of an accepted token, and a
+    /// refusal is answered after <see cref="RefusalDelay"/>.
+    /// </summary>
+    /// <param name="login">The server's verdict on the token, with the principal it named.</param>
+    /// <param name="cancellationToken">Cancels the judgement and the refusal delay.</param>
+    /// <returns>Whether the login is accepted.</returns>
     public async ValueTask<bool> JudgeKerberosLoginAsync(KerberosLogin login, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
 
         var judgementStartedAt = timeProvider.GetUtcNow();
-        var acceptedAccountName = login.IsTokenAccepted ? login.ClientPrincipal ?? string.Empty : null;
         var isAccepted = await ConcludeCheckedLoginAsync(
-            login.Scheme, GssapiMechanism, login.IsTokenAccepted ? login.ClientPrincipal : null, acceptedAccountName, login.Exchange, cancellationToken)
+            login.Scheme, GssapiMechanism, login.IsTokenAccepted ? login.ClientPrincipal : null, FindKerberosAccountName(login), login.Exchange, cancellationToken)
             .ConfigureAwait(false);
         if (!isAccepted)
         {
@@ -239,6 +250,20 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         }
 
         return isAccepted;
+    }
+
+    // The account an accepted token logs in as: the principal's name when an account has it, or any
+    // principal under --allow-anonymous (ADR-0165, amendment 1).
+    private string? FindKerberosAccountName(KerberosLogin login)
+    {
+        if (!login.IsTokenAccepted)
+        {
+            return null;
+        }
+
+        var principal = login.ClientPrincipal ?? string.Empty;
+
+        return settings.AllowAnonymous || settings.Accounts.HasNamedAccount(principal) ? principal : null;
     }
 
     // A password login the account book cannot settle, for a name the book does not hold (ADR-0149, decision 6).
