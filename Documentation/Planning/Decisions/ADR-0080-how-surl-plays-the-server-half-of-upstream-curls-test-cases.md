@@ -5,13 +5,21 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-386 (FR-053, success criterion 2).
 - **Amended:** 2026-11-04 in BL-390, decision 4 (the strip subset as the corpus writes it).
+- **Amended:** 2026-11-05 by [ADR-0123](ADR-0123-what-plays-the-server-half-of-upstream-dns-test-cases.md), decision 2 (the `dns` row).
+- **Amended:** 2026-11-11 in BL-858, decision 2 (the `telnet` server half echoes and closes, for test 1452).
+- **Amended:** 2026-11-12 by [ADR-0152](ADR-0152-when-the-http-test-case-half-closes-after-an-empty-reply-part.md), decision 2 (the HTTP half's connection rule).
+- **Amended:** 2026-11-14 in BL-1129, BL-858's amendment of decision 2 (a final line feed is not echoed).
 - **Amended:** 2026-11-14 by [ADR-0154](ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md), decision 2 (the `http/2` and `http/3` row).
+- **Amended:** 2026-11-14 by [ADR-0155](ADR-0155-what-the-mqtt-test-case-half-sends-for-the-seven-mqttd-server-commands.md), decision 2 (the MQTT half's `<servercmd>` words).
+- **Amended:** 2026-11-14 by [ADR-0156](ADR-0156-what-the-ftp-test-case-half-sends-for-nodataconn425-nodataconn421-nodataconn150-pasvbadip-and-retrweirdo.md), decision 2 (five more FTP `<servercmd>` words).
 - **Amended:** 2026-11-26 in BL-1808, decisions 2, 3, 5 and 6 (where port variables and SSH keys
   are made, and the Debug build and `libtests` binary of
   [ADR-0173](ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
   and [ADR-0174](ADR-0174-how-upstream-libtest-programs-are-built-pinned-and-run-by-the-conformance-runner.md)).
 - **Amended:** 2026-11-27 in BL-1835, decisions 2 and 3 (the server halves decision 2's table marks
   "not built" are built).
+- **Amended:** 2026-11-27 in BL-1856, decision 2 (the certificate the `https` half serves, and no
+  `rtsp` server half).
 - **Amends:** nothing. [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (only pinned
   builds run, never the Curl port), [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md)
   decision 3 (`Surl.Conformance` references Abstractions only; protocol servers never reference each
@@ -465,3 +473,28 @@ a built server can still skip for another of decision 3's reasons.
 A row saying built does not by itself mean the run composes a server half: the `rtsp` and
 `rtsp-ipv6` rows say built, but the run composes none for them. Every case naming an `rtsp` server
 at the tag is a libtest program.
+
+## Amendment (2026-11-27, BL-1856): the certificate the `https` half serves, and no `rtsp` server half
+
+Decided by Claude under Stewart's delegation. It records what the code does where the decisions
+above say otherwise; no behaviour changes.
+
+1. **Certificates** (replaces decision 2's `https` row's "with the generated `test-localhost`
+   certificate"). The `https` half serves the certificate the case's `https` `<server>` line names
+   (`https test-localhost0h.pem`, read by `UpstreamTestCaseCertificateName.Find`; BL-1130), and the
+   generated `test-localhost` when the case names none. Every other TLS listener of the case's
+   `UpstreamTestCaseServerHalves`, and the TLS on its data connections, serves that same
+   certificate, except two: the `https-mtls` half serves `test-localhost` and requires a client
+   certificate issued by `test-ca` (BL-1131), and the HTTP/3 gateway serves `test-localhost`. So
+   `%HTTP2TLSPORT` serves a certificate the case's `https` line names, if it has one; this amends the
+   `%HTTP2TLSPORT` row of
+   [ADR-0154](ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md)
+   decision 4. The `httptls+srp` halves serve no certificate.
+2. **`rtsp` and `rtsp-ipv6`** (replaces decision 2's `rtsp` row, and `rtsp` and `rtsp-ipv6` in its
+   "Verbatim-reply protocols" list). The run composes no `rtsp` server half:
+   `Surl.Protocol.Rtsp` has no seam that takes a case's reply, and no server half implements the
+   `rtp:` server command. The nine cases naming one at the tag (567 to 572, 577, 689 and 3100) are
+   libtest programs, none of them among the libtest cases
+   [ADR-0174](ADR-0174-how-upstream-libtest-programs-are-built-pinned-and-run-by-the-conformance-runner.md)
+   admits, so each skips `libtest`. A case naming `rtsp` that the selector let through would be
+   written `skip server-half-not-composed:rtsp`.
