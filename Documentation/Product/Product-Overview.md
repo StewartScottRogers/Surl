@@ -2,7 +2,7 @@
 
 - **Status:** Draft. Written for the Phase 0 shell and kept true as the phases are built; the
   numbers below are measured, not estimated. No section is awaiting a decision.
-- **Last updated:** 2026-11-12
+- **Last updated:** 2026-11-26
 - **Measured against:** upstream curl 8.21.0 (released 2026-06-24), tag `curl-8_21_0` of
   https://github.com/curl/curl, and the builds pinned in `UpstreamCurlBuilds.json`
 
@@ -405,8 +405,10 @@ defined in the [glossary](../Wiki/Glossary.md), section "LDAP, SMB and RTSP".
   the mail servers' mechanisms - run through `ISaslAuthenticationPolicy`, offered as `--auth`
   accepts them; once a bind negotiates NTLM sealing or signing or `DIGEST-MD5` integrity or
   confidentiality, every later message both ways is one buffer the `ISaslSecurityLayer` protects.
-  Kerberos inside `GSS-SPNEGO` is answered with NTLM selected (ADR-0040's rule); BL-327 is to
-  decide and build Kerberos there, with RFC 4121 wrap tokens as its security layer.
+  With `--keytab`, a `GSS-SPNEGO` token selecting Kerberos is accepted in one leg, and the
+  messages that follow are protected with RFC 4121 wrap tokens, sealed or signed as the client
+  asked (BL-327, ADR-0072 Amendment 1); without `--keytab` it is answered with NTLM selected
+  (ADR-0040's rule).
 - **`StartTLS` and `ldaps`** (decision 5): `StartTLS` is offered and accepted only when a
   certificate is configured (`--cert` or `--self-signed`), and refused `protocolError` otherwise;
   `ldaps` is TLS from the first byte, then `ldap`'s exchange.
@@ -506,8 +508,8 @@ Phase 6 has four parts: `surl` serves HTTP/2 and, with `--http3`, HTTP/3 over a 
 by hand; `Surl.Conformance` plays the server half of upstream curl's own test cases; and a
 published native `surl` is proven on six runtime identifiers. The terms below are defined in
 the [glossary](../Wiki/Glossary.md), sections "HTTP/2", "HTTP/3 and QUIC", "Upstream test
-cases" and "Native publishing". Phase 6 is built, not closed: "What is not proven" below lists
-what is open.
+cases" and "Native publishing". Phase 6 is built and proven in part: "What is not proven" below
+lists the gaps.
 
 **HTTP/2** ([ADR-0081](../Planning/Decisions/ADR-0081-how-surl-serves-http-2.md), with
 [ADR-0090](../Planning/Decisions/ADR-0090-how-the-http-2-prior-knowledge-connection-reads-ends-and-answers.md)
@@ -561,40 +563,48 @@ platform's pinned reference build cannot run with one named reason, and runs the
 that build as the client against Surl's own protocol server for the case's scheme
 (`UpstreamTestCasesAgainstSurlTests`, categories `Integration` and `UpstreamTestCases`). The
 server halves are composed in the test project, never in `Surl.Composition`, so the shipped
-`surl` has no replay mode. Server halves exist for the HTTP and HTTPS family (including
-`http-unix`), RTSP, FTP and FTPS, IMAP, POP3 and SMTP in plaintext, DICT, Gopher, TELNET, MQTT,
-TFTP, SCP, SFTP and SMB, with the mail servers also behind implicit TLS (BL-1120), and the
-`http/2` and `http/3` gateway halves that play upstream's nghttpx
-([ADR-0154](../Planning/Decisions/ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md)):
-of the 16 cases naming them, 1700, 1701, 1702, 2403, 2500 and 2503 pass on `linux-x64` and
-`osx-arm64` (CI run 43629075978, 2026-11-14; the Windows build has no HTTP2 or HTTP3 and skips
-them), and the other ten need a `Debug` build or are libtests. The table in
-`UpstreamTestCaseServers` marks `httptls+srp` and `dns` as not built, so those cases skip as
-`server-not-built:<name>`. The pass rate, stated per platform and per release, is in
+`surl` has no replay mode. Every server name in `UpstreamTestCaseServers`' table is marked
+built: the HTTP and HTTPS family (mutual TLS, IPv6 and Unix-socket forms included), RTSP, FTP
+and FTPS, IMAP, POP3 and SMTP in plaintext and behind implicit TLS (BL-1120), DICT, Gopher,
+TELNET, MQTT, TFTP, SCP, SFTP, SMB, the HTTP and HTTPS proxies, SOCKS, `httptls+srp`, `dns`,
+and the `http/2` and `http/3` gateway halves that play upstream's nghttpx
+([ADR-0154](../Planning/Decisions/ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md)).
+Of the 16 cases whose server is `http/2` or `http/3`, 1700, 1701, 1702, 2403, 2500 and 2503
+pass on `linux-x64` and `osx-arm64`. The other ten need a `Debug` build or are libtests; all
+ten pass on `linux-x64`, where CI builds both
+([ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md),
+ADR-0174; commit `4ac7b2c7`, 2026-11-17), and `osx-arm64` skips them. The `win-x64` reference
+build has no HTTP2 or HTTP3, and `win-x64` skips all 16.
+
+The pass rate, stated per platform and per release, is in
 [Upstream-Test-Case-Pass-Rate.md](../Conformance/Upstream-Test-Case-Pass-Rate.md), the passing
-cases are listed beside it, and a fast test fails when the table and the lists disagree, so
-the rate only rises. As of 2026-11-12:
+cases are listed beside it, and a fast test fails when the table and the lists disagree. Its
+"Current" table, as read on 2026-11-26, shows no runnable case failing:
 
-| Platform | Runnable | Passed | Failed | Skipped | Pass rate |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | 1,128 | 1,078 | 50 | 885 | 95.6% |
-| `linux-x64` | 1,237 | 1,154 | 83 | 776 | 93.3% |
-| `osx-arm64` | 1,237 | 1,153 | 84 | 776 | 93.2% |
+| Platform | Measured | Runnable | Passed | Skipped | Pass rate |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `win-x64` | 2026-11-14 | 1,185 | 1,185 | 828 | 100.0% |
+| `linux-x64` | 2026-11-17 | 1,326 | 1,326 | 687 | 100.0% |
+| `osx-arm64` | 2026-11-14 | 1,316 | 1,316 | 697 | 100.0% |
 
-The Windows row is from a local run on 2026-11-11 (CI has no pinned Windows reference build);
-the Linux and macOS rows are CI run 42203619501 of 2026-11-06. The pass-rate file's
-"Releases" table has rows from `0.1.0` on; `release.yml` fails a tag whose version has no row
-there, and puts the version's rows at the top of the release notes.
+A skipped case is never counted as passed. The Windows row is from a local run (CI has no pinned
+`win-x64` build). The pass-rate file's "Releases" table has rows from `0.1.0` on; `release.yml`
+fails a tag whose version has no row there, and puts the version's rows at the top of the
+release notes.
 
 **What pinned upstream curl has proven for HTTP/2 and HTTP/3.**
-`UpstreamCurlFetchesFromSurlOverHttp2Tests` (15 tests) and
+`UpstreamCurlFetchesFromSurlOverHttp2Tests` (17 tests) and
 `UpstreamCurlFetchesFromSurlOverHttp3Tests` (13 tests) run the static-curl 8.21.0 build
 (ADR-0081 decision 1, ADR-0082 decision 1) on Windows and the reference build elsewhere
 against a live `surl`. They cover prior knowledge, the `h2c` upgrade, ALPN, `-I`, a range,
-Basic and Digest, an upload under `--allow-uploads`, a file larger than the initial window (a
-10 MiB file over HTTP/3), two URLs reusing one connection, and, for HTTP/3, `--http3-only` and
-`--http3` with HTTP/3 off (the exit code, and the fall back to HTTP/2). They passed on Windows
-when the tasks were done (BL-371, BL-385).
+Basic and Digest, AWS Signature Version 4 over HTTP/2, an upload under `--allow-uploads`, a
+file larger than the initial window (a 10 MiB file over HTTP/3), two URLs reusing one
+connection, and, for HTTP/3, `--http3-only` and `--http3` with HTTP/3 off (the exit code, and
+the fall back to HTTP/2). The 15 HTTP/2 tests and 13 HTTP/3 tests of the time passed on Windows
+when their tasks were done (BL-371, BL-385), and on `linux-x64` and `osx-arm64` in CI run
+43906686682
+([`Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)). BL-1549 added the
+two AWS Signature Version 4 tests on 2026-11-21.
 
 **Native publishing** ([ADR-0085](../Planning/Decisions/ADR-0085-what-proves-the-native-surl-on-each-published-runtime-identifier.md)):
 every leg of `.github/workflows/release.yml` publishes `surl` natively and runs
@@ -603,30 +613,28 @@ file and no `runtimeconfig.json` or `*.dll`, `--version` exits 0 naming the vers
 runtime identifier, one file served byte for byte, a stop on SIGTERM, and no .NET shown by an
 `ubuntu:22.04` container on Linux or a scrubbed `DOTNET_*` and `PATH` plus import checks
 elsewhere. `Surl.Conformance` runs against the published binary when `SURL_EXECUTABLE` names
-it. A release dry run on 2026-11-06 (CI run 42225649001, BL-603) was green on all six legs.
-Releases are published from `v*` tags, `v0.1.0` of 2026-11-16 the first tag;
-[Download](../../DOWNLOAD.md) says what a release holds.
+it, and the workflow's conformance job does so on every runtime identifier but `win-x64`, with
+that platform's pinned reference build
+([ADR-0151](../Planning/Decisions/ADR-0151-the-linux-arm64-win-arm64-and-osx-x64-upstream-curl-builds.md)
+pins those for `linux-arm64`, `win-arm64` and `osx-x64`). A release dry run on 2026-11-06 (CI
+run 42225649001, BL-603) was green on all six publish legs, and a later one (CI run
+43506096468, BL-1074) on all five conformance legs. Releases are published from `v*` tags,
+`v0.1.0` of 2026-11-16 the first tag; [Download](../../DOWNLOAD.md) says what a release holds.
 
 | Runtime identifier | Runner | Proven by | Upstream curl completes an exchange with the binary |
 | --- | --- | --- | --- |
 | `linux-x64` | `ubuntu-22.04` | the smoke test and the conformance job | yes, in CI |
 | `osx-arm64` | `macos-latest` | the smoke test and the conformance job | yes, in CI |
-| `win-x64` | `windows-latest` | the smoke test; conformance runs locally only (CI has no pinned Windows reference build) | locally; a clean full run is open (BL-604, BL-1059) |
-| `win-arm64` | `windows-11-arm` | the smoke test and the fast tests | not shown: no pinned upstream curl build (BL-361) |
-| `linux-arm64` | `ubuntu-22.04-arm` | the smoke test and the fast tests | not shown: no pinned upstream curl build (BL-361) |
-| `osx-x64` | `macos-15-intel` | the smoke test and the fast tests | not shown: no pinned upstream curl build (BL-361) |
+| `win-x64` | `windows-latest` | the smoke test; conformance runs locally only (CI cannot obtain an x64 Windows build to pin) | yes, locally: two consecutive full runs passed on 2026-11-12 (BL-1090) |
+| `win-arm64` | `windows-11-arm` | the smoke test, the fast tests and the conformance job | yes, in the release workflow |
+| `linux-arm64` | `ubuntu-22.04-arm` | the smoke test, the fast tests and the conformance job | yes, in the release workflow |
+| `osx-x64` | `macos-15-intel` | the smoke test, the fast tests and the conformance job | yes, in the release workflow |
 
 **What is not proven.**
 
-- `win-arm64`, `linux-arm64` and `osx-x64` have no pinned upstream curl build, so they have the
-  smoke test and the fast tests but neither conformance nor a pass rate. BL-361 would pin
-  them; it is Blocked until arm64 and Intel-macOS runners can measure the builds.
-- `win-x64` conformance against the published binary runs only locally. BL-604 found the start
-  timeouts were thread-pool starvation in the test host; a clean full run still waits on
-  BL-1059 (the HTTP/3 UDP bind when the TCP port drawn sits in a Windows UDP excluded range).
-- The HTTP/2 and HTTP/3 conformance tests are recorded passing on Linux and macOS only by
-  elimination from CI run 42324374116, since the CI logger prints a skipped Curl-port test of
-  the same name; BL-724 and BL-768 are to confirm them.
+- `win-arm64`, `linux-arm64` and `osx-x64` have no row in the pass-rate file, so no upstream
+  test-case pass rate is stated for them.
+- `win-x64` conformance against the published binary runs only locally, so no workflow checks it.
 - Some behaviour the ADRs ask to be measured is unmeasured: for HTTP/2 the `413`,
   `FRAME_SIZE_ERROR`, `FLOW_CONTROL_ERROR` and idle `GOAWAY` cases (BL-371's notes), and for
   HTTP/3 curl past each decision 7 limit and `Alt-Svc` with `--alt-svc` (BL-385's notes).
@@ -789,7 +797,8 @@ Beside the 29 schemes upstream curl speaks, Surl answers the schemes the Curl po
 curl does not have: 19 servers, each `Surl.Extended.Protocol.<Name>.UnitLibrary` with its `.UnitTests`
 twin ([ADR-0083](../Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md),
 Stewart's approval of 2026-11-04). All 19 are composed by `ExtendedProtocolServers` in
-`Surl.Composition`; `coaps` is composed as a deferred server that waits for the DTLS listener.
+`Surl.Composition`; `coaps` is composed as `DeferredCoapsProtocolServer`, which builds the server
+when its first datagram flow arrives.
 
 - **The oracle exception.** Upstream curl cannot speak these schemes, so for the projects named
   `Surl.Extended.Protocol.*` the protocol's **specification** is the oracle, not upstream curl. Unit
@@ -885,7 +894,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Hosts | `Surl.Console` (the `surl` executable), `Surl.Api` (the in-process .NET programming interface, ADR-0099) and `Surl.Mcp` (the `surl-mcp` executable, ADR-0103), over `Surl.Composition`; the hosts are composition roots, and no protocol server or horizontal library may reference one | `Surl.Composition`, `Surl.Cli`, and for `Surl.Mcp` also `Surl.Mcp.UnitLibrary` and `Surl.McpServing` |
 | Composition | `Surl.Composition` (turns a parsed command line into running protocol servers, the stores they share and the event stream; the one start `surl`, `Surl.Api` and `Surl.Mcp` all run, ADR-0099) | `Surl.Cli`, `Surl.Core`, the protocol servers and the services below |
 | MCP serving | `Surl.McpServing` (JSON-RPC over a line stream, the MCP session, tool and resource registries; shared by `Surl.Mcp` and the extended MCP server, ADR-0103), in `Protocols/Http/`; `Surl.Mcp.UnitLibrary` (the tools and the running-server book) | `Surl.McpServing`: nothing; `Surl.Mcp.UnitLibrary`: `Surl.Api`, `Surl.Cli`, `Surl.McpServing` |
-| Control endpoint | `Surl.Control` (the loopback HTTP and JSON endpoint of `--control`, ADR-0124 decision 7; the library is built, and no host serves it yet, BL-816) | Abstractions, `Surl.HttpServing` |
+| Control endpoint | `Surl.Control` (the loopback HTTP and JSON endpoint of `--control`, ADR-0124 decision 7; served by `surl --control` and by `Surl.Api` through `SurlServerOptions.ControlListenUrl`, both over `Surl.Composition`) | Abstractions, `Surl.HttpServing` |
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |

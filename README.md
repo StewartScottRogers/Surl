@@ -24,41 +24,44 @@ and regenerated on the same schedule as the video above.*
 by state and refreshes itself every few minutes. One card per dark factory lane joins it
 once the dark factory publishes its lane status ([ADR-0029](Documentation/Planning/Decisions/ADR-0029-the-live-task-board-page-reads-the-task-tree-and-a-board-branch-status-json.md)).*
 
-## Status: in active development, 2026-11-05
+## Status: in active development, 2026-11-26
 
-Work resumed on 2026-11-04 after a pause that began on 2026-10-01. A dark factory shift is
-running, and the [live task board](https://stewartscottrogers.github.io/Surl/board/) shows
-what it is doing.
+Work began on 2026-09-28, paused on 2026-10-01 and resumed on 2026-11-04. The
+[live task board](https://stewartscottrogers.github.io/Surl/board/) shows what is open.
 
 Where it stands:
 
 - **Protocols.** `surl` answers every scheme listed under [What this is](#what-this-is),
   each checked against a pinned upstream curl build (ADR-0003).
-- **Size.** 1,769 commits since 2026-09-28. There are 63 production projects, each with its
-  own test project, and about 8,700 test methods between them. There are 117 architecture
-  decision records under `Documentation/Planning/Decisions`.
-- **Board.** 497 tasks are done, 8 are in progress, 249 are waiting and none is blocked.
+- **Size, measured on 2026-11-26.** 5,994 commits since 2026-09-28
+  (`git rev-list --count HEAD`). `Surl.slnx` lists 84 production projects and 83 test
+  projects (`Surl.Mcp` and `Surl.Mcp.UnitLibrary` share one), and their source holds 19,136
+  `[TestMethod]` attributes. `Documentation/Planning/Decisions` holds 189 architecture
+  decision records.
 - **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS before anything
   merges to `master`.
 - **Releases.** `v0.1.0` was tagged on 2026-11-16. The latest release on 2026-11-26 is
   `v0.1.11`, with binaries for six platforms and both NuGet packages (see
   [Download](#download)).
 
-### What is being built
+### What is built
 
-The work is on the board and is being built now. None of it is finished.
+The [roadmap](Documentation/Planning/Roadmap.md) records, milestone by milestone, what has
+been proven and what is not.
 
-1. **Phase 6: everything upstream curl asks.** This is built but not closed. `surl` serves
+1. **Phase 6: everything upstream curl asks.** Built, and proven in part. `surl` serves
    HTTP/2 on `https` (ALPN `h2`) and on `http` (prior knowledge and `Upgrade: h2c`), and with
    `--http3` HTTP/3 over a hand-built QUIC. `Surl.Conformance` plays the server half of
-   upstream curl's own test cases: as of 2026-11-12 the pass rate is 95.6% on `win-x64`,
-   93.3% on `linux-x64` and 93.2% on `osx-arm64`
-   ([the pass-rate file](Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md)), and no
-   case runs over HTTP/2 or HTTP/3 yet. A native `surl` is smoke-tested on all six runtime
-   identifiers (Windows, Linux and macOS on x64 and Arm64), but upstream curl is pinned only
-   for `win-x64`, `linux-x64` and `osx-arm64`, so the other three are not shown to complete an
-   exchange with it, and `win-x64` conformance against the published binary runs only
-   locally. See the product overview, "Built for Phase 6".
+   upstream curl's own test cases, and the
+   [pass-rate file](Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md) records every
+   runnable case passing: 1,185 on `win-x64` (2026-11-14), 1,326 on `linux-x64` (2026-11-17)
+   and 1,316 on `osx-arm64` (2026-11-14). Skipped cases are not counted as passed. Of the 16
+   cases whose server is `http/2` or `http/3`, all pass on `linux-x64` and six on
+   `osx-arm64`; `win-x64` skips them. A native `surl` is smoke-tested on all six runtime
+   identifiers (Windows, Linux and macOS on x64 and Arm64), and
+   [`UpstreamCurlBuilds.json`](UpstreamCurlBuilds.json) pins an upstream curl build for each.
+   The release workflow runs the conformance suite against the published binary on five of
+   them; on `win-x64` that run is local. See the product overview, "Built for Phase 6".
 2. **Extended protocols.** These are servers for the schemes the Curl port adds and upstream
    curl does not have: S3, Azure Storage, Google Cloud Storage, OCI registries, gRPC,
    SignalR, Socket.IO, WebTransport, MCP, CoAP, DNS, Redis, MQTT 5, AMQP 0-9-1 and 1.0,
@@ -85,11 +88,14 @@ The work is on the board and is being built now. None of it is finished.
    snapshots, faults, hooks and the control endpoint) are described in
    [Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md).
 6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
-   command lines against the same `surl`, and wherever they disagree, upstream curl is right.
-   This is built for `win-x64`: the port at commit `b42c319b` agreed in 1,420 of 1,518 cases,
-   and the 96 port-defect cases come down to 18 findings, none of them a Surl defect. The findings and the handoff to
-   the port's board are in [Documentation/Conformance/CurlPort](Documentation/Conformance/CurlPort/README.md);
-   other platforms and 15 of the extended clients are not yet measured.
+   command lines, each against its own fresh `surl`, and wherever they disagree, upstream curl
+   is right. The port at commit `74f3f45c` is measured on `win-x64`, `linux-x64` and
+   `osx-arm64`. On `win-x64`, 1,563 of 1,662 cases agreed, the 97 port-defect cases come down
+   to 24 findings and 2 cases are not comparable. The `linux-x64` and `osx-arm64` run of
+   2026-11-24 added 7 findings. No finding is a Surl defect. Some groups of cases are
+   recorded as not measurable on Linux or macOS, and the extended clients have results for
+   `win-x64` only. The findings and the handoff to the port's board are in
+   [Documentation/Conformance/CurlPort](Documentation/Conformance/CurlPort/README.md).
 
 ## What this is
 
@@ -525,13 +531,22 @@ as a `.nupkg` file; it is not on nuget.org yet (2026-11-26, see [Download](#down
 client starts it as a stdio server, for example with the `surl-mcp` binary from a release
 archive, which needs no .NET runtime. It is also packed as the NuGet package `Surly.Surl.Mcp`,
 a .NET tool of type `McpServer` that each GitHub release from `v0.1.10` carries. The package is
-not on nuget.org yet (2026-11-26), so `dnx Surly.Surl.Mcp` cannot fetch it from there. Its
-tools are `start_server`, `list_servers`, `stop_server`,
-`get_exchanges`, `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `publish_message`,
-`add_account`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and
-`remove_fault`. The `surl://aihelp` resources carry the pages of `surl --aihelp`, so the agent
-learns the options from the same text. Listen URLs must be loopback unless the host was started
-with `--allow-non-loopback`, and local paths are confined by `--root`. See
+not on nuget.org yet (2026-11-26), so `dnx Surly.Surl.Mcp` cannot fetch it from there. It
+registers these tools:
+
+| To | Tools |
+| --- | --- |
+| Run servers | `start_server`, `list_servers`, `stop_server` |
+| Watch what happens | `get_exchanges`, `get_events`, `wait_for_event` |
+| Change the stores | `seed_mail`, `put_file`, `delete_file`, `publish_message`, `set_key`, `add_ldap_entries`, `add_dns_zone` |
+| Read the stores back | `list_mailboxes`, `list_messages`, `read_message`, `read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log`, `read_key`, `list_keys`, `read_directory`, `read_zone` |
+| Manage accounts | `add_account`, `remove_account`, `set_account_password`, `add_proxy_account`, `remove_proxy_account`, `set_proxy_account_password`, `add_tls_srp_account`, `remove_tls_srp_account`, `set_tls_srp_account_password` |
+| Reset, snapshot and restore | `reset_server`, `snapshot_server`, `restore_server` |
+| Inject faults | `add_fault`, `list_faults`, `remove_fault` |
+
+The `surl://aihelp` resources carry the pages of `surl --aihelp`, so the agent learns the
+options from the same text. Listen URLs must be loopback unless the host was started with
+`--allow-non-loopback`, and local paths are confined by `--root`. See
 [`Application/Surl.Mcp/README.md`](Application/Surl.Mcp/README.md).
 
 ## Use Surl as a stand-in in your tests
