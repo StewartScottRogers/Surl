@@ -17,20 +17,22 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// <c>unsupported-version</c>). The answer is <c>&lt;?xml version='1.0'?&gt;</c> and a response
 /// header with <c>from</c> the stream's domain, a new 32-hex-digit <c>id</c>, <c>version='1.0'</c>
 /// and the client's <c>xml:lang</c> or <c>en</c>, then the features of the connection's phase
-/// (decision 2): with a certificate (<see cref="XmppServerOptions.IsTlsUpgradeAvailable"/>) and
-/// before TLS, <c>&lt;starttls&gt;&lt;required/&gt;&lt;/starttls&gt;</c> alone, or under
+/// (decision 2): when a TLS upgrade is available
+/// (<see cref="XmppServerOptions.IsTlsUpgradeAvailable"/>: a certificate is configured or TLS-SRP
+/// is served) and before TLS, <c>&lt;starttls&gt;&lt;required/&gt;&lt;/starttls&gt;</c> alone, or under
 /// <see cref="XmppServerOptions.AllowPlaintextAuthentication"/> a voluntary <c>&lt;starttls/&gt;</c>
-/// beside the plain-text SASL mechanisms; without one, or once the connection is TLS, the SASL
-/// mechanisms the policy offers for that TLS state, never STARTTLS. <c>&lt;/stream:stream&gt;</c>
-/// from the client is answered with the server's, then the connection is closed.
+/// beside the plain-text SASL mechanisms; with no upgrade available, or once the connection is TLS,
+/// the SASL mechanisms the policy offers for that TLS state, never STARTTLS.
+/// <c>&lt;/stream:stream&gt;</c> from the client is answered with the server's, then the connection
+/// is closed.
 /// </para>
 /// <para>
 /// <c>&lt;starttls/&gt;</c> is answered <c>&lt;proceed/&gt;</c>, then the upgrade through the listener
 /// seam; any byte sent after it before the handshake is thrown away, a failed or unfinished
 /// handshake closes with no more bytes, and the client's new stream header must arrive within the
 /// head timeout of <c>&lt;proceed/&gt;</c>, handshake included, and is answered with a new
-/// <c>id</c>. Without a certificate, or on a connection already TLS, <c>&lt;starttls/&gt;</c> is
-/// answered with the TLS <c>&lt;failure/&gt;</c>, <c>&lt;/stream:stream&gt;</c> and a close. While
+/// <c>id</c>. With no TLS upgrade available, or on a connection already TLS, <c>&lt;starttls/&gt;</c>
+/// is answered with the TLS <c>&lt;failure/&gt;</c>, <c>&lt;/stream:stream&gt;</c> and a close. While
 /// TLS is required, a SASL <c>&lt;auth/&gt;</c> is answered
 /// <c>&lt;failure&gt;&lt;encryption-required/&gt;&lt;/failure&gt;</c> and the stream kept.
 /// </para>

@@ -24,7 +24,10 @@ namespace Surl.Composition;
 /// <param name="timeProvider">The one clock.</param>
 /// <param name="sshHostKeys">The SSH server's host keys.</param>
 /// <param name="sshAlgorithms">The SSH algorithms offered.</param>
-/// <param name="isTlsUpgradeAvailable">Whether a certificate is configured, so a TLS upgrade can be offered.</param>
+/// <param name="isTlsUpgradeAvailable">
+/// Whether a TLS upgrade can be offered: a start passes
+/// <see cref="ServerTlsComposition.IsTlsUpgradeAvailable"/>, true when a certificate is configured or TLS-SRP is served.
+/// </param>
 /// <param name="echoesWebSocketMessages">Whether <c>--ws-echo</c> is given.</param>
 /// <param name="advertisesHttp3">Whether <c>--http3</c> is given.</param>
 /// <remarks>
@@ -190,7 +193,10 @@ public sealed class ComposedProtocolServices(
     /// <summary>Gets the SSH algorithms offered.</summary>
     public SshAlgorithmOffer SshAlgorithms { get; } = sshAlgorithms;
 
-    /// <summary>Gets a value indicating whether a certificate is configured, so a TLS upgrade can be offered.</summary>
+    /// <summary>
+    /// Gets a value indicating whether a TLS upgrade can be offered: a start sets it from
+    /// <see cref="ServerTlsComposition.IsTlsUpgradeAvailable"/>, true when a certificate is configured or TLS-SRP is served.
+    /// </summary>
     public bool IsTlsUpgradeAvailable { get; } = isTlsUpgradeAvailable;
 
     /// <summary>Gets a value indicating whether <c>--ws-echo</c> is given.</summary>

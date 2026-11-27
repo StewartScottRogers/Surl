@@ -238,7 +238,7 @@ public static partial class SurlServerComposition
     /// <param name="fileSystem">The file system the content store serves.</param>
     /// <param name="authenticationPolicy">Judges every LDAP bind.</param>
     /// <param name="accountNames">Every configured account's user name, the mail store's owners.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured, so the LDAP server offers <c>StartTLS</c>.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured or TLS-SRP is served, so the LDAP server offers <c>StartTLS</c>.</param>
     /// <param name="timeProvider">The one clock.</param>
     /// <param name="events">The instance's event stream, which the bus, the mail store and the index publish their changes on.</param>
     /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus and the mail store apply.</param>
@@ -600,12 +600,14 @@ public static partial class SurlServerComposition
     /// <summary>
     /// Builds the LDAP server over its directory: loaded from <paramref name="file"/> when there is
     /// one, empty when not, its binds judged by <paramref name="authenticationPolicy"/> and
-    /// <c>StartTLS</c> offered when a certificate is configured (ADR-0072, decisions 1 and 5). A
-    /// directory that cannot be loaded gives ADR-0072 decision 1's <c>(37)</c> message instead.
+    /// <c>StartTLS</c> offered when <paramref name="isTlsUpgradeAvailable"/>, which a start sets when a
+    /// certificate is configured or TLS-SRP is served (ADR-0072, decisions 1 and 5; ADR-0122,
+    /// decision 5). A directory that cannot be loaded gives ADR-0072 decision 1's <c>(37)</c> message
+    /// instead.
     /// </summary>
     /// <param name="file">The directory's file, or <see langword="null"/> for none.</param>
     /// <param name="authenticationPolicy">Judges every bind.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured or TLS-SRP is served, so the server offers <c>StartTLS</c>.</param>
     /// <param name="timeProvider">The clock a search's time limit is measured by.</param>
     /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
@@ -644,7 +646,7 @@ public static partial class SurlServerComposition
     /// <param name="authenticationPolicy">The one policy every login is judged by.</param>
     /// <param name="sshHostKeys">The SSH server's host keys.</param>
     /// <param name="sshAlgorithms">The SSH algorithms offered.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured, so a TLS upgrade can be offered.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether a TLS upgrade can be offered: a certificate is configured or TLS-SRP is served.</param>
     /// <param name="echoesWebSocketMessages">Whether <c>--ws-echo</c> is given.</param>
     /// <param name="advertisesHttp3">Whether <c>--http3</c> is given, so the HTTP server adds <c>Alt-Svc</c> on https (ADR-0082, decision 6).</param>
     /// <param name="timeProvider">The one clock; <see cref="TimeProvider.System"/> when <see langword="null"/>.</param>
