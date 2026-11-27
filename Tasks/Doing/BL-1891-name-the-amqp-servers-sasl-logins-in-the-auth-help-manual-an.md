@@ -34,3 +34,4 @@ The `--auth` option page, manual paragraph and AI help paragraph say that `--aut
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
