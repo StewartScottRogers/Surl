@@ -34,3 +34,4 @@ BL-1950 covers only this library's broken ADR links.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
