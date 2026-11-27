@@ -312,9 +312,11 @@ goes to `Log`; `Accounts.Add` closes it again. When the server was started with 
 account source (ADR-0149 amendment 1), so a login is still needed: the line is instead
 `surl: warning: no local account left; logins are now checked against the directory only`.
 
-`ProxyAccounts.Remove` of the last proxy account leaves the proxy needing no login: it stays allowed,
-`ProxyAccounts.HasAccounts` turns `false` and `surl: warning: no proxy account left; the proxy now needs no login`
-goes to `Log`; `ProxyAccounts.Add` closes it again.
+`ProxyAccounts.Remove` of the last proxy account does not open the proxy: without `--allow-anonymous`
+(`AllowAnonymous`) it then lets no new client through, so a `GET` without credentials gets the `407` (ADR-0132
+amendment 4). The removal stays allowed, `ProxyAccounts.HasAccounts` turns `false` and
+`surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through` goes to
+`Log`; `ProxyAccounts.Add` lets that account in. A tunnel or relay already set up stays up.
 
 A retained seed (`Messages.PublishAsync(topic, payload, retain: true)`, `surl-mcp`'s `publish_message` and the
 control endpoint alike) is kept on any topic, including one outside every `--topic ...;retain` filter: the filter
