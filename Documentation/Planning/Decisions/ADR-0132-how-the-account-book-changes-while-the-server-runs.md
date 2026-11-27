@@ -7,7 +7,7 @@
   restore; accounts as a store), ADR-0032 section 8 (constant-time checks and the refusal delay), ADR-0102
   decision 4.3 (per-scheme views), [ADR-0128](ADR-0128-how-surl-authentication-publishes-judged-logins-and-applies-refuse-login.md).
 - **Acted on by:** BL-802; BL-805 exposes it through `ComposedStores`, BL-810 through `Surl.Api`.
-- **Amended by:** [Amendment 3 below](#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (decision 5: a snapshot of a named account holds the password's bytes among its derived credentials, so "no clear password" is withdrawn), [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
+- **Amended by:** [Amendment 4 below](#amendment-4-2026-11-27-bl-1839-removing-the-last-proxy-account-does-not-open-the-proxy) (removing the last proxy account leaves the proxy asking every client for a login, a `GET` or `HEAD` included, and the warning says so), [Amendment 3 below](#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (decision 5: a snapshot of a named account holds the password's bytes among its derived credentials, so "no clear password" is withdrawn), [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
 
 ## Context
 
@@ -268,3 +268,110 @@ This promises nothing about the rest of the process: whoever gave the book an `A
 ADR-0124 decision 3, ADR-0036 (context, decision 7 and its "Keeping the clear password for Digest" alternative),
 ADR-0158's directory snapshot, ADR-0170 decision 12 and the index rows of ADR-0124 and ADR-0132, each with a
 pointer here. The XML documents, the library's `CLAUDE.md` and `Surl.Api`'s README are BL-1841's to correct.
+
+## Amendment 4 (2026-11-27, BL-1839): removing the last proxy account does not open the proxy
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in BL-1839.
+- **Why now:** `Surl.Composition`, `Surl.Api` and `surl-mcp` say a proxy with its last account removed "now needs no
+  login" (found by BL-1816). That is true of part of the proxy only, and the part it is true of is a defect.
+- **Status of the rule:** it is the rule the code is to follow. BL-1850 to BL-1853 build it; until they are done the
+  code does what the next section says.
+
+### What the source does (read on 2026-11-27, not run)
+
+- A proxy given `-U` or `--proxy-user-file` is composed with an `AuthenticationPolicy` over the proxy accounts
+  (`AuthenticationComposition.ComposeProxyPolicy`). Removing the last account leaves that policy over an empty book.
+  An empty `--proxy-user-file` at start composes the same thing
+  ([ADR-0165](ADR-0165-how-tls-srp-and-socks5-gss-api-logins-publish-login-judged-events-and-honour-refuse-login.md)
+  amendment 1).
+- SOCKS stays closed: a client naming no account is refused, and every login is checked against the empty book.
+- The HTTP proxy opens for reads. `HttpAuthenticationSession.JudgeWithoutCredentials` challenges a request with no
+  credentials only when there is an account to log in to or the request is a write, and the proxy calls every method
+  but `GET` and `HEAD` a write. So with the book empty a `GET` or `HEAD` with no `Proxy-Authorization` is forwarded,
+  to an `http://` or `ftp://` origin, while a `CONNECT` is answered `407`.
+- So the warning is false of SOCKS, `CONNECT` and writes. It is true of the one case secure by default forbids:
+  removing accounts, which a test does to take access away, gives read access to everybody. That also breaks
+  [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) decision 5: a proxy with
+  accounts answers every request and every `CONNECT` without valid credentials with the `407`.
+
+### The decision
+
+1. **A proxy composed with proxy accounts keeps asking for a login when none is left.** Removing the last proxy
+   account, or starting with an empty `--proxy-user-file`, never lets in a client that had to name an account.
+2. **What each request gets** after the last proxy account is removed, without `--allow-anonymous`. It holds for the
+   plain proxy and the HTTPS proxy, over HTTP/1.x and HTTP/2. "No `Proxy-Authorization`" includes one of a method the
+   proxy does not accept, the Basic row apart:
+
+   | Request | Answer | Against today |
+   | --- | --- | --- |
+   | HTTP proxy `GET` or `HEAD` (`http://` or `ftp://`), no `Proxy-Authorization` | `407 Proxy Authentication Required` with the offered challenges; no origin is connected | **changes:** forwarded today |
+   | HTTP proxy `CONNECT`, no `Proxy-Authorization` | `407` with the offered challenges; no tunnel | same |
+   | any other HTTP proxy method, no `Proxy-Authorization` | `407` with the offered challenges | same |
+   | any HTTP proxy request with a `Proxy-Authorization` of an accepted method | never let in: `407`, after the refusal delay once the credentials are checked (an NTLM or Negotiate handshake's earlier legs are `407` as always) | same |
+   | Basic over an unencrypted connection without `--allow-plaintext-auth` | `403`, unchecked | same |
+   | a request that would get a `407` when no accepted method can be offered (`--proxy-auth basic`, unencrypted) | `403` | same, but for the `GET` and `HEAD` above |
+   | SOCKS4 or SOCKS4a `CONNECT` | `5B` (rejected) | same |
+   | SOCKS5 method `00` (no authentication) | never selected; a greeting offering it and no method selected below gets `05 FF` | same |
+   | SOCKS5 method `01` (GSS-API), listener with `--keytab` | `05 01`, chosen before `02`; then every token `01 FF` (ADR-0165 amendment 1) | same |
+   | SOCKS5 method `01`, listener without `--keytab` | never selected | same |
+   | SOCKS5 method `02` (user name and password), when `01` is not selected | `05 02`, then every login `01 01` (after the refusal delay once checked; unchecked over an unencrypted connection without `--allow-plaintext-auth`) | same |
+   | any other SOCKS5 method | never selected (`05 FF` when nothing else is) | same |
+
+3. **`--allow-anonymous` is unchanged.** With it the proxy let everybody in before the removal and still does:
+   requests are forwarded and tunnelled unchecked, SOCKS4 is granted, SOCKS5 accepts method `00` and any `02` login,
+   and a ticket the keytab's keys accept needs no account.
+4. **Open connections run on** (decision 8): a tunnel or SOCKS relay already set up stays up, and an HTTP connection
+   NTLM or Negotiate logged in keeps that login, so its later requests are not challenged.
+5. **Getting in again.** An added account, a reset or a restore counts from the next login on, and admits only the
+   accounts it holds. A running proxy composed with accounts has no way to become anonymous, the mirror of ADR-0170
+   decision 2. A test that wants an anonymous proxy starts one with no proxy account, which keeps today's behaviour
+   (`NoAccountProxyAuthenticationPolicy`).
+6. **The warning.** Written when it is written today: on a removal that leaves no proxy account.
+
+   | Host | Text |
+   | --- | --- |
+   | control endpoint (the line goes to the log; the `DELETE` still answers `204`) | `surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through` |
+   | `Surl.Api` (`SurlServerOptions.Log`; `Remove` still returns `true`) | the same line |
+   | `surl-mcp` (`remove_proxy_account`: the `warning` member and the second text block) | `server <id> has no proxy account left; without --allow-anonymous its proxy now lets no new client through` |
+
+   One text is true with and without `--allow-anonymous`, so no host has to learn whether it was given, and the
+   result shapes do not change. In the `remove_proxy_account` description, the sentence about the last account
+   becomes: "Removing the last proxy account does not open the proxy: without --allow-anonymous it then lets no new
+   client through; the result then carries a warning, and add_proxy_account lets that account in." The documents of
+   `HasAccounts` and `Remove` say the same in place of "needs no login".
+7. **The seam.** `AuthenticationSettings` gains an init property `RequiresLoginWithoutAccounts`, `false` by default.
+   When it is `true`, a request with no credentials is challenged even with no account to log in to and even when it
+   is not a write; `--allow-anonymous` and a connection's NTLM or Negotiate login still come first.
+   `ComposeProxyPolicy` sets it on the policy it builds over proxy accounts. `IsWrite` keeps its meaning, and
+   servers that are not proxies keep today's behaviour.
+8. **Upstream curl.** No new byte: the `407` and the SOCKS refusals are the ones already sent. ADR-0088 amendment 3
+   measured pinned upstream curl 8.21.0 against the proxy's `407`: a forwarded `GET` without credentials ends with
+   exit 0 and the `407`'s body printed, a `CONNECT` with exit 7, `CONNECT tunnel failed, response 407`.
+
+### Options weighed
+
+- **Keep the proxy closed and challenge reads too.** Chosen: secure by default, one rule for every request and both
+  proxy protocols, and ADR-0088 decision 5 holds again.
+- **Keep today's behaviour and correct only the warning.** Rejected: the proxy would fetch any allowed origin for
+  anybody, unasked, because a test revoked access.
+- **Open the whole proxy, `CONNECT` and SOCKS included, as the warning says.** Rejected for the same reason, more
+  widely.
+- **Refuse to remove the last proxy account.** Rejected: a test needs the state in which every account is revoked,
+  and ADR-0132 already lets a test reach it.
+- **Have the proxy call every method a write.** Rejected: `IsWrite` would then say something false.
+
+### How a test uses it
+
+Start a proxy with `-U`, make an exchange, remove the account through `Surl.Api`, `surl-mcp` or the control endpoint,
+and the next exchange is refused, as a revoked account is; the log carries the warning. Adding the account again, or a
+reset, lets it back in.
+
+### Consequences
+
+1. BL-1850: `Surl.Authentication`: `AuthenticationSettings.RequiresLoginWithoutAccounts` and
+   `HttpAuthenticationSession`.
+2. BL-1851: `Surl.Composition`: `ComposeProxyPolicy` sets it, and `ComposedControlTarget` writes the new line.
+3. BL-1852: `Surl.Api`: the line, the XML documents, the README and the library's `CLAUDE.md`.
+4. BL-1853: `Surl.Mcp.UnitLibrary`: the warning, the tool description and the library's documents.
+5. BL-1854 decides the same question for the server accounts, whose warning ("the server now needs no login") this
+   amendment does not change.
