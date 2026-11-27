@@ -1,5 +1,5 @@
 ---
-id: BL-1916
+id: BL-1918
 title: Make the --allow-anonymous start-up warning true of the checks that stay
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1916 — Make the --allow-anonymous start-up warning true of the checks that stay
+# BL-1918 — Make the --allow-anonymous start-up warning true of the checks that stay
 
 ## Goal
 

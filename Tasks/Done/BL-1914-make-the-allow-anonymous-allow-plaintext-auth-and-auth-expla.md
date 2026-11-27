@@ -57,7 +57,7 @@ Statements checked against:
 Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
 30299 passed, 3 skipped, 0 failed. No integration tests run: help text only.
 
-Filed: BL-1916 (the `--allow-anonymous` start-up warning and `README.md` overstate in the same way).
+Filed: BL-1918 (the `--allow-anonymous` start-up warning and `README.md` overstate in the same way).
 
 ## Log
 
