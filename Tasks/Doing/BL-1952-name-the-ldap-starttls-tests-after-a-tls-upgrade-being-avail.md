@@ -37,3 +37,4 @@ server is told only `isTlsUpgradeAvailable` (a certificate or TLS-SRP), but in
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
