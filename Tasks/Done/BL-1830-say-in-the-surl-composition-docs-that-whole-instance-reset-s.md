@@ -61,7 +61,7 @@ executable line changes. No store, event or fault changes.
   exit 0; fast tests 0 failed, 3 skipped. No changed `.cs` line is other than a comment. Integration tests not
   run: comments and prose only.
 - 2026-11-27: Left outside this task: `SurlServer.cs` in `Surl.Api` (BL-1847), the `UploadStoreRegistrations`
-  name and summary (BL-1848), the ADRs' order statements (BL-1850, filed from this run).
+  name and summary (BL-1848), the ADRs' order statements (BL-1857, filed from this run).
 
 ## Log
 

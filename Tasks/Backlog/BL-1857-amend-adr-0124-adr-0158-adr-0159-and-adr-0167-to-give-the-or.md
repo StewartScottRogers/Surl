@@ -1,5 +1,5 @@
 ---
-id: BL-1850
+id: BL-1857
 title: Amend ADR-0124, ADR-0158, ADR-0159 and ADR-0167 to give the order across stores that the code runs
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1850 — Amend ADR-0124, ADR-0158, ADR-0159 and ADR-0167 to give the order across stores that the code runs
+# BL-1857 — Amend ADR-0124, ADR-0158, ADR-0159 and ADR-0167 to give the order across stores that the code runs
 
 ## Goal
 
