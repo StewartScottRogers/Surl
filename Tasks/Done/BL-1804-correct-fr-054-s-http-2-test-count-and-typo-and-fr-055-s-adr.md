@@ -57,8 +57,8 @@ Verified on 2026-11-26:
   `PinnedCurlPortClientTalksToSurlOver*Tests` classes each carry `TestCategory("Integration")`.
 - Delivered by `align-and-document`. No `.cs` or project file changed; `dotnet build` is clean
   (0 warnings) and the fast tests pass.
-- Follow-ups filed: BL-1805 (FR-054's AWS SigV4 HTTP/2 proof, FR-057's libcurl-row task and the
-  paragraph under the table) and BL-1806 (ADR-0082's amendment list and numbering).
+- Follow-ups filed: BL-1812 (FR-054's AWS SigV4 HTTP/2 proof, FR-057's libcurl-row task and the
+  paragraph under the table) and BL-1813 (ADR-0082's amendment list and numbering).
 
 ## Log
 

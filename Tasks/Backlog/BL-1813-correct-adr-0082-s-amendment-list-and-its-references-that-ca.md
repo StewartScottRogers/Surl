@@ -1,5 +1,5 @@
 ---
-id: BL-1806
+id: BL-1813
 title: Correct ADR-0082's amendment list and its references that call BL-867's Amendment 6 amendment 5
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-055
 created: 2026-11-26
 completed:
 ---
-# BL-1806 — Correct ADR-0082's amendment list and its references that call BL-867's Amendment 6 amendment 5
+# BL-1813 — Correct ADR-0082's amendment list and its references that call BL-867's Amendment 6 amendment 5
 
 ## Goal
 
@@ -59,3 +59,4 @@ rewritten. No stand-in store, event or fault applies: this task changes prose on
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Renumbered from BL-1806 to BL-1813; an archived task holds BL-1806.

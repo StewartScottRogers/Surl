@@ -1,5 +1,5 @@
 ---
-id: BL-1805
+id: BL-1812
 title: Correct FR-054's AWS SigV4 HTTP/2 proof and FR-057's libcurl-row task and intro statements in the requirements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-054
 created: 2026-11-26
 completed:
 ---
-# BL-1805 — Correct FR-054's AWS SigV4 HTTP/2 proof and FR-057's libcurl-row task and intro statements in the requirements
+# BL-1812 — Correct FR-054's AWS SigV4 HTTP/2 proof and FR-057's libcurl-row task and intro statements in the requirements
 
 ## Goal
 
@@ -63,3 +63,4 @@ workflow run").
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Renumbered from BL-1805 to BL-1812; an archived task holds BL-1805.
