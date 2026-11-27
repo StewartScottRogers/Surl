@@ -44,3 +44,4 @@ Documentation only: no row's value and no behaviour changes.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
