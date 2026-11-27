@@ -32,8 +32,10 @@ internal sealed record SurlServerHostSeams(
     public IContentFileSystem? DataDirectoryFileSystem { get; init; }
 
     /// <summary>
-    /// Reads a file the start reads (the <c>--user-file</c>, certificates, keys, host keys), by its
-    /// path as given; the disk when <see langword="null"/>.
+    /// Reads a file's bytes at start, by its path as given; the disk when <see langword="null"/>.
+    /// The command-line parse reads every <c>-K</c>/<c>--config</c> file through it, those in
+    /// <see cref="SurlServerOptions.ConfigFiles"/> included, and the composition reads through it
+    /// every file listed on <see cref="SurlServerCompositionSeams.ReadStartFile"/>.
     /// </summary>
     public Func<string, byte[]>? ReadStartFile { get; init; }
 
