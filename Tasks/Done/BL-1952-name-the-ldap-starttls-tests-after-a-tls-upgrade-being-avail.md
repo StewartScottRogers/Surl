@@ -44,4 +44,4 @@ server is told only `isTlsUpgradeAvailable` (a certificate or TLS-SRP), but in
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. The LDAP StartTLS test names and DisplayNames say TLS upgrade available or unavailable, not certificate; BL-1958 to BL-1963 filed for the same drift in other protocols.
+- 2026-11-27: Doing -> Done. The LDAP StartTLS test names and DisplayNames say TLS upgrade available or unavailable, not certificate; BL-1968 to BL-1973 filed for the same drift in other protocols.

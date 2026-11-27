@@ -1,5 +1,5 @@
 ---
-id: BL-1963
+id: BL-1973
 title: Name the AMQP 1.0 TLS header tests after a TLS upgrade being available, not a certificate
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1963 — Name the AMQP 1.0 TLS header tests after a TLS upgrade being available, not a certificate
+# BL-1973 — Name the AMQP 1.0 TLS header tests after a TLS upgrade being available, not a certificate
 
 ## Goal
 

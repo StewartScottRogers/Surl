@@ -1,5 +1,5 @@
 ---
-id: BL-1962
+id: BL-1972
 title: Name the XMPP STARTTLS tests after a TLS upgrade being available, not a certificate
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1962 — Name the XMPP STARTTLS tests after a TLS upgrade being available, not a certificate
+# BL-1972 — Name the XMPP STARTTLS tests after a TLS upgrade being available, not a certificate
 
 ## Goal
 

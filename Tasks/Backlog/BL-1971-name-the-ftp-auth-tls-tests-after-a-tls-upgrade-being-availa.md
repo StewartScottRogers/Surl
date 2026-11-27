@@ -1,5 +1,5 @@
 ---
-id: BL-1961
+id: BL-1971
 title: Name the FTP AUTH TLS tests after a TLS upgrade being available, not a certificate
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1961 — Name the FTP AUTH TLS tests after a TLS upgrade being available, not a certificate
+# BL-1971 — Name the FTP AUTH TLS tests after a TLS upgrade being available, not a certificate
 
 ## Goal
 

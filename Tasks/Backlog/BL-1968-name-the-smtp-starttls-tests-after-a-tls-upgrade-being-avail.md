@@ -1,5 +1,5 @@
 ---
-id: BL-1958
+id: BL-1968
 title: Name the SMTP STARTTLS tests after a TLS upgrade being available, not a certificate
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1958 — Name the SMTP STARTTLS tests after a TLS upgrade being available, not a certificate
+# BL-1968 — Name the SMTP STARTTLS tests after a TLS upgrade being available, not a certificate
 
 ## Goal
 

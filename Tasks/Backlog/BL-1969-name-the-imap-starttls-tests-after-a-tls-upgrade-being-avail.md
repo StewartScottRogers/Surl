@@ -1,5 +1,5 @@
 ---
-id: BL-1959
+id: BL-1969
 title: Name the IMAP STARTTLS tests after a TLS upgrade being available, not a certificate
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1959 — Name the IMAP STARTTLS tests after a TLS upgrade being available, not a certificate
+# BL-1969 — Name the IMAP STARTTLS tests after a TLS upgrade being available, not a certificate
 
 ## Goal
 
