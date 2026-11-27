@@ -1,7 +1,5 @@
 # Surl.Authentication.UnitLibrary
 
-Phase 1.
-
 The server side of the authentication schemes upstream curl sends, secure by default
 (ADR-0032): the accounts, the policy that judges every login, and each HTTP method's
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,

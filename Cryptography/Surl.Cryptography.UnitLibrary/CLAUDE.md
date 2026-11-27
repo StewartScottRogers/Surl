@@ -1,7 +1,5 @@
 # Surl.Cryptography.UnitLibrary
 
-Phase 1.
-
 Hand-built cryptographic primitives the base class library lacks on at least one of
 Windows, Linux and macOS, for the authentication verifiers. A primitive the BCL offers on
 all three platforms is taken from `System.Security.Cryptography` and never rebuilt here.
