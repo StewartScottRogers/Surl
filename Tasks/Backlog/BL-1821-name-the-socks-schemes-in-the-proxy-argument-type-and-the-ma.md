@@ -1,5 +1,5 @@
 ---
-id: BL-1815
+id: BL-1821
 title: Name the SOCKS schemes in the --proxy argument type and the manual's PROXY OPTIONS section
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1815 — Name the SOCKS schemes in the --proxy argument type and the manual's PROXY OPTIONS section
+# BL-1821 — Name the SOCKS schemes in the --proxy argument type and the manual's PROXY OPTIONS section
 
 ## Goal
 

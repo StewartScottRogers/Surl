@@ -29,7 +29,7 @@ Found by BL-1810. The comment says `http` or `https` only. `ListenUrlParser.Pars
 - The comment now names all six schemes, refers to `ProxyDefaultPorts` and cites ADR-0121 decision 5. No behaviour change, so no new ADR.
 - Made directly in the session, without the `align-and-document` agent: a one-comment edit does not repay an agent's cost.
 - Verify (2026-11-26): `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` exit 0; fast tests 30134 passed, 0 failed, 3 skipped. Integration tests not run: only a comment changed.
-- Filed BL-1815: the `--proxy` argument type text and the manual's PROXY OPTIONS section also name only `http` and `https`; both are outside this task's `touches`.
+- Filed BL-1821: the `--proxy` argument type text and the manual's PROXY OPTIONS section also name only `http` and `https`; both are outside this task's `touches`.
 
 ## Log
 
