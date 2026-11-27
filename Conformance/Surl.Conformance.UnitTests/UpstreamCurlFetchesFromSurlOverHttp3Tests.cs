@@ -219,6 +219,40 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
         CollectionAssert.AreEqual(Hello.Concat("2"u8.ToArray()).ToArray(), result.StandardOutput);
     }
 
+    // A drop fault cuts an HTTP/3 download (ADR-0188 amendment 5, measured by BL-1801 with the static
+    // 8.21.0 Windows build). A graceful cut is a CONNECTION_CLOSE NO_ERROR, which ends curl at once
+    // with CURLE_RECV_ERROR (ERR_DRAINING), not the partial-file 18 of the TCP cut; a reset cut only
+    // silences surl, so curl waits until --max-time. Only Windows is measured.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("graceful", 56, "ERR_DRAINING")]
+    [DataRow("reset", 28, "Operation timed out")]
+    public async Task Download_Http3Only_CutAfterBytes_OnWindows_ExitsAsMeasuredKeepingAPrefix(
+        string close, int exitCode, string error)
+    {
+        await using var surl = await StartSurlAsync("--http3", "--fault", $"drop;after-bytes=100000;close={close}");
+
+        var result = await RunUpstreamCurlAsync("-sS", "-k", "--http3-only", "--max-time", "5", surl.UrlOf("large.bin"));
+
+        Assert.AreEqual(exitCode, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, error);
+        var kept = result.StandardOutput.Length;
+        Assert.IsTrue(kept is > 0 and < 100_000, $"kept {kept}");
+        CollectionAssert.AreEqual(Large.AsSpan(0, kept).ToArray(), result.StandardOutput);
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task Download_Http3Only_CutGracefullyBeforeTheHandshakeEnds_OnWindows_CannotConnect()
+    {
+        await using var surl = await StartSurlAsync("--http3", "--fault", "drop;after-bytes=100;close=graceful");
+
+        var result = await RunUpstreamCurlAsync("-sS", "-k", "--http3-only", "--max-time", "5", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(7, result.ExitCode, result.StandardError);
+        Assert.AreEqual(0, result.StandardOutput.Length);
+    }
+
     private static string NullDevice => OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
 
     private static void AssertServedOverHttp3(byte[] expectedBody, UpstreamCurlRunResult result)
