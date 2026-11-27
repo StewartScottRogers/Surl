@@ -40,3 +40,4 @@ Stand-in: a test runs an AMQP 1.0 client over a TLS-SRP upgrade against Surl alo
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
