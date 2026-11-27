@@ -38,3 +38,4 @@ Found by BL-1811. Check each against the `ProjectReference` entries before editi
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
