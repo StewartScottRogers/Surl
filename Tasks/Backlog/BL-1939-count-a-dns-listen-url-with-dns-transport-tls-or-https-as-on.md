@@ -1,5 +1,5 @@
 ---
-id: BL-1928
+id: BL-1939
 title: Count a dns listen URL with --dns-transport tls or https as one that uses TLS under TLS-SRP
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1928 — Count a dns listen URL with --dns-transport tls or https as one that uses TLS under TLS-SRP
+# BL-1939 — Count a dns listen URL with --dns-transport tls or https as one that uses TLS under TLS-SRP
 
 ## Goal
 

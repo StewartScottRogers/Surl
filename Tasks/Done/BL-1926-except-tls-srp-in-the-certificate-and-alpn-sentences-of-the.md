@@ -50,8 +50,8 @@ No store, event or fault is involved: help text only.
 - Also changed the `coap` paragraph (account-less `coaps` needs a certificate under TLS-SRP too) and the `proxy` paragraph (the `https` proxy is a TLS-from-the-first-byte TCP listener, so criterion 1 covers it; the task's list did not name it).
 - ALPN under TLS-SRP, read from `TlsSrpNegotiation.ChooseApplicationProtocol`: only `http/1.1` or none. `https` is then always HTTP/1.x; `grpcs` serves a client offering `http/1.1` or no ALPN that sends the HTTP/2 preface; DoT and DoH likewise never agree `dot` or `h2`.
 - Run against the built `surl` under TLS-SRP with no certificate: `gs`, `natss` and an `https` proxy listen; `webtransport`, account-less `coaps` and DNS over QUIC (each beside an `https` URL) exit 58; `coaps` with `-u` listens.
-- Measured too: a `dns` listen URL alone with `--dns-transport tls` or `https` is refused (2) under TLS-SRP. The `dns` topic says so as the code is today; filed BL-1928 for the behaviour.
-- Filed BL-1929: the `tls` topic's scheme list omits `amqp1s` and `mcps` (not a TLS-SRP matter, so left alone).
+- Measured too: a `dns` listen URL alone with `--dns-transport tls` or `https` is refused (2) under TLS-SRP. The `dns` topic says so as the code is today; filed BL-1939 for the behaviour.
+- Filed BL-1940: the `tls` topic's scheme list omits `amqp1s` and `mcps` (not a TLS-SRP matter, so left alone).
 
 ## Log
 

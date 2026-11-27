@@ -1,5 +1,5 @@
 ---
-id: BL-1929
+id: BL-1940
 title: Name amqp1s and mcps among the schemes the --aihelp tls topic says start with a TLS handshake
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1929 — Name amqp1s and mcps among the schemes the --aihelp tls topic says start with a TLS handshake
+# BL-1940 — Name amqp1s and mcps among the schemes the --aihelp tls topic says start with a TLS handshake
 
 ## Goal
 
