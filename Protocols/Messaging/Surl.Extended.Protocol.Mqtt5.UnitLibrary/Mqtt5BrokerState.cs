@@ -4,10 +4,10 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.Mqtt5;
 
 /// <summary>
-/// What every connection one <see cref="Mqtt5Broker"/> answers shares (ADR-0093 decision 0): the
-/// client identifiers connected now, the sessions kept between connections, the Wills waiting out
-/// their delay, and the stream of Application Messages the broker publishes. One instance is owned
-/// by the broker; never a static.
+/// What every connection answered by the <see cref="Mqtt5Broker"/>s built over one instance shares
+/// (ADR-0093 decision 0): the client identifiers connected now, the sessions kept between
+/// connections, the Wills waiting out their delay, and the stream of Application Messages they
+/// publish. Brokers that judge logins differently may share one instance; never a static.
 /// </summary>
 /// <remarks>
 /// <para>

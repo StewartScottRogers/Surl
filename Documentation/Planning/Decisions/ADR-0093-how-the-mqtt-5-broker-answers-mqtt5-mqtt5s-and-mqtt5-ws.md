@@ -112,6 +112,11 @@ What MQTT 5.0 fixes for a server, by chapter:
   `MqttRetainedMessages` is for 3.1.1; never a static. `mqtt5`, `mqtt5s` and `mqtt5+ws` listeners
   of one `surl` run share one broker (BL-501 creates it once), so a client on `mqtt5+ws` receives
   what a client on `mqtt5s` publishes.
+  - **Amendment, 2026-11-27 (BL-1911); decided by Claude under Stewart's delegation.** What the three
+    schemes share is the one `Mqtt5BrokerState`, not one `Mqtt5Broker` object: `Surl.Composition` builds a
+    broker for `mqtt5` and `mqtt5s` and a second one behind `mqtt5+ws` over that state, so each judges logins
+    over its own scheme's view of the accounts ([ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+    decision 4.3). Sessions, takeover, subscriptions and Wills are shared across the three as before.
 
 ### 1. CONNECT and the CONNACK properties (MQTT 5.0 3.1, 3.2)
 
@@ -232,10 +237,10 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
   challenge, is answered with the empty response and carried in the CONNACK or AUTH `0x00`.
   Re-authentication that authenticates a different account from the CONNECT's is DISCONNECT `0x87`.
 - **As `surl` composes it** (amended 2026-11-27 by BL-1903; decided by Claude under Stewart's
-  delegation). `Surl.Composition` gives the broker one policy, `AuthenticationPolicyFor("mqtt5")`, as
-  both its `IAuthenticationPolicy` and its `ISaslAuthenticationPolicy`, so `mqtt5`, `mqtt5s` and
-  `mqtt5+ws` serve enhanced authentication (until BL-1903 it passed no SASL policy, and every method
-  was `0x8C`). The methods offered are those the policy accepts: `SCRAM-SHA-256` and `SCRAM-SHA-1`
+  delegation). `Surl.Composition` gives each broker one policy as both its `IAuthenticationPolicy` and
+  its `ISaslAuthenticationPolicy` - `AuthenticationPolicyFor("mqtt5")` for `mqtt5` and `mqtt5s`, and
+  since BL-1911 `AuthenticationPolicyFor("mqtt5+ws")` for `mqtt5+ws` - so all three schemes serve
+  enhanced authentication (until BL-1903 it passed no SASL policy, and every method was `0x8C`). The methods offered are those the policy accepts: `SCRAM-SHA-256` and `SCRAM-SHA-1`
   when `--auth` names `scram-sha-256` or `scram-sha-1`, and none without it. **Why:** SCRAM is not in
   the default accepted set (ADR-0125 decision 9), and
   [ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) adds it per scheme for

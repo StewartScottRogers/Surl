@@ -4,6 +4,7 @@ using Surl.Cookies;
 using Surl.Core;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Redis;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
@@ -81,6 +82,13 @@ public sealed class ComposedProtocolServices(
     /// disconnects a client with <c>0x00</c> after a subscribe's retained messages (ADR-0093 decision 9); off unless set.
     /// </summary>
     public bool Mqtt5DisconnectsAfterRetained { get; init; }
+
+    /// <summary>
+    /// Gets the instance's one MQTT 5.0 broker state, over <see cref="MessageBus"/>, which the broker for <c>mqtt5</c>
+    /// and <c>mqtt5s</c> and the broker behind <c>mqtt5+ws</c> share, so connected clients, sessions and pending Wills
+    /// are one set across the three schemes (ADR-0093 decision 0); built on first use.
+    /// </summary>
+    internal Mqtt5BrokerState Mqtt5BrokerState => field ??= new Mqtt5BrokerState(MessageBus);
 
     /// <summary>
     /// Gets the codec of the record batches the Kafka broker serves to a fetch, from

@@ -524,6 +524,20 @@ topic restricted by access rows could never serve TFTP, Gopher or `--allow-anony
   servers answer exactly as before. The SSH server is composed once for `scp` and once for `sftp`,
   each registered alone through `SingleSchemeServer`, so `protocols=sftp` admits one and not the
   other. Decided by Claude under Stewart's delegation.
+- **Amendment, 2026-11-27 (BL-1911) - `mqtt5+ws` has its own view.** Decided by Claude under
+  Stewart's delegation. No upstream curl behaviour is involved: upstream curl has no `mqtt5` scheme.
+  - **Rule.** A login over `mqtt5+ws` is judged over the accounts allowed on `mqtt5+ws`. So
+    `protocols=mqtt5+ws` admits `mqtt5+ws` and neither `mqtt5` nor `mqtt5s`, and `protocols=mqtt5` admits
+    `mqtt5` and `mqtt5s` and not `mqtt5+ws`; `protocols=mqtt5,mqtt5+ws` admits all three.
+  - **Why.** Until BL-1911 `mqtt5+ws` logins were judged over the `mqtt5` view, so an account restricted to
+    `mqtt5+ws`, a name `protocols=` accepted, could log in nowhere. `mqtt5+ws` is a scheme of its own, not a
+    TLS twin of `mqtt5`, as `ws` is not one of `http`; the narrower reading is the secure one. Admitting
+    `mqtt5` accounts on `mqtt5+ws` too was rejected: it would be a second pairing rule beside the TLS twins,
+    and would open a transport the restriction did not name.
+  - **Change in behaviour.** An account restricted to `mqtt5` that logged in over `mqtt5+ws` before is now
+    refused there as no such account; naming `mqtt5+ws` admits it.
+  - **Composition.** Two brokers over one broker state ([ADR-0093](ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md)
+    decision 0's amendment).
 - **Amendment, 2026-11-20 (BL-1483) - `protocols=` may not name a scheme no login is made on.**
   Decided by Claude under Stewart's delegation. No upstream curl behaviour is involved.
   - **Rule.** A scheme in a `protocols=` list is refused with exit 2 (`SurlExitCode` usage) when the
