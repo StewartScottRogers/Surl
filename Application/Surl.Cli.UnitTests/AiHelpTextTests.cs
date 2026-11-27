@@ -357,8 +357,8 @@ public sealed partial class AiHelpTextTests
         + "and one that offers ALPN without `http/1.1`, `h2` alone included, is refused with the alert `no_application_protocol`.")]
     [DataRow(
         "dns",
-        "TLS-SRP options need a listen URL that uses TLS, and a `dns` one does not count, whatever `--dns-transport` says (see the tls topic): "
-        + "`tls` or `https` under TLS-SRP needs another such listen URL, such as an `https` one, beside the `dns` one, else surl exits 2.")]
+        "TLS-SRP options need a listen URL that uses TLS, and a `dns` one counts when `--dns-transport` names `tls` or `https`, so it needs no other listen URL beside it (see the tls topic). "
+        + "With only `udp`, `tcp` or `quic`, the default included, it does not count: with no other listen URL that uses TLS, surl exits 2.")]
     public void Answer_TopicOfAServerThatOffersItsOwnAlpn_SaysWhatTlsSrpAgreesInstead(string topic, string sentences)
     {
         Assert.Contains(sentences, AiHelpText.Answer(topic).Output);

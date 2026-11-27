@@ -138,6 +138,44 @@ public sealed class CommandLineParserTlsSrpTests
     }
 
     [TestMethod]
+    [DataRow("tls")]
+    [DataRow("https")]
+    [DataRow("udp,tcp,tls")]
+    [DataRow("tls,quic")]
+    public void Parse_TlsSrpWithADnsListenUrlOnlyServingATlsTransportOnTcp_Serves(string transports)
+    {
+        string[] arguments = ["--dns-transport", transports, "dns://127.0.0.1:0", "--tlsuser", "u", "--tlspassword", "p"];
+
+        var result = CommandLineParser.Parse(arguments, ["dns"]);
+
+        Assert.AreEqual(CommandLineOutcome.Serve, result.Outcome, result.Failure?.Message);
+        Assert.IsTrue(result.CommandLine!.ServesTlsSrp);
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "--dns-transport", "quic" }, DisplayName = "QUIC alone")]
+    [DataRow(new[] { "--dns-transport", "udp,tcp,quic" }, DisplayName = "QUIC beside udp and tcp")]
+    [DataRow(new string[0], DisplayName = "Default udp,tcp")]
+    public void Parse_TlsSrpWithADnsListenUrlOnlyServingNoTlsTransportOnTcp_IsRefusedAsFailedInit(string[] transportOption)
+    {
+        string[] arguments = [.. transportOption, "dns://127.0.0.1:0", "--tlsuser", "u", "--tlspassword", "p"];
+
+        var result = CommandLineParser.Parse(arguments, ["dns"]);
+
+        Assert.AreEqual(CommandLineOutcome.Refused, result.Outcome);
+        Assert.AreEqual(SurlExitCode.FailedInit, result.Failure!.ExitCode);
+        Assert.AreEqual($"option --tlsuser: {TlsSrpCombination.NeedsATlsListenUrl}", result.Failure.Message);
+    }
+
+    [TestMethod]
+    [DataRow("tls")]
+    [DataRow("https")]
+    public void Parse_TlsSrpWithADnsTransportAndNoDnsListenUrl_IsRefused(string transport) =>
+        AssertRefused(
+            ["--dns-transport", transport, "--tlsuser", "u", "--tlspassword", "p", "http://127.0.0.1:0/"],
+            $"option --tlsuser: {TlsSrpCombination.NeedsATlsListenUrl}");
+
+    [TestMethod]
     public void Parse_TlsSrpWithAnHttpsProxyOnly_Serves() =>
         Assert.IsTrue(Served("--tlsuser", "u", "--tlspassword", "p", "-x", "https://127.0.0.1:0/").ServesTlsSrp);
 
