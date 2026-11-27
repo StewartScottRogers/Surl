@@ -52,3 +52,4 @@ Stand-in questions: none of this changes a server, store, event or fault; it is 
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
