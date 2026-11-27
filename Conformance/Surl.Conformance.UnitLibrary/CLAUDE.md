@@ -320,9 +320,9 @@ names `%DNSPORT`, and `UpstreamTestCaseServerCommands.Dns` (`Testnum`, `A`, `AAA
 `Surl.Extended.Protocol.DnsQuery`'s `DnsQueryUpstreamTestCaseReplies.SupportedLineNames` plus `Testnum`) is its
 row. The selector reads the names of a case's `<reply><dns>` lines (the text before the colon) as server commands, so
 `HTTPS` and the `Delay-` lines skip `servercmd-unsupported:<name>`. The tests' server halves add a `DnsUpstreamTestCaseServer`
-on a datagram listener for `%DNSPORT`. Cases 2102, 2103 and 2104 need `override-dns`, which no pinned
-build lists, so each skips `feature-missing:override-dns`; the server half is proven by its unit tests and
-runs for real if a debug build is ever pinned. `UpstreamTestCaseVerifyChecker` checks `<verify><dns>` (BL-1085) against `UpstreamTestCaseRunRecord.DnsQueryLog`
+on a datagram listener for `%DNSPORT`. Cases 2102, 2103 and 2104 need `override-dns`, which
+`UpstreamCurlBuildFeatures` gives no pinned build, so each skips `feature-missing:override-dns`; the
+server half is proven by its unit tests. `UpstreamTestCaseVerifyChecker` checks `<verify><dns>` (BL-1085) against `UpstreamTestCaseRunRecord.DnsQueryLog`
 (the replies' `QueryLog`, which the run feeds in), filtered by the part's `host` attribute as a regex and both sides sorted, after `<proxy>` and before `<file>`.
 
 Playing the http/2 cases is built (BL-1118, ADR-0154): the `http/2` row of `UpstreamTestCaseServers` says built, its
@@ -367,12 +367,17 @@ The stated pass rate and its guard are built (BL-393):
   `UpstreamTestCaseCorpusTests` holds every excluded case to reaching decision 5's check on every
   reference pin, and the upstream test-case run its own test-server-choice count to the row count.
 
-The rest is intent until its task lands. This library will also hold, with no reference but
-Abstractions:
-- each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
-- the SSH keys and `%SSHSRVMD5`/`%SSHSRVSHA256`.
+Two things ADR-0080 places in this library are built in `Surl.Conformance.UnitTests` instead:
 
-It does not hold the server halves: each protocol library carries its own optional seam for a
+- Port variables. `UpstreamTestCaseServer.PortVariable` names one only on the `http-proxy`,
+  `https-proxy`, `socks4`, `socks5`, `httptls+srp`, `httptls+srp-ipv6` and `dns` rows;
+  `UpstreamTestCasesAgainstSurlTests`' `RunEnvironment` gives every other port variable
+  (`%HTTPPORT`, `%FTPPORT`, ...) its server half's port by name. `UpstreamTestCaseVariables`
+  here lists every variable name.
+- SSH keys. The tests' `UpstreamTestCaseFileServers` makes the run's host key and client key
+  pair and gives `%SSHSRVMD5`, `%SSHSRVSHA256` and `%SSHKEYALGO`.
+
+This library references only `Surl.Protocol.Abstractions.UnitLibrary`. It does not hold the server halves: each protocol library carries its own optional seam for a
 case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types
 only (parts by name as bytes, `<servercmd>` lines as strings). The data itself is not here: it is
 `Surl.Conformance.UnitTests/UpstreamTestCases/`, with curl's `COPYING` and `SHA256SUMS`.

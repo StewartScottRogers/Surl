@@ -19,11 +19,17 @@ using Surl.TlsSrp;
 namespace Surl.Conformance;
 
 /// <summary>
-/// Runs every upstream test case whose servers are among <see cref="ServerFamilies"/> - HTTP,
-/// FTP, Gopher, MQTT, TFTP, DICT, TELNET, SCP, SFTP and SMB - against Surl's server halves
-/// (<see cref="UpstreamTestCaseServerHalves"/>), with the platform's pinned reference build as the
-/// client, or for an smb case the build <see cref="UpstreamCurlLocator.LocateForProtocol"/> pairs
-/// with smb (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396, BL-397, BL-879). Each case gets its own server halves on ephemeral ports, its own
+/// Runs every upstream test case whose servers are among <see cref="ServerFamilies"/> - HTTP
+/// (with its TLS, mutual TLS, IPv6, Unix socket, HTTP/2 and HTTP/3 forms), FTP, Gopher, MQTT, TFTP,
+/// DICT, TELNET, SCP and SFTP (SSH), SMB, mail (IMAP, POP3 and SMTP), HTTP proxy, SOCKS, TLS-SRP and
+/// DNS - against Surl's server halves (<see cref="UpstreamTestCaseServerHalves"/>, and
+/// <see cref="UpstreamTestCaseTlsSrpServerHalf"/> for TLS-SRP). The client is the platform's pinned
+/// reference build, except that an smb case runs with the build
+/// <see cref="UpstreamCurlLocator.LocateForProtocol"/> pairs with smb and, where the platform pins a
+/// supplementary Debug build, the http/2 and http/3 cases listing <c>Debug</c> run with it (ADR-0173)
+/// and the admitted libtest cases with its features and the pinned <c>libtests</c> binary (ADR-0174)
+/// (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396, BL-397, BL-879).
+/// Each case gets its own server halves on ephemeral ports, its own
 /// <c>%LOGDIR</c> and the command line runtests builds (<see cref="UpstreamTestCaseCommandLine"/>);
 /// its verify section is checked with <see cref="UpstreamTestCaseVerifyChecker"/>. The run writes
 /// <c>upstream-test-case-results.&lt;platform&gt;.txt</c>, one line for each of the 2,013 cases.
@@ -37,12 +43,16 @@ namespace Surl.Conformance;
 /// <c>fail timeout</c>, so the run never hangs.
 /// </para>
 /// <para>
-/// <c>%CERTDIR/certs/test-ca.crt</c> is a test CA generated for the run, and the TLS listener
-/// serves a <c>localhost</c> certificate it issued; the imported <c>.prm</c> descriptions are not
-/// read yet. The run fails when a case its platform's passing list
-/// (<see cref="UpstreamTestCasePassingList"/>) names does not pass, decision 5's guard (BL-393);
-/// a case passing but not listed is written to the log with the lines to add, and the run's own
-/// passing list is written beside the results file.
+/// <see cref="UpstreamTestCertificateGenerator"/> generates the run's certificates from the
+/// imported <c>certs/*.prm</c> descriptions into <c>%CERTDIR/certs/</c>, the test CA
+/// <c>test-ca.crt</c> among them. The TLS listeners serve the <c>test-localhost</c> certificate, or
+/// the one the case's <c>https</c> server line names (BL-1130); the <c>https-mtls</c> listener serves
+/// <c>test-localhost</c> and requires a client certificate chaining to <c>test-ca</c> (BL-1131), and
+/// the HTTP/3 gateway serves <c>test-localhost</c>. The run fails when a case its platform's passing
+/// list (<see cref="UpstreamTestCasePassingList"/>) names does not pass, decision 5's guard (BL-393),
+/// unless it skipped for a Debug build or <c>libtests</c> binary this run lacks
+/// (<see cref="ToleratedSkipReasons"/>); a case passing but not listed is written to the log with the
+/// lines to add, and the run's own passing list is written beside the results file.
 /// </para>
 /// </remarks>
 [TestClass]
@@ -112,7 +122,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["dns"] = DnsFamily,
     };
 
-    // The port variable the server-name table gives a proxy row.
+    // The port variable of a server-name table row that carries one (proxy, SOCKS, TLS-SRP, DNS).
     private static string PortVariableOf(string server) => UpstreamTestCaseServers.Find(server)!.PortVariable!;
 
     public TestContext TestContext { get; set; } = null!;
@@ -319,8 +329,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         TimeProvider.System);
 
     /// <summary>
-    /// What every case of one run shares: the reference build and the build that runs smb
-    /// cases, the generated certificates, the SSH keys and the work folder.
+    /// What every case of one run shares: the reference build, the build that runs smb cases,
+    /// the Debug build and <c>libtests</c> binary where pinned, the generated certificates, the
+    /// SSH keys, the TLS-SRP accounts and the work folder.
     /// </summary>
     internal sealed class CaseRun
     {
@@ -359,8 +370,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         public UpstreamTestCaseTimeoutOutput TimeoutOutput { get; } = new();
 
         /// <summary>
-        /// Gets the upstream builds the run's cases are played with: the reference build, then the
-        /// smb build when it is another.
+        /// Gets the upstream curl builds the run's cases are played with: the reference build, then
+        /// the smb build when it is another, then the Debug build when there is one.
         /// </summary>
         public IReadOnlyList<PinnedUpstreamCurlBuild> PairedBuilds { get; }
 
@@ -500,9 +511,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         /// <summary>
-        /// Runs a case naming <c>http-unix</c> with the socket file in a folder of its own under
-        /// the temporary folder, deleted afterwards: the case's own folder lies too deep for
-        /// <c>sun_path</c> (103 bytes on macOS, 107 elsewhere). Any other case runs as is.
+        /// Runs a case naming <c>http-unix</c> or <c>socks5unix</c> with the socket file in a folder
+        /// of its own under the temporary folder, deleted afterwards: the case's own folder lies too
+        /// deep for <c>sun_path</c> (103 bytes on macOS, 107 elsewhere). Any other case runs as is.
         /// </summary>
         private async Task<UpstreamTestCaseResult> RunInItsSocketFolderAsync(
             int number, byte[] source, CaseClient client, CaseTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
@@ -605,8 +616,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             var outputFile = Path.Combine(caseDirectory, commandLine.OutputFile);
             var output = File.Exists(outputFile) ? await File.ReadAllBytesAsync(outputFile, cancellationToken) : [];
             var received = arrivalLog.Bytes;
-            // runtests compares <upload> with %LOGDIR/upload.<N>; the FTP and TFTP server halves
-            // keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
+            // runtests compares <upload> with %LOGDIR/upload.<N>; the FTP, TFTP and mail server
+            // halves keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
             var sshUpload = Path.Combine(caseDirectory, logDirectory, $"upload.{number}");
             byte[] sshUploaded = families.Contains(SshFamily) && File.Exists(sshUpload) ? await File.ReadAllBytesAsync(sshUpload, cancellationToken) : [];
             var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded])
