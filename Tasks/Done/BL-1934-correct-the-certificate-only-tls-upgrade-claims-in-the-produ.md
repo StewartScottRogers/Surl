@@ -8,7 +8,7 @@ depends-on: [BL-1924]
 touches: [Documentation/Product/Product-Overview.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, README.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1934 — Correct the certificate-only TLS upgrade claims in the product documents, README and glossary
 
@@ -41,15 +41,22 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The four Product-Overview passages named in Context say the upgrade is offered with a certificate or under TLS-SRP.
-- [ ] The FR-037 clause and the SMTP, IMAP, POP3 and LDAP upgrade clauses in `Requirements.md` name both, with each refusal answer tied to neither being present.
-- [ ] The three README passages name TLS-SRP, and none says the upgrade or its TCP TLS twin needs `--cert` or `--self-signed` without that exception.
-- [ ] The `explicit FTPS` glossary entry names both ways to get `234`, and gives `534` for neither.
-- [ ] The `throwaway certificate` glossary entry is true under TLS-SRP and names every scheme in `ServerTlsComposition.UpgradableSchemes`.
+- [x] The four Product-Overview passages named in Context say the upgrade is offered with a certificate or under TLS-SRP.
+- [x] The FR-037 clause and the SMTP, IMAP, POP3 and LDAP upgrade clauses in `Requirements.md` name both, with each refusal answer tied to neither being present.
+- [x] The three README passages name TLS-SRP, and none says the upgrade or its TCP TLS twin needs `--cert` or `--self-signed` without that exception.
+- [x] The `explicit FTPS` glossary entry names both ways to get `234`, and gives `534` for neither.
+- [x] The `throwaway certificate` glossary entry is true under TLS-SRP and names every scheme in `ServerTlsComposition.UpgradableSchemes`.
 
 ## Notes
+
+- Delivered by `align-and-document`; statements checked against `ServerTlsComposition` and ADR-0122, not measured against upstream curl (prose only).
+- Corrected beyond the listed passages, same four files: Product-Overview's `wss` bullet; its `StartTLS` bullet now says a connection already TLS is refused `operationsError` (`LdapSession`), where it said `protocolError` otherwise; FR-049 gained the `protocolError` refusal, which is built behaviour.
+- The TLS-from-the-first-byte claims left in `README.md` and `Requirements.md` (FR rows near lines 47 and 58) are BL-1936's.
+- Filed BL-1939 (Azure Storage, OCI registry and S3 conformance rows) and BL-1940 (Surl.Console test class summaries).
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: 30334 passed, 0 failed, 3 skipped.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The product overview, requirements, README and glossary say a TLS upgrade is offered with a certificate or under TLS-SRP

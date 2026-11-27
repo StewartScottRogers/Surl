@@ -209,7 +209,8 @@ curl ftp://127.0.0.1:2121/hello.txt
 ```
 
 With an account, protect the password with TLS: `AUTH TLS` on `ftp://` (curl's `--ssl-reqd`),
-or implicit TLS on `ftps://`. Either needs `--cert` or `--self-signed`. Listings need
+or implicit TLS on `ftps://`. Either needs `--cert`, `--self-signed` or TLS-SRP (`--tlsuser`
+and `--tlspassword`, or `--srp-verifiers` and `--srp-groups`). Listings need
 `--list-directories`, and uploads and `-Q` commands `--allow-uploads`:
 
 ```
@@ -290,10 +291,11 @@ curl -u alice:s3cret pop3://127.0.0.1:1110/1
 
 The first IMAP command lists the mailboxes and the second searches `INBOX`; `curl -T <file>
 imap://.../INBOX` appends a message, and `-X` sends any other command (`-X 'STORE 1 +FLAGS
-\Deleted'`, `-X EXPUNGE`, `-X UIDL` or `-X 'DELE 1'` over POP3). With `--cert` or
-`--self-signed`, `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS` (curl's
-`--ssl-reqd`), and `smtps`, `imaps` and `pop3s` are TLS from the first byte; over TLS `PLAIN`,
-`LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP `LOGIN` and POP3 `USER`/`PASS` are offered too:
+\Deleted'`, `-X EXPUNGE`, `-X UIDL` or `-X 'DELE 1'` over POP3). With `--cert`,
+`--self-signed` or TLS-SRP, `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS`
+(curl's `--ssl-reqd`), and `smtps`, `imaps` and `pop3s` are TLS from the first byte; over TLS
+`PLAIN`, `LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP `LOGIN` and POP3 `USER`/`PASS` are offered
+too:
 
 ```
 surl --self-signed --user alice:s3cret smtp://127.0.0.1:2525/ imaps://127.0.0.1:9930/ pop3s://127.0.0.1:9950/
@@ -364,9 +366,9 @@ surl --directory site --auth ntlm --user alice:s3cret ldap://127.0.0.1:3389/
 curl --ntlm -u alice:s3cret "ldap://127.0.0.1:3389/dc=example,dc=com"
 ```
 
-With `--cert` or `--self-signed`, `ldap://` offers `StartTLS`, and `ldaps` is TLS from the first
-byte; Windows curl checks an `ldaps` certificate itself and ignores `-k`, so it cannot search an
-`ldaps` listener whose certificate Windows does not trust.
+With `--cert`, `--self-signed` or TLS-SRP, `ldap://` offers `StartTLS`, and `ldaps` is TLS from
+the first byte; Windows curl checks an `ldaps` certificate itself and ignores `-k`, so it cannot
+search an `ldaps` listener whose certificate Windows does not trust.
 
 The SMB server answers `smb` and `smbs`
 ([ADR-0073](Documentation/Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)).

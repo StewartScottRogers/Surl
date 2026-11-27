@@ -149,8 +149,10 @@ its help category and `--aihelp` topic, `ftp` and `ssh`. The terms below are def
   `PORT`) data connections, to and from the client's own address only; listings (`LIST`,
   `NLST`, `MLSD`, `MLST`) only with `--list-directories`; uploads and file management (`STOR`,
   `APPE`, `MKD`, `RMD`, `DELE`, `RNFR`/`RNTO`) only with `--allow-uploads`; explicit FTPS
-  (`AUTH TLS`, `PBSZ`, `PROT`, with `CCC` refused) when a certificate is configured, and
-  implicit FTPS on `ftps://`; and the limit replies of ADR-0052 decision 10, a limit told from
+  (`AUTH TLS`, `PBSZ`, `PROT`, with `CCC` refused) when a certificate is configured (`--cert`
+  or `--self-signed`) or under TLS-SRP
+  ([ADR-0122](../Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md) decision 5),
+  and implicit FTPS on `ftps://`; and the limit replies of ADR-0052 decision 10, a limit told from
   shutdown as [ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   decides. The data connections come through a seam, `IDataConnectionOpener`, that only
   `Surl.Networking` implements over sockets, so the FTP server stays off the network in its tests.
@@ -266,11 +268,13 @@ The terms below are defined in the [glossary](../Wiki/Glossary.md), section "Mai
   `DELE`, `RSET` and `NOOP` over a view of the owner's `INBOX` fixed at login and held under
   the maildrop lock (a second session gets `-ERR [IN-USE]`); `QUIT` alone removes what `DELE`
   marked. Every maildrop command needs a login unless `--allow-anonymous` is given.
-- **TLS and limits:** with `--cert` or `--self-signed`, `smtp://` and `imap://` offer
-  `STARTTLS` and `pop3://` `STLS`; without a certificate each is refused in its protocol's
-  words. A line past `--max-line` or one not finished within `--head-timeout` is answered and
-  closed; the idle timeout and maximum duration are answered `421` by SMTP and `* BYE` by IMAP
-  and closed silently by POP3, and shutdown writes no farewell
+- **TLS and limits:** with a certificate (`--cert` or `--self-signed`) or under TLS-SRP
+  (ADR-0122 decision 5), `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS`; with
+  neither, each is refused in its protocol's words. Under TLS-SRP `smtps`, `imaps` and `pop3s`
+  need no certificate either (ADR-0122 Amendment 5). A line past `--max-line` or one not
+  finished within `--head-timeout` is answered and closed; the idle timeout and maximum
+  duration are answered `421` by SMTP and `* BYE` by IMAP and closed silently by POP3, and
+  shutdown writes no farewell
   ([ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)).
 
 **What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
@@ -351,8 +355,9 @@ decision 6). The terms below are defined in the [glossary](../Wiki/Glossary.md),
   answer, which curl never sends. An exchange past `--idle-timeout` or `--max-time` is answered
   `CLOSE` 1001; shutdown writes no farewell
   ([ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)).
-- **`wss`** (decision 8): TLS from the first byte with the certificate from `--cert` or
-  `--self-signed`, then `ws`'s exchange byte for byte.
+- **`wss`** (decision 8): TLS from the first byte, with the certificate from `--cert` or
+  `--self-signed`, or under TLS-SRP, which needs no certificate (ADR-0122 Amendment 5), then
+  `ws`'s exchange byte for byte.
 
 **What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
 run each case against a live `surl` on loopback. With the Windows reference build (curl 8.21.0,
@@ -400,9 +405,10 @@ defined in the [glossary](../Wiki/Glossary.md), section "LDAP, SMB and RTSP".
 - **LDAP searches** (decisions 1 and 3): base, one-level and subtree scopes; every filter of RFC
   4511, evaluated three-valued with RFC 4517's matching rules chosen by attribute type; attribute
   selection and `typesOnly`; `noSuchObject` with the nearest existing superior; compare; the root
-  DSE, computed per connection, listing the SASL mechanisms offered and, with a certificate,
-  `StartTLS`. A request the codec cannot read, or an unknown operation, gets the Notice of
-  Disconnection and the close.
+  DSE, computed per connection, listing the SASL mechanisms offered and, on a connection not
+  yet TLS, with a certificate or under TLS-SRP (ADR-0122 decision 5), `StartTLS`. A request
+  the codec cannot read, or an unknown operation, gets the Notice of Disconnection and the
+  close.
 - **LDAP binds** (decisions 2 and 4): every search but the root DSE's needs a successful bind on
   the connection unless `--allow-anonymous` is given (`insufficientAccessRights` otherwise). A
   simple bind is checked through `IAuthenticationPolicy`, the bind name being the account name or
@@ -416,9 +422,11 @@ defined in the [glossary](../Wiki/Glossary.md), section "LDAP, SMB and RTSP".
   messages that follow are protected with RFC 4121 wrap tokens, sealed or signed as the client
   asked (BL-327, ADR-0072 Amendment 1); without `--keytab` it is answered with NTLM selected
   (ADR-0040's rule).
-- **`StartTLS` and `ldaps`** (decision 5): `StartTLS` is offered and accepted only when a
-  certificate is configured (`--cert` or `--self-signed`), and refused `protocolError` otherwise;
-  `ldaps` is TLS from the first byte, then `ldap`'s exchange.
+- **`StartTLS` and `ldaps`** (decision 5): on a connection not yet TLS, `StartTLS` is offered
+  and accepted only when a certificate is configured (`--cert` or `--self-signed`) or under
+  TLS-SRP (ADR-0122 decision 5), and refused `protocolError` with neither; on a connection
+  already TLS it is refused `operationsError`. `ldaps` is TLS from the first byte, which under
+  TLS-SRP needs no certificate (ADR-0122 Amendment 5), then `ldap`'s exchange.
 - **SMB** (`Surl.Protocol.Smb`,
   [ADR-0073](../Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)):
   SMB version 1, `NT LM 0.12` without extended security, over NetBIOS session framing, answering
