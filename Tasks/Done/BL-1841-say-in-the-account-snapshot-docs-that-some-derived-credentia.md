@@ -8,7 +8,7 @@ depends-on: [BL-1840, BL-1831]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Application/Surl.Api/SurlSnapshot.cs, Application/Surl.Api/README.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1841 — Say in the account snapshot docs that some derived credentials are the password's bytes
 
@@ -39,16 +39,16 @@ them. These statements say or imply otherwise:
 
 ## Acceptance criteria
 
-- [ ] The XML docs of `AccountBook.TakeSnapshot`, `AccountSnapshot` and `DerivedAccount` say a snapshot or record
+- [x] The XML docs of `AccountBook.TakeSnapshot`, `AccountSnapshot` and `DerivedAccount` say a snapshot or record
       holds the password's SHA-256 and derived credentials, some of which are the password's bytes, and none says
       the clear password is not kept or never held.
-- [ ] `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` says the same in both places named in Context, and
+- [x] `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` says the same in both places named in Context, and
       that the empty-name account is held as its SHA-256 only.
-- [ ] `SurlSnapshot`'s summary and the `Surl.Api` README say the same of accounts and no longer say "password
+- [x] `SurlSnapshot`'s summary and the `Surl.Api` README say the same of accounts and no longer say "password
       hashes only" or "never a clear password".
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitTests -warnaserror` and
+- [x] `dotnet build Foundation/Surl.Authentication.UnitTests -warnaserror` and
       `dotnet build Application/Surl.Api -warnaserror` are clean.
-- [ ] The only changed lines in `.cs` files are comments.
+- [x] The only changed lines in `.cs` files are comments.
 
 ## Notes
 
@@ -56,8 +56,13 @@ them. These statements say or imply otherwise:
   Two incomplete (not false) statements in the same library: the `AccountBook` class summary leaves out the Azure
   Storage key, and the XML docs of `AwsSigV4Account` and `NamedAccountCredentials` do not say `coaps` and Cloud
   Storage's V4 HMAC also read the secret.
+- 2026-11-27: Both were confirmed in `AccountStore.DeriveNamed`, `SignatureV4Check` and
+  `AccountBook.TryFindPreSharedKey`, and corrected. `SurlSnapshot`'s summary no longer held the sentence quoted in
+  Context; it now also names the SHA-256, the decoded base64 bytes and the empty-name account. Both builds are clean
+  with 0 warnings.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The authentication library and Surl.Api docs say a snapshot holds each password's SHA-256 and derived credentials, some of them the password's bytes (build clean, fast tests pass)

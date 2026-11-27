@@ -70,6 +70,12 @@ delegation", and an "Amended by" line in its header, as the earlier amendments o
 
 ## Notes
 
+- From BL-1841 (2026-11-27): BL-1840 (ADR amendments and index) and BL-1841 (the library's XML docs and `CLAUDE.md`,
+  `SurlSnapshot` and the `Surl.Api` README) have corrected this claim; check each criterion against the tree first.
+  One gap seen: the glossary "snapshot" row names the UTF-8 bytes but not the bytes a base64 password decodes to,
+  nor that the empty-name account is held as its SHA-256 only (ADR-0132 amendment 3). The BL-1841 docs do not say
+  that the `Account.Password` string is not kept, as the first criterion asks.
+
 ## Log
 
 - 2026-11-27: Created.
