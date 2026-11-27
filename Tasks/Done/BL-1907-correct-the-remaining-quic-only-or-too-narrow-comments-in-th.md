@@ -8,7 +8,7 @@ depends-on: [BL-1895]
 touches: [Cryptography/Surl.Tls13.UnitLibrary/TlsAlertException.cs, Cryptography/Surl.Tls13.UnitLibrary/TlsServerHandshakeOptions.cs, Cryptography/Surl.Tls13.UnitTests/Rfc8448.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1907 — Correct the remaining QUIC only or too narrow comments in the Tls13 library and tests
 
@@ -33,18 +33,27 @@ drives this handshake, for TLS 1.3 over TCP (ADR-0157). BL-1895 covers `TlsAlert
 
 ## Acceptance criteria
 
-- [ ] `TlsAlertException`'s summary says the caller reports the alert, over QUIC as a connection error and over TCP as
+- [x] `TlsAlertException`'s summary says the caller reports the alert, over QUIC as a connection error and over TCP as
       an alert record written by `Surl.Tls13Stream`.
-- [ ] `ApplicationProtocols`' summary covers the QUIC lists (`h3`, `doq`) and the TCP listener's list, and says what an
+- [x] `ApplicationProtocols`' summary covers the QUIC lists (`h3`, `doq`) and the TCP listener's list, and says what an
       empty list, a hello with no ALPN and a hello with nothing in common get, matching
       `TlsServerNegotiation.ChooseApplicationProtocol`.
-- [ ] `Rfc8448`'s summary describes only what that file holds and makes no claim that it is the source of every
+- [x] `Rfc8448`'s summary describes only what that file holds and makes no claim that it is the source of every
       expected value.
-- [ ] The diff to the three `.cs` files changes comment lines only, and `dotnet build` has no warnings.
+- [x] The diff to the three `.cs` files changes comment lines only, and `dotnet build` has no warnings.
 
 ## Notes
+
+- 2026-11-27: BL-1905 (commit abd1724d2) had already made most of the `TlsAlertException` summary right. This task added
+  that the caller reports the alert, and that over QUIC it is a connection error.
+- Checked against `TlsServerNegotiation.ChooseApplicationProtocol`, `QuicServerConnection`, `DnsOverQuicProtocolServer`,
+  `ServerTlsSettings.CreateTls13Options` and `TlsApplicationProtocols`. The `ApplicationProtocols` summary names `https`
+  only as an example of a TCP list, so it does not repeat the per-scheme table in `Surl.Networking`.
+- Gates: `dotnet build` 0 warnings, `dotnet format --verify-no-changes` clean on the three files, fast tests 30280
+  passed, 0 failed, 3 skipped across 83 test assemblies.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The TlsAlertException, ApplicationProtocols and Rfc8448 comments match the code and tests
