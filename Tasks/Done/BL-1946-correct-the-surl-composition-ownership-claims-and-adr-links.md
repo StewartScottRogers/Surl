@@ -54,7 +54,7 @@ No store, event or fault is involved: documentation only.
   `ProtocolServerRegistration.ImplicitTls` and `SchemeAuthenticationPolicies` in `Surl.Composition`.
 - Verify: build 0 warnings and 0 errors; `dotnet format --verify-no-changes` clean; fast tests 30368 passed, 0 failed,
   3 skipped. Integration tests not run: only comments and `CLAUDE.md` changed.
-- Other inaccurate or incomplete statements found, outside this task's criteria, filed as BL-1952.
+- Other inaccurate or incomplete statements found, outside this task's criteria, filed as BL-1955.
 
 ## Log
 

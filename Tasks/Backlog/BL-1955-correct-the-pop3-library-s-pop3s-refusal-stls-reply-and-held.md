@@ -1,5 +1,5 @@
 ---
-id: BL-1952
+id: BL-1955
 title: Correct the POP3 library's pop3s refusal, STLS reply and held-types statements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1952 — Correct the POP3 library's pop3s refusal, STLS reply and held-types statements
+# BL-1955 — Correct the POP3 library's pop3s refusal, STLS reply and held-types statements
 
 ## Goal
 
