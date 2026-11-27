@@ -30,13 +30,14 @@ public static partial class SurlServerComposition
 {
     /// <summary>
     /// Runs the ordered start of <paramref name="commandLine"/> up to and including server TLS and
-    /// the service state, opening no file for writing: <c>--auth gssapi</c> without
+    /// the service state, opening no log or trace file: <c>--auth gssapi</c> without
     /// <c>--keytab</c> and an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer (2),
     /// a data directory that cannot be opened (37), a TLS-first listen URL with no certificate (58)
-    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files, the shares and
-    /// buckets (2, or 37 for a share directory that cannot be opened), the data
-    /// directory's lock (124 or 23), the service state (37) and the TLS files (58, 2 or 77), in
-    /// that order.
+    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files read before the
+    /// lock (37, 2, or 77 for the <c>--user-ldap</c> <c>ca-file</c>), the shares and
+    /// buckets (2, or 37 for a share or bucket directory that cannot be opened), the data
+    /// directory's lock (124 or 23), the service state (37, or 2) and the TLS files (58, 2 or 77,
+    /// or 37 for a TLS-SRP file), in that order.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="seams">What the host hands the composition.</param>
@@ -300,7 +301,8 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]));
         }
 
-        // The control token file, last of the start files (ADR-0124 decision 7).
+        // The control token file, the last start file read before the data-directory lock (ADR-0124 decision 7).
+        // After the lock, ComposeSocksGssApiLogin reads --keytab again and ComposeServing reads the server TLS files.
         var (controlToken, controlExitCode, controlFailureMessage) = ControlComposition.ReadToken(commandLine, readStartFile);
         return controlFailureMessage is not null
             ? (null, new SurlStartFailure(controlExitCode, [controlFailureMessage]))

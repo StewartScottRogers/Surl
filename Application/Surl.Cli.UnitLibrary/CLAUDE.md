@@ -201,7 +201,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   what surl does updates the `AiHelpProse` paragraph and the example that describe it in
   the same change, as it does `ManualText`.
 
-Never touch the console here; `Surl.Console` hands this library its arguments and writers.
+Never touch the console here. No code in this library takes a writer: a host hands
+`CommandLineParser.Parse` the arguments and, in its longer overloads, the extended schemes
+and an `IConfigFileSource`, and writes itself the text that `HelpText`, `AiHelpText`,
+`ManualText` and `VersionText` return.
 Any change to an option's behaviour updates its `OptionHelp` and the `ManualText` section
 that describes it in the same change (ADR-0034 decision 6).
 

@@ -56,8 +56,14 @@ public sealed record SurlServerCompositionSeams(
 
     /// <summary>
     /// Reads the bytes of a file read at start, given its path as given, before any listener binds:
-    /// the <c>--user-file</c>, each <c>--authorized-keys</c> file, the <c>--keytab</c> file and each
-    /// <c>--hostkey</c> and <c>--hostcert</c> file; <see cref="File.ReadAllBytes(string)"/> when
+    /// each <c>--mailbox-file</c>, the <c>--user-file</c>, each <c>--authorized-keys</c> file, the
+    /// <c>--keytab</c> file (read again after the data-directory lock), the <c>bind-password-file</c>
+    /// and <c>ca-file</c> of <c>--user-ldap</c>, the <c>--proxy-user-file</c>, each
+    /// <c>--hostkey</c> and <c>--hostcert</c> file, with <c>--control</c> the
+    /// <c>--control-token-file</c> and, only when a listen URL needs TLS, the <c>--cacert</c>,
+    /// <c>--cert</c>, <c>--key</c>, <c>--srp-groups</c> and <c>--srp-verifiers</c> files
+    /// (<c>--cacert</c> is not read under TLS-SRP). It does not read the <c>-K</c> files, which the
+    /// host's command-line parse reads. <see cref="File.ReadAllBytes(string)"/> when
     /// <see langword="null"/>, which is what <c>surl</c> passes.
     /// </summary>
     public Func<string, byte[]>? ReadStartFile { get; init; }

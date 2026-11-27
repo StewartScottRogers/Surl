@@ -8,8 +8,8 @@ namespace Surl.Composition;
 
 /// <summary>
 /// The control endpoint's bearer token as the command line asks for it (ADR-0124 decision 7): with
-/// <c>--control</c>, the first line of the <c>--control-token-file</c>, read through the start-file seam after
-/// every other start file and before the data-directory lock. Without <c>--control</c> no file is read.
+/// <c>--control</c>, the first line of the <c>--control-token-file</c>, read through the start-file seam as
+/// the last start file read before the data-directory lock. Without <c>--control</c> no file is read.
 /// A refusal names the file as given and never holds the token.
 /// </summary>
 internal static class ControlComposition
