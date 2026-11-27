@@ -55,7 +55,8 @@ connection is aborted and the note and one `FaultAppliedEvent` are written once.
 (ADR-0188, BL-1613) each joined connection is instead disposed (lingering close, ADR-0021), last joined first so data goes
 before control, no `Abort`, and the note reads `Exchange <id> cut after <N> bytes sent by fault rule <rule id>, closing
 gracefully.`; a datagram flow ignores `Close` and behaves as a drop, except for an `IGracefulCutDatagramProtocolServer`
-(HTTP/3; ADR-0188 amendment 5, BL-1801): its flow is a `GracefullyCutAfterBytesDatagramFlow` (whole datagrams counted as
+on a listen URL it answers `ClosesCutFlowsGracefully` for (HTTP/3, DNS over QUIC, WebTransport; ADR-0188 amendments 5
+and 6, BL-1801, BL-1815): its flow is a `GracefullyCutAfterBytesDatagramFlow` (whole datagrams counted as
 `SilencedAfterBytesDatagramFlow` does, closing datagrams sent uncounted), the server closes its connection at the cut,
 and the note is the graceful one. The `FaultAppliedEvent` of every `Accept`-stage drop carries `Close` (BL-1794), how the
 engine ended it rather than what the rule asked: `Graceful` for either graceful cut, `Reset` for the reset cut, a drop

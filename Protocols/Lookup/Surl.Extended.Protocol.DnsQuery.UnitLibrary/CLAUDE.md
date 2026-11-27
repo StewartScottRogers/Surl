@@ -105,6 +105,9 @@ DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
   answer `DOQ_INTERNAL_ERROR`. A stream reset (or cut off by the connection ending) before its
   query is whole is dropped. Cancelling the exchange, or the client closing, ends it with
   `DOQ_NO_ERROR`. A stream past the 100 is `Surl.Quic`'s `STREAM_LIMIT_ERROR`.
+- `DnsOverQuicProtocolServer` is an `IGracefulCutDatagramProtocolServer` (BL-1815, ADR-0188 amendment 6): a flow a
+  `close=graceful` drop fault cuts ends with QUIC's `CONNECTION_CLOSE` `NO_ERROR` (type `0x1c`), which `Surl.Quic`
+  sends, not a `DOQ_NO_ERROR` application close.
 - Tests drive both over `DnsOverQuicTestClient`: pinned upstream curl's recorded HTTP/3 Initials
   (embedded from `Surl.Protocol.Http.UnitTests/Fixtures`), the ALPN list edited to `doq`, `h3-29`.
 

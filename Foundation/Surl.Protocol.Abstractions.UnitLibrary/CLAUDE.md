@@ -154,9 +154,12 @@ What it holds:
   point's, ordinally; never spends `Times`; records every point asked). `Surl.Core`'s
   `SurlEventStream` and `FaultPlan` implement them (BL-787, BL-792).
 
-- The graceful cut of a datagram flow (ADR-0188, amendment 5; BL-1801): a datagram server whose connections have a
-  graceful close of their own implements the marker `IGracefulCutDatagramProtocolServer` (today only HTTP/3's). Under a
-  `close=graceful` drop with `after-bytes` the engine hands it an `IGracefullyCutDatagramFlow`: once `IsCut`,
+- The graceful cut of a datagram flow (ADR-0188, amendments 5 and 6; BL-1801, BL-1815): a datagram server whose
+  connections have a graceful close of their own implements `IGracefulCutDatagramProtocolServer` (today HTTP/3's, DNS
+  over QUIC's, WebTransport's and `Surl.Composition`'s `dns` datagram router). Its default member
+  `ClosesCutFlowsGracefully(ListenUrl)` answers `true`; one that also serves a protocol with no close answers `false`
+  for that listen URL (the router, for plain UDP DNS). Under a `close=graceful` drop with `after-bytes` on a listen URL
+  it answers `true` for, the engine hands it an `IGracefullyCutDatagramFlow`: once `IsCut`,
   `SendAsync` discards, and the server closes its connection. Every datagram that closes a connection, and each repeat,
   goes through `SendClosingDatagramAsync`, which counts and discards nothing. `Surl.Quic`'s `QuicApplicationConnection` does this for any protocol over QUIC.
 

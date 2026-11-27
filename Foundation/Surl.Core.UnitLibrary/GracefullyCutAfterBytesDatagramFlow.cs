@@ -6,9 +6,10 @@ namespace Surl.Core;
 /// <summary>
 /// Wraps a datagram flow of an <see cref="IGracefulCutDatagramProtocolServer"/> under a
 /// <see cref="FaultKind.Drop"/> rule with <see cref="FaultRule.AfterBytes"/> and
-/// <see cref="FaultClose.Graceful"/> (ADR-0188, amendment 5): the server's datagrams are counted and
-/// discarded as <see cref="SilencedAfterBytesDatagramFlow"/> does it, and the server's closing
-/// datagrams are sent whatever the count.
+/// <see cref="FaultClose.Graceful"/>, on a listen URL that server closes gracefully (ADR-0188, amendments 5
+/// and 6): the server's datagrams are counted and discarded as
+/// <see cref="SilencedAfterBytesDatagramFlow"/> does it, and the server's closing datagrams are sent
+/// whatever the count.
 /// </summary>
 /// <param name="flow">The flow to wrap.</param>
 /// <param name="afterBytes">How many bytes the server may send before the flow is cut.</param>

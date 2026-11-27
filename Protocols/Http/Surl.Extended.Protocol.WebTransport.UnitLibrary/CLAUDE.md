@@ -87,6 +87,10 @@ Flow control, the session limit, authentication and the limits (BL-460, ADR-0117
 
 Chosen-error fault (BL-1065, ADR-0124 decisions 4 and 9): `WebTransportConnectFaults` asks `ExchangeContext.Faults` for each CONNECT that passed the origin, login and path checks (point: scheme `webtransport`, command `CONNECT`, the request path, and the logged-in account's name when one logged in, so `account=` rules fire, BL-1242). An `error` rule whose reply is a status 400 to 599 and optional text answers that status with the text as a `text/plain` body and FIN, and publishes one `FaultAppliedEvent`; a `delay` rule holds the CONNECT, then it is served (BL-1182, ADR-0141); a `drop` rule resets the request stream `H3_INTERNAL_ERROR` with no response; any other rule is noted and the session is served.
 
+`WebTransportProtocolServer` is an `IGracefulCutDatagramProtocolServer` (BL-1815, ADR-0188 amendment 6): a flow a
+`close=graceful` drop fault cuts ends with QUIC's `CONNECTION_CLOSE` `NO_ERROR` (type `0x1c`), which `Surl.Quic` sends,
+with no `WT_CLOSE_SESSION` or `GOAWAY`.
+
 At shutdown the CONNECT stream stays open through the grace, so `Surl.Http3` closes the connection only
 once the client has FINed it (the session then answers with its own FIN) or the grace has passed (BL-1060,
 WTH3-6-5).

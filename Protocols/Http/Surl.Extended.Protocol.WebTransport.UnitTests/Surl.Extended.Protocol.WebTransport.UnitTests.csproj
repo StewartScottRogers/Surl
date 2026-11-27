@@ -19,6 +19,11 @@
     <Compile Include="..\Surl.Http3.UnitTests\UnitTestTls13Client.cs" Link="UnitTestTls13Client.cs" />
   </ItemGroup>
 
+  <!-- The flow a close=graceful drop fault hands a server, as Surl.Quic.UnitTests fakes it. -->
+  <ItemGroup>
+    <Compile Include="..\Surl.Quic.UnitTests\UnitTestGracefullyCutDatagramFlow.cs" Link="UnitTestGracefullyCutDatagramFlow.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Surl.Extended.Protocol.WebTransport.UnitLibrary\Surl.Extended.Protocol.WebTransport.UnitLibrary.csproj" />
   </ItemGroup>

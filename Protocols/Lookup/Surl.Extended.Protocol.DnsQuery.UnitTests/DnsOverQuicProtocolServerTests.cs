@@ -1,5 +1,6 @@
 using System.Net;
 using Surl.Protocol.Abstractions;
+using Surl.Quic;
 using static Surl.Extended.Protocol.DnsQuery.DnsTestQueries;
 
 namespace Surl.Extended.Protocol.DnsQuery;
@@ -164,6 +165,37 @@ public sealed class DnsOverQuicProtocolServerTests
         await exchange.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving.WaitAsync(TimeSpan.FromSeconds(30), Token));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FlowCutByAGracefulDropFault_ClosesTheConnectionWithNoErrorInPlaceOfTheAnswer()
+    {
+        using var client = new DnsOverQuicTestClient();
+        var cut = new UnitTestGracefullyCutDatagramFlow(client.Flow, long.MaxValue);
+        client.Watch(Server(client).ServeAsync(cut, Context()));
+        await client.CompleteHandshakeAsync(Token);
+        client.SendQuery(0, Query("web.example.test", TypeA, id: 0));
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        cut.BytesLeft = 0;
+        client.SendQuery(4, Query("web.example.test", TypeA, id: 0));
+        await client.UntilAsync(() => client.OneRttFrames<QuicConnectionCloseFrame>().Any(), Token);
+
+        var closes = client.OneRttFrames<QuicConnectionCloseFrame>().Select(frame => (frame.IsApplicationError, frame.ErrorCode)).Distinct();
+        Assert.AreEqual((false, (ulong)QuicTransportErrorCode.NoError), closes.Single());
+        Assert.IsEmpty(client.StreamSent(4).Data);
+        Assert.IsTrue(cut.IsCut);
+        Assert.IsNotEmpty(cut.ClosingDatagrams);
+    }
+
+    [TestMethod]
+    public void Server_HasAGracefulCloseOfItsOwnForACutFlow()
+    {
+        using var client = new DnsOverQuicTestClient();
+
+        IGracefulCutDatagramProtocolServer server = Assert.IsInstanceOfType<IGracefulCutDatagramProtocolServer>(Server(client));
+
+        Assert.IsTrue(server.ClosesCutFlowsGracefully(new ListenUrl("dns", "127.0.0.1", 853) { IsImplicitTls = true }));
     }
 
     private static DnsOverQuicProtocolServer Server(DnsOverQuicTestClient client, TimeSpan? idleTimeout = null) =>

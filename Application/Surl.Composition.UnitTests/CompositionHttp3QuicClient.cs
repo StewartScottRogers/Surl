@@ -100,7 +100,8 @@ internal sealed class CompositionHttp3QuicClient : IDisposable
         Flow.DeliverFromClient(Quic.SealOneRtt(new QuicStreamFrame(streamId, offset, bytes, fin)));
     }
 
-    private static List<byte[]> ReadRecordedInitials()
+    /// <summary>The Initial datagrams pinned upstream curl sent for an <c>h3</c> request, in order.</summary>
+    internal static List<byte[]> ReadRecordedInitials()
     {
         const string Name = "Fixtures/h3-client-initial/static-8.21.0-win.datagrams.bin";
         using var stream = typeof(CompositionHttp3QuicClient).Assembly.GetManifestResourceStream(Name)

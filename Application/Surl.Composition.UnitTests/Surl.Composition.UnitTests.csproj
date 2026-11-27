@@ -23,6 +23,8 @@
     <Compile Include="..\..\Protocols\Http\Surl.Http3.UnitTests\UnitTestQuicClient.cs" Link="UnitTestQuicClient.cs" />
     <Compile Include="..\..\Protocols\Http\Surl.Http3.UnitTests\UnitTestTls13Client.cs" Link="UnitTestTls13Client.cs" />
     <EmbeddedResource Include="..\..\Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\h3-client-initial\static-8.21.0-win.datagrams.bin" LogicalName="Fixtures/h3-client-initial/static-8.21.0-win.datagrams.bin" />
+    <!-- The edit that turns the recorded HTTP/3 ClientHello into a DNS over QUIC one, shared with the DNS tests. -->
+    <Compile Include="..\..\Protocols\Lookup\Surl.Extended.Protocol.DnsQuery.UnitTests\DnsOverQuicClientHello.cs" Link="DnsOverQuicClientHello.cs" />
   </ItemGroup>
 
 </Project>

@@ -22,7 +22,8 @@ public sealed record FaultAppliedEvent(
     /// How the connection was ended, set only on the serving engine's <see cref="FaultStage.Accept"/>-stage
     /// drop: <see cref="FaultClose.Reset"/> or <see cref="FaultClose.Graceful"/> (a datagram flow's drop is
     /// <see cref="FaultClose.Reset"/>, except a graceful cut of an <see cref="IGracefulCutDatagramProtocolServer"/>'s
-    /// flow, which is <see cref="FaultClose.Graceful"/>); otherwise <see langword="null"/>.
+    /// flow on a listen URL it closes gracefully, which is <see cref="FaultClose.Graceful"/>); otherwise
+    /// <see langword="null"/>.
     /// </summary>
     public FaultClose? Close { get; init; }
 

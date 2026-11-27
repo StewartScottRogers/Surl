@@ -11,12 +11,18 @@ namespace Surl.Composition;
 /// picks per exchange.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The DNS over QUIC server is built when its first flow arrives: the registration builds servers
 /// before server TLS has made the certificate (as <see cref="DeferredCoapsProtocolServer"/> does).
+/// </para>
+/// <para>
+/// A <c>close=graceful</c> drop fault closes a DNS over QUIC connection and only silences a plain UDP flow,
+/// which has no close (<see cref="ClosesCutFlowsGracefully"/>; ADR-0188, amendment 6).
+/// </para>
 /// </remarks>
 internal sealed class DnsDatagramRoutingProtocolServer(
     IDatagramProtocolServer udpServer,
-    Func<DnsOverQuicProtocolServer> createQuicServer) : IDatagramProtocolServer
+    Func<DnsOverQuicProtocolServer> createQuicServer) : IGracefulCutDatagramProtocolServer
 {
     private readonly Lazy<DnsOverQuicProtocolServer> quicServer = new(createQuicServer);
 
@@ -27,9 +33,18 @@ internal sealed class DnsDatagramRoutingProtocolServer(
     public IReadOnlyList<string> Schemes => udpServer.Schemes;
 
     /// <inheritdoc/>
+    public bool ClosesCutFlowsGracefully(ListenUrl listenUrl)
+    {
+        ArgumentNullException.ThrowIfNull(listenUrl);
+        return IsDnsOverQuic(listenUrl);
+    }
+
+    /// <inheritdoc/>
     public Task ServeAsync(IDatagramFlow flow, ExchangeContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return (context.ListenUrl.IsImplicitTls ? quicServer.Value : udpServer).ServeAsync(flow, context);
+        return (IsDnsOverQuic(context.ListenUrl) ? quicServer.Value : udpServer).ServeAsync(flow, context);
     }
+
+    private static bool IsDnsOverQuic(ListenUrl listenUrl) => listenUrl.IsImplicitTls;
 }

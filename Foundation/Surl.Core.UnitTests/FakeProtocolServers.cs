@@ -86,6 +86,17 @@ internal sealed class FakeGracefulCutDatagramProtocolServer(
     : FakeDatagramProtocolServer(serve, schemes), IGracefulCutDatagramProtocolServer;
 
 /// <summary>
+/// A <see cref="FakeDatagramProtocolServer"/> whose flows have a graceful close of their own only on a listen URL
+/// that is TLS from the first byte, as <c>dns</c> does for DNS over QUIC beside plain UDP.
+/// </summary>
+internal sealed class FakeImplicitTlsOnlyGracefulCutDatagramProtocolServer(
+    Func<IDatagramFlow, ExchangeContext, Task> serve, params string[] schemes)
+    : FakeDatagramProtocolServer(serve, schemes), IGracefulCutDatagramProtocolServer
+{
+    public bool ClosesCutFlowsGracefully(ListenUrl listenUrl) => listenUrl.IsImplicitTls;
+}
+
+/// <summary>
 /// A <see cref="FakeDatagramProtocolServer"/> that also writes refusals: it records the
 /// refusal it is asked to write and sends <c>refused:&lt;refusal&gt;</c>, unless the test
 /// scripted other behaviour.
