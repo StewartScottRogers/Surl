@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1956 — State SPECIAL-USE and the log redaction rule in the IMAP library's CLAUDE.md
 
@@ -34,13 +34,22 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] `CLAUDE.md` says `SPECIAL-USE CREATE-SPECIAL-USE` are offered when the store holds a folder use, and no sentence says they are not offered.
-- [ ] `CLAUDE.md` names `IExchangeBytesRedactingServer` and `ImapLineRedactionRule`, and says what the rule withholds.
-- [ ] No `.cs` file changes.
+- [x] `CLAUDE.md` says `SPECIAL-USE CREATE-SPECIAL-USE` are offered when the store holds a folder use, and no sentence says they are not offered.
+- [x] `CLAUDE.md` names `IExchangeBytesRedactingServer` and `ImapLineRedactionRule`, and says what the rule withholds.
+- [x] No `.cs` file changes.
 
 ## Notes
+
+- `align-and-document` made the edit under "What it holds", checking each statement against the source. The redaction
+  text also cites ADR-0183 amendment 1, which settles the literal question decision 5 left open.
+- Where ADR-0055 Amendment 1 point 3 ("decided at start") and the code (asked each time the capability list is written)
+  differ, `CLAUDE.md` follows the code. BL-1959 corrects the ADR or the code.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: no failures.
+- Follow-ups filed: BL-1958 (`CREATE` with an empty `USE` list), BL-1959 (ADR and XML comment wording), BL-1960
+  (folder uses not persisted).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The IMAP library's CLAUDE.md states when SPECIAL-USE is offered and what the exchange log redacts

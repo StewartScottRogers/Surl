@@ -20,8 +20,9 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
-- `ImapProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`* BYE surl Too many connections, closing`). Its constructor takes the
+- `ImapProtocolServer`: `IConnectionProtocolServer`, `IConnectionRefusalWriter`
+  (`* BYE surl Too many connections, closing`) and `IExchangeBytesRedactingServer` (log redaction,
+  below). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the `imap`
   scheme's one `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
   and `isTlsUpgradeAvailable`, which `Surl.Composition` sets from
@@ -35,8 +36,27 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `AUTHENTICATE`, `STARTTLS`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`,
   `CHECK`, `CLOSE`, `UNSELECT`, `FETCH`, `SEARCH`, `APPEND`, `CREATE`, `DELETE`, `RENAME`,
   `SUBSCRIBE`, `UNSUBSCRIBE`, `STORE`, `COPY`, `MOVE`, `EXPUNGE` and the `UID` forms of
-  `FETCH`, `SEARCH`, `STORE`, `COPY`, `MOVE` and `EXPUNGE`. `IDLE` and the other extensions of
-  decision 2's list are not offered.
+  `FETCH`, `SEARCH`, `STORE`, `COPY`, `MOVE` and `EXPUNGE`. While the store holds a folder use
+  (`MailboxStore.HoldsAnyFolderUse`), `SPECIAL-USE CREATE-SPECIAL-USE` are offered after `MOVE`,
+  before and after a login (ADR-0055, Amendment 1). `IDLE` and the other extensions decision 2
+  says are not advertised, `SPECIAL-USE` apart, are not offered.
+- Log redaction (ADR-0183 decision 5, settled by its amendment 1): `CreateRedactor` wraps one
+  `ImapLineRedactionRule` per exchange in a `LineBytesRedactor`, and the exchange log shows `****`
+  for what the rule withholds: the password of `LOGIN` (atom, quoted string or literal, a literal
+  masked once for each line it spans) and, through a `SaslLineRedactionRule`, an `AUTHENTICATE`
+  initial response and each client line that answers a `+ ` continuation (a lone `*` and an empty
+  line are logged as sent). Other literals, an `APPEND` message included, are logged unchanged, and
+  the `+` that invites a literal does not count as a SASL continuation; after a synchronizing
+  literal marker, a first server line that does not start with `+` cancels the literal. A run of
+  more than 64 KiB with no CR LF is `****` whatever it holds, because `LineBytesRedactor` holds no
+  more.
+- Redaction of lines the server may refuse (ADR-0183 amendments 3 to 5 and 7, ADR-0182 amendment
+  33): a line is a `LOGIN` when its first or second word is `LOGIN` (any case, words split by spaces
+  or tabs), and when both are, both arguments after the second are withheld. When the first word is
+  `AUTHENTICATE` and the second `AUTH` or `AUTHENTICATE`, the third and fourth words are withheld.
+  Nothing follows the mask on a `LOGIN` password's line with a tab among its arguments (a literal
+  that line announces is withheld too), or on an initial response's line with a tab, a quote or a
+  bare carriage return.
 - Logins (decision 10): `LOGIN` through `IAuthenticationPolicy.CheckPasswordLoginAsync`;
   `AUTHENTICATE` frames `IMailAuthenticationPolicy.StartSaslExchange` (base64, `=`, `*`, `+ `
   continuations read by `CrlfLineReader.ReadSaslContinuationAsync`). A command that reads or
