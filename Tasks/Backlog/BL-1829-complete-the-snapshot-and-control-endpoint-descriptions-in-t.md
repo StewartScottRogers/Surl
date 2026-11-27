@@ -1,5 +1,5 @@
 ---
-id: BL-1826
+id: BL-1829
 title: Complete the snapshot and control endpoint descriptions in the glossary and the control library's docs
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1826 — Complete the snapshot and control endpoint descriptions in the glossary and the control library's docs
+# BL-1829 — Complete the snapshot and control endpoint descriptions in the glossary and the control library's docs
 
 ## Goal
 

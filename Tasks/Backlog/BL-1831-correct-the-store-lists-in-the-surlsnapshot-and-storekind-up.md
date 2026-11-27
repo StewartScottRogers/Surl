@@ -1,5 +1,5 @@
 ---
-id: BL-1828
+id: BL-1831
 title: Correct the store lists in the SurlSnapshot and StoreKind.Uploads doc comments
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1828 — Correct the store lists in the SurlSnapshot and StoreKind.Uploads doc comments
+# BL-1831 — Correct the store lists in the SurlSnapshot and StoreKind.Uploads doc comments
 
 ## Goal
 

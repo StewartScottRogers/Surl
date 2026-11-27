@@ -50,7 +50,7 @@ No store, event or fault applies: this task changes prose only.
 - The glossary row gives examples and links to the root `README.md` table, so a new tool does not make the
   row false. The table was compared too and lists the same 40.
 - `dotnet build` clean (0 warnings) and the fast tests green on 2026-11-26. Prose only, so no `/verify`.
-- Follow-up drift outside this task's `touches` filed as BL-1826, BL-1827 and BL-1828. The `Instructions`
+- Follow-up drift outside this task's `touches` filed as BL-1829, BL-1830 and BL-1831. The `Instructions`
   string in `Application/Surl.Mcp/Program.cs` is already BL-1825.
 
 ## Log

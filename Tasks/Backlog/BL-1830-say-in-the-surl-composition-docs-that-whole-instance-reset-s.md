@@ -1,5 +1,5 @@
 ---
-id: BL-1827
+id: BL-1830
 title: Say in the Surl.Composition docs that whole-instance reset, snapshot and restore cover every registered store
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1827 — Say in the Surl.Composition docs that whole-instance reset, snapshot and restore cover every registered store
+# BL-1830 — Say in the Surl.Composition docs that whole-instance reset, snapshot and restore cover every registered store
 
 ## Goal
 
