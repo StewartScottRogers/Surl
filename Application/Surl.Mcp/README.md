@@ -6,14 +6,18 @@ curl: for each protocol upstream curl speaks, it is the server that answers.
 
 ## Run it
 
-The `Surly.Surl.Mcp` NuGet package is a .NET tool package of type `McpServer`; an MCP client runs it with
+The `Surly.Surl.Mcp` NuGet package is a .NET tool package of type `McpServer`. When a configured package
+source holds it, an MCP client runs it with
 
 ```
 dnx Surly.Surl.Mcp
 ```
 
-or after `dotnet tool install --global Surly.Surl.Mcp`, as `surl-mcp`. The release's `surl-mcp-<rid>`
-archives hold the same server as a native binary that needs no .NET runtime.
+or after `dotnet tool install --global Surly.Surl.Mcp`, as `surl-mcp`. nuget.org held no version of the
+package on 2026-11-26. [GitHub releases](https://github.com/StewartScottRogers/Surl/releases) from
+`v0.1.10` carry it as a `.nupkg` file: download that file into a folder and give either command
+`--add-source <folder>`. A release's `surl-mcp-<rid>` archives hold the same server as a native binary
+that needs no .NET runtime.
 
 ## Tools
 
