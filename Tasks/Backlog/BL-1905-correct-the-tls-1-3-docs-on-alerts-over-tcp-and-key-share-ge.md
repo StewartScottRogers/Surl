@@ -1,5 +1,5 @@
 ---
-id: BL-1902
+id: BL-1905
 title: Correct the TLS 1.3 docs on alerts over TCP and key share generator draws
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1902 — Correct the TLS 1.3 docs on alerts over TCP and key share generator draws
+# BL-1905 — Correct the TLS 1.3 docs on alerts over TCP and key share generator draws
 
 ## Goal
 

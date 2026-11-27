@@ -44,7 +44,7 @@ drives this handshake, for TLS 1.3 over TCP (ADR-0157). In `Cryptography/Surl.Tl
   `Surl.Tls13Stream` sends the compatibility one over TCP when the ClientHello has a legacy session id.
 - 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
   30272 passed, 3 skipped, 0 failed.
-- 2026-11-27: Stale docs outside `touches` filed as BL-1902.
+- 2026-11-27: Stale docs outside `touches` filed as BL-1905.
 
 ## Log
 
