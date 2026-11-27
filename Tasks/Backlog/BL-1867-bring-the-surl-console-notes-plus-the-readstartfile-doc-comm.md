@@ -1,5 +1,5 @@
 ---
-id: BL-1859
+id: BL-1867
 title: Bring the Surl.Console notes plus the readStartFile doc comment up to date with the start composition
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1859 — Bring the Surl.Console notes plus the readStartFile doc comment up to date with the start composition
+# BL-1867 — Bring the Surl.Console notes plus the readStartFile doc comment up to date with the start composition
 
 ## Goal
 

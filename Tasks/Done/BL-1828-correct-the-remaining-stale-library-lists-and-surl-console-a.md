@@ -49,7 +49,7 @@ In `Application/Surl.Composition.UnitLibrary/CLAUDE.md`:
 - "Phase 1." removed: Product-Overview's Phasing table does list `Surl.Cli` under phase 1, but the bare line read as
   the library's scope, and the file now covers much later work.
 - Verified: `dotnet build` 0 warnings, 0 errors; fast tests exit 0. Docs only, so no `.cs` or project file changed.
-- Stale statements found outside this task's scope are filed as BL-1859 to BL-1863.
+- Stale statements found outside this task's scope are filed as BL-1867 to BL-1871.
 
 ## Log
 

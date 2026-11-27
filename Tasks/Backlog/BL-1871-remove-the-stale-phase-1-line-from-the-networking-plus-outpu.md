@@ -1,5 +1,5 @@
 ---
-id: BL-1863
+id: BL-1871
 title: Remove the stale Phase 1 line from the networking plus output library notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1863 — Remove the stale Phase 1 line from the networking plus output library notes
+# BL-1871 — Remove the stale Phase 1 line from the networking plus output library notes
 
 ## Goal
 

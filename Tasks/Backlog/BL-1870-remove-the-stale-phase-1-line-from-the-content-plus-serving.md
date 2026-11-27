@@ -1,27 +1,27 @@
 ---
-id: BL-1861
-title: Remove the stale Phase 1 line from the cryptography plus authentication library notes
+id: BL-1870
+title: Remove the stale Phase 1 line from the content plus serving engine library notes
 priority: Low
 assignee: Claude
 pipeline: docs
 depends-on: []
-touches: [Cryptography/Surl.Cryptography.UnitLibrary/CLAUDE.md, Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md]
+touches: [Foundation/Surl.Content.UnitLibrary/CLAUDE.md, Foundation/Surl.Core.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1861 — Remove the stale Phase 1 line from the cryptography plus authentication library notes
+# BL-1870 — Remove the stale Phase 1 line from the content plus serving engine library notes
 
 ## Goal
 
-The `CLAUDE.md` files of `Surl.Cryptography.UnitLibrary` and `Surl.Authentication.UnitLibrary` no longer open with a bare "Phase 1." line that reads as the library's scope.
+The `CLAUDE.md` files of `Surl.Content.UnitLibrary` and `Surl.Core.UnitLibrary` no longer open with a bare "Phase 1." line that reads as the library's scope.
 
 ## Context
 
 Found while working BL-1828, which removed the same line from `Application/Surl.Cli.UnitLibrary/CLAUDE.md`. Line 3 of each file is "Phase 1.", while each library holds later work (`Documentation/Product/Product-Overview.md`, "Phasing"):
 
-- `Cryptography/Surl.Cryptography.UnitLibrary/CLAUDE.md`: the library holds `Des` for NTLMv1 (BL-291), done after Phase 1.
-- `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md`: the library holds SSH logins (Phase 2), the mail servers' SASL mechanisms (Phase 3) and the extended servers' logins.
+- `Foundation/Surl.Content.UnitLibrary/CLAUDE.md`: the library holds the content changes for FTP, SCP and SFTP (Phase 2) and later content work.
+- `Foundation/Surl.Core.UnitLibrary/CLAUDE.md`: the library holds the event stream and fault plan (ADR-0124), added after Phase 1.
 
 Remove the line only; add no replacement phase list. `Phase N.` lines followed by other text, in other libraries, are out of scope. No store, event or fault is involved: documentation only.
 
