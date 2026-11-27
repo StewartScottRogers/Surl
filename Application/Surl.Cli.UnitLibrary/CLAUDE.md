@@ -28,8 +28,8 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   of one never echoes its value (`CommandLineOption.ArgumentHoldsSecret`), and a user name
   given twice is refused after the whole line is read. `--user-file` is kept as a path
   (`SurlCommandLine.UserFile`) and read at start by `Surl.Composition`'s `AuthenticationComposition`,
-  and so is `--keytab` (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: category `auth`, not
-  negatable), read by its `KeytabComposition`; both read through the file-reading function the host
+  and so is `--keytab` (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: categories `auth`, `ldap`
+  and `socks`, not negatable), read by its `KeytabComposition`; both read through the file-reading function the host
   passes in as `SurlServerCompositionSeams.ReadStartFile` (`Surl.Console`'s `CommandLineRunner` hands
   on its `readStartFile` seam; without one the disk is read). `--allow-anonymous`,
   `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
@@ -43,7 +43,9 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
   `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. Their option rows in `CommandLineOptions`
   are `-x`/`--proxy` (category `proxy`), `-U`/`--proxy-user` (`ArgumentHoldsSecret`) and `--proxy-user-file`
-  (both `auth` and `proxy`), and `--proxy-allow-origin` (`proxy` and `security`) (BL-1004).
+  (each `auth`, `proxy` and `socks`), and `--proxy-allow-origin` (`proxy` and `security`) (BL-1004).
+  The `socks` category also holds `--keytab`, which SOCKS5 GSS-API reads, and not `--proxy-auth`, which the
+  SOCKS server never applies (BL-1915).
   `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
   `GivenProxyAuthenticationMethods`, apart from `--auth`; `AcceptedProxyAuthenticationMethods` defaults to
   `digest`, `basic`.

@@ -967,6 +967,37 @@ public sealed class HelpTextTests
             "telnet: TELNET protocol",
             "     --max-line <bytes>  Longest command line accepted");
 
+    // The SOCKS server reads the proxy accounts and the --keytab, and never --proxy-auth (BL-1915).
+    [TestMethod]
+    public void Answer_Socks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth() =>
+        AssertOutput(
+            HelpText.Answer("socks"),
+            "socks: SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
+            Row(36, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(36, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
+            Row(36, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
+            Row(36, "    --proxy-user-file <file>", "Read proxy accounts from a file"));
+
+    [TestMethod]
+    public void Answer_AiHelpSocks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth()
+    {
+        var optionRows = AiHelpText.Answer("socks").Output.ReplaceLineEndings("\n").Split('\n')
+            .Where(line => line.StartsWith("| `-", StringComparison.Ordinal))
+            .Select(line => line.Split('`')[1]);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "--allow-anonymous",
+                "--allow-plaintext-auth",
+                "--keytab <file>",
+                "-U, --proxy-user <user:password>",
+                "--proxy-user-file <file>",
+            },
+            optionRows.ToArray());
+    }
+
     [TestMethod]
     public void Answer_Tftp_ListsItsOptions() =>
         AssertOutput(
@@ -1046,7 +1077,7 @@ public sealed class HelpTextTests
         ["nats"] = AccountsAndBothLoosenings,
         ["oci"] = AccountsAndBothLoosenings,
         ["pop3"] = AllFive,
-        // The proxy and SOCKS listeners log in the -U accounts by --proxy-auth, never --user or --auth.
+        // The proxy and SOCKS listeners log in the -U accounts, never --user or --auth.
         ["proxy"] = BothLoosenings,
         ["redis"] = AccountsAndBothLoosenings,
         ["rtsp"] = AllFive,

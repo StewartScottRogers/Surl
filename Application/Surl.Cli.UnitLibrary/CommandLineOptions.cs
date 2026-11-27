@@ -172,10 +172,10 @@ internal static class CommandLineOptions
         WithArgument<string>("proxy", 'x', OptionArgumentReader.ProxyListenUrlText, (c, _) => c,
             new("<listen URL>", "Add a proxy listener (repeatable)", ["proxy"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("proxy-user", 'U', OptionArgumentReader.Account, (c, v) => c with { ProxyAccounts = [.. c.ProxyAccounts, v] },
-            new("<user:password>", "Add a proxy account (repeatable)", ["auth", "proxy"], IsInShortList: false, Default: "no login asked"))
+            new("<user:password>", "Add a proxy account (repeatable)", ["auth", "proxy", "socks"], IsInShortList: false, Default: "no login asked"))
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("proxy-user-file", null, OptionArgumentReader.Path, (c, v) => c with { ProxyUserFile = v },
-            new("<file>", "Read proxy accounts from a file", ["auth", "proxy"], IsInShortList: false, Default: "none")),
+            new("<file>", "Read proxy accounts from a file", ["auth", "proxy", "socks"], IsInShortList: false, Default: "none")),
         WithArgument<ProxyAllowedOrigin>("proxy-allow-origin", null, OptionArgumentReader.AllowedOrigin, (c, v) => c with { ProxyAllowedOrigins = [.. c.ProxyAllowedOrigins, v] },
             new("<address>", "Let the proxy reach more origins", ["proxy", "security"], IsInShortList: false, Default: "loopback only")),
         WithArgument<IReadOnlyList<string>>("proxy-auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenProxyAuthenticationMethods = v },
@@ -318,7 +318,7 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredTopicAccess>("topic-access", null, ConfiguredTopicAccessReader.Reading, (c, v) => c with { TopicAccess = [.. c.TopicAccess, v] },
             new("<filter>=<member>:<right>,...", "Topic grants (repeatable)", ["messages"], IsInShortList: false, Default: "none: every caller may publish and subscribe")),
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
-            new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap"], IsInShortList: false, Default: "none")),
+            new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap", "socks"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
             new(null, "Accept any login, or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),
