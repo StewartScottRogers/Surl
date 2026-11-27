@@ -53,7 +53,9 @@ public sealed record FaultRule(string Id, FaultKind Kind)
 
     /// <summary>
     /// How a <see cref="FaultKind.Drop"/> rule ends the connection (<c>close</c>); defaults to
-    /// <see cref="FaultClose.Reset"/> (ADR-0188, decision 1). No server reads it yet.
+    /// <see cref="FaultClose.Reset"/> (ADR-0188, decision 1). The serving engine reads it for an
+    /// <see cref="FaultStage.Accept"/>-stage drop with <see cref="AfterBytes"/> on a connection; a datagram flow
+    /// ignores it.
     /// </summary>
     public FaultClose Close { get; init; } = FaultClose.Reset;
 

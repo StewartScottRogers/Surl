@@ -8,6 +8,8 @@
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md),
   [ADR-0021](ADR-0021-a-lingering-close-for-every-tcp-connection.md) (the lingering close),
   [ADR-0141](ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md) (command-stage drop).
+- **Amended by:** amendment 4 below (2026-11-26, BL-1794; decision 3: the engine's `Accept`-stage drop event carries
+  how the connection was closed).
 
 ## Context
 
@@ -81,6 +83,9 @@ The same single `FaultAppliedEvent` as a drop (rule ID, `Drop`, stage `Accept`, 
 per exchange. The exchange-log note differs, so a test can tell the two: the reset keeps
 `Exchange <exchange id> dropped after <N> bytes sent by fault rule <rule id>.` and the graceful cut writes
 `Exchange <exchange id> cut after <N> bytes sent by fault rule <rule id>, closing gracefully.`
+
+*Amended by amendment 4 (BL-1794):* on a connection the two events are no longer the same. Each carries `Close`, so the
+event tells them apart too; both notes are unchanged.
 
 ### 4. The stand-in plan
 
@@ -194,3 +199,28 @@ protocol and changes what a test observes, and a reset cannot linger at all. Tha
 **Decision.** The OpenSSL tests assert the measured set and no wider: graceful is 18 or 55, reset is 55 or 56, on
 Linux and macOS; Windows keeps its exact pins. This supersedes the single OpenSSL values of amendment 2. A test author
 asserting against surl's HTTPS cut on Linux or macOS should accept those sets.
+
+## Amendment 4 — a drop's event carries how the connection was closed (2026-11-26, BL-1794)
+
+Decided by Claude under Stewart's delegation. The Surly cookbook's bug report of 2026-11-26 (item 2) found that a
+graceful and a reset `after-bytes` drop published identical `FaultAppliedEvent`s (the same rule ID, `Drop`, stage
+`Accept`), so a test could tell them apart only by reading the exchange log. Decision 3's statement that the graceful cut
+publishes the same event as a drop no longer holds.
+
+**Decision.** `FaultAppliedEvent` gains `Close` (`FaultClose?`). The serving engine sets it on every `Accept`-stage drop
+event it publishes, and it says how the engine ended the exchange, not what the rule asked:
+
+| Event | `Close` |
+| --- | --- |
+| Graceful cut of a connection (`after-bytes` with `close=graceful`) | `Graceful` |
+| Reset cut of a connection (`after-bytes`) | `Reset` |
+| Drop of a connection before any byte; a graceful rule without `AfterBytes` aborts too | `Reset` |
+| Every datagram-flow drop, HTTP/3 included, whatever the rule's `Close` | `Reset` |
+| `Delay`, login, store-write and command-stage events (command stages do not read `FaultRule.Close`) | null |
+
+- `surl-mcp`'s event JSON and the control endpoint's event JSON write it as `close` (`reset` or `graceful`) and omit it
+  when null. `Surl.Api`'s `FindEvents` returns the event with the property.
+- The event is still published once per exchange, and both exchange-log notes of decision 3 are unchanged.
+
+**Why.** Surl is a stand-in for tests (ADR-0124): "Observable" asks that what the server did reaches a test on the event
+stream, not only in a log, and "Configuration as data" lets the event grow by a field without repurposing one.

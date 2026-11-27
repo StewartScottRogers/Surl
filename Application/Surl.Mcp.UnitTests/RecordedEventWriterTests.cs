@@ -65,6 +65,12 @@ public sealed class RecordedEventWriterTests
     }
 
     [TestMethod]
+    public void WriteEvent_FaultAppliedByAGracefulDrop_WritesCloseGraceful() =>
+        AssertWritten(
+            new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Accept, 4, "http://127.0.0.1:49731/") { Close = FaultClose.Graceful },
+            """{"sequence":9,"at":"2026-11-05T10:00:00.0000000+00:00","kind":"fault_applied","rule_id":"f1","fault_kind":"drop","stage":"accept","exchange_id":4,"target":"http://127.0.0.1:49731/","close":"graceful"}""");
+
+    [TestMethod]
     public void WriteEvent_HookFailed_WritesTheHookFailureAndMessage() =>
         AssertWritten(
             new HookFailedEvent("h1", HookFailure.TimedOut, "took too long"),
@@ -132,7 +138,7 @@ public sealed class RecordedEventWriterTests
         new ExchangeBytesEvent(1, ExchangeDirection.Sent, new byte[1]),
         new ExchangeEndedEvent(1, 1, 1),
         new ExchangeStartedEvent(1, "http://127.0.0.1:1/", "http", new IPEndPoint(IPAddress.Loopback, 1)),
-        new FaultAppliedEvent("f", default, default, 1, "/"),
+        new FaultAppliedEvent("f", default, default, 1, "/") { Close = FaultClose.Reset },
         new HookFailedEvent("h", HookFailure.TimedOut, "m"),
         new CookieReceivedEvent(8, "http", "sid", "abc123"),
         new LoginJudgedEvent(1, "smtp", "a", "PLAIN", true, false),

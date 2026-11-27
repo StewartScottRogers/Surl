@@ -40,6 +40,38 @@ public sealed class SurlEventMemberTests
     }
 
     [TestMethod]
+    public void WriteMembers_FaultAppliedWithClose_WritesItLast()
+    {
+        var writer = new RecordingSurlEventMemberWriter();
+
+        new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Accept, 6, "http://127.0.0.1:80/") { Close = FaultClose.Graceful }
+            .WriteMembers(writer);
+
+        CollectionAssert.AreEqual(
+            new (string Name, string? Value)[]
+            {
+                ("RuleId", "f1"), ("Kind", "Drop"), ("Stage", "Accept"), ("ExchangeId", "6"), ("Target", "http://127.0.0.1:80/"),
+                ("Close", "Graceful"),
+            },
+            writer.Members);
+    }
+
+    [TestMethod]
+    public void WriteMembers_FaultAppliedWithoutClose_WritesNoCloseMember()
+    {
+        var writer = new RecordingSurlEventMemberWriter();
+
+        new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Accept, 6, "http://127.0.0.1:80/").WriteMembers(writer);
+
+        CollectionAssert.AreEqual(
+            new (string Name, string? Value)[]
+            {
+                ("RuleId", "f1"), ("Kind", "Delay"), ("Stage", "Accept"), ("ExchangeId", "6"), ("Target", "http://127.0.0.1:80/"),
+            },
+            writer.Members);
+    }
+
+    [TestMethod]
     public void SurlEvent_EveryEventRecordDeclaringExchangeIdSchemeOrAccount_OverridesTheBaseMember()
     {
         var shadows = new List<string>();
@@ -175,7 +207,7 @@ public sealed class SurlEventMemberTests
         yield return (typeof(ExchangeBytesEvent), new ExchangeBytesEvent(1, ExchangeDirection.Received, new byte[] { 1 }));
         yield return (typeof(ExchangeEndedEvent), new ExchangeEndedEvent(1, 10, 20));
         yield return (typeof(ExchangeStartedEvent), new ExchangeStartedEvent(1, "http://127.0.0.1:1", "http", Client));
-        yield return (typeof(FaultAppliedEvent), new FaultAppliedEvent("r", FaultKind.Drop, FaultStage.Command, 1, "t"));
+        yield return (typeof(FaultAppliedEvent), new FaultAppliedEvent("r", FaultKind.Drop, FaultStage.Accept, 1, "t") { Close = FaultClose.Reset });
         yield return (typeof(HookFailedEvent), new HookFailedEvent("h", HookFailure.TimedOut, "m"));
         yield return (typeof(LoginJudgedEvent), new LoginJudgedEvent(1, "ftp", "a", "password", true, false));
         yield return (typeof(StoreChangedEvent), new StoreChangedEvent(StoreKind.Mail, StoreChange.Created, "n", 1, 1));

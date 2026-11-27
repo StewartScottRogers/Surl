@@ -140,7 +140,9 @@ What it holds:
   `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`; a `Renamed`
   change carries its old name in `PreviousName`, ADR-0129; a mail delivery may carry `DeliveredFor`, the envelope addresses that resolved to the copy's owner, ADR-0053 Amendment 1; a `Committed` change names
   `$group/<group id, % and / percent-encoded>/<canonical topic>`, ADR-0145 decision 10),
-  `FaultAppliedEvent`, `HookFailedEvent` (with `HookFailure`) and `ConsumerGroupChangedEvent` (with
+  `FaultAppliedEvent` (its init-only `Close`, written last and only when set, is set only on the engine's
+  `Accept`-stage drop: `FaultClose.Reset` or `Graceful`, a datagram flow's drop `Reset`; BL-1794),
+  `HookFailedEvent` (with `HookFailure`) and `ConsumerGroupChangedEvent` (with
   `ConsumerGroupChange`, ADR-0145 decision 10; BL-946); no event carries a password,
   key or token. The fault plan: `IFaultPlan.FindAsync(FaultPoint, CancellationToken)` returning
   `ValueTask<FaultRule?>`, with `FaultPoint`, `FaultRule`, `FaultKind` and `FaultStage`. Both reach

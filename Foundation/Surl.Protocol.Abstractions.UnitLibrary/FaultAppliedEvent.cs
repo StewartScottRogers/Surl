@@ -18,6 +18,13 @@ public sealed record FaultAppliedEvent(
     /// <inheritdoc />
     public override long? ExchangeId { get; } = ExchangeId;
 
+    /// <summary>
+    /// How the connection was ended, set only on the serving engine's <see cref="FaultStage.Accept"/>-stage
+    /// drop: <see cref="FaultClose.Reset"/> or <see cref="FaultClose.Graceful"/> (a datagram flow's drop is
+    /// <see cref="FaultClose.Reset"/>); otherwise <see langword="null"/>.
+    /// </summary>
+    public FaultClose? Close { get; init; }
+
     /// <inheritdoc />
     public override void WriteMembers(ISurlEventMemberWriter writer)
     {
@@ -26,5 +33,10 @@ public sealed record FaultAppliedEvent(
         writer.Choice(nameof(Stage), Stage);
         writer.Number(nameof(ExchangeId), ExchangeId);
         writer.Text(nameof(Target), Target);
+
+        if (Close is { } close)
+        {
+            writer.Choice(nameof(Close), close);
+        }
     }
 }

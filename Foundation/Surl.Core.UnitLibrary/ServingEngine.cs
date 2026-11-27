@@ -263,8 +263,11 @@ public sealed partial class ServingEngine
     /// applies what it finds: a <see cref="FaultKind.Delay"/> holds the exchange on
     /// <paramref name="timeProvider"/> with the idle clock stopped; a <see cref="FaultKind.Drop"/>
     /// aborts the connection, or leaves the flow unanswered, before the server sees it - or, with
-    /// <see cref="FaultRule.AfterBytes"/>, once the server has sent that many bytes. Each
-    /// application publishes a <see cref="FaultAppliedEvent"/> on <paramref name="events"/>.
+    /// <see cref="FaultRule.AfterBytes"/>, once the server has sent that many bytes, closing the
+    /// connection gracefully instead when <see cref="FaultRule.Close"/> is
+    /// <see cref="FaultClose.Graceful"/>. Each application publishes a <see cref="FaultAppliedEvent"/> on
+    /// <paramref name="events"/>; a drop's event carries <see cref="FaultAppliedEvent.Close"/>, how the
+    /// engine ended it (<see cref="FaultClose.Reset"/> for a datagram flow).
     /// </param>
     /// <exception cref="ArgumentException">
     /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
@@ -845,7 +848,7 @@ public sealed partial class ServingEngine
         {
             var delay = TimeSpan.FromMilliseconds(rule.DelayMilliseconds ?? 0);
             context.Log.Note($"Exchange {context.ExchangeId} held for {FormatSeconds(delay)} s by fault rule {rule.Id}.");
-            PublishFaultApplied(rule, context);
+            PublishFaultApplied(rule, context, null);
             deadlines.PauseIdleClock();
             PeerWatchOutcome left;
 
@@ -917,14 +920,16 @@ public sealed partial class ServingEngine
         }
     }
 
-    // A graceful cut is told apart from a reset drop by its note (ADR-0188, decision 3).
+    // A graceful cut is told apart from a reset drop by its note (ADR-0188, decision 3) and by its
+    // event's Close, which says how the engine ended it, not what the rule asked (ADR-0188,
+    // amendment 4).
     private void NoteAndPublishAfterBytes(FaultRule rule, ExchangeContext context, long afterBytes, bool graceful)
     {
         if (graceful)
         {
             context.Log.Note(
                 $"Exchange {context.ExchangeId} cut after {afterBytes} bytes sent by fault rule {rule.Id}, closing gracefully.");
-            PublishFaultApplied(rule, context);
+            PublishFaultApplied(rule, context, FaultClose.Graceful);
         }
         else
         {
@@ -935,12 +940,15 @@ public sealed partial class ServingEngine
     private void NoteAndPublishDrop(FaultRule rule, ExchangeContext context, string when)
     {
         context.Log.Note($"Exchange {context.ExchangeId} dropped {when} by fault rule {rule.Id}.");
-        PublishFaultApplied(rule, context);
+        PublishFaultApplied(rule, context, FaultClose.Reset);
     }
 
-    private void PublishFaultApplied(FaultRule rule, ExchangeContext context) =>
+    private void PublishFaultApplied(FaultRule rule, ExchangeContext context, FaultClose? close) =>
         events.Publish(new FaultAppliedEvent(
-            rule.Id, rule.Kind, FaultStage.Accept, context.ExchangeId, ReportedListenUrl.Format(context.ListenUrl)));
+            rule.Id, rule.Kind, FaultStage.Accept, context.ExchangeId, ReportedListenUrl.Format(context.ListenUrl))
+        {
+            Close = close,
+        });
 
     // A listen URL that is TLS from the first byte (ListenUrl.IsImplicitTls) gets its handshake here, and the
     // server sees the connection only once it completed (ADR-0010, section 2).

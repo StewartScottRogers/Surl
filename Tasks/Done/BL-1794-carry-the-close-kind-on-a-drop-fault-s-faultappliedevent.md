@@ -5,10 +5,10 @@ priority: Low
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests, Surl.Core.UnitLibrary, Surl.Core.UnitTests, Surl.Control.UnitLibrary, Surl.Control.UnitTests, Surl.Mcp.UnitTests, Documentation/Planning/Decisions/ADR-0188-a-drop-fault-cuts-a-transfer-with-a-graceful-close-after-n-bytes-through-the-close-key.md]
+touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests, Surl.Core.UnitLibrary, Surl.Core.UnitTests, Surl.Control.UnitLibrary, Surl.Control.UnitTests, Surl.Mcp.UnitTests, Documentation/Planning/Decisions/ADR-0188-a-drop-fault-cuts-a-transfer-with-a-graceful-close-after-n-bytes-through-the-close-key.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1794 — Carry the close kind on a drop fault's FaultAppliedEvent
 
@@ -57,24 +57,39 @@ control endpoint's events). Seeding, reset and fault configuration are unchanged
 
 ## Acceptance criteria
 
-- [ ] `FaultAppliedEvent` has `FaultClose? Close { get; init; }`; a test in `Surl.Protocol.Abstractions.UnitTests`
+- [x] `FaultAppliedEvent` has `FaultClose? Close { get; init; }`; a test in `Surl.Protocol.Abstractions.UnitTests`
       pins that `WriteMembers` writes `Close` when set and writes no `Close` member when null, with every other member
       unchanged.
-- [ ] Regression tests in `Surl.Core.UnitTests` (beside the existing graceful-close drop tests) pin `Close` on the
+- [x] Regression tests in `Surl.Core.UnitTests` (beside the existing graceful-close drop tests) pin `Close` on the
       published event: `Graceful` for a `Close = FaultClose.Graceful` after-bytes rule, `Reset` for a reset after-bytes
       rule, and `Reset` for a drop before any byte - so the two rules in the repro no longer publish identical events.
-- [ ] A test in `Surl.Control.UnitTests` pins the control event JSON of a graceful drop's event with `"close":"graceful"`,
+- [x] A test in `Surl.Control.UnitTests` pins the control event JSON of a graceful drop's event with `"close":"graceful"`,
       and one of a non-drop `FaultAppliedEvent` with no `close` member.
-- [ ] A test in `Surl.Mcp.UnitTests` (`RecordedEventWriterTests`) pins `"close":"graceful"` on a `fault_applied` event.
-- [ ] ADR-0188 has an amendment, marked "Decided by Claude under Stewart's delegation", stating that the `Accept`-stage
+- [x] A test in `Surl.Mcp.UnitTests` (`RecordedEventWriterTests`) pins `"close":"graceful"` on a `fault_applied` event.
+- [x] ADR-0188 has an amendment, marked "Decided by Claude under Stewart's delegation", stating that the `Accept`-stage
       drop event carries `Close` (`Reset` or `Graceful`), that command-stage drop events leave it null, and that
       decision 3's "same event" no longer holds; the log notes are unchanged.
-- [ ] `dotnet build -warnaserror` is clean for the three changed libraries, `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build -warnaserror` is clean for the three changed libraries, `dotnet test --filter "TestCategory!=Integration"`
       passes, and each changed library keeps 100% line and branch coverage.
 
 ## Notes
+
+- Plan (protocol-architect): the task's design held. `PublishFaultApplied` now takes the close from its caller:
+  `null` for a `Delay`, `Graceful` for the graceful cut, `Reset` through `NoteAndPublishDrop`.
+- Choice: a datagram flow's drop says `Reset`, even under a graceful rule, and so does a graceful rule without
+  `AfterBytes`: `Close` is how the engine ended the exchange, never `rule.Close`. Recorded in ADR-0188, amendment 4.
+- One `protocol-implementer` delegation covered all three libraries (a few lines each, sequential dependency).
+- Conformance stage skipped: no option, exit code or protocol byte changed; only event JSON gained a field, which
+  upstream curl never sees.
+- Added `Documentation/Planning/Decisions/README.md` to `touches`: its ADR-0188 row records amendment 4. No other task
+  in `Doing` named it.
+- Also fixed `FaultRule.Close`'s XML doc, which said no server read it.
+- Results: build 0 warnings, format clean, fast tests green in all 83 test projects; Abstractions, Core and Control at
+  100% line and branch coverage, 0 failing members. Code review: nothing to fix.
+- Filed BL-1796: ADR-0188 promises a graceful HTTP/3 close that the code does not do.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. An Accept-stage drop's FaultAppliedEvent carries Close (Reset or Graceful) in Surl.Api, surl-mcp event JSON and control endpoint event JSON
