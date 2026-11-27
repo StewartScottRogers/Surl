@@ -35,8 +35,9 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `--self-signed` with `--cert` is refused.
 - Proxy configuration (ADR-0088 decision 7 and Amendment 5, BL-1002): `SurlCommandLine.ProxyListenUrls`,
   `ProxyAccounts`, `ProxyUserFile` and `ProxyAllowedOrigins`, with their readers:
-  `ListenUrlParser.ParseProxy` (`http` or `https` only, `ProxyDefaultPorts` 1080 and 443, `ListenUrl.IsProxy`
-  set; any other scheme `UnsupportedProtocol`), `OptionArgumentReader.ProxyListenUrlText`, `ReadAccount` and
+  `ListenUrlParser.ParseProxy` (`http`, `https`, `socks4`, `socks4a`, `socks5` or `socks5h` only;
+  `ProxyDefaultPorts` 443 for `https` and 1080 for each of the other five, the SOCKS schemes by ADR-0121
+  decision 5; `ListenUrl.IsProxy` set; any other scheme `UnsupportedProtocol`), `OptionArgumentReader.ProxyListenUrlText`, `ReadAccount` and
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
   `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`; their option rows are BL-1004's.
   `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
