@@ -62,3 +62,4 @@ No stand-in store, event or fault applies: this task changes prose only.
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
