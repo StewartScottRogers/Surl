@@ -34,3 +34,4 @@ ADR-0057 says when `surl: warning: --keytab is unused: --auth accepts neither ne
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
