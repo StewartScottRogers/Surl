@@ -43,8 +43,15 @@ internal sealed class UnitTestTimeProvider : TimeProvider
         }
     }
 
+    /// <summary>
+    /// Runs as each timer is created, before it is armed: after its owner worked out the due time, so
+    /// a test that moves the clock here moves it between the two.
+    /// </summary>
+    public Action? BeforeTimerIsArmed { get; set; }
+
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
+        BeforeTimerIsArmed?.Invoke();
         var timer = new UnitTestTimer(this, callback, state);
         timer.Change(dueTime, period);
         return timer;

@@ -219,6 +219,31 @@ public sealed partial class QuicDatagramFlowServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ClockPassesTheClosingStatesEndAsItsTimerIsArmed_Ends()
+    {
+        using var key = RSA.Create(2048);
+        using var client = new UnitTestFlowClient();
+        var protocol = new UnitTestApplicationProtocol((connection, token) => connection.CloseAsync(0x100, token).AsTask());
+
+        var serving = client.Server(UnitTestCertificates.Options(key), protocol).ServeAsync(client.Flow, TestContext.CancellationToken);
+        await client.CompleteHandshakeAsync(TestContext.CancellationToken);
+        await client.UntilAsync(() => client.OneRttFrames<QuicConnectionCloseFrame>().Any(), TestContext.CancellationToken);
+        var sentBeforeTheLostClose = client.Flow.SentDatagrams.Count;
+
+        // Only the timer armed after the repeated close has nothing but itself left to wake the server.
+        client.Time.BeforeTimerIsArmed = () =>
+        {
+            if (client.Flow.SentDatagrams.Count > sentBeforeTheLostClose)
+            {
+                client.Time.Advance(TimeSpan.FromMinutes(1));
+            }
+        };
+        client.SendOneRtt(new QuicPingFrame());
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_CancelledInTheClosingState_ThrowsOperationCanceledAtOnce()
     {
         using var key = RSA.Create(2048);
