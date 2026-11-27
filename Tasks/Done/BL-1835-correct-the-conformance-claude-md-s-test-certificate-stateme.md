@@ -48,7 +48,7 @@ Stand-in questions: this task changes prose only.
   built, but the run composes no server half for them. The amendment says that instead of the
   title's wording. All 9 cases naming an `rtsp` server are libtest programs (counted with
   PowerShell over the imported data).
-- Stale statements outside this task's goal are filed as BL-1850 (XML comments) and BL-1851
+- Stale statements outside this task's goal are filed as BL-1855 (XML comments) and BL-1856
   (ADR-0080's amendment list and rows).
 - Verification: `dotnet build` 0 warnings, 0 errors; fast tests 30,198 passed, exit code 0.
   Only Markdown changed, so `dotnet format` was not run.

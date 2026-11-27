@@ -1,5 +1,5 @@
 ---
-id: BL-1850
+id: BL-1855
 title: Correct the upstream test-case server doc comments on IsBuilt, adding a server half and the TLS-SRP listener
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1850 — Correct the upstream test-case server doc comments on IsBuilt, adding a server half and the TLS-SRP listener
+# BL-1855 — Correct the upstream test-case server doc comments on IsBuilt, adding a server half and the TLS-SRP listener
 
 ## Goal
 
