@@ -1,5 +1,5 @@
 ---
-id: BL-1980
+id: BL-1981
 title: Make the IAuthenticationPolicy member comments name every caller truthfully
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1980 — Make the IAuthenticationPolicy member comments name every caller truthfully
+# BL-1981 — Make the IAuthenticationPolicy member comments name every caller truthfully
 
 ## Goal
 

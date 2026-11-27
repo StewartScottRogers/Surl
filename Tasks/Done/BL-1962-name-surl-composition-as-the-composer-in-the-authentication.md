@@ -55,7 +55,7 @@ No store, event or fault is involved: comments only.
   policy, not one shared object.
 - Verified 2026-11-27: `dotnet build -warnaserror` of the solution 0 warnings, `dotnet format --verify-no-changes`
   clean, fast tests 30378 passed, 0 failed, 3 skipped.
-- Stale member comments in `IAuthenticationPolicy.cs`, outside this task's criteria, are filed as BL-1980. The
+- Stale member comments in `IAuthenticationPolicy.cs`, outside this task's criteria, are filed as BL-1981. The
   `Surl.Authentication` notes that name `Surl.Console` are already BL-1963.
 
 ## Log
