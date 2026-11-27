@@ -39,7 +39,7 @@ Compare `UpstreamCurlBuilds.json`, `.github/workflows/release.yml` and the Roadm
 - Delivered by `align-and-document`: both files updated. The README `surl-mcp` list is a table of the 40 tools `Application/Surl.Mcp/Program.cs` registers (lines 141-180).
 - Checked: `UpstreamCurlBuilds.json` pins all six platforms; `release.yml` runs conformance on every runtime identifier but `win-x64`; every `BL-` ID either file cites is in `Done` or its archives.
 - `dotnet build` clean (0 warnings); fast tests: 30,128 passed in 83 assemblies. No `.cs` or project file changed, so no format run.
-- Out of scope, filed: BL-1800 (protocol server count, `Protocols/Proxy/` row) and BL-1801 (`Surl.Mcp/CLAUDE.md` tool list). If the shift renumbers them, find them by title.
+- Out of scope, filed: BL-1806 (protocol server count, `Protocols/Proxy/` row) and BL-1807 (`Surl.Mcp/CLAUDE.md` tool list). If the shift renumbers them, find them by title.
 
 ## Log
 

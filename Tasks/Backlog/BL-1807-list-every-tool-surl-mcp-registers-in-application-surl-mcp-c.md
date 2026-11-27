@@ -1,5 +1,5 @@
 ---
-id: BL-1801
+id: BL-1807
 title: List every tool surl-mcp registers in Application/Surl.Mcp/CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1801 — List every tool surl-mcp registers in Application/Surl.Mcp/CLAUDE.md
+# BL-1807 — List every tool surl-mcp registers in Application/Surl.Mcp/CLAUDE.md
 
 ## Goal
 

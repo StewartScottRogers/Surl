@@ -1,5 +1,5 @@
 ---
-id: BL-1800
+id: BL-1806
 title: Correct the product overview's protocol server count and add the Proxy folder to the README repository layout
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1800 — Correct the product overview's protocol server count and add the Proxy folder to the README repository layout
+# BL-1806 — Correct the product overview's protocol server count and add the Proxy folder to the README repository layout
 
 ## Goal
 
