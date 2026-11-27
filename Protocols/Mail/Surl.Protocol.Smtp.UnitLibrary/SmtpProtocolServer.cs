@@ -91,9 +91,10 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">
     /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
-    /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so
-    /// <c>EHLO</c> advertises it and <c>STARTTLS</c> is answered <c>220</c> and upgraded; when
-    /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>454</c> (ADR-0053, decision 5).
+    /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>) or TLS-SRP
+    /// is served (ADR-0122, decision 5), so <c>EHLO</c> advertises it and <c>STARTTLS</c> is
+    /// answered <c>220</c> and upgraded; when <see langword="false"/>, <c>STARTTLS</c> is answered
+    /// <c>454</c> (ADR-0053, decision 5).
     /// </param>
     public SmtpProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable = false)
         : this(authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, caseReplies: null)

@@ -22,7 +22,8 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   (`421 4.3.2 surl Too many connections, closing`). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
   `AuthenticationPolicy` as both), the shared `MailboxStore`, and `isTlsUpgradeAvailable`, which
-  `Surl.Console` sets when `--cert` or `--self-signed` is given.
+  `Surl.Composition` sets with a certificate (`--cert` or `--self-signed`) or under TLS-SRP
+  (ADR-0122 decision 5; `ServerTlsComposition.IsTlsUpgradeAvailable`).
 - `SmtpSession`: one connection. The greeting, then each CRLF line read with `CrlfLineReader`
   and answered with `ReplyLineWriter` (`Surl.LineProtocol`) from the fixed lines in
   `SmtpReplies`, split by `SmtpCommandLine`: `EHLO` (`SIZE`, `8BITMIME`, `SMTPUTF8`,
@@ -55,8 +56,9 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
   that throws after a delivered message is noted and still answered `250`.
 - `STARTTLS` (decision 5): `220`, then `CrlfLineReader.DiscardBuffered`, then
-  `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` without a certificate,
-  `503` on a TLS connection.
+  `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` only when no upgrade is
+  available (`isTlsUpgradeAvailable` false: no certificate and no TLS-SRP), `503` on a TLS
+  connection.
 - Limits (decision 7, ADR-0059): `500` past `--max-line`, `421` past `--head-timeout`, `552`
   past `--max-filesize`, each then closing, written within `LimitReplyWriteDeadline`; an
   exchange cancelled for a limit (`ExchangeContext.IsCancelledForALimit`) is answered

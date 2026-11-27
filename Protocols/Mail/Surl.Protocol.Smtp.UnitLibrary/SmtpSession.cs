@@ -186,7 +186,8 @@ internal sealed partial class SmtpSession
         return capabilities.Select((capability, index) => (index == capabilities.Count - 1 ? "250 " : "250-") + capability).ToList();
     }
 
-    // STARTTLS is offered only on a plaintext connection of a server with a certificate (RFC 3207).
+    // STARTTLS is offered only on a plaintext connection of a server that can upgrade, one with a
+    // certificate or serving TLS-SRP (RFC 3207; ADR-0122, decision 5).
     private bool CanUpgrade => isTlsUpgradeAvailable && connection.TlsSession is null;
 
     private async ValueTask<bool> AnswerMailAsync(byte[]? argument)
