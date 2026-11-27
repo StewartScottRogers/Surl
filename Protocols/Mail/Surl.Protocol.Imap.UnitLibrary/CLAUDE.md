@@ -24,7 +24,9 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   (`* BYE surl Too many connections, closing`). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
   `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into, and
-  `isTlsUpgradeAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given.
+  `isTlsUpgradeAvailable`, which `Surl.Composition` sets from
+  `ServerTlsComposition.IsTlsUpgradeAvailable`: true with a certificate (`--cert` or
+  `--self-signed`) or under TLS-SRP (ADR-0122 decision 5).
 - `ImapSession` (with `ImapSession.Authentication.cs` and `ImapSession.Changes.cs`): one
   connection, its state and its responses from `ImapResponses`. `ImapCommandReader` reads each
   command, its synchronizing literals checked before the `+` continuation and the whole bounded
@@ -80,7 +82,8 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   answers `NO [UNAVAILABLE] Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). A client that closes or resets during a `Delay` hold gets no answer and the session ends (ADR-0141 amendment 3, BL-1545).
 - `STARTTLS` (decision 11): `OK Begin TLS negotiation now`, then
   `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`; `BAD STARTTLS not
-  available` without a certificate, `BAD Already using TLS` on a TLS connection.
+  available` only when no upgrade is available (neither a certificate nor TLS-SRP), `BAD Already
+  using TLS` on a TLS connection.
 - Limits (decision 12, ADR-0059): an exchange cancelled for its idle timeout or maximum
   duration (`ExchangeContext.IsCancelledForALimit`) is answered `* BYE surl Timeout, closing`
   and closed, within `LimitReplyWriteDeadline` on a deadline linked to `ShutdownToken`, never to

@@ -81,10 +81,13 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     /// </param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">
-    /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
-    /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so the
-    /// capabilities advertise it and <c>STARTTLS</c> is answered <c>OK</c> and upgraded; when
-    /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>BAD STARTTLS not available</c>
+    /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>.
+    /// <c>Surl.Composition</c> passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>,
+    /// <see langword="true"/> when a server certificate is configured (<c>--cert</c> or
+    /// <c>--self-signed</c>) or TLS-SRP is served (ADR-0122, decision 5). When
+    /// <see langword="true"/>, the capabilities advertise <c>STARTTLS</c> before a login on a
+    /// plaintext connection and it is answered <c>OK</c> and upgraded; when
+    /// <see langword="false"/>, it is answered <c>BAD STARTTLS not available</c>
     /// (ADR-0055, decision 11).
     /// </param>
     public ImapProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable = false)
