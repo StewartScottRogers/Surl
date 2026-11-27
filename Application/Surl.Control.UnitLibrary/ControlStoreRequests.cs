@@ -153,7 +153,10 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
     /// <summary><c>POST /v1/accounts</c>: adds the JSON body's account.</summary>
     /// <param name="request">The request.</param>
-    /// <returns><c>204</c>.</returns>
+    /// <returns>
+    /// <c>204</c>; <c>409</c> when an account has that name, or the name is empty and the Bearer-token account exists.
+    /// The existing account is kept.
+    /// </returns>
     public Task<HttpAnswer> AddAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddAccountAsync, allowEmptyUser: true);
 
     /// <summary><c>DELETE /v1/accounts/{user}</c>.</summary>
@@ -164,7 +167,9 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
     /// <summary><c>POST /v1/proxy-accounts</c>: adds the JSON body's proxy account (ADR-0170 decision 4).</summary>
     /// <param name="request">The request.</param>
-    /// <returns><c>204</c>; <c>409</c> when no proxy account is configured.</returns>
+    /// <returns>
+    /// <c>204</c>; <c>409</c> when a proxy account has that name, which is kept, or when no proxy account is configured.
+    /// </returns>
     public Task<HttpAnswer> AddProxyAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddProxyAccountAsync);
 
     /// <summary><c>DELETE /v1/proxy-accounts/{user}</c>.</summary>
@@ -175,7 +180,9 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
     /// <summary><c>POST /v1/tls-srp-accounts</c>: adds the JSON body's TLS-SRP account (ADR-0170 decision 4).</summary>
     /// <param name="request">The request.</param>
-    /// <returns><c>204</c>; <c>409</c> when TLS-SRP is not configured.</returns>
+    /// <returns>
+    /// <c>204</c>; <c>409</c> when a TLS-SRP account has that name, which is kept, or when TLS-SRP is not configured.
+    /// </returns>
     public Task<HttpAnswer> AddTlsSrpAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddTlsSrpAccountAsync);
 
     /// <summary><c>DELETE /v1/tls-srp-accounts/{user}</c>.</summary>

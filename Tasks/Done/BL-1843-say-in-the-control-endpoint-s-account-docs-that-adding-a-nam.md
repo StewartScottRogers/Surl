@@ -8,7 +8,7 @@ depends-on: [BL-1829]
 touches: [Application/Surl.Control.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1843 — Say in the control endpoint's account docs that adding a name already taken answers 409
 
@@ -36,19 +36,26 @@ executable line changes. No store, event or fault changes.
 
 ## Acceptance criteria
 
-- [ ] The `CLAUDE.md` says `POST /v1/accounts`, `/v1/proxy-accounts` and `/v1/tls-srp-accounts` answer `409` for a
+- [x] The `CLAUDE.md` says `POST /v1/accounts`, `/v1/proxy-accounts` and `/v1/tls-srp-accounts` answer `409` for a
       name already taken, keeping the account, and the last two also when the store is not configured.
-- [ ] It keeps `409` on the proxy and TLS-SRP `DELETE` routes for an unconfigured store only.
-- [ ] The `<returns>` of `ControlStoreRequests.AddAccountAsync`, `AddProxyAccountAsync` and
+- [x] It keeps `409` on the proxy and TLS-SRP `DELETE` routes for an unconfigured store only.
+- [x] The `<returns>` of `ControlStoreRequests.AddAccountAsync`, `AddProxyAccountAsync` and
       `AddTlsSrpAccountAsync` give `409` for a name already taken, the last two also for an unconfigured store.
-- [ ] The `<returns>` of `IControlTarget.AddProxyAccountAsync` and `AddTlsSrpAccountAsync` name both reasons for
+- [x] The `<returns>` of `IControlTarget.AddProxyAccountAsync` and `AddTlsSrpAccountAsync` name both reasons for
       `ControlRefusalKind.Conflict`.
-- [ ] `dotnet build Application/Surl.Control.UnitTests -warnaserror` is clean, and the only changed lines in `.cs`
+- [x] `dotnet build Application/Surl.Control.UnitTests -warnaserror` is clean, and the only changed lines in `.cs`
       files are comments.
 
 ## Notes
+
+- 2026-11-27: Checked against `ComposedControlTarget`. The `CLAUDE.md` "Account routes" bullet now says "not
+  configured" where it said "not composed", as the "Password changes" bullet does. For the account book, a taken
+  name includes a second Bearer-token (empty-name) account.
+- Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30198
+  passed, 0 failed, 3 skipped. No integration tests run: only comments and prose changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The control library's account docs give 409 for a name already taken on all three account additions, and for an unconfigured proxy or TLS-SRP store
