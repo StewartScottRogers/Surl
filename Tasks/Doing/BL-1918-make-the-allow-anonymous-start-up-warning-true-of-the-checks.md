@@ -39,3 +39,4 @@ The `--allow-anonymous` start-up warning, its doc comment and `README.md` no lon
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
