@@ -1,8 +1,12 @@
 namespace Surl.Conformance;
 
 /// <summary>
-/// ADR-0080 decision 2's table of the server names test cases list: each name's scheme and
-/// whether Surl's server half for it is built. Building a server is one row's change.
+/// ADR-0080 decision 2's table of the server names test cases list: each name's scheme, its
+/// <see cref="UpstreamTestCaseServer.IsBuilt"/> flag and, for some, the port or socket path
+/// variable. Building a server can take more than one row's change (ADR-0080's 2026-11-26
+/// amendment): <c>Surl.Conformance.UnitTests</c>' <c>UpstreamTestCasesAgainstSurlTests</c> also
+/// lists the name in its <c>ServerFamilies</c> and, for a server on a port whose row carries no
+/// port variable, names that variable itself.
 /// </summary>
 public static class UpstreamTestCaseServers
 {
