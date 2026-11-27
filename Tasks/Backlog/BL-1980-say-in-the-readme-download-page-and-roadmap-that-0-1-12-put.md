@@ -1,5 +1,5 @@
 ---
-id: BL-1977
+id: BL-1980
 title: Say in the README, download page and roadmap that 0.1.12 put both packages on nuget.org
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1977 — Say in the README, download page and roadmap that 0.1.12 put both packages on nuget.org
+# BL-1980 — Say in the README, download page and roadmap that 0.1.12 put both packages on nuget.org
 
 ## Goal
 
