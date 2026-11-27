@@ -27,8 +27,8 @@ namespace Surl.Protocol.Pop3;
 /// after it is thrown away unrun, and the connection is upgraded; the session starts over in the
 /// AUTHORIZATION state. <c>pop3s</c> is implicit TLS that the engine completes before
 /// <see cref="ServeAsync"/>: the server tells the two apart by <see cref="IConnection.TlsSession"/>,
-/// never by the scheme, and <c>Surl.Console</c> registers it for <c>pop3s</c> (ADR-0056,
-/// decision 8).
+/// never by the scheme, and <c>Surl.Composition</c> registers <c>pop3s</c> as an
+/// <c>ImplicitTlsSchemeServer</c> over the <c>pop3</c> server (ADR-0056, decision 8).
 /// </para>
 /// <para>
 /// <b>Logins.</b> <c>USER</c> is accepted for any name, so no reply tells whether an account
@@ -82,8 +82,8 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <param name="mailAuthenticationPolicy">Says what <c>CAPA</c> and the greeting offer in the
     /// connection's TLS state - <c>USER</c>, the SASL mechanisms, an <c>APOP</c> timestamp
     /// (ADR-0049, section 2) - and runs each <c>AUTH</c> exchange and <c>APOP</c> check (ADR-0049,
-    /// section 6). <c>Surl.Console</c> passes the same object as
-    /// <paramref name="authenticationPolicy"/>.</param>
+    /// section 6). <c>Surl.Composition</c> passes the <c>pop3</c> scheme's one
+    /// <c>AuthenticationPolicy</c> as both this and <paramref name="authenticationPolicy"/>.</param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">
     /// Whether a plaintext connection can be upgraded with <c>STLS</c>. <c>Surl.Composition</c>

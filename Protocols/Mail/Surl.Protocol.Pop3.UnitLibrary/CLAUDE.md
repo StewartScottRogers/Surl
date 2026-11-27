@@ -2,25 +2,26 @@
 
 Phase 3. The POP3 server (RFC 1939) that serves each owner's `INBOX` to upstream curl as a
 maildrop, built as
-[ADR-0056](../Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)
+[ADR-0056](../../../Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)
 decides, on the mail store, the maildrop lock and the line machinery of
-[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+[ADR-0050](../../../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
 with the logins of
-[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md).
+[ADR-0049](../../../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md).
 Terms (mail store, owner, anonymous owner, UID and UIDVALIDITY, maildrop, maildrop lock, view,
 CRLF line, reply line, dot-stuffing, STARTTLS discard, SASL mechanism, SASL exchange, APOP
 timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-**URL schemes answered:** `pop3`, and `pop3s` through `Surl.Console`'s
-`ImplicitTlsSchemeServer`: the server claims `pop3` only and tells implicit TLS apart by
-`IConnection.TlsSession`, never by the scheme.
+**URL schemes answered:** `pop3`, and `pop3s`, which `Surl.Composition` registers as an
+`ImplicitTlsSchemeServer` over the `pop3` server: the server claims `pop3` only and tells
+implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
 - `Pop3ProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
   (`-ERR surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
-  `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
+  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the
+  `pop3` scheme's one `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server
+  delivers into,
   `isTlsUpgradeAvailable`, which `Surl.Composition` sets when a certificate is configured (`--cert`
   or `--self-signed`) or TLS-SRP is served (ADR-0122 decision 5), and an optional
   `RandomNumberGenerator` for the `APOP` timestamp.

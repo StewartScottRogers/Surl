@@ -8,7 +8,7 @@ depends-on: [BL-1929]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1946 — Correct the Surl.Composition ownership claims and ADR links in the POP3 library
 
@@ -42,15 +42,22 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] `CLAUDE.md` and the `Pop3ProtocolServer` remarks say `Surl.Composition` registers `pop3s` as an `ImplicitTlsSchemeServer` over the `pop3` server.
-- [ ] `CLAUDE.md` and the `mailAuthenticationPolicy` param say `Surl.Composition` passes the `pop3` scheme's one `AuthenticationPolicy` as both policy arguments.
-- [ ] No comment or `CLAUDE.md` line in the library says `Surl.Console` registers or composes the server.
-- [ ] Every relative link in the library's `CLAUDE.md` resolves to a file in the repository.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] `CLAUDE.md` and the `Pop3ProtocolServer` remarks say `Surl.Composition` registers `pop3s` as an `ImplicitTlsSchemeServer` over the `pop3` server.
+- [x] `CLAUDE.md` and the `mailAuthenticationPolicy` param say `Surl.Composition` passes the `pop3` scheme's one `AuthenticationPolicy` as both policy arguments.
+- [x] No comment or `CLAUDE.md` line in the library says `Surl.Console` registers or composes the server.
+- [x] Every relative link in the library's `CLAUDE.md` resolves to a file in the repository.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- 2026-11-27: Delivered by `align-and-document`. Claims checked against `ProtocolServerRegistrations`,
+  `ProtocolServerRegistration.ImplicitTls` and `SchemeAuthenticationPolicies` in `Surl.Composition`.
+- Verify: build 0 warnings and 0 errors; `dotnet format --verify-no-changes` clean; fast tests 30368 passed, 0 failed,
+  3 skipped. Integration tests not run: only comments and `CLAUDE.md` changed.
+- Other inaccurate or incomplete statements found, outside this task's criteria, filed as BL-1952.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The POP3 library's comments and CLAUDE.md name Surl.Composition as the composer, and its three ADR links resolve.
