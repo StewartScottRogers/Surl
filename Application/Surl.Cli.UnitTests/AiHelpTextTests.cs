@@ -291,6 +291,75 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    [DataRow("amqp", "an `amqps`")]
+    [DataRow("azure-storage", "an `az` or `abfss`")]
+    [DataRow("gopher", "a `gophers`")]
+    [DataRow("grpc", "a `grpcs`")]
+    [DataRow("gs", "a `gs`")]
+    [DataRow("http", "an `https`")]
+    [DataRow("kafka", "a `kafkas`")]
+    [DataRow("mcp", "an `mcps`")]
+    [DataRow("mqtt", "an `mqtts`")]
+    [DataRow("nats", "a `natss`")]
+    [DataRow("oci", "an `oci`")]
+    [DataRow("redis", "a `rediss`")]
+    [DataRow("s3", "an `s3`")]
+    [DataRow("signalr", "a `signalrs`")]
+    [DataRow("socketio", "a `socketios`")]
+    [DataRow("smb", "an `smbs`")]
+    [DataRow("stomp", "a `stomps`")]
+    [DataRow("websocket", "a `wss`")]
+    public void Answer_TopicOfATlsScheme_SaysTlsSrpServesItWithoutACertificate(string topic, string listener)
+    {
+        Assert.Contains($"so {listener} listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic)", AiHelpText.Answer(topic).Output);
+    }
+
+    [TestMethod]
+    [DataRow("mqtt5", "`mqtt5s` needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).")]
+    [DataRow("gs", "so a `gs` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic), and with none of them it exits 58;")]
+    [DataRow("proxy", "An `https` proxy needs `--cert` and `--key`, `--self-signed` for a test, or TLS-SRP, under which it agrees only `http/1.1`, never `h2` (see the tls topic).")]
+    [DataRow("tls", "so a listen URL of one of them needs a certificate or TLS-SRP (below).")]
+    [DataRow("tls", "Without `--cert`, `--self-signed` and TLS-SRP, such a listen URL writes `surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one` and exits 58")]
+    [DataRow("webtransport", "so a `webtransport` listen URL needs `--cert` or `--self-signed`, under TLS-SRP too (see the tls topic);")]
+    [DataRow("dns", "TLS 1.3 only, ALPN `doq`, it needs `--cert` or `--self-signed` (else exit 58), under TLS-SRP too,")]
+    [DataRow(
+        "coap",
+        "A `coaps` listen URL needs `--cert`, `--self-signed` or an account, else it exits 58, under TLS-SRP too: TLS-SRP does not secure DTLS, "
+        + "and its `--tlsuser` and `--srp-verifiers` accounts are not pre-shared keys.")]
+    public void Answer_TopicWithItsOwnCertificateSentence_SaysWhatTlsSrpChangesThere(string topic, string sentence)
+    {
+        Assert.Contains(sentence, AiHelpText.Answer(topic).Output);
+    }
+
+    [TestMethod]
+    [DataRow(
+        "http",
+        "Under TLS-SRP `h2` is never agreed, only `http/1.1`: every `https` connection is answered HTTP/1.x, "
+        + "and a client that offers ALPN without `http/1.1`, `h2` alone included, is refused with the alert `no_application_protocol`.")]
+    [DataRow(
+        "grpc",
+        "Under TLS-SRP `h2` is never agreed, only `http/1.1`: a client that offers ALPN without `http/1.1`, `h2` alone included, is refused with the alert `no_application_protocol`, "
+        + "and one that offers `http/1.1` or no ALPN is served when it then sends the HTTP/2 preface.")]
+    [DataRow(
+        "dns",
+        "and it needs `--cert`, `--self-signed` or TLS-SRP (else exit 58). The handshake agrees ALPN `dot`, accepts a client that offers none and ends one that offers only other protocols "
+        + "with alert `no_application_protocol`, except under TLS-SRP, which never agrees `dot`, only `http/1.1`: a client that offers no ALPN, or offers `http/1.1`, is served, "
+        + "and one that offers ALPN without `http/1.1`, `dot` alone included, is refused with the alert `no_application_protocol`.")]
+    [DataRow("dns", "default port 443; it needs `--cert`, `--self-signed` or TLS-SRP (else exit 58),")]
+    [DataRow(
+        "dns",
+        "Under TLS-SRP `h2` is never agreed, only `http/1.1`: a client that offers `http/1.1` or no ALPN is answered over HTTP/1.1, "
+        + "and one that offers ALPN without `http/1.1`, `h2` alone included, is refused with the alert `no_application_protocol`.")]
+    [DataRow(
+        "dns",
+        "TLS-SRP options need a listen URL that uses TLS, and a `dns` one does not count, whatever `--dns-transport` says (see the tls topic): "
+        + "`tls` or `https` under TLS-SRP needs another such listen URL, such as an `https` one, beside the `dns` one, else surl exits 2.")]
+    public void Answer_TopicOfAServerThatOffersItsOwnAlpn_SaysWhatTlsSrpAgreesInstead(string topic, string sentences)
+    {
+        Assert.Contains(sentences, AiHelpText.Answer(topic).Output);
+    }
+
+    [TestMethod]
     public void Answer_TlsTopic_SaysQuicAndDtlsListenersStillNeedACertificateUnderTlsSrp()
     {
         var tls = AiHelpText.Answer("tls").Output;
