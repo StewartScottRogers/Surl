@@ -1,5 +1,5 @@
 ---
-id: BL-1959
+id: BL-1975
 title: Correct the IMAP SPECIAL-USE timing and redactor masking statements to match the code
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1959 — Correct the IMAP SPECIAL-USE timing and redactor masking statements to match the code
+# BL-1975 — Correct the IMAP SPECIAL-USE timing and redactor masking statements to match the code
 
 ## Goal
 

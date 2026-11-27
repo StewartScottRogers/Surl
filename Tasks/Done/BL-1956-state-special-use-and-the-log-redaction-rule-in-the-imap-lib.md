@@ -43,9 +43,9 @@ No store, event or fault is involved: documentation only.
 - `align-and-document` made the edit under "What it holds", checking each statement against the source. The redaction
   text also cites ADR-0183 amendment 1, which settles the literal question decision 5 left open.
 - Where ADR-0055 Amendment 1 point 3 ("decided at start") and the code (asked each time the capability list is written)
-  differ, `CLAUDE.md` follows the code. BL-1959 corrects the ADR or the code.
+  differ, `CLAUDE.md` follows the code. BL-1975 corrects the ADR or the code.
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: no failures.
-- Follow-ups filed: BL-1958 (`CREATE` with an empty `USE` list), BL-1959 (ADR and XML comment wording), BL-1960
+- Follow-ups filed: BL-1974 (`CREATE` with an empty `USE` list), BL-1975 (ADR and XML comment wording), BL-1976
   (folder uses not persisted).
 
 ## Log

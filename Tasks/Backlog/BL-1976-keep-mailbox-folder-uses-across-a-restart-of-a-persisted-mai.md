@@ -1,5 +1,5 @@
 ---
-id: BL-1960
+id: BL-1976
 title: Keep mailbox folder uses across a restart of a persisted mail store
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1960 — Keep mailbox folder uses across a restart of a persisted mail store
+# BL-1976 — Keep mailbox folder uses across a restart of a persisted mail store
 
 ## Goal
 

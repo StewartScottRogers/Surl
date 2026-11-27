@@ -1,5 +1,5 @@
 ---
-id: BL-1958
+id: BL-1974
 title: Refuse IMAP CREATE with an empty USE list while SPECIAL-USE is not offered
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1958 — Refuse IMAP CREATE with an empty USE list while SPECIAL-USE is not offered
+# BL-1974 — Refuse IMAP CREATE with an empty USE list while SPECIAL-USE is not offered
 
 ## Goal
 
@@ -43,7 +43,7 @@ What decides it:
   (`ImapSpecialUseTests.ServeAsync_CreateWithAUse_SucceedsAndTheMailboxListsWithIt`).
 
 "Offered" is what the capability list asks: today `MailboxStore.HoldsAnyFolderUse` (`ImapSession.cs`, about lines
-115-116). BL-1959 decides when that is evaluated; this task keeps whatever predicate the code uses when it runs.
+115-116). BL-1975 decides when that is evaluated; this task keeps whatever predicate the code uses when it runs.
 
 Upstream curl (8.21.0) never sends a use attribute on its own (`Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures/README.md`,
 "SPECIAL-USE") and sends an `-X` command as given (ADR-0055, "What upstream curl 8.21.0 does"). The refusal line is the
