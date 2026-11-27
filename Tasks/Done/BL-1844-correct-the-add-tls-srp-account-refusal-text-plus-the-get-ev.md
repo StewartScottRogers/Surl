@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1844 — Correct the add_tls_srp_account refusal text plus the get_events description in surl-mcp
 
@@ -58,21 +58,25 @@ before, and only text an agent reads changes. Upstream curl has no say in an MCP
 
 ## Acceptance criteria
 
-- [ ] `AddTlsSrpAccountTool` answers `user <user> already has a TLS-SRP account` for a taken name, and neither
+- [x] `AddTlsSrpAccountTool` answers `user <user> already has a TLS-SRP account` for a taken name, and neither
       that text nor the comment beside it mentions `:`.
-- [ ] `ProxyAndTlsSrpAccountToolsTests.TlsSrpAccount_AddThenRemove_AnswerTheUser` asserts the new text.
-- [ ] A test in `ProxyAndTlsSrpAccountToolsTests` shows that `add_tls_srp_account` with user `a:b` on a server
+- [x] `ProxyAndTlsSrpAccountToolsTests.TlsSrpAccount_AddThenRemove_AnswerTheUser` asserts the new text.
+- [x] A test in `ProxyAndTlsSrpAccountToolsTests` shows that `add_tls_srp_account` with user `a:b` on a server
       started with TLS-SRP answers `{"user":"a:b"}`.
-- [ ] `GetEventsTool.Description` is the sentence quoted in Context, and the class `<summary>` names consumer
+- [x] `GetEventsTool.Description` is the sentence quoted in Context, and the class `<summary>` names consumer
       group changes, received cookies and the `store` and `name` filters.
-- [ ] A test in `Surl.Mcp.UnitTests/GetEventsToolTests` asserts that the description contains
+- [x] A test in `Surl.Mcp.UnitTests/GetEventsToolTests` asserts that the description contains
       `consumer group changes`, `cookies received` and `store, name`.
-- [ ] The tests of `Surl.Mcp.UnitTests` pass with no `TestCategory=Integration`, and
+- [x] The tests of `Surl.Mcp.UnitTests` pass with no `TestCategory=Integration`, and
       `dotnet build Application/Surl.Mcp.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- Both texts changed as Context decided; no behaviour changed, so no ADR. Verified 2026-11-27: solution build with
+  `-warnaserror` clean, `dotnet format --verify-no-changes` clean, all fast tests pass (`Surl.Mcp.UnitTests` 446 of 446).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. surl-mcp's add_tls_srp_account refusal names the one reason (user already has a TLS-SRP account) and get_events' description names every event kind and filter

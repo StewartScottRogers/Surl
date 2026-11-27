@@ -49,8 +49,8 @@ public static class AddTlsSrpAccountTool
         }
         catch (ArgumentException)
         {
-            // A ':' in the user name or a user name taken; the text is written here so no exception text is echoed.
-            return McpToolResult.FromFailure($"user {user} cannot be added: it holds ':' or already has a TLS-SRP account");
+            // A user name taken; the text is written here so no exception text is echoed.
+            return McpToolResult.FromFailure($"user {user} already has a TLS-SRP account");
         }
         catch (InvalidOperationException)
         {

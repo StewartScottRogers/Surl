@@ -86,9 +86,19 @@ public sealed class ProxyAndTlsSrpAccountToolsTests
 
         StoreToolsTests.AssertResult(added, """{"user":"carol"}""");
         Assert.DoesNotContain("pa55-w0rd", added.TextContent[0]);
-        StoreToolsTests.AssertFailure(taken, "user carol cannot be added: it holds ':' or already has a TLS-SRP account");
+        StoreToolsTests.AssertFailure(taken, "user carol already has a TLS-SRP account");
         StoreToolsTests.AssertResult(removed, """{"user":"carol"}""");
         StoreToolsTests.AssertFailure(gone, "server s1 has no TLS-SRP account carol");
+    }
+
+    [TestMethod]
+    public async Task AddTlsSrpAccount_UserNameHoldingAColon_IsAdded()
+    {
+        await using var host = await StartHostAsync("https://127.0.0.1:0", "--tlsuser", "jsmith", "--tlspassword", "abc");
+
+        var added = await CallAsync(host.AddTlsSrpAccount, """{"server_id": "s1", "user": "a:b", "password": "pw"}""");
+
+        StoreToolsTests.AssertResult(added, """{"user":"a:b"}""");
     }
 
     [TestMethod]
