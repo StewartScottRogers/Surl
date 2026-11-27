@@ -43,6 +43,10 @@ No store, event or fault is involved: help text only.
 
 ## Notes
 
+- 2026-11-27 (from BL-1927): the `ManualText.cs` sentences are done there. Left: `--aihelp`. Also check, under the
+  Goal, `ExitCodeGuidanceTable`'s `CertificateProblem` row and `CommandLineOptions`' `SelfSignedExplanation`, which say
+  the same without excepting TLS-SRP.
+
 ## Log
 
 - 2026-11-27: Created.
