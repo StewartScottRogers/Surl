@@ -30,3 +30,4 @@ Found by BL-1799. `Documentation/Product/Product-Overview.md` says 15 protocol s
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
