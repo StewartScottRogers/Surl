@@ -31,9 +31,9 @@ Found by BL-1806. In `Documentation/Product/Product-Overview.md`, Layers rows le
 
 - Users were checked against the production `ProjectReference` entries; test projects are not counted. Every row that lists who uses a library now lists all of them. Rows that only say what a layer depends on were checked as dependencies, and the ones that disagreed with the project files were corrected (Hosts, Composition, Command line, Services, DTLS, TLS 1.3).
 - New Layers rows: Extended servers, Compression codecs, Hand-built TLS-SRP.
-- Rule 1 now follows the allow-list in `ProtocolIsolationTests`, which omitted more than Context named. `Surl.Cookies` is on that list and the HTTP server references it (ADR-0189), but ADR-0002's table has no row for it; Rule 1 says so, and BL-1814 files the ADR correction. `Surl.Tls13Stream` is not on the list and only `Surl.Networking` references it, so Rule 1 leaves it out.
+- Rule 1 now follows the allow-list in `ProtocolIsolationTests`, which omitted more than Context named. `Surl.Cookies` is on that list and the HTTP server references it (ADR-0189), but ADR-0002's table has no row for it; Rule 1 says so, and BL-1836 files the ADR correction. `Surl.Tls13Stream` is not on the list and only `Surl.Networking` references it, so Rule 1 leaves it out.
 - Gates: `dotnet build` 0 warnings; fast tests 30134 passed in 83 assemblies.
-- Follow-ups filed: BL-1814, BL-1815.
+- Follow-ups filed: BL-1836, BL-1837.
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1814
+id: BL-1836
 title: Correct ADR-0002's horizontal library table and the isolation test's ADR list against the project files
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1814 — Correct ADR-0002's horizontal library table and the isolation test's ADR list against the project files
+# BL-1836 — Correct ADR-0002's horizontal library table and the isolation test's ADR list against the project files
 
 ## Goal
 

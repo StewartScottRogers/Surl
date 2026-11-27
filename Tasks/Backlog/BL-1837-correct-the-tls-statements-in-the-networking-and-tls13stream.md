@@ -1,5 +1,5 @@
 ---
-id: BL-1815
+id: BL-1837
 title: Correct the TLS statements in the Networking and Tls13Stream CLAUDE.md files and the product overview, and the README Conformance row
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1815 — Correct the TLS statements in the Networking and Tls13Stream CLAUDE.md files and the product overview, and the README Conformance row
+# BL-1837 — Correct the TLS statements in the Networking and Tls13Stream CLAUDE.md files and the product overview, and the README Conformance row
 
 ## Goal
 
