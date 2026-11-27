@@ -33,3 +33,4 @@ The `--keytab` manual and AI help text state the AMQP 1.0 SASL frame limit that 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
