@@ -1,0 +1,46 @@
+---
+id: BL-1876
+title: Correct the start description in the Surl.Console notes plus the TLS settings parameter comment
+priority: Low
+assignee: Claude
+pipeline: docs
+depends-on: [BL-1867, BL-1874]
+touches: [Application/Surl.Console/CLAUDE.md, Application/Surl.Console/CommandLineRunner.cs]
+requirement: none
+created: 2026-11-27
+completed:
+---
+# BL-1876 — Correct the start description in the Surl.Console notes plus the TLS settings parameter comment
+
+## Goal
+
+The `CommandLineRunner` bullet in `Application/Surl.Console/CLAUDE.md` and the `createListenerFactory` doc comment describe the start as `Surl.Composition` runs it.
+
+## Context
+
+Found while working BL-1867 (2026-11-27), read from source. BL-1867 edits both files (other bullets and the `readStartFile` comment), so this task follows it; BL-1874 edits the `ServerTlsComposition` bullet. Documentation and comment text only; no behaviour change. Line numbers are as of that date.
+
+- `Application/Surl.Console/CommandLineRunner.cs`, `<param name="createListenerFactory">` (about lines 19-23): says the TLS settings are `null` when no listen URL is TLS from the first byte. They are `null` only when no listen URL needs TLS (`ServerTlsComposition.NeedsTls`).
+- `Application/Surl.Console/CLAUDE.md`, the long bullet starting "`CommandLineRunner` parses the command line" (about lines 31-132):
+  - its description of the files read at start leaves out each `--mailbox-file` (`MailboxComposition.Compose`, read first), the `--user-ldap` `bind-password-file` and `ca-file` (`LdapAccountSourceComposition`), `--proxy-user-file` (`AuthenticationComposition.ComposeProxyPolicy`) and `--control-token-file` (`ControlComposition.ReadToken`);
+  - it places the content store before the listen-URL refusals and authentication. `SurlServerComposition.ComposeAvailableAsync` (in `SurlServerComposition.Start.cs`) builds only the content file system there, and `ComposeContentStore` after authentication, the shares and the message bus configuration;
+  - its list of servers built by `ComposeProtocolServers` leaves out `SocksProtocolServer` (`socks4`, `socks4a`, `socks5`, `socks5h`; `ProtocolServerRegistrations.Original`).
+- The start step table in the same file (the "Option refusals, data directory probe, content store, ..." row) has the same order.
+
+Take every order from the code. Where `Application/Surl.Composition.UnitLibrary/CLAUDE.md` already says something, a pointer is better than a second copy.
+
+No store, event or fault is involved: documentation only.
+
+## Acceptance criteria
+
+- [ ] The `createListenerFactory` doc comment says the settings are `null` only when no listen URL needs TLS.
+- [ ] The bullet names every file `ComposeAuthentication` reads, in the order it reads them, or points to where that is stated without giving a partial list.
+- [ ] The bullet and the start step table place the content file system before the listen-URL refusals and the content store after authentication, as `ComposeAvailableAsync` does.
+- [ ] The bullet's server list agrees with `ProtocolServerRegistrations.Original`, `SocksProtocolServer` included, or points to that list without a partial one.
+- [ ] `dotnet build Application/Surl.Console -warnaserror` is clean and the diff of `CommandLineRunner.cs` changes comment lines only.
+
+## Notes
+
+## Log
+
+- 2026-11-27: Created.
