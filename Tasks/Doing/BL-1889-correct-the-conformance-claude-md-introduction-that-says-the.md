@@ -47,3 +47,4 @@ Found during BL-1849 (checked on 2026-11-27). Docs only.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
