@@ -123,8 +123,9 @@ measures it by name.
   point (a refusal is a `HookFailedEvent`). Any custom scope in `AdditionalArguments` is refused (`surl`'s reader).
 - Control endpoint (BL-1176, ADR-0124 decision 7): `ControlListenUrl` and `ControlTokenFile` are composed as `--control` and `--control-token-file` (so every refusal is `surl`'s, a `SurlServerStartException`); `SurlServer.ControlUrl` is `ComposedServing.ControlListenUrl` once bound, null without them. The token file is read through `ReadStartFile`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
-  give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
-  `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.
+  give the files it reads in memory (`ApiTestSeams.StartFiles`), the `--user-file`, `--hostkey`,
+  `--cert`, `--key` and `--cacert` files among them; `SurlServerCompositionSeams.ReadStartFile`
+  lists them all.
 
 ## What it references
 
