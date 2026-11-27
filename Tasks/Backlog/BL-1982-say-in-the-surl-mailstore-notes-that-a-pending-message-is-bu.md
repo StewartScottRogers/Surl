@@ -1,5 +1,5 @@
 ---
-id: BL-1977
+id: BL-1982
 title: Say in the Surl.MailStore notes that a pending message is buffered in memory without a data directory
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1977 — Say in the Surl.MailStore notes that a pending message is buffered in memory without a data directory
+# BL-1982 — Say in the Surl.MailStore notes that a pending message is buffered in memory without a data directory
 
 ## Goal
 

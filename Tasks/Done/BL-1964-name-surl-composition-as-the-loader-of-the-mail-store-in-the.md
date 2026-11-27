@@ -38,10 +38,10 @@ No store, event or fault changes: documentation only.
 
 - `align-and-document` made the edit in the "Persistence" text; checked against
   `SurlServerComposition.LoadMailStoreAsync` and `ComposeMailStoreFiles`. A search of that `CLAUDE.md` for "Console"
-  finds nothing. "Only that `CLAUDE.md`" is about the documentation change; the board files (this task, BL-1977) are
+  finds nothing. "Only that `CLAUDE.md`" is about the documentation change; the board files (this task, BL-1982) are
   committed beside it.
 - The new text also names BL-609, the task that moved composition into `Surl.Composition`.
-- Filed BL-1977: the "Streaming" paragraph of the same file omits the in-memory case.
+- Filed BL-1982: the "Streaming" paragraph of the same file omits the in-memory case.
 - Other `Surl.Console` composer claims the search turned up in the Authentication, Protocol.Abstractions, SSH and
   Telnet files have open tasks naming those projects (BL-1958, BL-1961, BL-1962, BL-1963, BL-1965); none filed.
 
@@ -49,4 +49,4 @@ No store, event or fault changes: documentation only.
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. The Surl.MailStore notes name Surl.Composition's SurlServerComposition.LoadMailStoreAsync as the loader of the mail store; filed BL-1977.
+- 2026-11-27: Doing -> Done. The Surl.MailStore notes name Surl.Composition's SurlServerComposition.LoadMailStoreAsync as the loader of the mail store; filed BL-1982.
