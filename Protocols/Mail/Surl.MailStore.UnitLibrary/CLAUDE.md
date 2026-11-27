@@ -52,8 +52,11 @@ answers it with `CouldNotReadFile`, 37). `MailStoreIndex` is the index's byte fo
 `SaveChangesAsync` writes the index, then deletes the files of messages no longer held; an
 index write that throws leaves the change in memory and the next save writes it. A store made
 by the constructor has no files and holds every message's bytes in memory. The servers call
-`SaveChangesAsync` after every change and note what it throws; `Surl.Console` loads the store
-(BL-207).
+`SaveChangesAsync` after every change and note what it throws. `Surl.Composition`'s
+`SurlServerComposition.LoadMailStoreAsync` loads the store (BL-207, BL-609): with `--directory`,
+through `MailboxStore.LoadAsync` over the `MailStoreFiles` that `ComposeMailStoreFiles` gives
+(`<data directory's full path>/.surl/mail`); without it, it makes a `MailboxStore` with the
+constructor, held in memory only.
 
 Streaming (BL-227, ADR-0050 decision 7): `CreatePendingMessage` gives a `PendingMessage`
 whose `Body` stream writes straight into `messages/.pending-<guid>`; `Deliver` and `Append`
