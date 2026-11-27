@@ -58,4 +58,4 @@ No store, event or fault changes: documentation only.
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. The LDAP library notes state how a Kerberos GSS-SPNEGO bind is answered with and without --keytab and name the tests that prove Kerberos and the OpenLDAP-backed build; filed BL-1980 for other stale statements
+- 2026-11-27: Doing -> Done. The LDAP library notes state how a Kerberos GSS-SPNEGO bind is answered with and without --keytab and name the tests that prove Kerberos and the OpenLDAP-backed build; filed BL-1987 for other stale statements

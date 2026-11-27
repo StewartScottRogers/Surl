@@ -1,5 +1,5 @@
 ---
-id: BL-1980
+id: BL-1987
 title: Correct the constructor and fixed-directory statements in the LDAP library notes and ADR-0072
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1980 — Correct the constructor and fixed-directory statements in the LDAP library notes and ADR-0072
+# BL-1987 — Correct the constructor and fixed-directory statements in the LDAP library notes and ADR-0072
 
 ## Goal
 
