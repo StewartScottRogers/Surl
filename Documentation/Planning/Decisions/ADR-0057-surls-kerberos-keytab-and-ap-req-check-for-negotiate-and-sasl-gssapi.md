@@ -6,7 +6,9 @@
   in BL-217 (FR-046).
 - **Amended by:** Amendment 1 below (BL-268): decisions 8 and 9 measured against the test KDC
   of [ADR-0065](ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md);
-  both hold. Amendment 2 below (BL-351): decision 2's table gains `ldap`.
+  both hold. Amendment 2 below (BL-351): decision 2's table gains `ldap`. Amendment 3 below
+  (BL-1817): no unused `--keytab` warning when a `socks5` or `socks5h` listen URL is served
+  (decision 1).
 - **Amends:** [ADR-0040](ADR-0040-http-negotiate-carrying-ntlm-bare-or-in-spnego.md) decision 3
   (a Kerberos token inside Negotiate is no longer refused once a keytab is configured, decision 8
   below); [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
@@ -534,3 +536,65 @@ holding a ticket for `ldap/ldap.surl.test@SURL.TEST` from the test KDC, ended 67
 `ldap` is the service upstream curl asks for (ADR-0078 decision 1 measured its TGS request for
 `ldap/ldap.surl.test`), and the one `GSS-SPNEGO` already answered (ADR-0072 Amendment 1). With it,
 the same test exits 0 with the entry on stdout.
+
+## Amendment 3 - a `socks5` or `socks5h` listener uses the keytab, so no unused warning (BL-1817, 2026-11-26)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-26, in
+BL-1817. It amends decision 1's sentence about the unused warning: "`--keytab` when `--auth`
+names neither word is accepted, with the warning `surl: warning: --keytab is unused: ...`".
+
+### Context
+
+Decision 1 predates
+[ADR-0121 amendment 2](ADR-0121-how-surl-serves-socks4-socks4a-socks5-and-socks5h.md) (BL-765),
+under which a SOCKS5 listener with a keytab selects GSS-API (method `01`) when the greeting offers
+it, before `00` and `02`, and checks the client's AP-REQ for the service `rcmd`. BL-1066 wired
+`--keytab` to it. Read in the source on 2026-11-26:
+
+- `SurlServerComposition.ComposeSocksGssApiLogin` builds that login from `--keytab` alone; it
+  reads neither `--auth` nor the listen URLs. The one SOCKS server of `socks4`, `socks4a`,
+  `socks5` and `socks5h` is given it.
+- Only a `socks5` or `socks5h` listener uses it. A `socks4` or `socks4a` listener answers a
+  SOCKS5 greeting `05 FF` and closes (`SocksExchange`; ADR-0121 decision 5).
+- A `-x`/`--proxy` listen URL with a SOCKS scheme is listened on with the positional ones and
+  served by the same SOCKS server; only `http` and `https` proxy listen URLs go to the HTTP proxy
+  (`ProxyComposition.RouteProxyListeners`), whose policy is given no Kerberos acceptor.
+- No option turns method `01` off on such a listener: `Socks5Exchange` selects it before it looks
+  at the proxy accounts (`-U`, `--proxy-user-file`) or `--allow-anonymous`, and the proxy
+  accounts' policy, which may refuse the login
+  ([ADR-0165](ADR-0165-how-tls-srp-and-socks5-gss-api-logins-publish-login-judged-events-and-honour-refuse-login.md)
+  decisions 8 and 9), judges it only after the keytab's keys have checked the token.
+- Every other use of the keytab (HTTP Negotiate, SASL `GSSAPI`, LDAP `GSS-SPNEGO`) needs `--auth`
+  to accept `negotiate` or `gssapi`, under `--allow-anonymous` too.
+
+### Decision
+
+From the info level up, the unused warning is written exactly when all of these hold:
+
+1. `--keytab` is given;
+2. `--auth` accepts neither `negotiate` nor `gssapi` (its default accepts neither);
+3. no listen URL served, positional or from `-x`/`--proxy`, has the scheme `socks5` or `socks5h`.
+
+| Listen URL schemes served, positional or `-x`/`--proxy`, with `--auth` accepting neither | Unused warning |
+| --- | --- |
+| At least one `socks5` or `socks5h`, alone or beside any others | withheld |
+| `socks4` or `socks4a`, with no `socks5` or `socks5h` | written |
+| No SOCKS scheme | written |
+
+- The condition is the listen URL's scheme and nothing else. surl does not look for an `rcmd` key
+  in the keytab first: without one the listener still selects `01` when offered and refuses the
+  token, so the keytab has changed what the listener does.
+- The warning's text and level, and the skipped-key warnings of decision 1, are unchanged. No
+  byte on the wire changes, and `--auth gssapi` still needs `--keytab`.
+
+When this amendment was decided, `KeytabComposition.WriteStartLines` tested only conditions 1 and
+2, so it wrote the warning for `surl --keytab k socks5://...` too. BL-1818 makes the code follow
+this amendment.
+
+### Alternatives considered
+
+- **Withholding the warning for any SOCKS scheme.** Rejected: a `socks4` or `socks4a` listener
+  never reads a token, so there the warning is true.
+- **Making SOCKS5 GSS-API depend on `--auth` naming `gssapi`.** Rejected: it would change what
+  ADR-0121 amendment 2 decides, and `--auth` would have to name a word, replacing its default set,
+  to turn on a method that a keytab turns on by itself.
