@@ -58,7 +58,7 @@ No store, event or fault is involved: documentation only.
   resolve. No `.cs` file changed.
 - Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, 0 errors; fast tests 30368 passed, 0 failed, 3 skipped.
   `dotnet format` not run: no `.cs` or project file changed.
-- Filed BL-1952 for two other statements in the same `CLAUDE.md` (`SPECIAL-USE`, log redaction), outside this task.
+- Filed BL-1956 for two other statements in the same `CLAUDE.md` (`SPECIAL-USE`, log redaction), outside this task.
 
 ## Log
 

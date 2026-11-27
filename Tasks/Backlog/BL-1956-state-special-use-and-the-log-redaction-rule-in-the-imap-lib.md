@@ -1,5 +1,5 @@
 ---
-id: BL-1952
+id: BL-1956
 title: State SPECIAL-USE and the log redaction rule in the IMAP library's CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1952 — State SPECIAL-USE and the log redaction rule in the IMAP library's CLAUDE.md
+# BL-1956 — State SPECIAL-USE and the log redaction rule in the IMAP library's CLAUDE.md
 
 ## Goal
 
