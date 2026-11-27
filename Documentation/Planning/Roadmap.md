@@ -145,8 +145,9 @@ task board in `Tasks/`, never here.
 
 ## Milestone 6 — Phase 6
 
-- **Status:** Built, and proven in part (2026-11-14). Still open: no release is tagged, and the
-  release row of the pass-rate file is empty (BL-1657 files it: a tag is Stewart's). The three
+- **Status:** Built, and proven in part (2026-11-14). Releases are tagged, `v0.1.0` of
+  2026-11-16 the first tag and `v0.1.11` the latest on 2026-11-26, and the pass-rate file's
+  "Releases" table has rows from `0.1.0` on; a tag is Stewart's call. The three
   builds `win-arm64`, `linux-arm64` and `osx-x64` lacked are pinned (BL-361, ADR-0151) and the
   release dry run's conformance job runs on each. `win-x64` conformance against the published
   binary runs only locally, but two consecutive full runs passed (BL-604, BL-1090), and BL-1059
@@ -273,15 +274,16 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
 (ADR-0124) is built on the other two.
 
 - **Status:** The hosts are built and proved, and the stand-in features on them are built and
-  documented by BL-821 (2026-11-14). Still open: the packages are packed but not published until
-  the first release tag (BL-1657). `--control`'s help text says it is served (BL-1125).
+  documented by BL-821 (2026-11-14). Still open: neither NuGet package is on nuget.org yet
+  (2026-11-26; see "Not on nuget.org" below). `--control`'s help text says it is served
+  (BL-1125).
 - **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
   the in-process .NET interface with typed options, exchange recording, queries and waits, fault
   rules, hooks, seeding, reset and snapshots and a test's own protocol servers; `Surl.Mcp`, the
   `surl-mcp` stdio MCP server with its tools and `surl://aihelp` resources, on `Surl.McpServing`
   and `Surl.Mcp.UnitLibrary` (ADR-0103); the `surl-mcp` release archives and the NuGet packages,
-  packed but not yet published. Decided by BL-610 to BL-612 and built by BL-609, BL-613 to
-  BL-617, BL-619 to BL-621, BL-623 to BL-628, BL-637 and BL-643.
+  which each GitHub release carries from `v0.1.10` (BL-1789). Decided by BL-610 to BL-612 and
+  built by BL-609, BL-613 to BL-617, BL-619 to BL-621, BL-623 to BL-628, BL-637 and BL-643.
 - **Exit criteria:** met by BL-618, which proves `Surl.Api` against pinned upstream curl, and
   BL-632, which drives the built `surl-mcp` over stdio with pinned upstream curl. BL-649 states the
   hosts as built in the README, the product overview, the glossary and the root `CLAUDE.md`.
@@ -292,7 +294,9 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
   file (BL-972) and the binding (BL-977). They are the parts of BL-816, which is Done. `Surl.Api` serves the same endpoint
   through `SurlServerOptions.ControlListenUrl` and `ControlTokenFile` and reports it as
   `SurlServer.ControlUrl` (BL-1176); its tests also control stores in process (BL-810). The stand-in page is `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
-- **Not built:** publishing the packages, which waits for the first release tag.
+- **Not on nuget.org:** from `v0.1.11`, the first release after BL-1795, `release.yml` is
+  written to push both packages there, but its `v0.1.11` run failed at the nuget.org login
+  after creating the GitHub release, so no version of either is there (2026-11-26).
 - **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
 
 ## Later

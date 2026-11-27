@@ -507,7 +507,7 @@ by hand; `Surl.Conformance` plays the server half of upstream curl's own test ca
 published native `surl` is proven on six runtime identifiers. The terms below are defined in
 the [glossary](../Wiki/Glossary.md), sections "HTTP/2", "HTTP/3 and QUIC", "Upstream test
 cases" and "Native publishing". Phase 6 is built, not closed: "What is not proven" below lists
-what is open, and no release is tagged.
+what is open.
 
 **HTTP/2** ([ADR-0081](../Planning/Decisions/ADR-0081-how-surl-serves-http-2.md), with
 [ADR-0090](../Planning/Decisions/ADR-0090-how-the-http-2-prior-knowledge-connection-reads-ends-and-answers.md)
@@ -583,7 +583,8 @@ the rate only rises. As of 2026-11-12:
 
 The Windows row is from a local run on 2026-11-11 (CI has no pinned Windows reference build);
 the Linux and macOS rows are CI run 42203619501 of 2026-11-06. The pass-rate file's
-"Releases" table has no row, because no release is tagged.
+"Releases" table has rows from `0.1.0` on; `release.yml` fails a tag whose version has no row
+there, and puts the version's rows at the top of the release notes.
 
 **What pinned upstream curl has proven for HTTP/2 and HTTP/3.**
 `UpstreamCurlFetchesFromSurlOverHttp2Tests` (15 tests) and
@@ -603,6 +604,8 @@ runtime identifier, one file served byte for byte, a stop on SIGTERM, and no .NE
 `ubuntu:22.04` container on Linux or a scrubbed `DOTNET_*` and `PATH` plus import checks
 elsewhere. `Surl.Conformance` runs against the published binary when `SURL_EXECUTABLE` names
 it. A release dry run on 2026-11-06 (CI run 42225649001, BL-603) was green on all six legs.
+Releases are published from `v*` tags, `v0.1.0` of 2026-11-16 the first tag;
+[Download](../../DOWNLOAD.md) says what a release holds.
 
 | Runtime identifier | Runner | Proven by | Upstream curl completes an exchange with the binary |
 | --- | --- | --- | --- |
@@ -615,8 +618,6 @@ it. A release dry run on 2026-11-06 (CI run 42225649001, BL-603) was green on al
 
 **What is not proven.**
 
-- No release is tagged, so there are no downloadable binaries and no release row in the
-  pass-rate file.
 - `win-arm64`, `linux-arm64` and `osx-x64` have no pinned upstream curl build, so they have the
   smoke test and the fast tests but neither conformance nor a pass rate. BL-361 would pin
   them; it is Blocked until arm64 and Intel-macOS runners can measure the builds.
@@ -986,8 +987,11 @@ ADR-0147):
   meta-package is the one package, for tests (`CLAUDE.md`).
 - **Publishing:** native ahead-of-time, one file, no runtime needed, for two executables:
   `surl` and `surl-mcp` (`Surl.Mcp`, ADR-0103). `Surl.Api` and `Surl.Mcp` are also packed as
-  the NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` (a .NET tool of type `McpServer`); no release is
-  tagged, so none is published yet.
+  the NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` (a .NET tool of type `McpServer`).
+  `release.yml` attaches the binary archives and `SHA256SUMS` to a tag's GitHub release, and
+  from `v0.1.10` (the first release after BL-1789) both `.nupkg` files. From `v0.1.11` (the
+  first after BL-1795) the release job is written to push both packages to nuget.org; no
+  version of either is there yet (2026-11-26; see [Download](../../DOWNLOAD.md)).
 - **Platforms:** Windows, Linux and macOS, on x64 and Arm64.
 - **Licensing:** MIT (`LICENSE.txt`). Upstream test data copied in for `Surl.Conformance`
   keeps curl's own notice beside it.

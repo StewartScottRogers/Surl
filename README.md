@@ -40,7 +40,8 @@ Where it stands:
 - **Board.** 497 tasks are done, 8 are in progress, 249 are waiting and none is blocked.
 - **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS before anything
   merges to `master`.
-- **No release yet.** No `v*` tag exists, so there are no downloadable binaries (see
+- **Releases.** `v0.1.0` was tagged on 2026-11-16. The latest release on 2026-11-26 is
+  `v0.1.11`, with binaries for six platforms and both NuGet packages (see
   [Download](#download)).
 
 ### What is being built
@@ -57,7 +58,7 @@ The work is on the board and is being built now. None of it is finished.
    identifiers (Windows, Linux and macOS on x64 and Arm64), but upstream curl is pinned only
    for `win-x64`, `linux-x64` and `osx-arm64`, so the other three are not shown to complete an
    exchange with it, and `win-x64` conformance against the published binary runs only
-   locally. No release is tagged. See the product overview, "Built for Phase 6".
+   locally. See the product overview, "Built for Phase 6".
 2. **Extended protocols.** These are servers for the schemes the Curl port adds and upstream
    curl does not have: S3, Azure Storage, Google Cloud Storage, OCI registries, gRPC,
    SignalR, Socket.IO, WebTransport, MCP, CoAP, DNS, Redis, MQTT 5, AMQP 0-9-1 and 1.0,
@@ -517,13 +518,15 @@ Every property is a spelling of a `surl` option, and a start `surl` would refuse
 `SurlServerStartException`. With `RecordExchanges` set, `server.Exchanges` holds each exchange's
 bytes, its listen URL and its scheme. The [package's README](Application/Surl.Api/README.md) covers
 the rest: queries and waits, fault rules, hooks, seeding, reset and snapshots, and a test's own
-protocol server. The NuGet package `Surly.Surl.Api` is packed by the release workflow but not yet
-published, because no release is tagged.
+protocol server. Each GitHub release from `v0.1.10` carries the NuGet package `Surly.Surl.Api`
+as a `.nupkg` file; it is not on nuget.org yet (2026-11-26, see [Download](#download)).
 
 **From an AI agent: `Surl.Mcp`.** `surl-mcp` is an MCP server on standard input and output. An MCP
-client starts it as a stdio server, for example with the command `dnx Surly.Surl.Mcp` (the package is a
-.NET tool of type `McpServer`, not yet published) or with the `surl-mcp` binary from a release
-archive, which needs no .NET runtime. Its tools are `start_server`, `list_servers`, `stop_server`,
+client starts it as a stdio server, for example with the `surl-mcp` binary from a release
+archive, which needs no .NET runtime. It is also packed as the NuGet package `Surly.Surl.Mcp`,
+a .NET tool of type `McpServer` that each GitHub release from `v0.1.10` carries. The package is
+not on nuget.org yet (2026-11-26), so `dnx Surly.Surl.Mcp` cannot fetch it from there. Its
+tools are `start_server`, `list_servers`, `stop_server`,
 `get_exchanges`, `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `publish_message`,
 `add_account`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and
 `remove_fault`. The `surl://aihelp` resources carry the pages of `surl --aihelp`, so the agent
@@ -599,9 +602,9 @@ The lights stay off; a person sets direction and answers blocked questions.
 
 ## Download
 
-No release has been published yet. The first `v*` tag will put native binaries for
-Windows, Linux and macOS, on x64 and Arm64, on the [**download page**](DOWNLOAD.md), with
-one-line installers:
+[GitHub releases](https://github.com/StewartScottRogers/Surl/releases) carry native binaries
+for Windows, Linux and macOS, on x64 and Arm64. The [**download page**](DOWNLOAD.md) lists
+every file. The one-line installers fetch `surl` from the newest release:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.sh | sh    # Linux, macOS
@@ -611,9 +614,10 @@ curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/inst
 irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1 | iex          # Windows
 ```
 
-The release also attaches `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
-server. The NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` are packed by the same workflow but not yet
-published.
+A release also holds `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
+server, and `SHA256SUMS`. From `v0.1.10` it holds the NuGet packages `Surly.Surl.Api` and
+`Surly.Surl.Mcp` as `.nupkg` files too. From `v0.1.11` the release workflow is written to push
+both to nuget.org, but no version of either is there yet (2026-11-26).
 
 ## Build and test
 
@@ -657,7 +661,7 @@ for its job beside the original servers, with Redis in `Protocols/DataStore/`.
 
 ## Read more
 
-- [Download and install](DOWNLOAD.md) - every supported platform, installers and checksums (no release yet)
+- [Download and install](DOWNLOAD.md) - every supported platform, release files, installers and checksums
 - [Product overview](Documentation/Product/Product-Overview.md) - scope, architecture, phases and the oracle
 - [Task board](Tasks/README.md) - what is being worked on, one Markdown file per task
 - [Decisions](Documentation/Planning/Decisions/README.md) - every architecture decision record
