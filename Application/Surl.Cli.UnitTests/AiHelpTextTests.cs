@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Surl.Protocol.Abstractions;
 
@@ -362,6 +363,22 @@ public sealed partial class AiHelpTextTests
     public void Answer_TopicOfAServerThatOffersItsOwnAlpn_SaysWhatTlsSrpAgreesInstead(string topic, string sentences)
     {
         Assert.Contains(sentences, AiHelpText.Answer(topic).Output);
+    }
+
+    [TestMethod]
+    public void Answer_TlsTopic_NamesEverySchemeThatStartsWithATlsHandshakeInItsFirstParagraph()
+    {
+        var schemes = (IReadOnlyCollection<string>)typeof(TlsSchemes)
+            .GetField("ImplicitTlsSchemes", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetValue(null)!;
+
+        var firstParagraph = AiHelpProse.TopicAbout["tls"][0];
+        var listed = firstParagraph[..firstParagraph.IndexOf(" start with a TLS handshake", StringComparison.Ordinal)];
+        var missing = schemes.Where(scheme => !listed.Contains($"`{scheme}`", StringComparison.Ordinal)).ToArray();
+
+        Assert.IsNotEmpty(schemes);
+        Assert.IsEmpty(missing, $"Missing from the tls topic: {string.Join(", ", missing)}");
+        Assert.Contains(firstParagraph, AiHelpText.Answer("tls").Output);
     }
 
     [TestMethod]
