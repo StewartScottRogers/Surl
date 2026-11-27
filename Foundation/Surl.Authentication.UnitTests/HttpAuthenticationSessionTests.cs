@@ -222,4 +222,93 @@ public sealed class HttpAuthenticationSessionTests
 
         Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
     }
+
+    private AuthenticationPolicy NoAccountPolicy(
+        bool requiresLogin, bool allowAnonymous, params AuthenticationMethod[] offered)
+    {
+        var settings = new AuthenticationSettings(PolicyFixture.NoAccounts, allowAnonymous, false, AuthenticationMethods.DefaultAccepted)
+        {
+            RequiresLoginWithoutAccounts = requiresLogin,
+        };
+        var methods = offered
+            .Select(method => new ScriptedHttpAuthenticationMethod(
+                method, [$"{method} realm=\"surl\""], new HttpCredentialCheck(HttpCredentialOutcome.Refused, null, [])))
+            .ToArray<IHttpAuthenticationMethod>();
+
+        return new AuthenticationPolicy(settings, methods, clock);
+    }
+
+    [TestMethod]
+    [DataRow("GET")]
+    [DataRow("HEAD")]
+    public async Task JudgeAsync_RequiringLoginWithNoAccount_ChallengesAReadWithoutCredentials(string method)
+    {
+        var policy = NoAccountPolicy(true, false, AuthenticationMethod.Basic, AuthenticationMethod.Digest);
+        var request = method == "GET" ? PolicyFixture.Get() : Head();
+
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(request, CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+        CollectionAssert.AreEqual(
+            new[] { "Digest realm=\"surl\"", "Basic realm=\"surl\"" }, verdict.WwwAuthenticateValues.ToArray());
+        Assert.IsNull(verdict.CheckedLogin);
+    }
+
+    [TestMethod]
+    [DataRow("GET")]
+    [DataRow("HEAD")]
+    public async Task JudgeAsync_RequiringLoginWithNoMethodToOffer_ForbidsAReadWithoutCredentials(string method)
+    {
+        var policy = NoAccountPolicy(true, false, AuthenticationMethod.Basic);
+        var request = method == "GET" ? PolicyFixture.Get() : Head();
+
+        var verdict = await policy.StartHttpConnection(null).JudgeAsync(request, CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Forbidden, verdict.Outcome);
+        Assert.IsEmpty(verdict.WwwAuthenticateValues);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_RequiringLoginWithAllowAnonymous_StillProceeds()
+    {
+        var policy = NoAccountPolicy(true, true, AuthenticationMethod.Digest);
+
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+        Assert.IsNull(verdict.AccountName);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_RequiringLoginOnAConnectionNtlmLoggedIn_StillProceedsAsTheAccount()
+    {
+        var accounts = new AccountBook([new Account("tester", "secret")]);
+        var settings = new AuthenticationSettings(accounts, false, false, new HashSet<AuthenticationMethod> { AuthenticationMethod.Ntlm })
+        {
+            RequiresLoginWithoutAccounts = true,
+        };
+        var session = new AuthenticationPolicy(
+            settings, [new NtlmAuthenticationMethod(accounts, new FixedNtlmServerChallengeSource())], clock)
+            .StartHttpConnection(null);
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 1), CancellationToken.None);
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 2), CancellationToken.None);
+        accounts.Remove("tester");
+
+        var verdict = await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.IsFalse(accounts.HasAccounts);
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+        Assert.AreEqual("tester", verdict.AccountName);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_NotRequiringLoginWithNoAccount_ProceedsOnAReadWithoutCredentials()
+    {
+        var policy = NoAccountPolicy(false, false, AuthenticationMethod.Digest);
+
+        var verdict = await policy.StartHttpConnection(PolicyFixture.Tls).JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+        Assert.IsNull(verdict.AccountName);
+    }
 }

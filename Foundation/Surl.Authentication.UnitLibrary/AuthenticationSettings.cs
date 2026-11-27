@@ -38,6 +38,16 @@ public sealed record AuthenticationSettings(
     /// </summary>
     public LdapAccountSource? LdapAccountSource { get; init; }
 
+    /// <summary>
+    /// Whether an HTTP session challenges a request without credentials even when there is no
+    /// account to log in to and the request is not a write, as a proxy that lost its last account
+    /// must (ADR-0132 amendment 4, decision 7); <see langword="false"/> by default. The request is
+    /// forbidden when no accepted method can be offered. <see cref="AllowAnonymous"/> and a
+    /// connection's NTLM or Negotiate login come first, so such requests still proceed. It does not
+    /// change <see cref="HasAccountToLogInTo"/>.
+    /// </summary>
+    public bool RequiresLoginWithoutAccounts { get; init; }
+
     // The scheme of the ForScheme view these settings are; null on settings that are no view.
     private string? ViewScheme { get; init; }
 

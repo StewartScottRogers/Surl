@@ -179,7 +179,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 
         var scheme = policy.Settings.DirectorySchemeFor(AuthenticationPolicy.HttpLoginScheme);
 
-        return policy.Settings.HasAccountToLogInTo(scheme) || request.IsWrite
+        return policy.Settings.RequiresLoginWithoutAccounts || policy.Settings.HasAccountToLogInTo(scheme) || request.IsWrite
             ? Challenge()
             : ProceedAnonymously;
     }

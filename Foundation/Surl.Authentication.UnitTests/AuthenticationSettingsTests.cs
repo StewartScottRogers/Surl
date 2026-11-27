@@ -30,6 +30,22 @@ public sealed class AuthenticationSettingsTests
     public void HasAccountToLogInTo_NullScheme_IsRefused() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => Settings([], null).HasAccountToLogInTo(null!));
 
+    [TestMethod]
+    public void RequiresLoginWithoutAccounts_ByDefault_IsFalse() =>
+        Assert.IsFalse(Settings([], null).RequiresLoginWithoutAccounts);
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void ForScheme_KeepsRequiresLoginWithoutAccounts(bool requiresLogin)
+    {
+        var settings = Settings([], null) with { RequiresLoginWithoutAccounts = requiresLogin };
+
+        var view = settings.ForScheme("http");
+
+        Assert.AreEqual(requiresLogin, view.RequiresLoginWithoutAccounts);
+    }
+
     private static AuthenticationSettings Settings(IReadOnlyList<Account> accounts, LdapAccountSource? directory) =>
         new(new AccountBook(accounts), AllowAnonymous: false, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted)
         {

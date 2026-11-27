@@ -56,6 +56,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   each HTTP method (BL-111, BL-113, BL-120, BL-121, BL-122) implements. The policy offers and
   checks only the methods it is given that `--auth` accepts; an `Authorization` of any other
   method is treated as missing.
+- A request without credentials is challenged when there is an account to log in to or the request
+  is a write, and proceeds anonymously otherwise. `AuthenticationSettings.RequiresLoginWithoutAccounts`
+  (`false` by default; BL-1850, ADR-0132 amendment 4) challenges it in either case, a `GET` or `HEAD`
+  with an empty account book included, and forbids it when no accepted method can be offered.
+  `--allow-anonymous` and a connection's NTLM or Negotiate login still come first. A `ForScheme` view
+  keeps the value.
 
 ## Basic and Bearer (BL-111)
 
