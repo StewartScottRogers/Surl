@@ -65,16 +65,18 @@ public sealed class DeleteAndRemoveToolsTests
     }
 
     [TestMethod]
-    public async Task RemoveAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheServerNeedsNoLogin()
+    public async Task RemoveAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheServerStillAsksForALogin()
     {
+        const string Warning = "server s1 has no local account left; it still asks for a login wherever it did";
         await using var host = await StartHostAsync("pop3://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth");
 
         var result = await CallAsync(host.RemoveAccount, """{"server_id": "s1", "user": "alice"}""");
 
         Assert.IsFalse(result.IsError);
         Assert.AreEqual(2, result.TextContent.Count);
-        Assert.AreEqual("server s1 has no account left and now needs no login", result.TextContent[1]);
-        StringAssert.Contains(result.TextContent[0], "\"warning\"");
+        Assert.AreEqual(Warning, result.TextContent[1]);
+        using var answer = JsonDocument.Parse(result.TextContent[0]);
+        Assert.AreEqual(Warning, answer.RootElement.GetProperty("warning").GetString());
     }
 
     [TestMethod]

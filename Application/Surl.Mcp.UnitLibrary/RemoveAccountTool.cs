@@ -5,8 +5,9 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>remove_account</c> tool (ADR-0161 decision 1): removes an account, one given at start included, through
-/// <c>Surl.Api</c>'s <c>SurlServer.Accounts.Remove</c>. Result <c>{"user"}</c>, never anything about the password, with a <c>warning</c> member and a second text block when it was the last account and the server now needs no login; an
-/// account the server does not have is an <c>isError</c> result.
+/// <c>Surl.Api</c>'s <c>SurlServer.Accounts.Remove</c>. Result <c>{"user"}</c>, never anything about the password, plus a
+/// <c>warning</c> member and a second text block when no local account is left: that does not open the server, which still
+/// asks for a login wherever it did (ADR-0132 amendment 5). An account the server does not have is an <c>isError</c> result.
 /// </summary>
 public static class RemoveAccountTool
 {
@@ -16,8 +17,8 @@ public static class RemoveAccountTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Remove an account from a running Surl server, one given at start included, so a login with it fails from "
-        + "its next login on. Undoes add_account. Removing the last account leaves the server needing no login, so "
-        + "anyone may then connect; the result then carries a warning, and add_account closes the server again.";
+        + "its next login on. Undoes add_account. Removing the last account does not open the server: it still asks "
+        + "for a login wherever it did; the result then carries a warning, and add_account lets that account in.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -49,17 +50,17 @@ public static class RemoveAccountTool
             return McpToolResult.FromFailure(user.Length == 0 ? $"server {running.ServerId} has no Bearer-token account" : $"server {running.ServerId} has no account {user}");
         }
 
-        if (accounts.HasAccounts)
-        {
-            return ToolResults.FromObject(writer => writer.WriteString("user", user));
-        }
+        return accounts.HasAccounts ? ToolResults.FromObject(writer => writer.WriteString("user", user)) : RemovedLastAccount(running, user);
+    }
 
-        var warning = $"server {running.ServerId} has no account left and now needs no login";
-        var opened = ToolResults.FromObject(writer =>
+    private static McpToolResult RemovedLastAccount(RunningSurlServer running, string user)
+    {
+        var warning = $"server {running.ServerId} has no local account left; it still asks for a login wherever it did";
+        var removed = ToolResults.FromObject(writer =>
         {
             writer.WriteString("user", user);
             writer.WriteString("warning", warning);
         });
-        return new McpToolResult([.. opened.TextContent, warning], opened.StructuredContent);
+        return new McpToolResult([.. removed.TextContent, warning], removed.StructuredContent);
     }
 }
