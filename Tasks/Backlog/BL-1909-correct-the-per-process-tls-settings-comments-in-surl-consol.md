@@ -1,5 +1,5 @@
 ---
-id: BL-1906
+id: BL-1909
 title: Correct the per-process TLS settings comments in Surl.Console and the QuicCertificate summary
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1906 — Correct the per-process TLS settings comments in Surl.Console and the QuicCertificate summary
+# BL-1909 — Correct the per-process TLS settings comments in Surl.Console and the QuicCertificate summary
 
 ## Goal
 
