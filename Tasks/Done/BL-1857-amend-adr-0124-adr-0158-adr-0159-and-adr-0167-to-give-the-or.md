@@ -70,11 +70,11 @@ not this task's.
   on 2026-11-27: it matches the Context.
 - Each superseded passage gained an appended italic pointer to its amendment, as ADR-0124's snapshot bullet
   already does ("Corrected by"), so no old order reads as current. The original sentences are unchanged.
-- Apart from the board files (this task and the follow-up BL-1894), only the four ADR files changed. No `.cs` or
+- Apart from the board files (this task and the follow-up BL-1896), only the four ADR files changed. No `.cs` or
   project file changed, so the docs pipeline needs no `verify` run. The factory's commit gate was still run:
   `dotnet build` clean (0 warnings, 0 errors) and the fast tests exit 0.
 - Edited directly rather than through `align-and-document`: four small text edits whose content the task gives.
-- Filed BL-1894 for the `IControllableStore` seam the records name and no code declares.
+- Filed BL-1896 for the `IControllableStore` seam the records name and no code declares.
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1894
+id: BL-1896
 title: Amend ADR-0158, ADR-0159 and ADR-0167 to describe the store registration seam the code has, not IControllableStore
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1894 — Amend ADR-0158, ADR-0159 and ADR-0167 to describe the store registration seam the code has, not IControllableStore
+# BL-1896 — Amend ADR-0158, ADR-0159 and ADR-0167 to describe the store registration seam the code has, not IControllableStore
 
 ## Goal
 
