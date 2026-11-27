@@ -36,3 +36,4 @@ Remove the line only; add no replacement phase list. `Phase N.` lines followed b
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
