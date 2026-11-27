@@ -4,7 +4,8 @@
 # MCP `initialize`, and packages it as its own archive, `surl-mcp-<rid>` (ADR-0103 decision 7).
 # The pack job also packs Surl.Api and Surl.Mcp as NuGet packages and keeps them as the
 # nuget-packages artifact on every run, a tag included. On a tag the GitHub release carries both
-# `.nupkg` files beside the archives (BL-1789); nothing pushes them to a feed (BL-643).
+# `.nupkg` files beside the archives (BL-1789), and the release job pushes both to nuget.org
+# (BL-1795, replacing BL-643's "never pushed"). A dry run pushes nothing.
 #
 #   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve archives and both NuGet packages, proves
 #     them, and attaches all fourteen, with a SHA256SUMS file listing them, to a GitHub release of
@@ -316,8 +317,8 @@ jobs:
 
   # Packs Surl.Api (ADR-0099 decision 10) and Surl.Mcp (ADR-0103 decision 7) as NuGet packages with
   # the version surl gets, and keeps them as the nuget-packages artifact - on a tag as on a dry run.
-  # On a tag the release job attaches both to the GitHub release (BL-1789). Nothing is pushed to a
-  # feed: publishing a package needs Stewart (CLAUDE.md), so no step holds an API key.
+  # On a tag the release job attaches both to the GitHub release (BL-1789) and pushes both to
+  # nuget.org through trusted publishing (Stewart, 2026-11-26; BL-1795); no step holds a stored key.
   # Surl.Api's project references are bundled into its lib folder, so it has no package dependency;
   # Surl.Mcp is one framework-dependent .NET tool package of type McpServer, whose .mcp/server.json
   # is stamped with the same version first.
@@ -456,6 +457,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write   # nuget.org trusted publishing exchanges this token for a short-lived key
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -489,3 +491,23 @@ jobs:
           flags=(--generate-notes --notes-file notes/pass-rate-notes.md --title "$GITHUB_REF_NAME")
           [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"
+
+      # Pushes both packages to nuget.org (Stewart, 2026-11-26; BL-1795). Trusted publishing: the
+      # nuget.org account StewartScottRogers holds a policy for this repository's release.yml, and
+      # NuGet/login trades the job's OIDC token for a key that lasts one hour, so no secret is stored.
+      # --skip-duplicate lets a rerun of a tag's release job succeed once the packages are up.
+      - name: Log in to nuget.org
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: StewartScottRogers
+
+      - name: Push the packages to nuget.org
+        working-directory: dist
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for id in Surly.Surl.Api Surly.Surl.Mcp; do
+            dotnet nuget push "$id.$version.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done

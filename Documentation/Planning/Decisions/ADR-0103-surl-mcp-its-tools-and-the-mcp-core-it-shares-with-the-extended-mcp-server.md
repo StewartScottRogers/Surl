@@ -480,3 +480,10 @@ Decided by Claude under Stewart's delegation, 2026-11-26. The Surly cookbook re-
 **Decision.** On a `v*` tag the release job attaches `Surly.Surl.Mcp.<version>.nupkg`, decision 7's package,
 to the GitHub release beside the `surl-mcp-<rid>` archives, listed in `SHA256SUMS` by its exact name, so a
 missing or misversioned package fails the release. It is still not pushed to any feed (BL-643 stands).
+
+## Amendment 5 — each release tag pushes the NuGet package to nuget.org (BL-1795)
+
+Decided by Stewart, 2026-11-26. On a `v*` tag the release job pushes `Surly.Surl.Mcp.<version>.nupkg`,
+decision 7's package, to nuget.org beside `Surly.Surl.Api` (ADR-0099, amendment 2026-11-26 (2), which holds
+the mechanism: trusted publishing for the account `StewartScottRogers`, no stored key, `--skip-duplicate`).
+This replaces Amendment 4's "still not pushed to any feed".
