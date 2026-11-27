@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Output.UnitLibrary/ListenerStatusLine.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1893 — Correct the ListenerStatusLine doc comments for a Unix domain socket listen URL
 
@@ -37,16 +37,23 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] `Write`'s `<param name="listenUrl">` says the URL has `BoundPort` set or is on a Unix domain socket.
-- [ ] `Write`'s `<exception>` says it throws only when the URL is on TCP and has no bound port yet.
-- [ ] The class `<summary>` also gives the Unix domain socket form: the port asked for, then ` over ` and the
+- [x] `Write`'s `<param name="listenUrl">` says the URL has `BoundPort` set or is on a Unix domain socket.
+- [x] `Write`'s `<exception>` says it throws only when the URL is on TCP and has no bound port yet.
+- [x] The class `<summary>` also gives the Unix domain socket form: the port asked for, then ` over ` and the
       socket's URL.
-- [ ] `dotnet build Foundation/Surl.Output.UnitTests -warnaserror` is clean, the fast tests are green, and the only
+- [x] `dotnet build Foundation/Surl.Output.UnitTests -warnaserror` is clean, the fast tests are green, and the only
       changed lines are `///` comment lines in `ListenerStatusLine.cs`.
 
 ## Notes
+
+- Edited in the session rather than through `align-and-document`: three comment lines in one file, with the wording
+  already given by the task, so a subagent would only add token cost.
+- `Write`'s two comments use the same wording as `Format`'s, which `Write` calls.
+- Checked 2026-11-27: both builds 0 warnings, 0 errors; fast tests exit 0 with no failures;
+  `dotnet format --verify-no-changes --include` on the file exit 0. No ADR: no decision was needed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ListenerStatusLine doc comments describe both the TCP and the Unix domain socket listen URL forms
