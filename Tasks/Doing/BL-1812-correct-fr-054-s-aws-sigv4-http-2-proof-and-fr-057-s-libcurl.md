@@ -64,3 +64,4 @@ workflow run").
 
 - 2026-11-26: Created.
 - 2026-11-26: Renumbered from BL-1805 to BL-1812; an archived task holds BL-1805.
+- 2026-11-26: Backlog -> Doing.
