@@ -700,7 +700,8 @@ public sealed partial class ComposedStores
     /// <see cref="StoreKind.Sessions"/> and <see cref="StoreKind.Uploads"/>, which publish one for each
     /// kind of server whose state they hold.
     /// </summary>
-    /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store's index lock, or for the uploads of the
+    /// S3, Azure Storage or Google Cloud Storage servers.</param>
     /// <returns>A task that completes once every store is reset.</returns>
     /// <exception cref="ComposedStoreException">A store refused, such as one on disk; it names the
     /// store, and the stores before it are reset.</exception>
@@ -717,7 +718,9 @@ public sealed partial class ComposedStores
     /// whole-instance reset does for that store.
     /// </summary>
     /// <param name="store">The store.</param>
-    /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store's index lock, or, for
+    /// <see cref="StoreKind.Uploads"/>, for the uploads of the S3, Azure Storage or Google Cloud Storage
+    /// servers.</param>
     /// <returns>A task that completes once the store is reset.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="store"/> names no store this instance holds.</exception>
     /// <exception cref="ComposedStoreException">The store refused, such as one on disk.</exception>
@@ -755,7 +758,8 @@ public sealed partial class ComposedStores
     /// hold; a restored mail store gives every mailbox a new <c>UIDVALIDITY</c>.
     /// </summary>
     /// <param name="snapshot">A snapshot this instance took.</param>
-    /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store's index lock, or for the uploads of the
+    /// S3, Azure Storage or Google Cloud Storage servers.</param>
     /// <returns>A task that completes once every store the snapshot holds is restored.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="snapshot"/> was taken by another instance.</exception>

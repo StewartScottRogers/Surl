@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary/ComposedStores.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1872 — Say in the ComposedStores reset, snapshot and restore comments everything the cancellation token cancels
 
@@ -29,15 +29,25 @@ Comments only.
 
 ## Acceptance criteria
 
-- [ ] The `cancellationToken` comment of whole-instance reset and whole-snapshot restore names the content store
+- [x] The `cancellationToken` comment of whole-instance reset and whole-snapshot restore names the content store
       wait and the object servers' upload waits.
-- [ ] The `cancellationToken` comment of the one-store reset names the upload waits as cancellable too.
-- [ ] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean and the only changed lines in
+- [x] The `cancellationToken` comment of the one-store reset names the upload waits as cancellable too.
+- [x] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean and the only changed lines in
       `.cs` files are comments.
 
 ## Notes
+
+- The comments name S3, Azure Storage and Google Cloud Storage, not "object servers": the fourth uploads entry,
+  `OciUploadStoreRegistration`, ignores the token (`AbortOpenUploadsAsync` takes none).
+- The two `TakeSnapshotAsync` comments are unchanged and correct: only the content store's snapshot reads the token.
+- Three comment edits, made in the session without delegating to `align-and-document`: the change was already
+  fully specified here.
+- Verified: LF-to-CRLF script rewrote 0 files; `dotnet build -warnaserror` of the solution and of
+  `Application/Surl.Composition.UnitTests` clean; `dotnet format --verify-no-changes` exit 0; fast tests 30229
+  passed, 3 skipped, 0 failed. Integration tests not run (comments only).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The ComposedStores reset and restore comments now say the token also cancels the wait for the S3, Azure Storage and Google Cloud Storage uploads
