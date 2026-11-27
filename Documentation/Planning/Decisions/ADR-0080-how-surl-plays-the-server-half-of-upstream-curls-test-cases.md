@@ -10,6 +10,8 @@
   are made, and the Debug build and `libtests` binary of
   [ADR-0173](ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
   and [ADR-0174](ADR-0174-how-upstream-libtest-programs-are-built-pinned-and-run-by-the-conformance-runner.md)).
+- **Amended:** 2026-11-27 in BL-1835, decisions 2 and 3 (the server halves decision 2's table marks
+  "not built" are built).
 - **Amends:** nothing. [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (only pinned
   builds run, never the Curl port), [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md)
   decision 3 (`Surl.Conformance` references Abstractions only; protocol servers never reference each
@@ -436,3 +438,30 @@ above say otherwise; no behaviour changes.
      `libtest` or `libtest-not-built` in a run with no `libtests` binary, as a regression.
    - CI's Linux leg of `Upstream test cases` obtains the Debug build and the `libtests` binary
      besides the reference build.
+
+## Amendment (2026-11-27, BL-1835): the server halves decision 2 marks "not built" are built
+
+Decided by Claude under Stewart's delegation. It records what the code does where the decisions
+above say otherwise; no behaviour changes.
+
+Every name in the rows decision 2's table marks "not built" now says built in
+`UpstreamTestCaseServers`, as do `http/2` and `http/3` (the row worded "once built"), and
+`UpstreamTestCasesAgainstSurlTests` composes a server half for each:
+
+| `<server>` | Server half the run composes | Built by |
+| --- | --- | --- |
+| `http-proxy`, `https-proxy` | `HttpProxyUpstreamTestCaseServer` (`Surl.Protocol.HttpProxy`), in plaintext and behind TLS | BL-556 |
+| `socks4`, `socks5`, `socks5unix` | `SocksUpstreamTestCaseServer` (`Surl.Protocol.Socks`); `socks5unix` through a Unix domain socket listener | BL-562 |
+| `http-unix` | `HttpUpstreamTestCaseServer` (`Surl.Protocol.Http`) on a Unix domain socket listener | BL-549 |
+| `httptls+srp`, `httptls+srp-ipv6` | `UpstreamTestCaseTlsSrpServerHalf`, in `Surl.Conformance.UnitTests`: HTTP over `Surl.TlsSrp` on its own sockets, not behind the serving engine, answering upstream's `gnutls-serv --http` page | BL-568 |
+| `dns` | `DnsUpstreamTestCaseServer` (`Surl.Extended.Protocol.DnsQuery`) on a datagram listener ([ADR-0123](ADR-0123-what-plays-the-server-half-of-upstream-dns-test-cases.md)) | BL-570 |
+| `http/2`, `http/3` | `Http2GatewayUpstreamTestCaseServer` and `Http3GatewayUpstreamTestCaseServer` (`Surl.Protocol.Http`), as [ADR-0154](ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md) decided | BL-1118, BL-1119 |
+
+So no row of the table gives decision 3's `server-not-built:<name>` any more; the selector still
+gives it for a server name the table does not hold. The count of cases naming an unbuilt server
+under "Context", and what "Consequences" says waits on BL-399, are as of 2026-11-04. A case naming
+a built server can still skip for another of decision 3's reasons.
+
+A row saying built does not by itself mean the run composes a server half: the `rtsp` and
+`rtsp-ipv6` rows say built, but the run composes none for them. Every case naming an `rtsp` server
+at the tag is a libtest program.

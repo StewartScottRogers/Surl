@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md, Documentation/Planning/Decisions/ADR-0080-how-surl-plays-the-server-half-of-upstream-curls-test-cases.md]
 requirement: FR-053
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1835 — Correct the conformance CLAUDE.md's test certificate statement and note in ADR-0080 that every server half is built
 
@@ -34,15 +34,27 @@ Stand-in questions: this task changes prose only.
 
 ## Acceptance criteria
 
-- [ ] The conformance `CLAUDE.md` says `https` serves the certificate a case's `<server>` line
+- [x] The conformance `CLAUDE.md` says `https` serves the certificate a case's `<server>` line
       names, else `test-localhost`, and names the client-certificate half.
-- [ ] ADR-0080 has a dated amendment, marked "Decided by Claude under Stewart's delegation",
+- [x] ADR-0080 has a dated amendment, marked "Decided by Claude under Stewart's delegation",
       saying which rows decision 2's table marks "not built" are built in `UpstreamTestCaseServers`.
-- [ ] ADR-0080's header lists that amendment.
+- [x] ADR-0080's header lists that amendment.
 
 ## Notes
+
+- 2026-11-27: `align-and-document` made both edits. Every "not built" row is built, and so are the
+  `http/2` and `http/3` rows; the amendment lists the server half the run composes for each.
+- The title's "every server half is built" is not true of RTSP: the `rtsp` and `rtsp-ipv6` rows say
+  built, but the run composes no server half for them. The amendment says that instead of the
+  title's wording. All 9 cases naming an `rtsp` server are libtest programs (counted with
+  PowerShell over the imported data).
+- Stale statements outside this task's goal are filed as BL-1850 (XML comments) and BL-1851
+  (ADR-0080's amendment list and rows).
+- Verification: `dotnet build` 0 warnings, 0 errors; fast tests 30,198 passed, exit code 0.
+  Only Markdown changed, so `dotnet format` was not run.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The conformance CLAUDE.md states each TLS server half's certificate, and ADR-0080 is amended with the server halves since built (rtsp has a built row but no composed half).

@@ -362,8 +362,13 @@ extended key usage, `CA:true`; the `authorityInfoAccess` and `crlDistributionPoi
 not read) and `UpstreamTestCertificateGenerator.Generate` makes, with ECDSA P-256 keys and
 SHA-256, the authority `test-ca` (`.crt`, `.cacert`, `.key`) and for every other description `.crt`,
 `.der`, `.key`, `.pem` (key then certificate), `.pub.der`, `.pub.pem` and `.crl` (revoking it), all
-as bytes. `UpstreamTestCasesAgainstSurlTests` writes them under the run's `%CERTDIR/certs/` and
-serves `https` with `test-localhost`.
+as bytes. `UpstreamTestCasesAgainstSurlTests` writes them under the run's `%CERTDIR/certs/`. `https`
+serves the certificate a case's `https` `<server>` line names (`https test-localhost0h.pem`, read by
+`UpstreamTestCaseCertificateName.Find`; BL-1130), else `test-localhost`, and so does every other
+TLS listener of the case's `UpstreamTestCaseServerHalves` but two. The client-certificate half,
+`https-mtls`, serves `test-localhost` and requires a client certificate chaining to `test-ca`
+(BL-1131), and the HTTP/3 gateway serves `test-localhost`. The `httptls+srp` and
+`httptls+srp-ipv6` halves serve no certificate.
 
 The stated pass rate and its guard are built (BL-393):
 
