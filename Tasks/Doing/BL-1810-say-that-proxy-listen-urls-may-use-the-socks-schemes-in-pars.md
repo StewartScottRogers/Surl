@@ -30,3 +30,4 @@ Found by BL-1806. Both say `http` or `https` only. `ProxyDefaultPorts.cs`, which
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
