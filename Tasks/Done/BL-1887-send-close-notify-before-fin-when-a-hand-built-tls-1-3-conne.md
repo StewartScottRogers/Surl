@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1887 — Send close_notify before FIN when a hand-built TLS 1.3 connection completes its writes
 
@@ -42,19 +42,34 @@ Found during BL-1849 by reading the code on 2026-11-27; not reproduced by a test
 
 ## Acceptance criteria
 
-- [ ] `CompleteWritesAsync_HandBuiltTls13Connection_SendsCloseNotifyBeforeFin` in `Surl.Networking.UnitTests`,
+- [x] `CompleteWritesAsync_HandBuiltTls13Connection_SendsCloseNotifyBeforeFin` in `Surl.Networking.UnitTests`,
       written first and seen to fail, shows that after the handshake `CompleteWritesAsync` writes one protected
       record (outer content type 23) to the transport before `ShutdownSend` is called, and passes.
-- [ ] The same test, or a second named one, shows that a second `CompleteWritesAsync` and a following `DisposeAsync`
+- [x] The same test, or a second named one, shows that a second `CompleteWritesAsync` and a following `DisposeAsync`
       write no further record.
-- [ ] `SendCloseNotifyAsync` calls `Tls13ServerStream.ShutdownAsync` with the caller's token, and its code comment
+- [x] `SendCloseNotifyAsync` calls `Tls13ServerStream.ShutdownAsync` with the caller's token, and its code comment
       cites ADR-0157 beside ADR-0122.
-- [ ] No test needs `TestCategory=Integration`.
-- [ ] `dotnet build Foundation/Surl.Networking.UnitTests -warnaserror` is clean and the fast tests are green.
+- [x] No test needs `TestCategory=Integration`.
+- [x] `dotnet build Foundation/Surl.Networking.UnitTests -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Fix: one `Tls13ServerStream` arm in `StreamConnection.SendCloseNotifyAsync`. No new ADR: ADR-0010 section 1 and
+  ADR-0157 already decide the behaviour; the code did not do what they and the XML comment say.
+- Tests: `StreamConnectionTls13Tests` (new). Both failed before the fix (`ShutdownSend` came first, then the
+  alert was attempted on the shut-down transport) and pass after it. Its transport logs every write attempt, so a
+  second alert after the half-close would show. They carry `OSCondition` excluding macOS, as the task's Context says,
+  so on macOS CI they are skipped.
+- The `/feature` stages were done in this session without subagents: the change is one switch arm, and the task
+  already names the seam and the tests. Review was a read of the diff; no separate `code-reviewer` run.
+- No upstream curl conformance run: the path runs in production only on macOS, which a Windows lane cannot run.
+- Also corrected the class summary of `StreamConnection`, which said a secured connection reads and writes through
+  `SslStream` only.
+- Verify on Windows, 2026-11-27: build 0 warnings, format check clean, fast tests 30231 passed, 0 failed,
+  3 skipped; `Surl.Networking.UnitTests` Integration tests 27 passed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. CompleteWritesAsync on a hand-built TLS 1.3 connection now sends close_notify before FIN
