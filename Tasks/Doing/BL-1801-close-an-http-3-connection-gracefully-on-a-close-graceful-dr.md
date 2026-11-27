@@ -40,3 +40,4 @@ saw. If the work is too big for one run, split it.
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
