@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md, Documentation/Planning/Decisions/ADR-0080-how-surl-plays-the-server-half-of-upstream-curls-test-cases.md]
 requirement: FR-053
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1808 — Correct the conformance CLAUDE.md's Debug build statements and amend ADR-0080 on where port variables and SSH keys are made
 
@@ -31,16 +31,30 @@ Found during BL-1805 (2026-11-26).
 
 ## Acceptance criteria
 
-- [ ] The conformance `CLAUDE.md` says `Debug` and `TrackMemory` are features of a pin that lists
+- [x] The conformance `CLAUDE.md` says `Debug` and `TrackMemory` are features of a pin that lists
       them.
-- [ ] Its description of `UpstreamTestCasesAgainstSurlTests` names the Debug build and the
+- [x] Its description of `UpstreamTestCasesAgainstSurlTests` names the Debug build and the
       `libtests` binary.
-- [ ] ADR-0080 has a dated amendment, marked "Decided by Claude under Stewart's delegation", saying
+- [x] ADR-0080 has a dated amendment, marked "Decided by Claude under Stewart's delegation", saying
       where the port variables and SSH keys are made.
 
 ## Notes
+
+- Delivered by `align-and-document`, in the two files `touches` names. Prose only: no `.cs` or
+  project file changed. `dotnet build` clean (0 warnings); fast tests 30145 passed, 3 skipped,
+  0 failed.
+- ADR-0080's new amendment records existing code, so it takes no new ADR number. It also records the
+  decisions 3, 5 and 6 changes ADR-0173 and ADR-0174 made, which are on the same subject.
+- The code differs from the Context in two ways, and the documents follow the code: smb cases also
+  use a build other than the reference one, and the run gives no value for `%RTSPPORT`,
+  `%RTSP6PORT`, `%SMBSPORT` or `%TFTP6PORT`.
+- Also corrected in the same `CLAUDE.md`: the `Libtest` pin kind, `LocateDebug` and `LocateLibtest`,
+  and the passing-list guard's tolerated skips.
+- Found and left alone, filed as BL-1816 (libtest skip filter, comments and refusal message in code)
+  and BL-1817 (certificate statement; ADR-0080 rows still marked "not built").
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. The conformance CLAUDE.md and ADR-0080 now say what the code does about the Debug build, the libtests binary, port variables and SSH keys
