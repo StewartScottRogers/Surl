@@ -39,7 +39,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `ProxyRedactionCompositionTests`). The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
-  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.
+  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone; with neither, a
+  `NoAccountProxyAuthenticationPolicy`, which asks for no login but has an `AuthenticationPolicy` with no accounts and
+  `AllowAnonymous` judge each SOCKS5 GSS-API login, so any principal the keytab's keys accept stands, the login is
+  published and `refuse-login` applies, ADR-0165 decisions 7 to 9, BL-1826; `NoAccountProxyAuthenticationPolicyTests`);
+  `--proxy-allow-origin '*'` warns.
   The rule refuses each proxy's and SOCKS listener's own end point, one on port 0 included: the start's one
   `BoundProxyEndPoints`, which `ListenerStartReporter.ListenUrlBound` fills as each such listener binds, is read by the
   rule on every check (ADR-0088 Amendment 11). Tests: `ProxyCompositionTests`, `BoundProxyEndPointsTests`.

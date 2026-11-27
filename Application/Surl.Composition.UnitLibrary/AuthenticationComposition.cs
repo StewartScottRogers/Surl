@@ -109,7 +109,9 @@ public static class AuthenticationComposition
     /// Builds the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
     /// the <c>-U</c> accounts and then the <c>--proxy-user-file</c> alone, never the origin's accounts,
     /// with the <c>--proxy-auth</c> methods (Digest and Basic by default) and the loosening switches <c>--allow-anonymous</c> and
-    /// <c>--allow-plaintext-auth</c>; one asking for no login when no proxy account is given.
+    /// <c>--allow-plaintext-auth</c>. With no proxy account it is a
+    /// <see cref="NoAccountProxyAuthenticationPolicy"/>, which asks for no login but still publishes a
+    /// SOCKS5 GSS-API login and applies <c>refuse-login</c> to it.
     /// </summary>
     internal static (IAuthenticationPolicy? Policy, SurlExitCode ExitCode, string? FailureMessage) ComposeProxyPolicy(
         SurlCommandLine commandLine,
@@ -120,7 +122,10 @@ public static class AuthenticationComposition
     {
         if (commandLine.ProxyAccounts.Count == 0 && commandLine.ProxyUserFile is null)
         {
-            return (new AnonymousAuthenticationPolicy(), SurlExitCode.Ok, null);
+            // With no proxy account every ticket the keytab's keys accept stands, so no account is matched.
+            var anyPrincipal = ComposeSettings(new SurlCommandLine { AllowAnonymous = true }, []);
+            var kerberosLogins = ComposePolicy(anyPrincipal, timeProvider, events, faults);
+            return (new NoAccountProxyAuthenticationPolicy(kerberosLogins), SurlExitCode.Ok, null);
         }
 
         var proxyView = commandLine with
