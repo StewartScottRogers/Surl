@@ -67,3 +67,4 @@ executable line changes. No store, event or fault changes. Paths below under `Co
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
