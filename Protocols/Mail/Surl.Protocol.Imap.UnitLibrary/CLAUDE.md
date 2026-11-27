@@ -2,14 +2,14 @@
 
 Phase 3. The IMAP4rev1 server (RFC 3501; not IMAP4rev2, ADR-0055 decision 1) that serves the
 mail store to upstream curl, built as
-[ADR-0055](../Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md)
+[ADR-0055](../../../Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md)
 decides - its decisions 16 to 18 record the details BL-202, BL-203 and BL-204 settled - on the
 mail store and line machinery of
-[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+[ADR-0050](../../../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
 with the logins of
-[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
+[ADR-0049](../../../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
 and a limit told from shutdown as
-[ADR-0059](../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
+[ADR-0059](../../../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
 decides. Terms (mail store, owner, anonymous owner, mailbox, UID and UIDVALIDITY, system flags,
 view, selected mailbox, literal, CRLF line, reply line, STARTTLS discard, SASL mechanism, SASL
 exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".

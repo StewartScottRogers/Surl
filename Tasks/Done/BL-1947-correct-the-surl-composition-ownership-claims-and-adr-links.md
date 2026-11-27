@@ -8,7 +8,7 @@ depends-on: [BL-1928]
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1947 — Correct the Surl.Composition ownership claims and ADR links in the IMAP library
 
@@ -43,15 +43,25 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] `CLAUDE.md` and the `ImapProtocolServer` remarks say `Surl.Composition` registers `imaps` as an `ImplicitTlsSchemeServer` over the `imap` server.
-- [ ] `CLAUDE.md` and the `mailAuthenticationPolicy` param say `Surl.Composition` passes the `imap` scheme's one `AuthenticationPolicy` as both policy arguments.
-- [ ] No comment or `CLAUDE.md` line in the library says `Surl.Console` registers, wraps or composes the server.
-- [ ] Every relative link in the library's `CLAUDE.md` resolves to a file in the repository.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] `CLAUDE.md` and the `ImapProtocolServer` remarks say `Surl.Composition` registers `imaps` as an `ImplicitTlsSchemeServer` over the `imap` server.
+- [x] `CLAUDE.md` and the `mailAuthenticationPolicy` param say `Surl.Composition` passes the `imap` scheme's one `AuthenticationPolicy` as both policy arguments.
+- [x] No comment or `CLAUDE.md` line in the library says `Surl.Console` registers, wraps or composes the server.
+- [x] Every relative link in the library's `CLAUDE.md` resolves to a file in the repository.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- BL-1943 (commit `68bd81d49`) had already made the `Surl.Composition` wording fixes in `CLAUDE.md` and
+  `ImapProtocolServer.cs`. Checked against `ProtocolServerRegistrations.Original`; no `Surl.Console` mention remains
+  in the library.
+- This task changed only the four ADR links (ADR-0055, 0050, 0049, 0059) to `../../../Documentation/`; all four
+  resolve. No `.cs` file changed.
+- Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, 0 errors; fast tests 30368 passed, 0 failed, 3 skipped.
+  `dotnet format` not run: no `.cs` or project file changed.
+- Filed BL-1952 for two other statements in the same `CLAUDE.md` (`SPECIAL-USE`, log redaction), outside this task.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The IMAP library's four ADR links resolve and it names Surl.Composition as the composer (wording from BL-1943).
