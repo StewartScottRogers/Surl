@@ -1,5 +1,5 @@
 ---
-id: BL-1944
+id: BL-1951
 title: Point ADR-0107 decision 1 at ADR-0122 decision 5 for the amqp1 TLS header under TLS-SRP
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1944 — Point ADR-0107 decision 1 at ADR-0122 decision 5 for the amqp1 TLS header under TLS-SRP
+# BL-1951 — Point ADR-0107 decision 1 at ADR-0122 decision 5 for the amqp1 TLS header under TLS-SRP
 
 ## Goal
 

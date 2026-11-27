@@ -51,7 +51,7 @@ No store, event or fault is involved: documentation only.
   `WithACertificate` and `WithoutACertificate`, as the task asks.
 - Verify (2026-11-27): build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30366 passed,
   3 skipped, 0 failed. No Integration tests: only comments and prose changed.
-- ADR-0107 decision 1 still states the certificate-only condition and is outside `touches`: filed BL-1944.
+- ADR-0107 decision 1 still states the certificate-only condition and is outside `touches`: filed BL-1951.
   `ManualText` has a like sentence for `amqp1`; BL-1927 and BL-1935 cover those manual sections.
 
 ## Log
