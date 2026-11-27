@@ -32,12 +32,16 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 
 ## What is here now (BL-110)
 
-- `Account`, `AccountBook`: the configured accounts. `AccountBook` keeps each password as
-  the SHA-256 of its UTF-8 bytes and checks a password or Bearer token by comparing SHA-256
-  hashes through `ISecretComparer` (`CryptographicSecretComparer`, i.e.
-  `CryptographicOperations.FixedTimeEquals`); an unknown user is compared against a random
-  dummy hash, so it costs the same and answers the same (ADR-0032 section 8). The empty
-  user name is the Bearer token's account and never matches `CheckPassword`.
+- `Account`, `AccountBook`: the configured accounts. `AccountBook` keeps the SHA-256 of
+  each password's UTF-8 bytes and, for a named account, the credentials derived from the
+  password, some of which are the password's bytes (its UTF-8 bytes, and the bytes a base64
+  password decodes to), so treat the book as holding every named account's password; the
+  empty-name account is held as its SHA-256 only (ADR-0132 amendment 3). It checks a
+  password or Bearer token by comparing SHA-256 hashes through `ISecretComparer`
+  (`CryptographicSecretComparer`, i.e. `CryptographicOperations.FixedTimeEquals`); an
+  unknown user is compared against a random dummy hash, so it costs the same and answers the
+  same (ADR-0032 section 8). The empty user name is the Bearer token's account and never
+  matches `CheckPassword`.
 - `UserFileParser`: the `--user-file` text (bytes, never the disk) into accounts, after the
   `--user` ones, or the first refused line as a `UserFileLineFailure` whose `Describe()` is
   ADR-0032 section 2's text after the path.
@@ -520,7 +524,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   flight reads the set before or after a change, never a half-written one. `Add` (derives every credential as
   at start; a name that exists throws `ArgumentException`), `Remove` (`false` for no such name), `Reset` (the
   accounts the book was built with), `TakeSnapshot` and `Restore` (an `AccountSnapshot` of another book throws
-  `ArgumentException`). A snapshot holds hashes and derived credentials, never `Account.Password`.
+  `ArgumentException`). A snapshot holds each password's SHA-256 and, for a named account, the derived
+  credentials, some of which are the password's bytes, so treat it as holding every named account's password;
+  the empty-name account is held as its SHA-256 only (ADR-0132 amendment 3).
 - `ForScheme` always returns a live view over the same store (filtered again only when the set changes), and
   `AuthenticationSettings.ForScheme` always uses it, so a change reaches every scheme's logins at once. A
   view's changes act on the book it came from. Authorized keys do not change with the accounts.

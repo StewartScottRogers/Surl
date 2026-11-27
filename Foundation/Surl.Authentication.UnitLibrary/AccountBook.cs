@@ -15,9 +15,13 @@ namespace Surl.Authentication;
 /// NT hashes, one for each way an upstream curl build hashes the password (ADR-0039,
 /// <see cref="NtlmPasswordHashes"/>); and for AWS Signature Version 4, each named account's password as UTF-8
 /// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
-/// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for SASL
+/// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for Azure Storage, the
+/// key a named account's password decodes to as base64, when it decodes to at least one byte
+/// (ADR-0100, decision 4.1); and, for SASL
 /// <c>SCRAM-SHA-1</c>, <c>SCRAM-SHA-256</c> and <c>SCRAM-SHA-512</c>, each named account's <see cref="ScramCredentials"/>
-/// under each hash, over a random salt and 4096 iterations (BL-416, BL-700).
+/// under each hash, over a random salt and 4096 iterations (BL-416, BL-700). Some of these are the
+/// password's bytes, so treat the book as holding every named account's password; the empty-name
+/// Bearer-token account is kept as its SHA-256 only (ADR-0132, amendment 3).
 /// <para>
 /// The accounts are a store a test controls while the server runs (ADR-0124, decision 3; ADR-0132):
 /// <see cref="Add"/>, <see cref="Remove"/>, <see cref="Reset"/>, <see cref="TakeSnapshot"/> and
@@ -196,8 +200,11 @@ public sealed class AccountBook
     public void Reset() => store.Reset();
 
     /// <summary>
-    /// Copies the accounts as they are now: password hashes and what was derived from each
-    /// password, never a clear password.
+    /// Takes the accounts as they are now: each password's SHA-256 and, for a named account, the
+    /// credentials derived from its password, some of which are the password's bytes, so treat the
+    /// snapshot as holding every named account's password. The empty-name Bearer-token account is
+    /// taken as its SHA-256 only (ADR-0132, amendment 3). A later change to the book leaves the
+    /// snapshot as it was.
     /// </summary>
     /// <returns>The snapshot, which only this book and its views restore.</returns>
     public AccountSnapshot TakeSnapshot() => store.TakeSnapshot();

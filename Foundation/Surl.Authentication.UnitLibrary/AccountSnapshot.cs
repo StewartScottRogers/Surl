@@ -1,11 +1,14 @@
 namespace Surl.Authentication;
 
 /// <summary>
-/// An in-memory copy of an <see cref="AccountBook"/>'s accounts, taken by
+/// An in-memory snapshot of an <see cref="AccountBook"/>'s accounts, taken by
 /// <see cref="AccountBook.TakeSnapshot"/> and given back by <see cref="AccountBook.Restore"/>
-/// (ADR-0124, decision 3). It holds what the book holds - each password's SHA-256 and the
-/// credentials derived from it - and never a clear password. Only the book it was taken of
-/// restores it.
+/// (ADR-0124, decision 3). It holds the unchanging records the book held when it was taken: each
+/// password's SHA-256 and, for a named account, the credentials derived from its password, some of
+/// which are the password's bytes, so treat a snapshot as holding every named account's password.
+/// The empty-name Bearer-token account is held as its SHA-256 only (ADR-0132, amendment 3). Its
+/// public <see cref="UserNames"/> gives names alone, and only the book it was taken of, or one of
+/// that book's views, restores it.
 /// </summary>
 public sealed class AccountSnapshot
 {

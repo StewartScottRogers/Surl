@@ -361,12 +361,19 @@ retained or queued messages, exactly the accounts given at start, empty Redis da
 and zones as `--directory` loaded them (empty without it). It also clears the broker state the message bus
 carries (ADR-0159): the AMQP 0-9-1 broker's declared exchanges and bindings and the MQTT 5 broker's sessions
 kept with no connection. A snapshot is an in-memory copy (at most
-256 MiB, accounts as password hashes only) that only the server that took it restores; another
+256 MiB) that only the server that took it restores; another
 server's throws `ArgumentException`. Every mailbox gets a new `UIDVALIDITY` on reset and restore,
 so an IMAP client resynchronises; open connections stay open and see the new contents on their
 next command. Each seed, reset and restore is a `StoreChanged` event the queries above find. With
 `DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
 `InvalidOperationException` so a fixture never empties a real directory; seeding them still works.
+
+**A snapshot holds secrets.** Each account and proxy account is held with the SHA-256 of its
+password and, when it is named, the credentials derived from the password, some of which are the
+password's bytes (its UTF-8 bytes, and the bytes a base64 password decodes to), so treat a
+snapshot as holding every named account's password. The empty-name Bearer-token account is held
+as the SHA-256 of its token only. A TLS-SRP account is held as its user name, salt, group and
+verifier, never its password (ADR-0132 amendment 3, ADR-0170).
 
 ## Read back what a client left
 

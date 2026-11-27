@@ -3,8 +3,9 @@ namespace Surl.Authentication;
 /// <summary>
 /// One account as <see cref="AccountBook"/> keeps it: its name, the schemes it may log in on, the
 /// SHA-256 of its password and, for a named account, every credential derived from the password
-/// once, when the account was read at start or added (ADR-0032, section 8; ADR-0124, decision 3).
-/// The clear password is not kept.
+/// once, when the account was read at start, added or given a new password (ADR-0032, section 8;
+/// ADR-0124, decision 3). Some of those credentials are the password's bytes, so a named account's
+/// record holds its password; the empty name's holds the SHA-256 only (ADR-0132, amendment 3).
 /// </summary>
 /// <param name="UserName">The user name; empty for a Bearer token's account.</param>
 /// <param name="Schemes">The schemes it may log in on, as <see cref="Account.Schemes"/>.</param>

@@ -16,9 +16,11 @@ namespace Surl.Api;
 /// </para>
 /// <para>
 /// Accounts, proxy accounts and TLS-SRP accounts are copied, though they add nothing to <see cref="ByteCount"/>. A
-/// TLS-SRP account is held as its user name, salt, group and verifier, never its password. The other two are held
-/// with the credentials the server derived from each password, which for a named account include the password's UTF-8
-/// bytes, so a snapshot holds secrets.
+/// TLS-SRP account is held as its user name, salt, group and verifier, never its password. Each account and proxy
+/// account is held with the SHA-256 of its password and, when it is named, the credentials the server derived from the
+/// password, some of which are the password's bytes (its UTF-8 bytes, and the bytes a base64 password decodes to), so a
+/// snapshot holds secrets: treat it as holding every named account's password. The empty-name Bearer-token account is
+/// held as the SHA-256 of its token only (ADR-0132, amendment 3).
 /// </para>
 /// </summary>
 public sealed class SurlSnapshot
