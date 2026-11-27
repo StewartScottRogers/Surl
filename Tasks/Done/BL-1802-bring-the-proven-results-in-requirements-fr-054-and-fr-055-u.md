@@ -8,7 +8,7 @@ depends-on: [BL-1800]
 touches: [Documentation/Product/Requirements.md]
 requirement: FR-054
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1802 — Bring the proven results in requirements FR-054 and FR-055 up to date and remove the repeated words in FR-057
 
@@ -44,22 +44,30 @@ No stand-in store, event or fault applies: this task changes prose only.
 
 ## Acceptance criteria
 
-- [ ] FR-054 no longer lists the Linux and macOS reference builds' results under "Not yet proven",
+- [x] FR-054 no longer lists the Linux and macOS reference builds' results under "Not yet proven",
       and states that the 15 `UpstreamCurlFetchesFromSurlOverHttp2Tests` tests passed on both in CI
       run 42324374116 (BL-724). Its other unproven item (the cases BL-371 left unmeasured) remains.
-- [ ] FR-055 no longer lists the Linux and macOS reference builds' results under "Not yet proven",
+- [x] FR-055 no longer lists the Linux and macOS reference builds' results under "Not yet proven",
       and states that the 13 `UpstreamCurlFetchesFromSurlOverHttp3Tests` tests passed on both in CI
       run 42324374116 (BL-768). Its other unproven items (BL-385's unmeasured cases and the ADR-0147
       groups) remain.
-- [ ] FR-054 says 358, 359, 2400, 2401, 2402, 2404, 2406 and 2407 pass on `linux-x64` with the Debug
+- [x] FR-054 says 358, 359, 2400, 2401, 2402, 2404, 2406 and 2407 pass on `linux-x64` with the Debug
       curl or libtests binary and that `win-x64` and `osx-arm64` skip them.
-- [ ] FR-055 says 2501 and 2502 pass on `linux-x64` with the Debug curl or libtests binary and that
+- [x] FR-055 says 2501 and 2502 pass on `linux-x64` with the Debug curl or libtests binary and that
       `win-x64` and `osx-arm64` skip them.
-- [ ] FR-057 contains "the harness is BL-577 to BL-579" and no "the harness the harness".
+- [x] FR-057 contains "the harness is BL-577 to BL-579" and no "the harness the harness".
 
 ## Notes
+
+- 2026-11-26: FR-054's CI sentence names the 15 tests at head `424106dd`, because the class now has
+  17 test methods and the run says nothing about the two added by BL-1549.
+- The ten Debug-curl and libtests cases are in the `linux-x64` passing list and in neither the
+  `win-x64` nor the `osx-arm64` list.
+- Stale statements outside these criteria are filed as BL-1804.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: every test project passed.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. FR-054 and FR-055 state the Linux and macOS and Debug-curl or libtests results as proven; FR-057's repeated words are gone
