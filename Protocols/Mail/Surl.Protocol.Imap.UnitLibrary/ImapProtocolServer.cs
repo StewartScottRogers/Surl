@@ -37,9 +37,9 @@ namespace Surl.Protocol.Imap;
 /// <para>
 /// <b>TLS.</b> <c>STARTTLS</c> is offered and answered only on a plaintext connection of a server
 /// that can upgrade, before a login: every byte the client sent after its line is discarded unrun,
-/// then the connection is upgraded (ADR-0010). <c>imaps</c> is implicit TLS, which
-/// <c>Surl.Console</c> wraps round this server; the session tells the two apart by
-/// <see cref="IConnection.TlsSession"/>, never by the scheme (ADR-0055, decision 11).
+/// then the connection is upgraded (ADR-0010). <c>imaps</c> is implicit TLS, for which
+/// <c>Surl.Composition</c> wraps this server in an <c>ImplicitTlsSchemeServer</c>; the session tells
+/// the two apart by <see cref="IConnection.TlsSession"/>, never by the scheme (ADR-0055, decision 11).
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command, its lines and literals together, longer than
@@ -77,7 +77,8 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <param name="mailAuthenticationPolicy">
     /// Says which SASL mechanisms are offered on a connection in its TLS state and whether the
     /// clear-password login is, and runs each <c>AUTHENTICATE</c> exchange (ADR-0049, section 6).
-    /// <c>Surl.Console</c> passes the same object as <paramref name="authenticationPolicy"/>.
+    /// <c>Surl.Composition</c> passes the <c>imap</c> scheme's one <c>AuthenticationPolicy</c> both
+    /// here and as <paramref name="authenticationPolicy"/>.
     /// </param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">

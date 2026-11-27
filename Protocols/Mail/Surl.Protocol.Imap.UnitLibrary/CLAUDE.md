@@ -14,17 +14,17 @@ decides. Terms (mail store, owner, anonymous owner, mailbox, UID and UIDVALIDITY
 view, selected mailbox, literal, CRLF line, reply line, STARTTLS discard, SASL mechanism, SASL
 exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-**URL schemes answered:** `imap`, and `imaps` through `Surl.Console`'s
-`ImplicitTlsSchemeServer`: the server claims `imap` only and tells implicit TLS apart by
-`IConnection.TlsSession`, never by the scheme.
+**URL schemes answered:** `imap`, and `imaps`, which `Surl.Composition` registers as an
+`ImplicitTlsSchemeServer` wrapping the `imap` server: this server claims `imap` only and tells
+implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
 - `ImapProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
   (`* BYE surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
-  `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into, and
-  `isTlsUpgradeAvailable`, which `Surl.Composition` sets from
+  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the `imap`
+  scheme's one `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
+  and `isTlsUpgradeAvailable`, which `Surl.Composition` sets from
   `ServerTlsComposition.IsTlsUpgradeAvailable`: true with a certificate (`--cert` or
   `--self-signed`) or under TLS-SRP (ADR-0122 decision 5).
 - `ImapSession` (with `ImapSession.Authentication.cs` and `ImapSession.Changes.cs`): one
