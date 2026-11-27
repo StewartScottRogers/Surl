@@ -74,6 +74,11 @@ measures it by name.
   `ComposedStores`, whose `ComposedStoreException` is the `InvalidOperationException` a refused
   reset or snapshot throws. `Files.DeleteAsync` (BL-954) is `ComposedStores.DeleteFileAsync` over `ContentStore.DeleteFileForTheTest`: no fault plan, publishes `Deleted`; no file there is `Absent`. Tests bring clients in
   on one listener of several with `FakeListenerFactory.Accept(scheme, connection)`.
+- Removing the last server account does not open the server (ADR-0132 amendment 5, BL-1866): without
+  `--allow-anonymous` it still asks for a login wherever it did, until `ResetAsync` or `RestoreAsync` returns what
+  held at start or at the snapshot. `Accounts.Remove` then writes
+  `surl: warning: no local account left; the server still asks for a login wherever it did` to `Log`, the same line
+  with `--user-ldap`. `Accounts.HasAccounts` `false` means no account is held.
 - Proxy and TLS-SRP accounts (BL-1280, ADR-0170 decision 4): `SurlServer.ProxyAccounts` and `TlsSrpAccounts` (`SurlServerProxyAccounts`, `SurlServerTlsSrpAccounts`) each have `Add` and `Remove` over `ComposedStores`; they throw `InvalidOperationException` when the server holds none (no proxy account, no TLS-SRP). Removing the last proxy account does not open the proxy (ADR-0132 amendment 4): without `--allow-anonymous` it then lets no new client through, and `Remove` writes `surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through` to `Log` (BL-1852). `BoundUrls` lists a proxy listen URL from `AdditionalArguments` after the given ones.
 - Hooks (BL-811, ADR-0124 decision 5): `SurlServer.OnEvent` makes an `EventCallbackHook`
   (`h1`, `h2` ...): its own `SurlEventStream` subscription at the default capacity without bytes, a

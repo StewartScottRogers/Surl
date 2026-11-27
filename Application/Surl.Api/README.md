@@ -306,11 +306,16 @@ await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue 
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
 ```
 
-`Accounts.Remove` of the last account leaves the server needing no login, as `surl` with no `--user` needs none:
-it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
-goes to `Log`; `Accounts.Add` closes it again. When the server was started with `--user-ldap`, the directory is an
-account source (ADR-0149 amendment 1), so a login is still needed: the line is instead
-`surl: warning: no local account left; logins are now checked against the directory only`.
+`Accounts.Remove` of the last account does not open the server: without `--allow-anonymous` (`AllowAnonymous`) it
+still asks for a login wherever it did, so on a scheme that has had an account to log in to, an `http` `GET` without
+credentials gets `401` or `403` (ADR-0132 amendment 5). The removal stays allowed, `Accounts.HasAccounts` turns
+`false`, which means no account is held, and
+`surl: warning: no local account left; the server still asks for a login wherever it did` goes to `Log`;
+`Accounts.Add` lets that account in. `ResetAsync` returns what the configured accounts give, so a server started with
+no account serves anonymous reads again, and `RestoreAsync` returns what held when the snapshot was taken. When the
+server was started with `--user-ldap`, the directory is an account source (ADR-0149 amendment 1) and the line is the
+same: on the schemes the directory serves, a password login naming a user no account holds, the removed one included,
+is checked against it.
 
 `ProxyAccounts.Remove` of the last proxy account does not open the proxy: without `--allow-anonymous`
 (`AllowAnonymous`) it then lets no new client through, so a `GET` without credentials gets the `407` (ADR-0132

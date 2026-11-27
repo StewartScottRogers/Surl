@@ -1,9 +1,11 @@
 namespace Surl.Api;
 
-// BL-1391: removing the last account leaves the server needing no login, which is allowed and warned.
+// BL-1391, BL-1866: removing the last account is allowed and warned, and the server still asks for a login wherever
+// it did, until a reset returns what the configured accounts give (ADR-0132 amendment 5).
 public sealed partial class SurlServerTests
 {
-    private const string NoAccountLeftWarning = "surl: warning: no account left; the server now needs no login";
+    private const string NoAccountLeftWarning =
+        "surl: warning: no local account left; the server still asks for a login wherever it did";
 
     [TestMethod]
     public async Task AccountsRemove_TheLastAccount_WarnsInTheLogAndHasAccountsTurnsFalse()
@@ -18,7 +20,40 @@ public sealed partial class SurlServerTests
 
         Assert.IsTrue(isRemoved);
         Assert.IsFalse(server.Accounts.HasAccounts);
-        StringAssert.Contains(log.ToString(), NoAccountLeftWarning);
+        Assert.AreEqual(1, log.ToString().Split(NoAccountLeftWarning).Length - 1);
+    }
+
+    [TestMethod]
+    public async Task AccountsRemove_TheLastAccount_AnswersAGetWithoutCredentialsWith401()
+    {
+        var seams = new ApiTestSeams();
+        await using var server = await SurlServer.StartAsync(StoreOptions(Http), seams.Host, TestContext.CancellationToken);
+        server.Accounts.Remove("alice");
+
+        var response = await ServeAsync(seams, "http", HttpGet("/hello.txt", null));
+
+        Assert.IsFalse(server.Accounts.HasAccounts);
+        StringAssert.StartsWith(response, "HTTP/1.1 401 ");
+    }
+
+    [TestMethod]
+    public async Task AccountsRemove_TheOnlyAccountAddedWhileRunning_AnswersAGetWith401UntilResetAsync()
+    {
+        var seams = new ApiTestSeams();
+        var options = ApiTestSeams.Options(Http);
+        options.AllowPlaintextAuthentication = true;
+        options.Files["hello.txt"] = "hello"u8.ToArray();
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+        server.Accounts.Add("bob", "builder");
+        server.Accounts.Remove("bob");
+
+        var removed = await ServeAsync(seams, "http", HttpGet("/hello.txt", null));
+        await server.ResetAsync(TestContext.CancellationToken);
+        var reset = await ServeAsync(seams, "http", HttpGet("/hello.txt", null));
+
+        StringAssert.StartsWith(removed, "HTTP/1.1 401 ");
+        StringAssert.StartsWith(reset, "HTTP/1.1 200 OK\r\n");
+        StringAssert.EndsWith(reset, "hello");
     }
 
     [TestMethod]
@@ -37,13 +72,13 @@ public sealed partial class SurlServerTests
         Assert.IsTrue(removedBob);
         Assert.IsFalse(removedNobody);
         Assert.IsTrue(server.Accounts.HasAccounts);
-        Assert.DoesNotContain("no account left", log.ToString());
+        Assert.DoesNotContain("no local account left", log.ToString());
     }
 
-    // BL-1668 (ADR-0149 amendment): a configured directory is an account source, so removing the last local account
-    // does not leave the server needing no login, and the warning says so.
+    // BL-1668 (ADR-0149 amendment): a configured directory is an account source beside the accounts; the one line is
+    // true with it too (ADR-0132 amendment 5, decision 8).
     [TestMethod]
-    public async Task AccountsRemove_TheLastLocalAccountWithADirectory_WarnsThatLoginsGoToTheDirectoryOnly()
+    public async Task AccountsRemove_TheLastLocalAccountWithADirectory_WritesTheSameWarning()
     {
         var seams = new ApiTestSeams();
         var log = new StringWriter();
@@ -57,7 +92,6 @@ public sealed partial class SurlServerTests
 
         Assert.IsTrue(isRemoved);
         Assert.IsFalse(server.Accounts.HasAccounts);
-        StringAssert.Contains(log.ToString(), "surl: warning: no local account left; logins are now checked against the directory only");
-        Assert.DoesNotContain("needs no login", log.ToString());
+        Assert.AreEqual(1, log.ToString().Split(NoAccountLeftWarning).Length - 1);
     }
 }
