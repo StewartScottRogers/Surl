@@ -27,6 +27,10 @@ The server asks its authentication session about every request before it looks a
 3. **An account exists:** every request, GET and HEAD too, needs a login. A peer that logs in is then answered by
    the method check: 405 with `Allow: GET, HEAD` (`GET, HEAD, PUT` under `--allow-uploads`), 501 for an unknown
    method.
+   **Changed by
+   [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+   (2026-11-27), for decisions 2 and 3: after the last account is removed from a scheme that has had one to log in
+   to, a `GET` or `HEAD` without credentials is not served; it is `401` or `403`.
 4. **`--allow-anonymous`:** every request is let in, so the method check answers alone: POST, DELETE, PATCH and
    the other known methods 405 with `Allow: GET, HEAD` (`GET, HEAD, PUT` under `--allow-uploads`, which also
    serves PUT), an unknown method 501.

@@ -20,6 +20,9 @@
   written.
 - **Amended by:** [ADR-0149](ADR-0149-how-an-ldap-directory-serves-as-an-optional-account-source.md) amendment 2
   (decision 6: a `--user-ldap` directory serving `coap` or `coaps` makes the server private too).
+  [ADR-0132](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)
+  amendment 5 (decision 6 and amendment 3: removing the last account allowed on `coap` or `coaps`
+  does not open reads).
 
 ## Context
 
@@ -328,6 +331,12 @@ as every file-serving extended server's namespace; ADR-0087's DTLS 1.2 server; a
   an anonymous write, and anonymity is loosened only by the option that says so. Configuring an
   account makes the server private, as it does HTTP, so plain `coap` then serves nothing without
   `--allow-anonymous`. `4.01` is section 5.9.2.2's "not authorized"; no challenge exists in CoAP.
+  **Changed by
+  [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+  (2026-11-27): the table's "no account configured" row serves reads only on a scheme that has
+  never had an account to log in to. After the last account is removed from one that has, an
+  unauthenticated `GET`, `/.well-known/core` included, is `4.01`. A `coaps` peer authenticated by
+  a verified `--cacert` client certificate still reads and writes.
 - **`coaps`** runs ADR-0087's handshake in its three modes: Certificate and RawPublicKey from
   `--cert`/`--key` or `--self-signed`, PreSharedKey from the `--user` and `--user-file` accounts
   (identity the name's UTF-8 bytes, key the password's), starting only with a certificate or an
@@ -510,8 +519,16 @@ account is configured" is asked at every read, not once:
   unauthenticated reads open.
 - **Rule:** `CoapAccessRules.HasAccounts` is a `Func<bool>`. An account allowed on `coap` that is added while the server
   runs makes the next unauthenticated read `4.01`, as it makes the next HTTP request need a login.
-- **Removal:** removing the last such account serves unauthenticated reads again (unless a `--user-ldap` directory
-  serves CoAP), as ADR-0132 decides for the other servers. Writes are unchanged: they never depended on the accounts.
-- **Alternative rejected:** staying private once any account has existed. CoAP would then differ from every other
-  server after the same store change, and a test that resets the accounts would not get the starting behaviour back.
+- **Superseded** by
+  [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)
+  (2026-11-27): this bullet and the next. A scheme that has had an account to log in to keeps answering an
+  unauthenticated read `4.01` after the last one is removed, on every server that has such reads, and a reset or
+  restore returns the answer with the accounts. `CoapAccessRules.HasAccounts` takes the name
+  `IsLoginRequiredToRead` (its decision 9, BL-1864).
+- **Removal (superseded):** removing the last such account serves unauthenticated reads again (unless a
+  `--user-ldap` directory serves CoAP), as ADR-0132 decides for the other servers. Writes are unchanged: they never
+  depended on the accounts.
+- **Alternative rejected (superseded):** staying private once any account has existed. CoAP would then differ from
+  every other server after the same store change, and a test that resets the accounts would not get the starting
+  behaviour back.
 - **`--allow-anonymous`** is still read once: it is an option, not a store.

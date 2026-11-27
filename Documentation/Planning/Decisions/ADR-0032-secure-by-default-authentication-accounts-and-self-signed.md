@@ -227,6 +227,13 @@ command line that says something surl does not do.
 - **`--allow-anonymous`** makes every request proceed as anonymous: missing credentials are
   not challenged and any credentials sent are not checked.
 
+**Changed by
+[ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+(2026-11-27): "no account configured" opens a `GET` or `HEAD` only on a scheme that has never had
+an account to log in to, whether configured or added while the server runs. Removing the last
+account leaves the scheme asking for a login (`401`, or `403` as in step 5 below). A reset or
+restore returns that answer with the accounts. `--allow-anonymous` is unchanged.
+
 **Where it is judged.** After a head has been read and found well-formed (so `400`, `408`,
 `431` and `505` come first, ADR-0008 and ADR-0019), and before anything else: before the
 `413` check of a `Content-Length`, before `100 Continue` is sent (ADR-0027), before any body
