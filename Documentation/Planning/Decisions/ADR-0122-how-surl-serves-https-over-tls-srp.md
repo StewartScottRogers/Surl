@@ -434,3 +434,17 @@ Decided by Claude under Stewart's delegation, in BL-1052.
   `CurlTlsSrpJsmithBadpass` and `CurlTlsSrpBaduserBadpass` replays in `Surl.Networking.UnitTests`).
   Naming the user in the server's own log is no leak: the log is the operator's, and the user name is
   what the client sent in clear in its ClientHello.
+
+## Amendment 4 (2026-11-27): `amqp1` is a listen URL that uses TLS
+
+Decided by Claude under Stewart's delegation, in BL-1879.
+
+- **The list of Amendment 2's "A listen URL that uses TLS" gains `amqp1`.** The schemes that upgrade
+  are `amqp1`, `ftp`, `imap`, `ldap`, `natss`, `pop3`, `smtp` and `xmpp`, so TLS-SRP options are
+  accepted when `amqp1://` is the only listen URL.
+- **Why.** The AMQP 1.0 container offers its TLS header on `amqp1` when a TLS upgrade is available
+  (ADR-0107 decision 1), which TLS-SRP makes true (decision 5), and `Surl.Composition` already builds
+  the TLS settings for it. The command line alone refused it, as `needs a listen URL that uses TLS`.
+- **Against the composition.** The list is `ServerTlsComposition`'s `UpgradableSchemes` plus
+  `natss` from its `UpgradeRequiredSchemes`; `webtransport`, the other scheme there, is QUIC, which
+  TLS-SRP does not secure.

@@ -111,6 +111,33 @@ public sealed class CommandLineParserTlsSrpTests
         Assert.IsTrue(Served("--tlsuser", "u", "--tlspassword", "p", listenUrl).ServesTlsSrp);
 
     [TestMethod]
+    public void Parse_TlsSrpWithAnAmqp1ListenUrlOnly_Serves()
+    {
+        var result = CommandLineParser.Parse(["--tlsuser", "u", "--tlspassword", "p", "amqp1://127.0.0.1:0/"], ["amqp1"]);
+
+        Assert.AreEqual(CommandLineOutcome.Serve, result.Outcome, result.Failure?.Message);
+    }
+
+    [TestMethod]
+    [DataRow("amqp1")]
+    [DataRow("ftp")]
+    [DataRow("imap")]
+    [DataRow("ldap")]
+    [DataRow("natss")]
+    [DataRow("pop3")]
+    [DataRow("smtp")]
+    [DataRow("xmpp")]
+    public void Parse_TlsSrpWithOneUpgradableListenUrlOnly_Serves(string scheme)
+    {
+        string[] arguments = ["--tlsuser", "u", "--tlspassword", "p", $"{scheme}://127.0.0.1:0/"];
+
+        var result = CommandLineParser.Parse(arguments, ["amqp1", "natss", "xmpp"]);
+
+        Assert.AreEqual(CommandLineOutcome.Serve, result.Outcome, result.Failure?.Message);
+        Assert.IsTrue(result.CommandLine!.ServesTlsSrp);
+    }
+
+    [TestMethod]
     public void Parse_TlsSrpWithAnHttpsProxyOnly_Serves() =>
         Assert.IsTrue(Served("--tlsuser", "u", "--tlspassword", "p", "-x", "https://127.0.0.1:0/").ServesTlsSrp);
 

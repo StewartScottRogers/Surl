@@ -166,7 +166,7 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   line is read `TlsSrpCombination` refuses, in order, an option without its partner, `--tlsauthtype`
   with no account, no listen URL that uses TLS (it counts the listen URLs given bare or by `--url`
   and the `-x`/`--proxy` listen URLs alike: one counts when it is implicit TLS, as an `https` proxy
-  is, or its scheme is `ftp`, `imap`, `ldap`, `natss`, `pop3`, `smtp` or `xmpp`), then TLS-SRP beside
+  is, or its scheme is `amqp1`, `ftp`, `imap`, `ldap`, `natss`, `pop3`, `smtp` or `xmpp`), then TLS-SRP beside
   `--http3`, `--cacert`, `--tls-max` below 1.2 or `--tlsv1.3`,
   each `FailedInit` with the try-help line. `--cert` (an RSA key, else exit 58) and `--self-signed` are allowed
   beside TLS-SRP and add the RSA-signed SRP suites (BL-1099). Reading the files is
