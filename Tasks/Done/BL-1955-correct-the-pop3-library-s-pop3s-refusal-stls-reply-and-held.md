@@ -46,7 +46,7 @@ No store, event or fault is changed: documentation only.
   only) and the library's `CLAUDE.md`.
 - Same false statements corrected beside the named ones: the "TLS" remarks (every `STLS` answered `+OK`), the
   `WriteRefusalAsync` summary, and the `CLAUDE.md` `STLS` bullet (order of refusals).
-- Other inaccuracies found in the folder, outside this goal: filed as BL-1958 with the board script.
+- Other inaccuracies found in the folder, outside this goal: filed as BL-1967 with the board script.
 - Verify, 2026-11-27: 0 files rewritten to CRLF, build 0 warnings and 0 errors, format check exit 0, fast tests
   exit 0 with 0 failed. Integration tests not run: only comment and prose text changed.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1958
+id: BL-1967
 title: Correct the POP3 library's anonymous login, command fault and test-case reply statements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1958 — Correct the POP3 library's anonymous login, command fault and test-case reply statements
+# BL-1967 — Correct the POP3 library's anonymous login, command fault and test-case reply statements
 
 ## Goal
 
