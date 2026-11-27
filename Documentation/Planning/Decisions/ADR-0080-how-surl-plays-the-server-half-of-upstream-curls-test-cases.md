@@ -6,6 +6,10 @@
   in BL-386 (FR-053, success criterion 2).
 - **Amended:** 2026-11-04 in BL-390, decision 4 (the strip subset as the corpus writes it).
 - **Amended:** 2026-11-14 by [ADR-0154](ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md), decision 2 (the `http/2` and `http/3` row).
+- **Amended:** 2026-11-26 in BL-1808, decisions 2, 3, 5 and 6 (where port variables and SSH keys
+  are made, and the Debug build and `libtests` binary of
+  [ADR-0173](ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
+  and [ADR-0174](ADR-0174-how-upstream-libtest-programs-are-built-pinned-and-run-by-the-conformance-runner.md)).
 - **Amends:** nothing. [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (only pinned
   builds run, never the Curl port), [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md)
   decision 3 (`Surl.Conformance` references Abstractions only; protocol servers never reference each
@@ -387,3 +391,48 @@ and a verbatim echo returned it, while the case's stdout is `nonewline`. Decisio
 mode echoes every byte verbatim **except a line feed with nothing after it** - a line feed is held
 until more data follows, so the final one is never sent. The shipped `surl` is unchanged. After the
 change a Windows run writes `test1452 pass` and every case on the Windows passing list still passes.
+
+## Amendment (2026-11-26, BL-1808): where port variables and SSH keys are made, and the Debug build
+
+Decided by Claude under Stewart's delegation. It records what the code does where the decisions
+above say otherwise; no behaviour changes.
+
+1. **Port variables** (replaces decision 2's "One table ... maps each name to its port variable and
+   whether its server half exists"). `UpstreamTestCaseServers`, in
+   `Surl.Conformance.UnitLibrary`, gives each server name's scheme and whether its server half is
+   built. Only its `http-proxy`, `https-proxy`, `socks4`, `socks5`, `httptls+srp`,
+   `httptls+srp-ipv6` and `dns` rows carry a port variable (`http-unix` and `socks5unix` carry a
+   socket path variable). `Surl.Conformance.UnitTests` names the others:
+   `UpstreamTestCasesAgainstSurlTests`' `RunEnvironment` gives each composed server half's port
+   variable the port that half bound. The library's `UpstreamTestCaseVariables` lists every
+   variable name. So building a server can take more than one row's change: the run also lists
+   the name in its `ServerFamilies` and, where the row carries no port variable, names it.
+2. **SSH keys** (replaces decision 2's "`Surl.Conformance` generates the SSH client and host keys"
+   and "and the SSH keys" under "Where the code lives"). `UpstreamTestCaseFileServers`, in
+   `Surl.Conformance.UnitTests`, makes them, beside the SSH server half, which needs
+   `Surl.Protocol.Ssh`, a library `Surl.Conformance.UnitLibrary` does not reference. One run shares
+   one RSA 2048-bit host key, held in memory, from which it computes `%SSHSRVMD5` and
+   `%SSHSRVSHA256` (`%SSHKEYALGO` is `ssh-rsa`), and one RSA client key pair, which the run writes
+   to each `scp` and `sftp` case's `%LOGDIR/server/curl_client_key` and `.pub`, the only
+   `%LOGDIR/server/` paths the imported cases name. The library generates only the test
+   certificates.
+3. **The Debug build and the `libtests` binary** (amends decisions 3, 5 and 6, as
+   [ADR-0173](ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md),
+   its amendment 1, and
+   [ADR-0174](ADR-0174-how-upstream-libtest-programs-are-built-pinned-and-run-by-the-conformance-runner.md)
+   decided them; both are pinned for `linux-x64` only):
+   - `Debug` and `TrackMemory` are features of a pin whose `features` line lists them; `unittest`
+     is never one. A case listing either skips `debug-build` when the build it is selected for
+     lacks it.
+   - The reference build is not the only client. An `smb` case runs with a supplementary build where
+     the reference build has no `smb` (`win-x64`,
+     [ADR-0030](ADR-0030-static-curl-8-21-0-windows-build-as-a-supplementary-build-for-smb.md));
+     cases 358, 359, 2400, 2401, 2406 and 2501 run with the Debug build; and the libtest cases
+     2402, 2404, 2407 and 2502 run their program from the pinned `libtests` binary, selected under
+     the Debug build's features. Every other libtest case still skips `libtest`, and an admitted
+     one skips `libtest-not-built:<program>` when the Debug build is present and the pinned binary
+     is not.
+   - The guard does not count a listed case skipped `debug-build` in a run with no Debug build, or
+     `libtest` or `libtest-not-built` in a run with no `libtests` binary, as a regression.
+   - CI's Linux leg of `Upstream test cases` obtains the Debug build and the `libtests` binary
+     besides the reference build.

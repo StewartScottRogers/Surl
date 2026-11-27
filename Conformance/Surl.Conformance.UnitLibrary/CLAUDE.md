@@ -18,10 +18,15 @@ pinned build for a platform and role (`Locate`) or for the protocol a test measu
 (`LocateForProtocol`: the reference build when it supports the protocol, else the first
 supplementary build that does), or refuses any curl whose SHA-256 is not pinned.
 Get every curl you run through it.
-Each pin has a `Kind`: `Curl` (the default) or `Library`, a shared libcurl such as the
-reference build's `libcurl-4.dll` (ADR-0071 decision 10). `Locate`, `LocateForProtocol` and
-`RequirePinned` only ever answer with a curl; `LocateLibrary` and `RequirePinnedLibrary` only
-with a library, which `Run-LibcurlWebSocketScript.cs` at the repository root loads to drive
+Each pin has a `Kind`: `Curl` (the default); `Library`, a shared libcurl such as the
+reference build's `libcurl-4.dll` (ADR-0071 decision 10); or `Libtest`, a directory of
+upstream's libtest programs, each pinned by its own SHA-256 in the entry's `programs` map
+(ADR-0174 decision 2). `LocateDebug` finds a platform's supplementary curl whose `features`
+line lists `Debug` (ADR-0173), and `LocateLibtest` the `libtests` binary of its `Libtest` entry,
+verifying its hash and answering it as a `Curl` location, so `UpstreamCurlRunner` can run it.
+`Locate`, `LocateForProtocol` and `RequirePinned` only ever answer with a curl pin;
+`LocateLibrary` and `RequirePinnedLibrary` only with a library, which
+`Run-LibcurlWebSocketScript.cs` at the repository root loads to drive
 `curl_ws_send` and `curl_ws_recv`, and `Run-LibcurlRtspScript.cs` loads to drive RTSP requests
 (`CURLOPT_RTSP_REQUEST`) and the interleaved receive (ADR-0074 decision 12); the tests run both
 through `PinnedLibcurlDriver`.
@@ -188,7 +193,10 @@ Selection is built (BL-389):
   Windows reference pin, BL-389's Notes). The tests' `UpstreamCurlShowsItsBuildOptionsTests`
   (`Integration`) probes every one of them and the platform options `For` claims with the
   reference pin of the platform it runs on, so CI's Linux and macOS conformance steps probe theirs
-  (BL-598); `NotShownByTheTool` names the options no curl command can show, and why. Never `Debug`, `TrackMemory` or `unittest`.
+  (BL-598); `NotShownByTheTool` names the options no curl command can show, and why. `Debug` and
+  `TrackMemory` are features of a pin whose `features` line lists them, and of no other (ADR-0173;
+  the `linux-x64` Debug pin lists `Debug`, and no pin lists `TrackMemory`); `unittest` is never
+  a feature.
 - `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
@@ -238,7 +246,7 @@ Running the http and https cases is built (BL-392):
 - `UpstreamCurlRunner.RunAsync` takes a working directory, so a case's relative paths are
   relative to its own folder, as they are to runtests'.
 - `Surl.Conformance.UnitTests`' `UpstreamTestCasesAgainstSurlTests` (`Integration`,
-  `UpstreamTestCases`) runs every case on the reference build, each with its own
+  `UpstreamTestCases`) runs every case, with the client the next bullet names, each with its own
   `UpstreamTestCaseServerHalves` (HTTP in plaintext and over TLS, the TLS listener on the `wss`
   scheme so ALPN offers only `http/1.1`; FTP on `127.0.0.1` and `[::1]` and over implicit TLS for
   `ftps`, with socket data connections and the accept-all `AnonymousAuthenticationPolicy`;
@@ -257,6 +265,18 @@ Running the http and https cases is built (BL-392):
   `<upload>` against the FTP, TFTP and mail server halves' uploads. CI's
   `Upstream test cases` job runs it on Linux and macOS and uploads the results file and the
   run's passing list (both are written to the test assembly's folder).
+- That run's client is the platform's reference build, with these exceptions:
+  - an smb case runs with the build `LocateForProtocol` pairs with `smb` (the scp, sftp and smb
+    paragraph below);
+  - where the platform's supplementary Debug build is present (pinned for `linux-x64` only), the
+    cases in `UpstreamTestCaseDebugBuildCases.Numbers` (358, 359, 2400, 2401, 2406, 2501) run
+    with it, selected under its features (ADR-0173); without it they skip `debug-build`;
+  - there too, the libtest cases in `UpstreamTestCaseLibtests.AdmittedNumbers` (2402, 2404,
+    2407, 2502) are selected under the Debug build's features, and
+    `UpstreamLibtestTestCaseClient` runs each one's program from the pinned `libtests` binary as
+    `libtests <program> <arguments>` (ADR-0174). With the Debug build but no `libtests` file
+    they skip `libtest-not-built:<program>`; without the Debug build, `libtest`. Every other
+    libtest case skips `libtest`.
 
 Playing the ftp, ftp-ipv6 and ftps cases is built (BL-394): `UpstreamTestCaseServerCommands.Ftp`
 is the FTP row, the same words as `Surl.Protocol.Ftp`'s
@@ -350,8 +370,11 @@ The stated pass rate and its guard are built (BL-393):
   case number per line, ascending.
 - `UpstreamTestCasePassingListComparison.Compare(platform, list, results)` is the guard:
   `Regressions` are the listed cases that did not pass (`DescribeRegressions` names each and how
-  it ended), `NewlyPassing` the passing cases not listed (`DescribeNewlyPassing` gives the lines
-  to add). The suite asserts no regressions and writes the newly passing to its log.
+  it ended), except those skipped for a reason (the text before any colon) the caller tolerates;
+  `NewlyPassing` are the passing cases not listed (`DescribeNewlyPassing` gives the lines to
+  add). The suite asserts no regressions and writes the newly passing to its log. It tolerates
+  `debug-build` only in a run with no Debug build, and `libtest` and `libtest-not-built` only in a
+  run with no `libtests` binary (`ToleratedSkipReasons`; ADR-0173 amendment 1).
 - `UpstreamTestCasePassRateFile.Parse` reads `Upstream-Test-Case-Pass-Rate.md`'s `## Current` and
   `## Releases` tables into `UpstreamTestCasePassRateRow`s (platform, version, passed or
   `not run`, and the `test-server-choice` count where the table has that column);
@@ -367,13 +390,16 @@ The stated pass rate and its guard are built (BL-393):
   `UpstreamTestCaseCorpusTests` holds every excluded case to reaching decision 5's check on every
   reference pin, and the upstream test-case run its own test-server-choice count to the row count.
 
-Two things ADR-0080 places in this library are built in `Surl.Conformance.UnitTests` instead:
+Two things ADR-0080 decision 2 placed in this library are built in `Surl.Conformance.UnitTests`
+instead (ADR-0080's 2026-11-26 amendment):
 
 - Port variables. `UpstreamTestCaseServer.PortVariable` names one only on the `http-proxy`,
-  `https-proxy`, `socks4`, `socks5`, `httptls+srp`, `httptls+srp-ipv6` and `dns` rows;
-  `UpstreamTestCasesAgainstSurlTests`' `RunEnvironment` gives every other port variable
-  (`%HTTPPORT`, `%FTPPORT`, ...) its server half's port by name. `UpstreamTestCaseVariables`
-  here lists every variable name.
+  `https-proxy`, `socks4`, `socks5`, `httptls+srp`, `httptls+srp-ipv6` and `dns` rows, and
+  `UpstreamTestCasesAgainstSurlTests`' `RunEnvironment` reads those names from the table. It
+  names the other port variables it gives (`%HTTPPORT`, `%FTPPORT`, ...) itself, each with its
+  server half's port, and gives `%NOLISTENPORT` the fixed 47; it gives no value for `%RTSPPORT`,
+  `%RTSP6PORT`, `%SMBSPORT` or `%TFTP6PORT`. `UpstreamTestCaseVariables` here lists every
+  variable name.
 - SSH keys. The tests' `UpstreamTestCaseFileServers` makes the run's host key and client key
   pair and gives `%SSHSRVMD5`, `%SSHSRVSHA256` and `%SSHKEYALGO`.
 
