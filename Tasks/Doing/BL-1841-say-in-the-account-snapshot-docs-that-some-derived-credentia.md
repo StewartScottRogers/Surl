@@ -60,3 +60,4 @@ them. These statements say or imply otherwise:
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
