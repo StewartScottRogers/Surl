@@ -40,3 +40,4 @@ Found during BL-1874 on 2026-11-27. Prose only. No store, event or fault changes
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
