@@ -35,16 +35,18 @@ public sealed class ProxyAndTlsSrpAccountToolsTests
     }
 
     [TestMethod]
-    public async Task RemoveProxyAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheProxyNeedsNoLogin()
+    public async Task RemoveProxyAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheProxyLetsNoNewClientThrough()
     {
+        const string Warning = "server s1 has no proxy account left; without --allow-anonymous its proxy now lets no new client through";
         await using var host = await StartProxyHostAsync();
 
         var result = await CallAsync(host.RemoveProxyAccount, """{"server_id": "s1", "user": "alice"}""");
 
         Assert.IsFalse(result.IsError);
         Assert.HasCount(2, result.TextContent);
-        Assert.AreEqual("server s1 has no proxy account left and its proxy now needs no login", result.TextContent[1]);
-        StringAssert.Contains(result.TextContent[0], "\"warning\"");
+        Assert.AreEqual(Warning, result.TextContent[1]);
+        using var structured = JsonDocument.Parse(result.TextContent[0]);
+        Assert.AreEqual(Warning, structured.RootElement.GetProperty("warning").GetString());
     }
 
     [TestMethod]

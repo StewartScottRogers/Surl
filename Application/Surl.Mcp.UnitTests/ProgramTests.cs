@@ -123,6 +123,24 @@ public sealed class ProgramTests
     }
 
     [TestMethod]
+    public async Task RunAsync_ToolsList_RemoveProxyAccountsDescriptionSaysRemovingTheLastAccountDoesNotOpenTheProxy()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var tool = Assert.ContainsSingle(
+            result.GetProperty("tools").EnumerateArray().Where(tool => tool.GetProperty("name").GetString() == RemoveProxyAccountTool.Name));
+        var description = tool.GetProperty("description").GetString()!;
+        StringAssert.Contains(
+            description,
+            "Removing the last proxy account does not open the proxy: without --allow-anonymous it then lets no new "
+            + "client through; the result then carries a warning, and add_proxy_account lets that account in.");
+        Assert.DoesNotContain("no login", description);
+    }
+
+    [TestMethod]
     public async Task RunAsync_ToolsList_IncludesGetExchangesWithAnObjectInputSchemaAndADescription()
     {
         await using var host = new ProgramTestHost(TestContext.CancellationToken);

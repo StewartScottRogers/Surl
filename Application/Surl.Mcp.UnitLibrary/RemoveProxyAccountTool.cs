@@ -5,8 +5,10 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>remove_proxy_account</c> tool (ADR-0170 decision 4): removes a proxy account, one given at start included, through
-/// <c>Surl.Api</c>'s <c>SurlServer.ProxyAccounts.Remove</c>. Result <c>{"user"}</c>, plus a <c>warning</c> member and a second text block when no proxy account is left (the proxy then needs no login). An account the server does not have, or a
-/// server that holds no such accounts, is an <c>isError</c> result.
+/// <c>Surl.Api</c>'s <c>SurlServer.ProxyAccounts.Remove</c>. Result <c>{"user"}</c>, plus a <c>warning</c> member and a second
+/// text block when no proxy account is left: that does not open the proxy, which without <c>--allow-anonymous</c> then lets no
+/// new client through (ADR-0132 amendment 4). An account the server does not have, or a server that holds no such accounts, is
+/// an <c>isError</c> result.
 /// </summary>
 public static class RemoveProxyAccountTool
 {
@@ -16,8 +18,8 @@ public static class RemoveProxyAccountTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Remove a proxy account from a running Surl server, one given at start included, from its next login on. "
-        + "Undoes add_proxy_account. Removing the last proxy account leaves the proxy needing no login, so anyone may then use it; "
-        + "the result then carries a warning, and add_proxy_account closes the proxy again.";
+        + "Undoes add_proxy_account. Removing the last proxy account does not open the proxy: without --allow-anonymous it then "
+        + "lets no new client through; the result then carries a warning, and add_proxy_account lets that account in.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -51,7 +53,7 @@ public static class RemoveProxyAccountTool
                 return McpToolResult.FromFailure($"server {running.ServerId} has no proxy account {user}");
             }
 
-            return accounts.HasAccounts ? ToolResults.FromObject(writer => writer.WriteString("user", user)) : OpenedProxy(running, user);
+            return accounts.HasAccounts ? ToolResults.FromObject(writer => writer.WriteString("user", user)) : RemovedLastAccount(running, user);
         }
         catch (InvalidOperationException)
         {
@@ -59,14 +61,14 @@ public static class RemoveProxyAccountTool
         }
     }
 
-    private static McpToolResult OpenedProxy(RunningSurlServer running, string user)
+    private static McpToolResult RemovedLastAccount(RunningSurlServer running, string user)
     {
-        var warning = $"server {running.ServerId} has no proxy account left and its proxy now needs no login";
-        var opened = ToolResults.FromObject(writer =>
+        var warning = $"server {running.ServerId} has no proxy account left; without --allow-anonymous its proxy now lets no new client through";
+        var removed = ToolResults.FromObject(writer =>
         {
             writer.WriteString("user", user);
             writer.WriteString("warning", warning);
         });
-        return new McpToolResult([.. opened.TextContent, warning], opened.StructuredContent);
+        return new McpToolResult([.. removed.TextContent, warning], removed.StructuredContent);
     }
 }
