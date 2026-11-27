@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Content.UnitLibrary/CLAUDE.md, Foundation/Surl.Core.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1870 — Remove the stale Phase 1 line from the content plus serving engine library notes
 
@@ -27,13 +27,19 @@ Remove the line only; add no replacement phase list. `Phase N.` lines followed b
 
 ## Acceptance criteria
 
-- [ ] Neither file contains a line that reads only "Phase 1.".
-- [ ] Each file's title is followed by one blank line and then its first descriptive paragraph.
-- [ ] No other line of either file changes.
+- [x] Neither file contains a line that reads only "Phase 1.".
+- [x] Each file's title is followed by one blank line and then its first descriptive paragraph.
+- [x] No other line of either file changes.
 
 ## Notes
+
+- Delivered by `align-and-document`. In each file the "Phase 1." line went together with the
+  blank line after it, which criterion 2 needs; `git diff` shows only those two deletions per file.
+- Gates: `dotnet build` clean (0 warnings, 0 errors) and the fast tests passed.
+- Filed BL-1876: the content notes call a constructor with optional parameters "five-argument".
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The content and serving engine library notes no longer open with a bare Phase 1 line
