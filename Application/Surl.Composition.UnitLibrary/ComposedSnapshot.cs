@@ -22,7 +22,10 @@ public sealed class ComposedSnapshot : IControlSnapshot
         Taken = taken;
     }
 
-    /// <summary>The stores the snapshot holds, in <see cref="ComposedStores.StoreOrder"/>.</summary>
+    /// <summary>
+    /// The stores the snapshot holds, in the order they were taken, that of
+    /// <see cref="ComposedStores.RegisteredStoreOrder"/>.
+    /// </summary>
     public IReadOnlyList<StoreKind> Stores => [.. Taken.Select(snapshot => snapshot.Store)];
 
     /// <summary>

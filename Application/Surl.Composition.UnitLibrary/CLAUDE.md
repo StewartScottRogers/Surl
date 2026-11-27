@@ -143,18 +143,24 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   three-argument overload builds over the instance's stream, so account changes are published too).
   Seeds go through each store's own seed path: `SeedMailAsync` and `SeedPublishAsync`/`SeedEnqueueAsync`
   then save the store (a bus save that fails throws `IOException` with its message), `SeedFileAsync`,
-  `DeleteFileAsync` (BL-954; Done or Absent, never the fault plan), `SeedFolder`, `AddAccount`, `RemoveAccount`. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` work on
-  every store in `ComposedStores.StoreOrder` (content, mail, bus, accounts), or on one `StoreKind`; the
+  `DeleteFileAsync` (BL-954; Done or Absent, never the fault plan), `SeedFolder`, `AddAccount`, `RemoveAccount`.
+  Whole-instance reset, snapshot and restore (`ResetAsync`, `TakeSnapshotAsync`, `RestoreAsync`) cover every store
+  in `ComposedStores.RegisteredStoreOrder`, in that order (a restore: the stores the snapshot holds, in the order
+  taken); `ResetAsync` and `TakeSnapshotAsync` also take one `StoreKind`. `ComposedStores.StoreOrder` is only its
+  first four (content, mail, bus, accounts); others can follow them, each only when composed or served, in this
+  order: proxy accounts, TLS-SRP accounts, Redis keyspace, LDAP directory, AMQP 0-9-1 exchanges, Kafka producers,
+  sessions, DNS zones, uploads. The
   first refusal stops a whole-instance operation with a `ComposedStoreException`
   (an `InvalidOperationException` whose `Store` names the store, the store's own refusal inner). A
   `ComposedSnapshot` holds one snapshot per store, `ByteCount` together, refused past
   `MaxSnapshotBytes` (`DefaultMaxSnapshotBytes`, 256 MiB) at the store that passed it; another
   instance's snapshot is an `ArgumentException`. With `--directory` the content store (its index is on
-  disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
-  snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
+  disk), the mail store, the bus, the AMQP 0-9-1 exchanges and the uploads refuse reset, snapshot and restore, so
+  a whole-instance reset or snapshot stops at `Content` (a `--share` on disk makes the content store and the
+  uploads refuse too); seeding content, mail and the bus is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
 - The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed and a `redis` or `rediss` listen URL is served (never with `SURL_EXTENSIONS=0`; ADR-0158 Amendment 1, BL-1410) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. Tests: `RedisKeyspaceStoreTests`.
-- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed and a `dns` listen URL is served (never with `SURL_EXTENSIONS=0`; BL-1410) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, last (after the broker stores, which already follow the directory), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. The LDAP directory likewise is held and registered only when an `ldap` or `ldaps` listen URL is served; a seed of an unserved store is an `InvalidOperationException` (BL-1410). Tests: `DnsZoneStoreTests`, `ServedStoresTests`.
+- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed and a `dns` listen URL is served (never with `SURL_EXTENSIONS=0`; BL-1410) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, after the broker stores (which already follow the directory) and before the uploads entry (`StoreKind.Uploads`), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. The LDAP directory likewise is held and registered only when an `ldap` or `ldaps` listen URL is served; a seed of an unserved store is an `InvalidOperationException` (BL-1410). Tests: `DnsZoneStoreTests`, `ServedStoresTests`.
 - The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
   `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
   `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a

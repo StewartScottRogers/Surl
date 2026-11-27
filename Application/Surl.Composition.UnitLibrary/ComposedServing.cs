@@ -95,9 +95,9 @@ public sealed class ComposedServing : IAsyncDisposable
     public FaultPlan Faults => instruments.Faults;
 
     /// <summary>
-    /// The instance's stores - content, mail, message bus and accounts - as a test seeds, resets,
-    /// snapshots and restores them, one at a time or all together (ADR-0124, decision 3). Every
-    /// change they make is published on <see cref="Events"/>.
+    /// The instance's stores, every one in <see cref="ComposedStores.RegisteredStoreOrder"/>, as a
+    /// test seeds, resets, snapshots and restores them, one at a time or all together (ADR-0124,
+    /// decision 3). Every change they make is published on <see cref="Events"/>.
     /// </summary>
     public ComposedStores Stores { get; }
 

@@ -535,12 +535,12 @@ public static partial class SurlServerComposition
             proxyAccounts: (authentication.ProxyPolicy as Surl.Authentication.AuthenticationPolicy)?.Settings.Accounts,
             events: instruments.Events);
     }
-    // The Redis keyspace joins the order after the accounts when a redis server is composed (ADR-0158 decision 5); with
-    // SURL_EXTENSIONS=0 there is no server and so no store.
+    // The Redis keyspace joins the order after the accounts when a redis server is composed and a redis or rediss
+    // listen URL is served (ADR-0158 decision 5); with SURL_EXTENSIONS=0 there is no server and so no store.
     private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, bool isServed, ComposedProtocolServices services) =>
         isServed && servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
 
-    // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) when a dns server is composed (ADR-0158 decision 5).
+    // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) and before the uploads, when a dns server is composed and a dns listen URL is served (ADR-0158 decision 5).
     private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, bool isServed, DnsZoneSet zones) =>
         isServed && IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
 
@@ -563,7 +563,8 @@ public static partial class SurlServerComposition
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
         servers.OfType<DnsDatagramRoutingProtocolServer>().Any();
 
-    // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
+    // The stores the composed servers hold beside the bus (ADR-0159 decision 3, ADR-0167): the AMQP 0-9-1 exchanges, the
+    // Kafka producers, then the one sessions entry (MQTT 5 sessions, OCI tokens, MCP OAuth state and sessions, in that order).
     private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>
         [.. new[]
         {

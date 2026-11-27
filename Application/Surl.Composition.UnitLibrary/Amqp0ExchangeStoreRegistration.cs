@@ -5,7 +5,9 @@ namespace Surl.Composition;
 
 /// <summary>
 /// Joins the exchanges and bindings of the composed AMQP 0-9-1 brokers to whole-instance reset, snapshot and
-/// restore (ADR-0159 decisions 2 and 3), after the bus and before the accounts' place in the order.
+/// restore (ADR-0159 decisions 2 and 3). In the order across stores they come after the accounts (and after the
+/// proxy accounts, TLS-SRP accounts, Redis keyspace and LDAP directory when the instance holds them) and before
+/// the Kafka producers.
 /// </summary>
 internal static class Amqp0ExchangeStoreRegistration
 {
