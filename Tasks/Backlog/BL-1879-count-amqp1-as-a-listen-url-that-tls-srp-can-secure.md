@@ -1,5 +1,5 @@
 ---
-id: BL-1873
+id: BL-1879
 title: Count amqp1 as a listen URL that TLS-SRP can secure
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1873 — Count amqp1 as a listen URL that TLS-SRP can secure
+# BL-1879 — Count amqp1 as a listen URL that TLS-SRP can secure
 
 ## Goal
 

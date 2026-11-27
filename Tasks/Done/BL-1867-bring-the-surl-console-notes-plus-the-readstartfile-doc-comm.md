@@ -46,4 +46,4 @@ No store, event or fault is involved: documentation only.
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. Surl.Console notes and the readStartFile doc comment now describe the extended servers, start-up warnings, server TLS and start files as composed; follow-ups BL-1873 to BL-1876
+- 2026-11-27: Doing -> Done. Surl.Console notes and the readStartFile doc comment now describe the extended servers, start-up warnings, server TLS and start files as composed; follow-ups BL-1879 to BL-1882

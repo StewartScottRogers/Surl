@@ -1,16 +1,16 @@
 ---
-id: BL-1875
+id: BL-1881
 title: Correct the server TLS plus scheme list doc comments in Surl.Composition and TlsSchemes
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1874, BL-1868, BL-1863]
+depends-on: [BL-1880, BL-1868, BL-1863]
 touches: [Application/Surl.Composition.UnitLibrary/ServerTlsComposition.cs, Application/Surl.Composition.UnitLibrary/SurlServerCompositionSeams.cs, Application/Surl.Composition.UnitLibrary/SurlServerComposition.Start.cs, Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs, Foundation/Surl.Protocol.Abstractions.UnitLibrary/TlsSchemes.cs]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1875 — Correct the server TLS plus scheme list doc comments in Surl.Composition and TlsSchemes
+# BL-1881 — Correct the server TLS plus scheme list doc comments in Surl.Composition and TlsSchemes
 
 ## Goal
 
@@ -18,7 +18,7 @@ The doc comments on server TLS, the extended server list and the TLS-from-the-fi
 
 ## Context
 
-Found while working BL-1867 (2026-11-27), read from source. Comment text only; no behaviour change and no reordering of code. Line numbers are as of that date. BL-1874 changes `ServerTlsComposition.cs` first; describe the code as it is when this task runs.
+Found while working BL-1867 (2026-11-27), read from source. Comment text only; no behaviour change and no reordering of code. Line numbers are as of that date. BL-1880 changes `ServerTlsComposition.cs` first; describe the code as it is when this task runs.
 
 - `Application/Surl.Composition.UnitLibrary/SurlServerCompositionSeams.cs`, `<param name="CreateListenerFactory">` (about lines 14-16): says the TLS settings are `null` when no listen URL is TLS from the first byte. They are `null` only when no listen URL needs TLS (`ServerTlsComposition.NeedsTls`: it requires a certificate, it can upgrade and an upgrade is available, or it is `coaps` with a certificate). This file's `ReadStartFile` comment is BL-1868's.
 - `ServerTlsComposition.cs`: the class summary (about lines 11-17), the `Settings` summary (about lines 61-64) and the `Compose` summary (about lines 150-155) give the same incomplete rule, and the class summary leaves out TLS-SRP (`ServerTlsSettings.ForTlsSrp`). The `FindListenUrlWithoutCertificate` summary (about lines 115-119) names `natss` and `xmpp` but not `webtransport`, `coaps` without an account, or the TLS-SRP exception.

@@ -1,16 +1,16 @@
 ---
-id: BL-1874
+id: BL-1880
 title: Serve the configured certificate on QUIC and DTLS listeners under TLS-SRP
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1873, BL-1867]
+depends-on: [BL-1879, BL-1867]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console/CLAUDE.md, Documentation/Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1874 — Serve the configured certificate on QUIC and DTLS listeners under TLS-SRP
+# BL-1880 — Serve the configured certificate on QUIC and DTLS listeners under TLS-SRP
 
 ## Goal
 

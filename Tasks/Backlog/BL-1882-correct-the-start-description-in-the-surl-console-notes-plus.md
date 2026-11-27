@@ -1,16 +1,16 @@
 ---
-id: BL-1876
+id: BL-1882
 title: Correct the start description in the Surl.Console notes plus the TLS settings parameter comment
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1867, BL-1874]
+depends-on: [BL-1867, BL-1880]
 touches: [Application/Surl.Console/CLAUDE.md, Application/Surl.Console/CommandLineRunner.cs]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1876 — Correct the start description in the Surl.Console notes plus the TLS settings parameter comment
+# BL-1882 — Correct the start description in the Surl.Console notes plus the TLS settings parameter comment
 
 ## Goal
 
@@ -18,7 +18,7 @@ The `CommandLineRunner` bullet in `Application/Surl.Console/CLAUDE.md` and the `
 
 ## Context
 
-Found while working BL-1867 (2026-11-27), read from source. BL-1867 edits both files (other bullets and the `readStartFile` comment), so this task follows it; BL-1874 edits the `ServerTlsComposition` bullet. Documentation and comment text only; no behaviour change. Line numbers are as of that date.
+Found while working BL-1867 (2026-11-27), read from source. BL-1867 edits both files (other bullets and the `readStartFile` comment), so this task follows it; BL-1880 edits the `ServerTlsComposition` bullet. Documentation and comment text only; no behaviour change. Line numbers are as of that date.
 
 - `Application/Surl.Console/CommandLineRunner.cs`, `<param name="createListenerFactory">` (about lines 19-23): says the TLS settings are `null` when no listen URL is TLS from the first byte. They are `null` only when no listen URL needs TLS (`ServerTlsComposition.NeedsTls`).
 - `Application/Surl.Console/CLAUDE.md`, the long bullet starting "`CommandLineRunner` parses the command line" (about lines 31-132):
