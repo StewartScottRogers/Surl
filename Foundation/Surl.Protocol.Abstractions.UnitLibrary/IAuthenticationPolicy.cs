@@ -2,8 +2,12 @@ namespace Surl.Protocol.Abstractions;
 
 /// <summary>
 /// Who may log in, and how, as a protocol server asks it (ADR-0032, section 6).
-/// <c>Surl.Authentication</c> implements it and <c>Surl.Console</c> passes that implementation
-/// to each server, so no protocol server references <c>Surl.Authentication</c>.
+/// <c>Surl.Authentication</c> implements it and <c>Surl.Composition</c> passes that
+/// implementation to each server that takes a policy, over the accounts allowed on the server's
+/// scheme (ADR-0102, decision 4.3), so no protocol server references <c>Surl.Authentication</c>.
+/// The HTTP and SOCKS proxies instead get one over the proxy accounts; with neither <c>-U</c> nor
+/// <c>--proxy-user-file</c> they get <c>Surl.Composition</c>'s own
+/// <c>NoAccountProxyAuthenticationPolicy</c>.
 /// </summary>
 public interface IAuthenticationPolicy
 {
