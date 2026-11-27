@@ -39,3 +39,4 @@ Two texts in `Application/Surl.Cli.UnitLibrary` name only `http` and `https`:
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
