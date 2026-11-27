@@ -2,13 +2,21 @@
 
 - **Status:** Accepted
 - **Amended by:** [ADR-0147](ADR-0147-the-remaining-tls-1-3-groups-curl-offers-over-quic.md) (2026-11-06, BL-1005): the six groups curl lists only in `supported_groups`, and SecP384r1MLKEM1024 (`11ED`), are served after decision 3's five; the table's `11EE` is curveSM2MLKEM768.
-- **Amended by:** Amendment 1 below (2026-11-05, BL-383: the HTTP/3 server where this ADR is silent);
-- **Amended by:** Amendment 5 below (2026-11-11, BL-867): the QUIC flow loop holds a closed connection
+- **Amended by:** Amendment 1 below (2026-11-05, BL-383): what the HTTP/3 server does where this ADR
+  is silent.
+- **Amended by:** Amendment 2 below (2026-11-05, BL-608): the closing and draining states - how long
+  they last, what each sends, and `CONNECTION_CLOSE` outside congestion control.
+- **Amended by:** Amendment 3 below (2026-11-06, BL-710): writes wait for the client's credit past a
+  bound.
+- **Amended by:** Amendment 4 below (2026-11-05, BL-384, written by BL-739): how `surl --http3` binds,
+  refuses and advertises.
+- **Amended by:** Amendment 5 below (2026-11-11, BL-741): `--http3` with `--cacert` requires a client
+  certificate over QUIC, replacing Amendment 4 item 1.
+- **Amended by:** Amendment 6 below (2026-11-11, BL-867): the QUIC flow loop holds a closed connection
   through its closing and draining states; the application is told at the close; server stop ends at once.
-- **Amended by:** Amendment 4 below (2026-11-05, BL-384, written by BL-739): how `surl --http3` binds, refuses
-  and advertises.
-  Amendment 3 below (2026-11-06, BL-710: writes wait for the client's credit past a bound);
-  [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
+- **Amended by:** Amendment 7 below (2026-11-13, BL-1100): on macOS the conformance test accepts exit
+  7 or 55 from `--http3-only` with HTTP/3 off; Linux still requires 7 and Windows 56.
+- **Amended by:** [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
   (2026-11-04, BL-402): decision 2's HTTP/3 frames and control and QPACK streams move from
   `Surl.Protocol.Http` to the horizontal library `Surl.Http3.UnitLibrary` (BL-410), which
   `Surl.Protocol.Http` and the WebTransport server both reference. `Surl.Quic` gains the loop
@@ -420,7 +428,7 @@ only when it sends one again, so there is nothing of upstream curl's to measure 
 5. **`IsClosed` keeps its meaning** - the connection has ended for the application - so
    `QuicApplicationConnection` and `QuicDatagramFlowLoop` are unchanged, and the flow loop still
    returns when the connection closes. Holding the flow open through the closing and draining
-   states is filed as its own task (BL-867; amendment 5 now does it).
+   states is filed as its own task (BL-867; amendment 6 now does it).
 
 ## Amendment 3 (2026-11-06, BL-710): writes wait for the client's credit past a bound
 

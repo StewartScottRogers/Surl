@@ -65,7 +65,7 @@ and the closing and draining states (BL-608), which the flow loop holds a served
   goes when it allows). On the client's `CONNECTION_CLOSE`, `IsDraining` is true for as long and
   nothing is sent. `NextDeadline` is the state's end; `HandleTimeout` there discards the state, and
   `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` holds a served flow
-  open through the state (BL-867, ADR-0082 amendment 5): it ends the application's side as soon as
+  open through the state (BL-867, ADR-0082 amendment 6): it ends the application's side as soon as
   `IsClosed` turns true, keeps answering the client's datagrams and acting on `NextDeadline`, and
   returns once the state ends; server stop ends it at once.
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
