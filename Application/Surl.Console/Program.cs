@@ -37,7 +37,7 @@ internal static class Program
     /// <summary>
     /// Runs Surl with <paramref name="args"/>: the entry point <see cref="Main"/> and the
     /// in-process conformance tests share. It serves over real TCP and UDP listeners
-    /// (<see cref="SocketListenerFactory"/>, securing connections with the process's TLS
+    /// (<see cref="SocketListenerFactory"/>, securing connections with the server start's TLS
     /// settings) with the system clock.
     /// </summary>
     /// <param name="args">The command-line arguments, without the program name.</param>
@@ -55,7 +55,7 @@ internal static class Program
     /// Creates the socket-backed listener factory <see cref="RunAsync"/> hands the runner, timed by
     /// the system clock.
     /// </summary>
-    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="tlsSettings">The server start's TLS settings, or <see langword="null"/> for none.</param>
     /// <returns>The factory.</returns>
     internal static IListenerFactory CreateSystemClockListenerFactory(ServerTlsSettings? tlsSettings) =>
         CreateListenerFactory(tlsSettings, TimeProvider.System);
@@ -64,7 +64,7 @@ internal static class Program
     /// Creates the socket-backed listener factory, securing connections with
     /// <paramref name="tlsSettings"/>.
     /// </summary>
-    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="tlsSettings">The server start's TLS settings, or <see langword="null"/> for none.</param>
     /// <param name="timeProvider">The clock every connection is timed by.</param>
     /// <returns>The factory.</returns>
     internal static IListenerFactory CreateListenerFactory(ServerTlsSettings? tlsSettings, TimeProvider timeProvider) =>

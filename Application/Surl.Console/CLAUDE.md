@@ -169,8 +169,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   status lines once the last listener, connection or datagram, has bound, hands the bound
   listen URLs to `SurlServingOutputs.AllListenersBound` (`surl` ignores them), and keeps a bind
   failure for the `(45)` or `(6)` message.
-- `ServerTlsComposition` builds the process's `ServerTlsSettings` when at least one listen
-  URL needs TLS (`NeedsTls`), which is any of these:
+- `ServerTlsComposition` builds the server start's `ServerTlsSettings`, at most one for each
+  start, when at least one listen URL needs TLS (`NeedsTls`), which is any of these:
   - it requires a certificate: it is TLS from the first byte (`ListenUrl.IsImplicitTls`,
     which `--s3-plaintext`, `--oci-plaintext`, `--az-plaintext` and `--gs-plaintext` set to
     `false` for their scheme); its scheme is in `UpgradeRequiredSchemes` (`natss`,

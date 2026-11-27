@@ -17,7 +17,7 @@ namespace Surl.Console;
 /// texts and returning its exit codes.
 /// </summary>
 /// <param name="createListenerFactory">
-/// Creates the factory that starts the listeners, given the process's TLS settings
+/// Creates the factory that starts the listeners, given the server start's TLS settings
 /// (<see langword="null"/> only when no listen URL needs TLS, as <see cref="ServerTlsComposition"/>
 /// decides); <c>surl</c> passes one that creates a <see cref="SocketListenerFactory"/>.
 /// </param>
@@ -51,7 +51,7 @@ namespace Surl.Console;
 /// <see cref="File.ReadAllBytes(string)"/> when <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
 /// <param name="createDataConnectionOpener">
-/// Creates what opens the FTP server's data connections, given the process's TLS settings, the
+/// Creates what opens the FTP server's data connections, given the server start's TLS settings, the
 /// ones the listeners secure connections with (ADR-0052, decision 9); a
 /// <see cref="SocketDataConnectionOpener"/> on the one clock when <see langword="null"/>, which
 /// is what <c>surl</c> passes.

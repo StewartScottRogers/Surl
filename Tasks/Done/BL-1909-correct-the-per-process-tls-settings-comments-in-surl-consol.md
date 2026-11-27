@@ -8,7 +8,7 @@ depends-on: [BL-1880, BL-1901]
 touches: [Application/Surl.Console, Application/Surl.Composition.UnitLibrary/ServerTlsComposition.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1909 — Correct the per-process TLS settings comments in Surl.Console and the QuicCertificate summary
 
@@ -34,13 +34,25 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] No comment or `CLAUDE.md` line under `Application/Surl.Console` says there is one set of TLS settings per process.
-- [ ] The `QuicCertificate` summary agrees with `ComposeQuicCertificate` and `NeedsQuicCertificate`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] No comment or `CLAUDE.md` line under `Application/Surl.Console` says there is one set of TLS settings per process.
+- [x] The `QuicCertificate` summary agrees with `ComposeQuicCertificate` and `NeedsQuicCertificate`.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- 2026-11-27: "the process's TLS settings" is now "the server start's TLS settings" in `CommandLineRunner.cs` and
+  `Program.cs`; `Application/Surl.Console/CLAUDE.md` says `ServerTlsComposition` builds at most one
+  `ServerTlsSettings` for each start, matching `ServerTlsSettings`'s summary.
+- 2026-11-27: `ServerTlsComposition.QuicCertificate` needed no change: BL-1880 already rewrote it, and it agrees with
+  `ComposeQuicCertificate` (`--http3` or any URL `NeedsQuicCertificate` accepts: `webtransport`, `coaps`, DNS over
+  QUIC).
+- 2026-11-27: Edited in the session rather than through `align-and-document`: seven comment lines did not justify a
+  second agent.
+- 2026-11-27: Gates: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests green. No `Integration`
+  run: comments only.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Surl.Console comments and CLAUDE.md describe TLS settings per server start; QuicCertificate summary verified against the code
