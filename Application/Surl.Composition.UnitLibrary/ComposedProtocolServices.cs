@@ -165,7 +165,8 @@ public sealed class ComposedProtocolServices(
 
     /// <summary>
     /// Gets the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
-    /// the proxy's own accounts, or one that asks for no login when it has none.
+    /// the proxy's own accounts, which asks for a login even after the last of them is removed (ADR-0132
+    /// amendment 4), or, for a start given neither <c>-U</c> nor <c>--proxy-user-file</c>, one that asks for no login.
     /// </summary>
     public IAuthenticationPolicy ProxyAuthenticationPolicy { get; init; } = new AnonymousAuthenticationPolicy();
 

@@ -42,7 +42,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `ProxyRedactionCompositionTests`). The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
-  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone; with neither, a
+  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone, with
+  `AuthenticationSettings.RequiresLoginWithoutAccounts` set, so an empty `--proxy-user-file` or the removal of the last
+  proxy account never lets in a client that had to name one: without `--allow-anonymous` a `GET` without credentials is
+  then challenged as a `CONNECT` is, and `ComposedControlTarget` warns on that removal (ADR-0132 amendment 4, BL-1851;
+  `ProxyCompositionTests`, `ComposedControlTargetAccountRemovalTests`); with neither option, a
   `NoAccountProxyAuthenticationPolicy`, which asks for no login but has an `AuthenticationPolicy` with no accounts and
   `AllowAnonymous` judge each SOCKS5 GSS-API login, so any principal the keytab's keys accept stands, the login is
   published and `refuse-login` applies, ADR-0165 decisions 7 to 9, BL-1826; `NoAccountProxyAuthenticationPolicyTests`);

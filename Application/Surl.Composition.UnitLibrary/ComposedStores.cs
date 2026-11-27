@@ -687,7 +687,11 @@ public sealed partial class ComposedStores
     /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
     public bool HasAccounts => accounts.HasAccounts;
 
-    /// <summary>Whether any proxy account is left, so a proxy login is required; false too when no proxy account store is composed.</summary>
+    /// <summary>
+    /// Whether any proxy account is held; <see langword="false"/> too when no proxy account store is composed. A proxy
+    /// composed with proxy accounts still asks for a login when this turns <see langword="false"/>, so without
+    /// <c>--allow-anonymous</c> it then lets no new client through (ADR-0132 amendment 4).
+    /// </summary>
     public bool HasProxyAccounts => proxyAccounts?.HasAccounts ?? false;
 
     /// <summary>

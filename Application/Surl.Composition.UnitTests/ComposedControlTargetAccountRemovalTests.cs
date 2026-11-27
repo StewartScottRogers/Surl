@@ -5,14 +5,16 @@ using Surl.Control;
 namespace Surl.Composition;
 
 /// <summary>
-/// The control target warns, as <c>Surl.Api</c> does (BL-1391), when a removal leaves the server or its proxy with no
-/// account and so needing no login (BL-1477); the removal itself still succeeds. No network: composed, never served.
+/// The control target warns when a removal leaves the server or its proxy with no account (BL-1477): the proxy's line
+/// says it then lets no new client through without <c>--allow-anonymous</c> (ADR-0132 amendment 4, BL-1851). The
+/// removal itself still succeeds. No network: composed, never served.
 /// </summary>
 [TestClass]
 public sealed class ComposedControlTargetAccountRemovalTests
 {
     private const string AccountWarning = "surl: warning: no account left; the server now needs no login";
-    private const string ProxyWarning = "surl: warning: no proxy account left; the proxy now needs no login";
+    private const string ProxyWarning =
+        "surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through";
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -64,10 +66,13 @@ public sealed class ComposedControlTargetAccountRemovalTests
     {
         await using var serving = await ComposeAsync("-U", "bob:pw");
         var log = new StringWriter();
+        var target = TargetOf(serving, log);
 
-        var removed = await TargetOf(serving, log).RemoveProxyAccountAsync("bob", TestContext.CancellationToken);
+        var removed = await target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken);
+        var removedAgain = await target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken);
 
         Assert.IsTrue(removed);
+        Assert.IsFalse(removedAgain);
         Assert.AreEqual(ProxyWarning + Environment.NewLine, log.ToString());
     }
 

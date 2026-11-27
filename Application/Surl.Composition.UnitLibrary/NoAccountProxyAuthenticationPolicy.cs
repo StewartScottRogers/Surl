@@ -3,8 +3,8 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Composition;
 
 /// <summary>
-/// The proxy policy of a start with no proxy account (ADR-0088 decision 5): no login is asked for,
-/// so every password login and HTTP request is answered as <see cref="AnonymousAuthenticationPolicy"/>
+/// The proxy policy of a start given neither <c>-U</c> nor <c>--proxy-user-file</c> (ADR-0088 decision 5): no login
+/// is asked for, so every password login and HTTP request is answered as <see cref="AnonymousAuthenticationPolicy"/>
 /// answers it, while a Kerberos login the SOCKS5 server has checked against <c>--keytab</c> is judged
 /// by <paramref name="kerberosLogins"/>, which publishes it and applies <c>refuse-login</c> fault rules
 /// (ADR-0165, decisions 7 to 9).

@@ -109,8 +109,11 @@ public static class AuthenticationComposition
     /// Builds the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
     /// the <c>-U</c> accounts and then the <c>--proxy-user-file</c> alone, never the origin's accounts,
     /// with the <c>--proxy-auth</c> methods (Digest and Basic by default) and the loosening switches <c>--allow-anonymous</c> and
-    /// <c>--allow-plaintext-auth</c>. With no proxy account it is a
-    /// <see cref="NoAccountProxyAuthenticationPolicy"/>, which asks for no login but still publishes a
+    /// <c>--allow-plaintext-auth</c>. That policy sets
+    /// <see cref="AuthenticationSettings.RequiresLoginWithoutAccounts"/>, so without <c>--allow-anonymous</c> a request
+    /// without credentials is challenged even when no proxy account is left: after the last one is removed, or from an
+    /// empty <c>--proxy-user-file</c> (ADR-0132 amendment 4). With neither <c>-U</c> nor <c>--proxy-user-file</c> it is
+    /// a <see cref="NoAccountProxyAuthenticationPolicy"/>, which asks for no login but still publishes a
     /// SOCKS5 GSS-API login and applies <c>refuse-login</c> to it.
     /// </summary>
     internal static (IAuthenticationPolicy? Policy, SurlExitCode ExitCode, string? FailureMessage) ComposeProxyPolicy(
@@ -135,9 +138,13 @@ public static class AuthenticationComposition
             GivenAuthenticationMethods = commandLine.AcceptedProxyAuthenticationMethods,
         };
         var (accounts, exitCode, failureMessage) = ReadUserAccounts(proxyView, readFile);
-        return accounts is null
-            ? (null, exitCode, failureMessage)
-            : (ComposePolicy(ComposeSettings(proxyView, accounts), timeProvider, events, faults), SurlExitCode.Ok, null);
+        if (accounts is null)
+        {
+            return (null, exitCode, failureMessage);
+        }
+
+        var settings = ComposeSettings(proxyView, accounts) with { RequiresLoginWithoutAccounts = true };
+        return (ComposePolicy(settings, timeProvider, events, faults), SurlExitCode.Ok, null);
     }
 
     /// <summary>

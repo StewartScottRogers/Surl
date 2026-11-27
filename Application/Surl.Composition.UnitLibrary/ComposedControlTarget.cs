@@ -244,7 +244,7 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
             var isRemoved = stores.RemoveProxyAccount(user);
             if (isRemoved && !stores.HasProxyAccounts)
             {
-                log.WriteLine("surl: warning: no proxy account left; the proxy now needs no login");
+                log.WriteLine("surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through");
             }
 
             return isRemoved;
