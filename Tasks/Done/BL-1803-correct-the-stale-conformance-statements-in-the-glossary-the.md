@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Wiki/Glossary.md, Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md, Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md]
 requirement: FR-053
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1803 — Correct the stale conformance statements in the glossary, the conformance library's CLAUDE.md and the pass-rate file
 
@@ -44,23 +44,34 @@ BL-1802. No stand-in store, event or fault applies: this task changes prose only
 
 ## Acceptance criteria
 
-- [ ] The "published-binary conformance" row of `Documentation/Wiki/Glossary.md` says CI runs it for
+- [x] The "published-binary conformance" row of `Documentation/Wiki/Glossary.md` says CI runs it for
       `linux-x64`, `linux-arm64`, `win-arm64`, `osx-x64` and `osx-arm64` (the `conformance` job's
       matrix in `.github/workflows/release.yml`) and that `win-x64` runs it locally.
-- [ ] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` no longer says `imaps`, `pop3s` and
+- [x] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` no longer says `imaps`, `pop3s` and
       `smtps` are not composed, and says their case servers listen behind implicit TLS on
       `127.0.0.1` at `%IMAPSPORT`, `%POP3SPORT` and `%SMTPSPORT`.
-- [ ] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` no longer says case 1230 skips
+- [x] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` no longer says case 1230 skips
       `server-half-not-composed:http-ipv6`.
-- [ ] The pass-rate file's paragraph about 2402, 2404, 2407 and 2502 writes their failures in the
+- [x] The pass-rate file's paragraph about 2402, 2404, 2407 and 2502 writes their failures in the
       past tense as the result at commit `6023b4b3`, says all four pass on `linux-x64` now (naming
       `0cd51f95` for 2402, 2404 and 2502 and `4ac7b2c7` for 2407), and still says `win-x64` and
       `osx-arm64` skip them. No table or `upstream-test-cases-passing.<platform>.txt` file changes.
-- [ ] `dotnet test --filter "FullyQualifiedName~UpstreamTestCasePassRateStatementTests"` passes.
+- [x] `dotnet test --filter "FullyQualifiedName~UpstreamTestCasePassRateStatementTests"` passes.
 
 ## Notes
+
+- Delivered by `align-and-document`; prose only, no behaviour change. Checked against the `conformance`
+  matrix in `release.yml`, `ServerFamilies` and the port variables in `Surl.Conformance.UnitTests`,
+  and the passing lists.
+- Also replaced the composed-server list under "Running the http and https cases" in the same
+  `CLAUDE.md`: it left out `imaps`, `pop3s`, `smtps` and `http-ipv6`, so it still said they were
+  skipped as not composed (second and third criteria). It now lists every name in `ServerFamilies`.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: all pass.
+  `UpstreamTestCasePassRateStatementTests`: 5 passed.
+- Other stale statements found are filed as BL-1804.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. Glossary, conformance CLAUDE.md and pass-rate file state the platforms, server halves and cases covered now
