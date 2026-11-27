@@ -1,0 +1,43 @@
+---
+id: BL-1814
+title: Describe SOCKS5 GSS-API, the ldap service and the SOCKS exception in the --keytab manual and AI help text
+priority: Low
+assignee: Claude
+pipeline: feature
+depends-on: [BL-1813]
+touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+requirement: none
+created: 2026-11-26
+completed:
+---
+# BL-1814 — Describe SOCKS5 GSS-API, the ldap service and the SOCKS exception in the --keytab manual and AI help text
+
+## Goal
+
+`surl --manual` and the `--keytab` paragraph of `surl --aihelp` say which listeners use the keytab, which service principals it serves, which logins need an account, and when the unused warning is written.
+
+## Context
+
+Found while working BL-1809. Both texts are in `Application/Surl.Cli.UnitLibrary`.
+
+- `ManualText.cs`, the `--keytab <file>` paragraph (about lines 253 to 272), lists the services as `HTTP`, `smtp`, `imap` or `pop`. It leaves out `ldap` (ADR-0057 amendment 2; the `--aihelp` paragraph has it) and SOCKS5's `rcmd` (`SocksGssApiLogin.DefaultService`), and names only HTTP and the SMTP, IMAP and POP3 servers as users of the keys, leaving out the LDAP server's `GSS-SPNEGO` bind and SOCKS5 GSS-API (method `01`, curl's `--socks5-gssapi`).
+- `AiHelpProse.cs`, the paragraph beginning "`--keytab <file>` reads Kerberos service keys" (about line 72), also leaves out `rcmd` and SOCKS5. The `proxy` topic paragraph about SOCKS already says them correctly.
+- Both state the unused warning with no SOCKS exception. BL-1813 changes the behaviour (decision: the ADR-0057 amendment from BL-1812).
+- Both say a Kerberos login "is accepted only when an account of exactly that name exists". That is not so for SOCKS5: `Socks5GssApiNegotiation` accepts any ticket the keys accept and `AuthenticationPolicy.JudgeKerberosLoginAsync` looks up no account (ADR-0165 decisions 7 to 9); a `refuse-login` fault rule can still refuse it. State what the code does.
+- `ManualTextTests` and `AiHelpTextTests` in `Application/Surl.Cli.UnitTests` pin these texts (`ManualTextTests` pins the service-list line). The manual is laid out to 79 columns.
+- Stand-in: help text only; no store, event or fault is involved.
+
+## Acceptance criteria
+
+- [ ] The manual's `--keytab` paragraph lists `ldap` and SOCKS5's `rcmd` among the services, and says the LDAP server's `GSS-SPNEGO` bind and a `socks5`/`socks5h` listener's GSS-API login use the keys, the latter whatever `--auth` names.
+- [ ] The `--aihelp` `--keytab` paragraph names the `rcmd` service and says a `socks5`/`socks5h` listener's GSS-API login uses the keys whatever `--auth` names.
+- [ ] Both texts say the unused warning is not written when the listeners BL-1813 exempts are served, positionally or with `--proxy`.
+- [ ] Both texts limit "accepted only when an account of exactly that name exists" to the logins it is true of, and say a SOCKS5 GSS-API login needs no account.
+- [ ] Tests in `Surl.Cli.UnitTests` (`ManualTextTests`, `AiHelpTextTests`) pin the new sentences.
+- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+
+## Notes
+
+## Log
+
+- 2026-11-26: Created.
