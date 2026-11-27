@@ -44,7 +44,7 @@ Found during BL-1874 on 2026-11-27. Prose only. No store, event or fault changes
 - Proxy `CLAUDE.md`: 1 to 4, 9, 10 and 11 decide what the library does or answers. 5 to 8 decide `Surl.Cli` and
   `Surl.Composition`; the paragraph names them as that, so all eleven are accounted for.
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: 83 test projects passed, none failed.
-- Follow-up filed: BL-1902 (HTTP/2 doc comments cite Amendment 5 where Amendment 9 decides it).
+- Follow-up filed: BL-1904 (HTTP/2 doc comments cite Amendment 5 where Amendment 9 decides it).
 
 ## Log
 

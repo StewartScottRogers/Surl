@@ -1,5 +1,5 @@
 ---
-id: BL-1902
+id: BL-1904
 title: Cite ADR-0088 Amendment 9, not Amendment 5, in the HTTP proxy's HTTP/2 doc comments
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1902 — Cite ADR-0088 Amendment 9, not Amendment 5, in the HTTP proxy's HTTP/2 doc comments
+# BL-1904 — Cite ADR-0088 Amendment 9, not Amendment 5, in the HTTP proxy's HTTP/2 doc comments
 
 ## Goal
 
