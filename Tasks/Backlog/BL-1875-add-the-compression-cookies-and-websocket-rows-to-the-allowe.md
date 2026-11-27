@@ -1,5 +1,5 @@
 ---
-id: BL-1852
+id: BL-1875
 title: Add the Compression, Cookies and WebSocket rows to the allowed-library isolation test
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1852 — Add the Compression, Cookies and WebSocket rows to the allowed-library isolation test
+# BL-1875 — Add the Compression, Cookies and WebSocket rows to the allowed-library isolation test
 
 ## Goal
 

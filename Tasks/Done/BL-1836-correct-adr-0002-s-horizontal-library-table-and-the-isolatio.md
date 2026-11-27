@@ -41,7 +41,7 @@ Found by BL-1811. Check each against the `ProjectReference` entries before editi
 - Removed the paragraph under the table that listed which tasks "create" each project, in the present tense. Every project exists; the amendment notes and ADR-0048 and ADR-0050 keep the history.
 - Added `Documentation/Product/Product-Overview.md` to `touches`: it said ADR-0002's table has no Cookies row, which this task made false. No other task in `Doing` named it.
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: no failures in any test project. `dotnet format --verify-no-changes` on the changed `.cs` file: exit 0.
-- Follow-ups filed: BL-1850, BL-1851, BL-1852.
+- Follow-ups filed: BL-1873, BL-1874, BL-1875.
 
 ## Log
 

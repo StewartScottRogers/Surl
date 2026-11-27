@@ -1,5 +1,5 @@
 ---
-id: BL-1850
+id: BL-1873
 title: Correct the project reference statements in the Kerberos and Tls13 library CLAUDE.md files
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1850 — Correct the project reference statements in the Kerberos and Tls13 library CLAUDE.md files
+# BL-1873 — Correct the project reference statements in the Kerberos and Tls13 library CLAUDE.md files
 
 ## Goal
 

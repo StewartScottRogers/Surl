@@ -1,5 +1,5 @@
 ---
-id: BL-1851
+id: BL-1874
 title: Correct the horizontal library statements in the HTTP proxy's docs, ADR-0088 and the glossary
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1851 — Correct the horizontal library statements in the HTTP proxy's docs, ADR-0088 and the glossary
+# BL-1874 — Correct the horizontal library statements in the HTTP proxy's docs, ADR-0088 and the glossary
 
 ## Goal
 
