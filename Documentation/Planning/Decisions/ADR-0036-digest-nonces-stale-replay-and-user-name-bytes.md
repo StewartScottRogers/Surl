@@ -4,6 +4,11 @@
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29,
   in BL-113.
+- **Amended by:** [ADR-0043](ADR-0043-http-aws-signature-version-4-check.md) decision 3 (the account book also
+  keeps each named account's password as UTF-8 bytes), and
+  [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password)
+  (2026-11-27, BL-1840: everything the book holds of a password; the context, decision 7 and the "Keeping the
+  clear password for Digest" alternative no longer describe it).
 
 ## Context
 
@@ -12,7 +17,8 @@ fixes the three Digest challenges (`Digest realm="surl", qop="auth", algorithm=<
 nonce="<nonce>"` for `MD5`, `SHA-256`, `SHA-512-256`, in that order) and leaves the nonce, its
 lifetime and `stale=true` to BL-113. It keeps account passwords only as SHA-256 hashes
 (section 8), which Digest cannot use: every Digest response is built on
-`H(username ":" realm ":" password)`.
+`H(username ":" realm ":" password)`. *The account book has since come to keep more than hashes:
+[ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password).*
 
 Measured on 2026-09-29 with `Record-CurlExchange.ps1 -Connections 2` and the pinned reference
 build (curl 8.21.0, win-x64, SSPI, SHA-256 `0E773709…8778`), connection 1 answering a `401`
@@ -80,7 +86,11 @@ with the MD5 challenge above and the fixed nonce `fixturenonce`; fixtures in
 7. **Account storage.** `AccountBook` computes, at start-up, the three user hashes
    (`H(name:surl:password)` under MD5, SHA-256 and SHA-512/256) for each encoding of each named
    account, and still keeps no clear password. An unknown name is checked against a dummy with
-   random hashes, costing one comparison like a wrong password (ADR-0032 section 8).
+   random hashes, costing one comparison like a wrong password (ADR-0032 section 8). *Amended by
+   [ADR-0043](ADR-0043-http-aws-signature-version-4-check.md) decision 3 and
+   [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password):
+   the book keeps each named account's password as UTF-8 bytes, for the methods that cannot work from a hash.
+   "No clear password" now holds only of the `Account.Password` string.*
 
 ## Alternatives considered
 
@@ -91,7 +101,9 @@ with the MD5 challenge above and the fixed nonce `fixturenonce`; fixtures in
   Refusing the measured Windows answer would leave every non-ASCII user of the reference build
   without a Digest login.
 - **Keeping the clear password for Digest.** The user hashes are password-equivalent for Digest
-  anyway, and hashing once at start-up keeps the clear text out of memory.
+  anyway, and hashing once at start-up keeps the clear text out of memory. *Digest still reads only its
+  hashes, but the password's bytes are in memory for other methods:
+  [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password).*
 
 ## Consequences
 

@@ -7,7 +7,7 @@
   restore; accounts as a store), ADR-0032 section 8 (constant-time checks and the refusal delay), ADR-0102
   decision 4.3 (per-scheme views), [ADR-0128](ADR-0128-how-surl-authentication-publishes-judged-logins-and-applies-refuse-login.md).
 - **Acted on by:** BL-802; BL-805 exposes it through `ComposedStores`, BL-810 through `Surl.Api`.
-- **Amended by:** [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account)(#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
+- **Amended by:** [Amendment 3 below](#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (decision 5: a snapshot of a named account holds the password's bytes among its derived credentials, so "no clear password" is withdrawn), [Amendment 2 below](#amendment-2-2026-11-22-bl-1601-the-bearer-token-account-is-added-rotated-and-removed-on-every-host) (the empty-name Bearer-token account is added, rotated and removed on every host; the control endpoint spells rotate and remove `/v1/bearer-token`), [Amendment 1 below](#amendment-1-2026-11-20-bl-1482-one-rule-for-adding-a-name-that-already-has-an-account) (adding a name that has an account is refused on every host; a password change is its own operation), [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (the account book is not the only account source: proxy and TLS-SRP accounts are their own stores, and `coaps` reads this book live).
 
 ## Context
 
@@ -43,7 +43,11 @@ only `Surl.Authentication`.
    already kept, so a restored account logs in by every method. The snapshot is in memory and opaque: its
    only public member is `UserNames`. A snapshot of another book is refused with `ArgumentException`.
    `MaxSnapshotBytes` belongs to the whole-instance snapshot (BL-805). The account set is tiny next to that
-   bound and is not counted here.
+   bound and is not counted here. *Corrected by
+   [Amendment 3 below](#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password): the
+   heading is wrong, since some derived credentials are the password's bytes. Only the
+   `Account.Password` string is left out, and more methods than the three named here read those bytes or other
+   derived credentials.*
 6. **Events.** `AccountAdded` and `AccountRemoved` name the user, and `Reset` and `Restored` carry an empty
    name. `ByteCount` and `ExchangeId` are null. No event holds a password, a hash or a token. Each event is
    published under the change lock, so the events keep the order of the changes. An add by a test is
@@ -186,3 +190,81 @@ stay `404`, like `/v1/files/` (ADR-0136 decision 8).
 ADR-0136 decisions 7 and 8, ADR-0161's `remove_account` row, and ADR-0124 decision 7's route table and decision 8's
 tool table, each with a pointer here. The code follows in BL-1602 (control endpoint) and BL-1603 (`surl-mcp`);
 `Surl.Api` needs no change (BL-1604 proves it).
+
+## Amendment 3 (2026-11-27, BL-1840): what a snapshot holds of each password
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in BL-1840.
+- **Why now:** decision 5 is headed "Snapshots hold no clear password" and ADR-0124 decision 3 said "password
+  hashes only, never a clear password". Both are false of `AccountStore`: it keeps each named account's password
+  as its UTF-8 bytes, and a snapshot holds them.
+- **Upstream curl** has no say: no byte Surl sends or expects changes.
+
+### What is held
+
+This is true of every `AccountBook`, the proxy accounts' book (ADR-0170 decision 2) included, and of every
+`AccountSnapshot` taken of one. The TLS-SRP accounts are another store (ADR-0170 decision 3), not covered here.
+
+Each account is held as its user name, the schemes it may log in on, and the SHA-256 of its password's UTF-8
+bytes. **The empty-name Bearer-token account is held with that SHA-256 only**: nothing else is derived from the
+token. A named account also holds every other row below, the Azure Storage key only when its password gives one,
+each derived once when the account is configured, added or given a new password, whatever `--auth` accepts and
+whatever servers run.
+
+| Held | Whose | Gives the password back? | Read by |
+| --- | --- | --- | --- |
+| SHA-256 of the password's UTF-8 bytes | every account | No. One unsalted hash, so it can be guessed offline | the logins that send the password: HTTP Basic, SASL `PLAIN` and `LOGIN`, SSH `password` and `keyboard-interactive`, and the other password logins a server hands to the policy; for the empty name, the logins that send the token: HTTP and Azure Storage Bearer, SASL `OAUTHBEARER` and `XOAUTH2`, and a server's token login |
+| The password's UTF-8 bytes: one array, held as `AwsSigV4Account.Secret` and `ChallengeResponseAccount.Password` | named | **Yes. It is the password** | `AwsSigV4Account.Secret`: AWS Signature Version 4 (header, presigned URL and S3 signed chunks), Cloud Storage's V4 HMAC, and the `coaps` pre-shared key (`AccountBook.TryFindPreSharedKey`). `ChallengeResponseAccount.Password`: SASL `CRAM-MD5` and `DIGEST-MD5`, and POP3 `APOP` |
+| The bytes the password decodes to as base64 (`AzureStorageAccount.Key`) | named, when the password reads as base64 of at least one byte, meant as a key or not | **Yes.** Encoding them again gives the password, but for how its base64 was spelt | Azure Storage Shared Key, Shared Key Lite and shared access signatures |
+| Four unsalted NT hashes (`NtlmPasswordHashes`, ADR-0075) | named | No, but each is a password equivalent for NTLM and can be guessed offline | NTLM wherever it is carried (HTTP NTLM and Negotiate, SASL `NTLM` and `GSS-SPNEGO`), and SMB's NTLMv1, which reads one of the four |
+| Digest user hashes, `H(name:surl:password)` | named | No, but each is a password equivalent for Digest in the realm `surl` | HTTP Digest authentication |
+| SCRAM salt, iteration count, `StoredKey` and `ServerKey` under SHA-1, SHA-256 and SHA-512 (ADR-0125) | named | No. Salted and iterated | SASL `SCRAM-SHA-1`, `SCRAM-SHA-256` and `SCRAM-SHA-512` |
+
+The logins that need only a name (SASL `EXTERNAL`, Kerberos through `GSSAPI` or Negotiate) read no row of the
+table beyond asking whether the account exists.
+
+### The decision
+
+1. **The code stands and the promise is corrected.** A snapshot of a named account holds the password's SHA-256
+   and its derived credentials, some of which are the password's bytes. Treat a snapshot, and the running book,
+   as holding every named account's password. The one thing neither keeps is the `Account.Password` string.
+2. **Why the bytes are kept.** Their readers cannot work from a hash: Signature Version 4 derives each signing
+   key from the secret itself (ADR-0043 decision 3), `CRAM-MD5`, `DIGEST-MD5` and `APOP` compute over the password
+   (ADR-0049 section 5), a pre-shared key is the secret (ADR-0170 decision 5), and Azure Storage signs with the
+   decoded key (ADR-0109 decisions 3.2 and 3.3). Leaving them out of the book would remove those logins; leaving
+   them out of a snapshot would make a restored account fail them, against decision 5's "logs in by every method".
+3. **A snapshot shares the book's records.** It holds the same unchanging per-account records the book held when it
+   was taken, not copies of their bytes; no record is changed in place, so it behaves as the copy ADR-0124
+   decision 3 describes. The book keeps the configured accounts' records for as long as it lives, so that reset can
+   return to them, and a snapshot keeps the records of an account removed or given a new password since for as long
+   as the snapshot is referenced. Nothing overwrites the bytes with zeros.
+4. **A snapshot is in memory and opaque.** `AccountSnapshot`'s one public member of its own is `UserNames`.
+   Nothing serialises a snapshot or writes it to disk. `ComposedSnapshot` shows which stores it holds and a byte
+   count, to which accounts add 0, and `SurlSnapshot` shows the byte count. The control endpoint and `surl-mcp`
+   keep snapshots and answer only an ID (`p1`, `p2`, ...). Restore is what reads one back.
+5. **No event or log line is made from what is held.** A change to the accounts publishes a `StoreChangedEvent`
+   naming at most a user name (decision 6), and a login note names the method and the user (ADR-0032 section 8).
+   What a client sends is a separate matter: `ExchangeBytesEvent` carries the raw bytes of an exchange, a password
+   sent in clear among them (ADR-0182 decision 4), while the log withholds it.
+6. **The running book is less closed than a snapshot, and that stays.** `AccountBook.TryFindPreSharedKey` is public
+   and returns a copy of the password bytes of a named account that may log in on the scheme the caller names, so
+   in-process code holding the book can read them, a test's own protocol server among it
+   (`SurlProtocolServices.AuthenticationPolicy.Settings.Accounts`). In the production code only the `coaps` key
+   lookup calls it, and neither the control endpoint nor `surl-mcp` has a request or tool that returns it. Such
+   code runs inside the process that holds the bytes, so withholding the method would protect nothing from it.
+
+This promises nothing about the rest of the process: whoever gave the book an `Account` may still hold its password
+(`SurlServerOptions.Accounts`, for one).
+
+### Options weighed
+
+- **Keep the code and say what it holds.** Chosen: every login method stays, and a reader knows how far to trust a
+  snapshot.
+- **Drop the bytes from a snapshot or from the book.** Rejected: decision 2 above.
+- **Encrypt the bytes in memory.** Rejected: the key would sit in the same process, so a reader of its memory gets
+  both, at the cost of code on every login.
+
+### Documents this amendment changes (edited by BL-1840)
+
+ADR-0124 decision 3, ADR-0036 (context, decision 7 and its "Keeping the clear password for Digest" alternative),
+ADR-0158's directory snapshot, ADR-0170 decision 12 and the index rows of ADR-0124 and ADR-0132, each with a
+pointer here. The XML documents, the library's `CLAUDE.md` and `Surl.Api`'s README are BL-1841's to correct.

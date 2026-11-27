@@ -93,7 +93,10 @@ Three account sources live outside the instance's `AccountBook`, and so outside 
     measurement is needed.
 12. **Secrets.** No event, snapshot note or fault record carries a password, key or verifier except the TLS-SRP snapshot's
     verifiers, which are the stored form and not reversible to the password; the snapshot is held in memory as the account
-    snapshot is (ADR-0132).
+    snapshot is (ADR-0132). *Clarified by
+    [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password):
+    the proxy accounts' snapshot is an account book's, so it holds each password's bytes among its derived
+    credentials; no event or fault record carries them.*
 
 **Amendment 1 (2026-11-25, BL-1688; decided by Claude under Stewart's delegation). The PSK suites are offered while
 no account exists.** Amends ADR-0087 decisions 2 and 3 for how `surl` composes `coaps`.

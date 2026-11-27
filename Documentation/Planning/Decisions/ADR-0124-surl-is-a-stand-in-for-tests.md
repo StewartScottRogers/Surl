@@ -35,6 +35,7 @@
 - **Amended by (continued):** [ADR-0171](ADR-0171-how-a-new-surlevent-kind-reaches-surl-api-surl-mcp-and-the-control-endpoint.md) (decision 2: event kinds are an extension point; a new `SurlEvent` record carries its own exchange, scheme, account and members).
 - **Amended (2026-11-21, BL-1518):** decision 4's `after-bytes` counts every byte the exchange sends on all its connections, data connections included; see the amendment before "Alternatives considered".
 - **Amended (2026-11-22, BL-1605):** decision 3's seed into a queue nobody declared is refused `UnknownQueue`, not created; see the second amendment before "Alternatives considered".
+- **Amended by (continued):** [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (2026-11-27, BL-1840; decision 3: an account snapshot is not "password hashes only", since some of a named account's derived credentials are its password's bytes).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
@@ -204,10 +205,14 @@ together through `ComposedServing.Stores` (`ComposedStores`, BL-805), then by `S
   - accounts: exactly the accounts `--user`, `--user-file`, `--mailbox` and the groups configured at
     start; accounts added later are removed.
 - **Snapshot** is an opaque, in-memory deep copy of a store's contents and metadata (mail UIDs, flags and
-  `UIDVALIDITY`; object metadata and ETags; retained messages, queue contents and logs; accounts as
-  password hashes only, never a clear password). `ComposedSnapshot` holds one snapshot per store. A
+  `UIDVALIDITY`; object metadata and ETags; retained messages, queue contents and logs; accounts as the
+  account book holds them). `ComposedSnapshot` holds one snapshot per store. A
   snapshot is bounded: one whose stores together exceed `MaxSnapshotBytes` (default 256 MiB) is refused,
-  never truncated. A snapshot carries its instance's identity.
+  never truncated. A snapshot carries its instance's identity. *Corrected by
+  [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password):
+  this decision first read "accounts as password hashes only, never a clear password". A named account's
+  snapshot holds the password's SHA-256 and derived credentials, some of which are the password's bytes; the
+  empty-name Bearer-token account is held as its SHA-256 only.*
 - **Restore** replaces a store's contents with a snapshot's. A snapshot from another instance is refused.
   Every mailbox's `UIDVALIDITY` changes on restore, as on reset, so an IMAP client resynchronises.
 - **Order across stores** for reset and restore of a whole instance: content, mail, bus, then accounts

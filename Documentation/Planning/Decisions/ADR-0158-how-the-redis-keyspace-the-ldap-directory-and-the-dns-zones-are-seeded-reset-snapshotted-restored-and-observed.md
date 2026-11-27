@@ -136,7 +136,10 @@ A snapshot is an opaque, in-memory deep copy, never returned to a host (hosts ho
 - **Directory:** the set of entries, as the immutable entries themselves. A directory entry may hold a
   `userPassword` a test seeded as data; the snapshot is in memory, belongs to its instance and is never
   written, logged or echoed, as with the account book's hashes. Bytes counted: the directory's own entry
-  size.
+  size. *Clarified by
+  [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password):
+  an account snapshot holds more than hashes, password bytes among them; it too is never written, logged or
+  echoed.*
 - **Zones:** the set of zones. Bytes counted: the zones' byte count.
 
 The three snapshots count toward `MaxSnapshotBytes` with the other four: a combined snapshot past it is
