@@ -49,3 +49,4 @@ Check `Documentation/Product/Product-Overview.md` too. The `surl` command line i
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
