@@ -321,6 +321,11 @@ public sealed partial class AiHelpTextTests
     [DataRow("tls", "so a listen URL of one of them needs a certificate or TLS-SRP (below).")]
     [DataRow("tls", "Without `--cert`, `--self-signed` and TLS-SRP, such a listen URL writes `surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one` and exits 58")]
     [DataRow("webtransport", "so a `webtransport` listen URL needs `--cert` or `--self-signed`, under TLS-SRP too (see the tls topic);")]
+    [DataRow("security", "give `--cert` and `--key` for secure schemes, never `--self-signed`, unless TLS-SRP secures them (see the tls topic);")]
+    [DataRow(
+        "testing",
+        "without it, without --cert and without TLS-SRP (--tlsauthtype SRP or --tlsuser), such a URL is refused at start. TLS-SRP secures TCP only, so a "
+        + "webtransport or DNS over QUIC URL, or a coaps one with no account, needs --cert or --self-signed even then.")]
     [DataRow("dns", "TLS 1.3 only, ALPN `doq`, it needs `--cert` or `--self-signed` (else exit 58), under TLS-SRP too,")]
     [DataRow(
         "coap",
@@ -947,8 +952,8 @@ public sealed partial class AiHelpTextTests
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
-            "| 58 | `CertificateProblem` | A secure listen URL has no certificate, or the --cert or --key file cannot be used "
-                + "| Give --cert and --key files that load, with --pass when the key needs one, or --self-signed in a test |",
+            "| 58 | `CertificateProblem` | A secure listen URL has no certificate and TLS-SRP does not secure it, or the --cert or --key file cannot be used "
+                + "| Give --cert and --key files that load, with --pass when the key needs one, or --self-signed in a test; TLS-SRP (see the tls topic) secures a TCP listen URL with no certificate |",
             "| 77 | `CaCertificateBadFile` | The --cacert file cannot be read | Give a --cacert file that holds certificates |",
             "| 124 | `DataDirectoryInUse` | Another surl holds the data directory or the folder of a writable --share "
                 + "| Stop the other surl, give another --directory or share folder, mark the share ;readonly, or serve in memory without --directory |",

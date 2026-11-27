@@ -88,8 +88,10 @@ internal static class CommandLineOptions
 
     private const string SelfSignedExplanation =
         "Serves a throwaway self-signed certificate, made at start, for a listen URL of a scheme that starts "
-        + "with TLS (such as https) when no --cert is given; without it, and without --cert, such a URL is "
-        + "refused at start. A test uses it to serve a secure scheme without a certificate file; curl then needs "
+        + "with TLS (such as https) when no --cert is given; without it, without --cert and without TLS-SRP "
+        + "(--tlsauthtype SRP or --tlsuser), such a URL is refused at start. TLS-SRP secures TCP only, so a "
+        + "webtransport or DNS over QUIC URL, or a coaps one with no account, needs --cert or --self-signed "
+        + "even then. A test uses it to serve a secure scheme without a certificate file; curl then needs "
         + "-k. It is not the default because no client can verify the certificate, so a client cannot tell surl "
         + "from anyone else on the path. It cannot be used with --cert. surl warns when it makes the certificate, "
         + "from the info log level up.";
