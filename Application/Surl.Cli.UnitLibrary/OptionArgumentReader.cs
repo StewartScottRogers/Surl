@@ -226,7 +226,8 @@ internal static class OptionArgumentReader
     public static readonly OptionArgumentReading<string> ProxyListenUrlText =
         new(ReadPath, new(
             "proxy listen URL",
-            "an http or https listen URL, as a bare argument takes it; default port 1080 for http and 443 for https"));
+            "an http, https, socks4, socks4a, socks5 or socks5h listen URL, as a bare argument takes it; "
+            + "default port 443 for https and 1080 for the others"));
 
     /// <summary><see cref="ReadProxyAllowedOrigin"/> and its argument type (ADR-0046 decision 5, ADR-0088 decision 7).</summary>
     public static readonly OptionArgumentReading<ProxyAllowedOrigin> AllowedOrigin =
