@@ -864,11 +864,10 @@ libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061;
 `Surl.Tls13` and its key exchange primitives `Surl.Cryptography.MlKem`,
 `Surl.Cryptography.Curve448` and `Surl.Cryptography.Sm2` (ADR-0082 and ADR-0147);
 `Surl.HttpServing`, `Surl.WebSocket` and `Surl.Dtls` (ADR-0084); `Surl.MessageBus`
-(ADR-0100); `Surl.McpServing` (ADR-0103); `Surl.Compression` (ADR-0105); and
-`Surl.Cryptography.Srp` and `Surl.TlsSrp` (ADR-0122). `Surl.Cookies`, which the HTTP server
-references to set cookies (ADR-0189), is allowed too, though ADR-0002's table has no row for
-it. Referencing another protocol server is a build break, and
-`Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
+(ADR-0100); `Surl.McpServing` (ADR-0103); `Surl.Compression` (ADR-0105);
+`Surl.Cryptography.Srp` and `Surl.TlsSrp` (ADR-0122); and `Surl.Cookies`, which the HTTP
+server references to set cookies (ADR-0189). Referencing another protocol server is a build
+break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 The same rule holds the extended servers (`Surl.Extended.Protocol.*`, ADR-0083), which never
 reference an original server either. Three of the horizontal libraries were decided for what
 they share by
