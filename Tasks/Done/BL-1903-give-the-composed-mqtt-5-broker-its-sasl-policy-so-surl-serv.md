@@ -39,7 +39,7 @@ A `CONNECT` with an Authentication Method that `--auth` accepts logs in over `mq
 - Added `Documentation/Planning/Decisions` to `touches` for that amendment; no task in Doing names it.
 - No upstream curl measurement: `mqtt5` is an extended scheme (ADR-0083); test bytes are from MQTT 5.0 and RFC 5802.
 - Verify: build 0 warnings, format clean, fast tests 30279 passed, 3 skipped, 0 failed.
-- Follow-up filed: BL-1910 (an account restricted to `mqtt5+ws`).
+- Follow-up filed: BL-1911 (an account restricted to `mqtt5+ws`).
 
 ## Log
 

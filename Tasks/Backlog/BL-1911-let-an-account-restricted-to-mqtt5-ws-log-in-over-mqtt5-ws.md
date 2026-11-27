@@ -1,5 +1,5 @@
 ---
-id: BL-1910
+id: BL-1911
 title: Let an account restricted to mqtt5+ws log in over mqtt5+ws
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1910 — Let an account restricted to mqtt5+ws log in over mqtt5+ws
+# BL-1911 — Let an account restricted to mqtt5+ws log in over mqtt5+ws
 
 ## Goal
 
