@@ -27,8 +27,10 @@ public sealed class UpstreamCurlRunner
     /// <param name="timeout">How long one run may take before curl is stopped.</param>
     /// <param name="timeProvider">The clock the timeout runs on.</param>
     /// <exception cref="ArgumentException">
-    /// <paramref name="location"/> holds no build, or holds a libcurl, which is loaded by a
-    /// driver and never run as a curl.
+    /// <paramref name="location"/> holds no build, holds a libcurl, which is loaded by a
+    /// driver and never run as a curl, or holds a <see cref="UpstreamCurlBuildKind.Libtest"/>
+    /// entry, a directory of libtest programs (<see cref="UpstreamCurlLocator.LocateLibtest"/>
+    /// answers the binary to run as a <see cref="UpstreamCurlBuildKind.Curl"/> location).
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is not positive.</exception>
     public UpstreamCurlRunner(UpstreamCurlLocation location, TimeSpan timeout, TimeProvider timeProvider)
@@ -41,7 +43,10 @@ public sealed class UpstreamCurlRunner
 
         if (Build.Kind != UpstreamCurlBuildKind.Curl)
         {
-            throw new ArgumentException($"{Build.DefaultPath} is a pinned upstream libcurl, not a curl to run.", nameof(location));
+            var pinnedAs = Build.Kind == UpstreamCurlBuildKind.Library
+                ? "a pinned upstream libcurl"
+                : "a pinned directory of upstream's libtest programs";
+            throw new ArgumentException($"{Build.DefaultPath} is {pinnedAs}, not a curl to run.", nameof(location));
         }
 
         this.timeout = timeout;

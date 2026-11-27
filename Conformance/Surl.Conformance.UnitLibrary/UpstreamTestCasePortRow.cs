@@ -31,6 +31,24 @@ public sealed record UpstreamTestCasePortRow(
     public string Name => $"test{Number}";
 
     /// <summary>
+    /// Leaves out each row upstream's run skipped for a tolerated reason
+    /// (<see cref="UpstreamTestCaseResult.IsSkippedForAny"/>): a case upstream could not play
+    /// because the run has no binary it needs cannot be compared, and is not a Surl defect. How the
+    /// port's run ended does not matter.
+    /// </summary>
+    /// <param name="rows">The run's rows.</param>
+    /// <param name="toleratedSkipReasons">Skip reasons without any name after a colon.</param>
+    /// <returns>The other rows, in the order given.</returns>
+    public static IReadOnlyList<UpstreamTestCasePortRow> WithoutUpstreamSkips(
+        IEnumerable<UpstreamTestCasePortRow> rows, IReadOnlySet<string> toleratedSkipReasons)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(toleratedSkipReasons);
+
+        return [.. rows.Where(row => !row.Upstream.IsSkippedForAny(toleratedSkipReasons))];
+    }
+
+    /// <summary>
     /// Describes the pair in one line: the case, its family, how each client ended and the verdict.
     /// </summary>
     /// <returns>The description.</returns>

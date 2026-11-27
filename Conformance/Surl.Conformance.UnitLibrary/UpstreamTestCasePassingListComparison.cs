@@ -56,7 +56,8 @@ public sealed record UpstreamTestCasePassingListComparison(
 
         var regressions = listed.Order()
             .Select(number => byNumber.GetValueOrDefault(number) ?? UpstreamTestCaseResult.Fail(number, MissingReason))
-            .Where(result => result.Outcome != UpstreamTestCaseOutcome.Pass && !IsTolerated(result, toleratedSkipReasons))
+            .Where(result => result.Outcome != UpstreamTestCaseOutcome.Pass
+                && !(toleratedSkipReasons is not null && result.IsSkippedForAny(toleratedSkipReasons)))
             .ToList();
         var newlyPassing = byNumber.Values
             .Where(result => result.Outcome == UpstreamTestCaseOutcome.Pass && !listed.Contains(result.Number))
@@ -105,12 +106,6 @@ public sealed record UpstreamTestCasePassingListComparison(
 
         return text.ToString();
     }
-
-    private static bool IsTolerated(UpstreamTestCaseResult result, IReadOnlySet<string>? toleratedSkipReasons) =>
-        toleratedSkipReasons is not null
-        && result.Outcome == UpstreamTestCaseOutcome.Skip
-        && result.Reason is { } reason
-        && toleratedSkipReasons.Contains(reason.Split(':')[0]);
 
     private string ListPath => $"{UpstreamTestCasePassingList.Folder}/{UpstreamTestCasePassingList.FileNameFor(Platform)}";
 }

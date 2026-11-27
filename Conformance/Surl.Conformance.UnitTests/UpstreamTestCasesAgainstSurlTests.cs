@@ -219,9 +219,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     }
 
     /// <summary>
-    /// The skip reasons that are not regressions for a listed case in this run: a run with no Debug build
-    /// cannot play the cases that skip <c>debug-build</c>, and one with no libtests binary those that skip
-    /// <c>libtest</c>. With both present nothing is tolerated (BL-1338).
+    /// The skip reasons (the text before any colon) that are not held against a listed case in this run: a
+    /// run with no Debug build cannot play the cases that skip <c>debug-build</c>, and one with no
+    /// <c>libtests</c> binary those that skip <c>libtest</c> or <c>libtest-not-built:&lt;program&gt;</c>.
+    /// With both present nothing is tolerated (BL-1338). The passing-list guard and the Curl port
+    /// comparison both filter with these.
     /// </summary>
     internal static HashSet<string> ToleratedSkipReasons(bool hasDebugBuild, bool hasLibtests)
     {
@@ -397,7 +399,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
         /// <summary>
         /// Plays each case twice, each time with its own fresh server halves and its own folder: with
-        /// the build upstream's run pairs it with (the reference build, or the smb build), then with
+        /// the client upstream's run pairs it with (the reference build, the smb build, the Debug build,
+        /// or an admitted libtest case's program from the <c>libtests</c> binary), then with
         /// <paramref name="port"/> (ADR-0089 decisions 1(b) and 2).
         /// </summary>
         public async Task<IReadOnlyList<UpstreamTestCasePortRow>> RunBesideAsync(IEnumerable<string> paths, CaseClient port)

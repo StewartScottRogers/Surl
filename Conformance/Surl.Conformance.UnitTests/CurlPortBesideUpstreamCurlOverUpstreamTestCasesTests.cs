@@ -68,10 +68,7 @@ public sealed class CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests
             // A case upstream skips because this run has no Debug build or no libtests binary is not a Surl
             // defect: the platform's passing list names cases a fuller run passes. It cannot be compared.
             var skippedForWantOfABuild = UpstreamTestCasesAgainstSurlTests.ToleratedSkipReasons(debugLocation.IsAvailable, libtestLocation.IsAvailable);
-            var rows = allRows
-                .Where(row => !(row.Upstream.Outcome == UpstreamTestCaseOutcome.Skip
-                    && row.Upstream.Reason is not null && skippedForWantOfABuild.Contains(row.Upstream.Reason)))
-                .ToList();
+            var rows = UpstreamTestCasePortRow.WithoutUpstreamSkips(allRows, skippedForWantOfABuild);
 
             var findingsFile = Path.Combine(root, "Documentation", "Conformance", "CurlPort", FindingsFileName);
             var listed = UpstreamTestCasePortComparison.ListedFindings(

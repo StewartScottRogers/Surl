@@ -42,6 +42,22 @@ public sealed record UpstreamTestCaseResult(int Number, UpstreamTestCaseOutcome 
     public static UpstreamTestCaseResult Skip(int number, string reason) => new(number, UpstreamTestCaseOutcome.Skip, reason);
 
     /// <summary>
+    /// Whether the case was skipped for one of these reasons, each compared with the text of the
+    /// skip reason before any colon, so <c>libtest-not-built</c> matches
+    /// <c>libtest-not-built:lib2402</c>. A pass or a failure is never a match.
+    /// </summary>
+    /// <param name="reasons">Skip reasons without any name after a colon.</param>
+    /// <returns>Whether it was.</returns>
+    public bool IsSkippedForAny(IReadOnlySet<string> reasons)
+    {
+        ArgumentNullException.ThrowIfNull(reasons);
+
+        return Outcome == UpstreamTestCaseOutcome.Skip
+            && Reason is { } reason
+            && reasons.Contains(reason.Split(':')[0]);
+    }
+
+    /// <summary>
     /// The name of a run's results file for a pin's platform:
     /// <c>upstream-test-case-results.&lt;platform&gt;.txt</c>.
     /// </summary>

@@ -30,7 +30,7 @@ verifying its hash and answering it as a `Curl` location, so `UpstreamCurlRunner
 `curl_ws_send` and `curl_ws_recv`, and `Run-LibcurlRtspScript.cs` loads to drive RTSP requests
 (`CURLOPT_RTSP_REQUEST`) and the interleaved receive (ADR-0074 decision 12); the tests run both
 through `PinnedLibcurlDriver`.
-`UpstreamCurlRunner` refuses a library. `PinnedLibcurlChoice.Choose` decides which file a
+`UpstreamCurlRunner` refuses a library or a `Libtest` pin, naming which it is. `PinnedLibcurlChoice.Choose` decides which file a
 driver may load before anything is loaded; `LibcurlRtspScript`, `LibcurlRtspReport` and
 `LibcurlBytes` are the RTSP driver's command line, its output lines and the byte escapes,
 and `LibcurlWebSocketScript` (with its `LibcurlWebSocketStep`s), `LibcurlWebSocketFlags` and
@@ -147,8 +147,10 @@ amendment 7):
   (`UpstreamTestCasePortFamilyCount`).
 - The tests' `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` (`Integration`, `UpstreamTestCases`)
   plays every case on the platform's passing list twice through `UpstreamTestCasesAgainstSurlTests.CaseRun`
-  (`RunBesideAsync`): with the paired upstream build, then with the port, each with fresh server halves
-  and its own folder (`port-test<N>` for the port).
+  (`RunBesideAsync`): with the paired upstream client, then with the port, each with fresh server halves
+  and its own folder (`port-test<N>` for the port). Rows upstream skipped for want of a Debug build or
+  `libtests` binary are left out before judging (`UpstreamTestCasePortRow.WithoutUpstreamSkips` with
+  `ToleratedSkipReasons`).
 
 ## Upstream test cases (ADR-0080)
 
@@ -370,7 +372,9 @@ The stated pass rate and its guard are built (BL-393):
   case number per line, ascending.
 - `UpstreamTestCasePassingListComparison.Compare(platform, list, results)` is the guard:
   `Regressions` are the listed cases that did not pass (`DescribeRegressions` names each and how
-  it ended), except those skipped for a reason (the text before any colon) the caller tolerates;
+  it ended), except those skipped for a reason the caller tolerates
+  (`UpstreamTestCaseResult.IsSkippedForAny`, which compares the text before any colon and is the
+  one filter the Curl port comparison uses too);
   `NewlyPassing` are the passing cases not listed (`DescribeNewlyPassing` gives the lines to
   add). The suite asserts no regressions and writes the newly passing to its log. It tolerates
   `debug-build` only in a run with no Debug build, and `libtest` and `libtest-not-built` only in a

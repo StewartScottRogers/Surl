@@ -39,6 +39,19 @@ public sealed class UpstreamCurlRunnerTests
     }
 
     [TestMethod]
+    public void Constructor_LocationHoldsALibtestEntry_RefusesItWithoutCallingItALibcurl()
+    {
+        var libtests = Build with { DefaultPath = "/pinned/libtests", Kind = UpstreamCurlBuildKind.Libtest };
+
+        var exception = Assert.ThrowsExactly<ArgumentException>(
+            () => new UpstreamCurlRunner(UpstreamCurlLocation.Found(libtests), TimeSpan.FromSeconds(1), TimeProvider.System));
+
+        StringAssert.StartsWith(exception.Message, "/pinned/libtests is a pinned directory of upstream's libtest programs, not a curl to run.");
+        Assert.DoesNotContain("libcurl", exception.Message);
+        Assert.AreEqual("location", exception.ParamName);
+    }
+
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-1)]
     public void Constructor_TimeoutNotPositive_ThrowsArgumentOutOfRangeException(int seconds)
