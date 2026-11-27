@@ -245,9 +245,12 @@ Running the http and https cases is built (BL-392):
   Gopher on `127.0.0.1` and `[::1]` and over TLS for `gophers`; MQTT in plaintext and over TLS;
   TFTP on a datagram listener; and Surl's own DICT and TELNET servers, whose cases give them
   nothing to send), its own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the
-  relative `log`, and a 60-second limit; a case naming a server other than `http`, `https`, `ftp`,
-  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `scp`, `sftp`, `smb`,
-  `telnet`, `imap`, `pop3` and `smtp` is written `skip server-half-not-composed:<name>` and an unparsable one
+  relative `log`, and a 60-second limit; a case naming a server other than `http`, `https`,
+  `https-mtls`, `http-ipv6`, `http-unix`, `http/2`, `http/3`, `ftp`, `ftp-ipv6`, `ftps`, `gopher`,
+  `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `telnet`, `scp`, `sftp`, `smb`, `imap`,
+  `pop3`, `smtp`, `imaps`, `pop3s`, `smtps`, `http-proxy`, `https-proxy`, `socks4`, `socks5`,
+  `socks5unix`, `httptls+srp`, `httptls+srp-ipv6` and `dns` (the names in the tests'
+  `ServerFamilies`) is written `skip server-half-not-composed:<name>` and an unparsable one
   `skip unparsable`. After curl exits the run waits up to 2 seconds for every exchange to end, so a
   server half has read curl's last packet before its log is checked. A case's `<protocol>` is
   checked against each server half's received bytes in the order the case names its servers, and
@@ -299,14 +302,16 @@ SMTP do not, so their cases skip it); `DELAY`, `SLOWDOWNDATA` and `NOSAVE` skip 
 plaintext on `127.0.0.1` and `[::1]` (`%IMAPPORT`, `%POP3PORT`, `%SMTPPORT` and their `6` forms),
 sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` parts, with logins
 going to the accept-all `AnonymousAuthenticationPolicy`; `<protocol>` reads its `ReceivedBytes` and
-`<upload>` its `UploadedBytes`. `imaps`, `pop3s` and `smtps` are not composed.
+`<upload>` its `UploadedBytes`. The same three case servers also listen behind implicit TLS on `127.0.0.1` for
+`imaps`, `pop3s` and `smtps`, at `%IMAPSPORT`, `%POP3SPORT` and `%SMTPSPORT` (BL-1120).
 
 Playing the http-proxy and https-proxy cases is built (BL-556): `UpstreamTestCaseServerCommands.HttpProxy` is their
 row (`Testnum`, the same words as `Surl.Protocol.HttpProxy`'s `HttpProxyUpstreamTestCaseReplies.SupportedServerCommands`),
 and `UpstreamTestCaseServer.PortVariable` names `%PROXYPORT` and `%HTTPSPROXYPORT`. The tests' server halves add
 `HttpProxyUpstreamTestCaseServer` on the `http-proxy` scheme (plaintext) and on `https` with `ListenUrl.IsProxy` (behind TLS),
 tunnelling through `Surl.Networking`'s `SocketOriginConnector` limited to loopback; `<proxy>` reads the proxy's record and
-`<protocol>` the origin half's. 1230 skips `server-half-not-composed:http-ipv6`.
+`<protocol>` the origin half's. The `http-ipv6` half is composed too (BL-1072): the plaintext
+HTTP half also binds `[::1]`, at `%HTTP6PORT`, and 1230, which names it, is on all three platforms' passing lists.
 
 Playing the socks4, socks5 and socks5unix cases is built (BL-562): `UpstreamTestCaseServerCommands.Socks` is their row (`Testnum`, `response`, `method`, `user`, `password`, `backendport`, the same words as `Surl.Protocol.Socks`'s `SocksUpstreamTestCaseReplies.SupportedServerCommands`), and the `socks4` and `socks5` rows name `%SOCKSPORT` (the run gives the SOCKS4 listener's port to a case naming `socks4`, else the SOCKS5 one's); `socks5unix` keeps `%SOCKSUNIXPATH`. 1467, 1468 and 1470 need `!win32` and run on the Linux and macOS pins only.
 
