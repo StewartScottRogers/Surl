@@ -687,6 +687,46 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Auth_SaysWhichListenersUseTheKeytabAndUnderWhichServices()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "where the service is `HTTP` for http and https, `smtp`, `imap`, `pop` or `ldap`, and `rcmd` for a `socks5` or `socks5h` listener.");
+        StringAssert.Contains(page, "the SMTP, IMAP, POP3 and LDAP servers' SASL `GSSAPI` logins use them too, and so does the LDAP server's `GSS-SPNEGO` bind (see the ldap topic).");
+        StringAssert.Contains(page, "A `socks5` or `socks5h` listener's GSS-API login (method `01`, curl's `--socks5-gssapi`) uses the keys whatever `--auth` names (see the socks topic).");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysTheUnusedKeytabWarningIsNotWrittenForASocks5Listener()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "When `--auth` names neither negotiate nor gssapi (its default names neither) and no listen URL, positional or from `--proxy`, is a `socks5` or `socks5h` one, surl writes `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi`.");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysWhichAccountEachKerberosLoginNeeds()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "An HTTP, SASL or `GSS-SPNEGO` Kerberos login is accepted only when an account of exactly that name exists, unless `--allow-anonymous` is given.");
+        StringAssert.Contains(page, "A SOCKS5 GSS-API login needs a proxy account (`-U`, `--proxy-user-file`; never `--user` or `--user-file`) of exactly that name when the proxy was started with proxy accounts, even an empty `--proxy-user-file`; with none, any ticket the keys accept is accepted; `--allow-anonymous` skips the account match.");
+        StringAssert.Contains(page, "No Kerberos login uses the account's password.");
+    }
+
+    [TestMethod]
+    public void Answer_Socks_SaysTheGssApiLoginIgnoresAuthAndWhichProxyAccountItNeeds()
+    {
+        var page = AiHelpText.Answer("socks").Output;
+
+        StringAssert.Contains(page, "and SOCKS5 then requires a login, RFC 1929 username and password or GSS-API (below), unless `--allow-anonymous`;");
+        StringAssert.Contains(page, "the server asks for no login, except that a SOCKS5 listener with `--keytab` checks the ticket of a client that offers GSS-API.");
+        StringAssert.Contains(page, "An RFC 1929 password travels in clear, so that login is refused unless `--allow-plaintext-auth` is given.");
+        StringAssert.Contains(page, "the service name is `rcmd`, and the keys are used whatever `--auth` names.");
+        StringAssert.Contains(page, "A GSS-API login is the ticket's client principal, such as `user@EXAMPLE.COM`. It needs a proxy account (`-U`, `--proxy-user-file`; never `--user` or `--user-file`) of exactly that name when the proxy was started with proxy accounts, even an empty `--proxy-user-file`; with none, any ticket the keys accept is accepted; `--allow-anonymous` skips the account match.");
+    }
+
+    [TestMethod]
     public void Answer_Ldap_SaysKeytabAnswersANegotiateBindWithKerberosAndNtlmWithoutIt()
     {
         var page = AiHelpText.Answer("ldap").Output;
@@ -837,8 +877,8 @@ public sealed partial class AiHelpTextTests
     public void Answer_EveryPage_NamesOnlyOptionsThatExist()
     {
         // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
-        // the key (ADR-0051, decisions 8 and 11).
-        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-hostname"];
+        // the key (ADR-0051, decisions 8 and 11); the SOCKS and --keytab facts name curl's SOCKS options.
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-gssapi", "socks5-hostname"];
 
         foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {
