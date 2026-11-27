@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary/TelnetProtocolServer.cs, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1965 — Name Surl.Composition as the composer in the Telnet server's comments and notes
 
@@ -37,15 +37,23 @@ No store, event or fault changes: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The parameterless constructor's summary says `Surl.Composition` composes the server that way: banner, CRLF echo and `quit`.
-- [ ] `CLAUDE.md` says `Surl.Composition` never composes the echo-and-close mode.
-- [ ] No comment or `CLAUDE.md` line in the library says `Surl.Console` composes the server.
-- [ ] The diff changes only `CLAUDE.md` and `///` comment lines of `TelnetProtocolServer.cs`.
-- [ ] `dotnet build Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary -warnaserror` is clean.
+- [x] The parameterless constructor's summary says `Surl.Composition` composes the server that way: banner, CRLF echo and `quit`.
+- [x] `CLAUDE.md` says `Surl.Composition` never composes the echo-and-close mode.
+- [x] No comment or `CLAUDE.md` line in the library says `Surl.Console` composes the server.
+- [x] The diff changes only `CLAUDE.md` and `///` comment lines of `TelnetProtocolServer.cs`.
+- [x] `dotnet build Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- Two lines changed. Checked against `ProtocolServerRegistrations.Original`, which registers
+  `new TelnetProtocolServer()` for `telnet`.
+- 2026-11-27: full `dotnet build` clean (0 warnings), format check of `TelnetProtocolServer.cs` clean, fast tests
+  green.
+- Filed BL-1977 for other stale Telnet comments (delay and drop faults, the held-back final LF), directly with the
+  board script.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Telnet constructor comment and CLAUDE.md name Surl.Composition as the composer
