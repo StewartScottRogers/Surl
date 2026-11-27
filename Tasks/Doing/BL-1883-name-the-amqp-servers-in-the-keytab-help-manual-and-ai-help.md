@@ -33,3 +33,4 @@ The --keytab manual section and AI help say that the AMQP 0-9-1 and AMQP 1.0 ser
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
