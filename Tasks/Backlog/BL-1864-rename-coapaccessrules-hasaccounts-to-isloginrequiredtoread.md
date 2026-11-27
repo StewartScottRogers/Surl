@@ -1,16 +1,16 @@
 ---
-id: BL-1856
+id: BL-1864
 title: Rename CoapAccessRules.HasAccounts to IsLoginRequiredToRead and prove a removed last account leaves coap closed
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1855]
+depends-on: [BL-1863]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1856 — Rename CoapAccessRules.HasAccounts to IsLoginRequiredToRead and prove a removed last account leaves coap closed
+# BL-1864 — Rename CoapAccessRules.HasAccounts to IsLoginRequiredToRead and prove a removed last account leaves coap closed
 
 ## Goal
 
@@ -20,7 +20,7 @@ login, not whether an account exists.
 ## Context
 
 - ADR-0132 amendment 5, decisions 3 and 9; it supersedes the removal rule of ADR-0097 amendment 3.
-- After BL-1855 the question `Surl.Composition` hands `CoapAccessRules` stays `true` once `coap` has had an account,
+- After BL-1863 the question `Surl.Composition` hands `CoapAccessRules` stays `true` once `coap` has had an account,
   so the name `HasAccounts` and its documents are false.
 - Callers: `CoapAccessRulesTests` and the other CoAP tests naming `HasAccounts:`, and `CoapsCompositionTests`.
 

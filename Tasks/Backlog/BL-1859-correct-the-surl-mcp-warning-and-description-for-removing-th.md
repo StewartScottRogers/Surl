@@ -4,7 +4,7 @@ title: Correct the surl-mcp warning and description for removing the last server
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1855, BL-1853]
+depends-on: [BL-1863, BL-1853]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-27

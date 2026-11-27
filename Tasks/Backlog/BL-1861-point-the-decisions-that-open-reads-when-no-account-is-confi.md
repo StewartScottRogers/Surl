@@ -4,7 +4,7 @@ title: Point the decisions that open reads when no account is configured at ADR-
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1855]
+depends-on: [BL-1863]
 touches: [Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md, Documentation/Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md, Documentation/Planning/Decisions/ADR-0074-how-the-rtsp-server-answers-upstream-curl.md, Documentation/Planning/Decisions/ADR-0092-how-the-dns-server-answers-dns-and-its-encrypted-transports.md, Documentation/Planning/Decisions/ADR-0097-how-the-coap-server-answers-coap-and-coaps.md, Documentation/Planning/Decisions/ADR-0149-how-an-ldap-directory-serves-as-an-optional-account-source.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-27
@@ -22,7 +22,7 @@ No decision reads as if removing the last account while a server runs opens its 
 - Passages: ADR-0032 section 4 ("With no account configured"), ADR-0071 "Anonymous upgrade is a read", ADR-0074
   "Reads need no login while no account is configured", ADR-0092 decision 5 "Logins", ADR-0097 decision 6 and its
   amendment 3 (the "Removal" and "Alternative rejected" bullets are superseded), and ADR-0149 amendment 1's `Surl.Api`
-  bullet, which gives the old directory warning and a method name BL-1855 renames.
+  bullet, which gives the old directory warning and a method name BL-1863 renames.
 
 ## Acceptance criteria
 

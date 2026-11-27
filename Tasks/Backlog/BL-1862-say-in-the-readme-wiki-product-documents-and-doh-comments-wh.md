@@ -4,7 +4,7 @@ title: Say in the README, wiki, product documents and DoH comments when reads st
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1855]
+depends-on: [BL-1863]
 touches: [README.md, Documentation/Wiki/Glossary.md, Documentation/Product/Product-Overview.md, Documentation/Product/Requirements.md, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary]
 requirement: none
 created: 2026-11-27

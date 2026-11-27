@@ -1,5 +1,5 @@
 ---
-id: BL-1855
+id: BL-1863
 title: Keep a scheme asking for a login after the last account allowed on it is removed
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1855 — Keep a scheme asking for a login after the last account allowed on it is removed
+# BL-1863 — Keep a scheme asking for a login after the last account allowed on it is removed
 
 ## Goal
 
@@ -25,7 +25,7 @@ returns the accounts to a state in which it never had one.
   open when the last account is removed.
 - Rename that method to `IsLoginRequiredToRead`. `AccountStore` (with `AccountSnapshot`) remembers which schemes the
   accounts it has held may log in on, and keeps no credential of a removed account for it. `AccountBook.HasAccounts`
-  still means an account is held now. The `CoapAccessRules.HasAccounts` rename is BL-1856.
+  still means an account is held now. The `CoapAccessRules.HasAccounts` rename is BL-1864.
 
 ## Acceptance criteria
 

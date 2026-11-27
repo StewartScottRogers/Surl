@@ -4,7 +4,7 @@ title: Say in the auth, http, rtsp and ws help text that a removed last account 
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1855]
+depends-on: [BL-1863]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-27

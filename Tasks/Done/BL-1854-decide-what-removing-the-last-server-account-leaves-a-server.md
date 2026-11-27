@@ -62,11 +62,11 @@ Confirmed by reading the source on 2026-11-27 (nothing run):
 - No host resets the accounts alone, so a `--directory` server stays closed until restarted.
 - In composition only the `coaps` certificate requirement depends on whether accounts were given at start.
 
-Filed: BL-1855 (Authentication), BL-1856 (CoAP rename), BL-1857 (control endpoint), BL-1858 (`Surl.Api`), BL-1859
+Filed: BL-1863 (Authentication), BL-1864 (CoAP rename), BL-1865 (control endpoint), BL-1866 (`Surl.Api`), BL-1859
 (`surl-mcp`), BL-1860 (help text), BL-1861 (decision pointers), BL-1862 (product documents and comments).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. ADR-0132 amendment 5 decides a scheme that has had an account keeps asking for a login after the last one is removed, with the new warning text; BL-1855 to BL-1862 filed
+- 2026-11-27: Doing -> Done. ADR-0132 amendment 5 decides a scheme that has had an account keeps asking for a login after the last one is removed, with the new warning text; BL-1863 to BL-1862 filed

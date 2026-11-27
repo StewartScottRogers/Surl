@@ -382,7 +382,7 @@ reset, lets it back in.
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in BL-1854.
 - **Why now:** the control endpoint, `Surl.Api` and `surl-mcp` say a server with its last account removed "now needs
   no login" (found by BL-1839). That is true of some reads only, and letting those reads through is a defect.
-- **Status of the rule:** it is the rule the code is to follow. BL-1855 to BL-1859 build it. Until then the code does
+- **Status of the rule:** it is the rule the code is to follow. BL-1863 to BL-1859 build it. Until then the code does
   what the next section and each "today" entry below say.
 - **Supersedes:** the sentence of amendment 4 decision 7 that servers which are not proxies keep today's behaviour,
   and the "Removal" and "Alternative rejected" bullets of
@@ -422,7 +422,7 @@ reset, lets it back in.
    `--user-ldap` directory serves, after its last account is removed. "`401` or `403`" is `401` with the offered
    challenges, or `403` when no accepted method can be offered on the connection.
 
-   | Request with no credentials | Today | After BL-1855 |
+   | Request with no credentials | Today | After BL-1863 |
    | --- | --- | --- |
    | HTTP `GET` or `HEAD` (`http`, `https`; HTTP/1.x, HTTP/2, h2c and HTTP/3) | served as an anonymous read | `401` or `403` |
    | HTTP write: every other method, known or not, a `PUT` under `--allow-uploads` included ([ADR-0180](ADR-0180-an-http-server-judges-the-login-before-the-method.md)) | `401` or `403` | same |
@@ -439,7 +439,7 @@ reset, lets it back in.
    A connection NTLM or Negotiate logged in keeps being served as that account (decision 8). A `coaps` peer with a
    certificate verified against `--cacert` stays authenticated, reads and writes, since no account makes it so.
 4. **Every other login and request**, without `--allow-anonymous` or a directory, after the last account is removed.
-   BL-1855 changes none of these answers but the one marked.
+   BL-1863 changes none of these answers but the one marked.
 
    | Login or request | Answer after the removal |
    | --- | --- |
@@ -450,7 +450,7 @@ reset, lets it back in.
    | An identity that must name an account: a Kerberos ticket (Negotiate, SASL `GSSAPI` and `GSS-SPNEGO`), SASL `EXTERNAL` | refused: no account has the name |
    | Signature: AWS Signature Version 4 (header, presigned URL, S3 chunks), Azure Storage Shared Key and shared access signature, `gs` V4 HMAC | refused: no such account |
    | `coaps` pre-shared key | the handshake fails: unknown identity |
-   | An HTTP read carrying credentials of a method `--auth` does not accept, which counts as none | **changes with BL-1855:** served today, `401` or `403` after |
+   | An HTTP read carrying credentials of a method `--auth` does not accept, which counts as none | **changes with BL-1863:** served today, `401` or `403` after |
    | A token issued before: an `oci` token, an MCP access or refresh token | refused: its account is gone |
    | SSH `publickey` with a key `--authorized-keys` gives the user name | **still accepted** (decision 9): it logs in under that name, and a share granted to the name still admits it. A key is configuration, not an account |
    | A session already logged in, a DTLS session included | runs on (decision 8) |
@@ -476,7 +476,7 @@ reset, lets it back in.
    and never by a reset, a restore or a password change. A scheme losing its last account while others remain writes
    none, since nothing opens.
 
-   | Host | Text (after BL-1857 to BL-1859) |
+   | Host | Text (after BL-1865 to BL-1859) |
    | --- | --- |
    | control endpoint (the line goes to the log; the `DELETE` still answers `204`) | `surl: warning: no local account left; the server still asks for a login wherever it did` |
    | `Surl.Api` (`SurlServerOptions.Log`; `Remove` still returns `true`) | the same line |
@@ -491,7 +491,7 @@ reset, lets it back in.
    credential of a removed account for it, and an `AccountSnapshot` records it. `HasAccountToLogInTo` is renamed
    `IsLoginRequiredToRead`: `true` when the book or view has held such an account, or the directory serves the scheme.
    `HttpAuthenticationSession` and the CoAP rules ask it, and `CoapAccessRules.HasAccounts` takes the same name
-   (BL-1856). `AccountBook.HasAccounts` keeps its meaning, an account is held now. `RequiresLoginWithoutAccounts`
+   (BL-1864). `AccountBook.HasAccounts` keeps its meaning, an account is held now. `RequiresLoginWithoutAccounts`
    (amendment 4) is still what keeps a proxy given an empty `--proxy-user-file` closed.
 10. **Upstream curl.** No new byte: the `401`, `403` and `4.01` are the ones a server with accounts already sends.
 
@@ -518,11 +518,11 @@ restart. A test that wants anonymous reads throughout adds no account, or gives 
 
 ### Consequences
 
-1. BL-1855: `Surl.Authentication`: the book's memory, the snapshot's, `IsLoginRequiredToRead` and its one call in
+1. BL-1863: `Surl.Authentication`: the book's memory, the snapshot's, `IsLoginRequiredToRead` and its one call in
    `Surl.Composition`.
-2. BL-1856: `Surl.Extended.Protocol.Coap`: the rename of `CoapAccessRules.HasAccounts`.
-3. BL-1857: `Surl.Composition`: the control endpoint's line and the documents of `ComposedStores.HasAccounts`.
-4. BL-1858: `Surl.Api`: the line, the XML documents, the README and the library's `CLAUDE.md`.
+2. BL-1864: `Surl.Extended.Protocol.Coap`: the rename of `CoapAccessRules.HasAccounts`.
+3. BL-1865: `Surl.Composition`: the control endpoint's line and the documents of `ComposedStores.HasAccounts`.
+4. BL-1866: `Surl.Api`: the line, the XML documents, the README and the library's `CLAUDE.md`.
 5. BL-1859: `Surl.Mcp.UnitLibrary`: the warning, the tool description and the library's documents.
 6. BL-1860: the `--aihelp` and manual text. BL-1861 and BL-1862: pointers from the decisions that open reads with "no
    account configured", and the product documents, wiki, root README and DNS comments that say so.

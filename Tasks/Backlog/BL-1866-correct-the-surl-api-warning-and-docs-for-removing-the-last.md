@@ -1,16 +1,16 @@
 ---
-id: BL-1858
+id: BL-1866
 title: Correct the Surl.Api warning and docs for removing the last server account
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1855, BL-1852]
+depends-on: [BL-1863, BL-1852]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1858 — Correct the Surl.Api warning and docs for removing the last server account
+# BL-1866 — Correct the Surl.Api warning and docs for removing the last server account
 
 ## Goal
 

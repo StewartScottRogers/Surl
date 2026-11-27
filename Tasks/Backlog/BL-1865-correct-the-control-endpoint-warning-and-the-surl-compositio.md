@@ -1,16 +1,16 @@
 ---
-id: BL-1857
+id: BL-1865
 title: Correct the control endpoint warning and the Surl.Composition docs for removing the last server account
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1855, BL-1851]
+depends-on: [BL-1863, BL-1851]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1857 — Correct the control endpoint warning and the Surl.Composition docs for removing the last server account
+# BL-1865 — Correct the control endpoint warning and the Surl.Composition docs for removing the last server account
 
 ## Goal
 
