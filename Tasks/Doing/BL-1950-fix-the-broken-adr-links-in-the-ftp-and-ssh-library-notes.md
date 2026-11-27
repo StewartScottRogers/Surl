@@ -39,3 +39,4 @@ Link targets only; no prose changes. No store, event or fault is involved: docum
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
