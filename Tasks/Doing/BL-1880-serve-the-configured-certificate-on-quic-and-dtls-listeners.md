@@ -46,3 +46,4 @@ Stand-in: a test that runs HTTPS over TLS-SRP beside WebTransport, CoAP or DNS o
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
