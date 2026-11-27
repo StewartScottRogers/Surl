@@ -55,3 +55,4 @@ Check `-Restart` and the adopt-a-stopped-lane path pass the same remaining time.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
