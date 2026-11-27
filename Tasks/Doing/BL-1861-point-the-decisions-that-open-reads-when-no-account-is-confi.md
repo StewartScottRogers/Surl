@@ -38,3 +38,4 @@ No decision reads as if removing the last account while a server runs opens its 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
