@@ -1,5 +1,5 @@
 ---
-id: BL-1876
+id: BL-1877
 title: Correct the content store constructor name in the content library notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1876 — Correct the content store constructor name in the content library notes
+# BL-1877 — Correct the content store constructor name in the content library notes
 
 ## Goal
 

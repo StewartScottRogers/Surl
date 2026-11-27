@@ -36,7 +36,7 @@ Remove the line only; add no replacement phase list. `Phase N.` lines followed b
 - Delivered by `align-and-document`. In each file the "Phase 1." line went together with the
   blank line after it, which criterion 2 needs; `git diff` shows only those two deletions per file.
 - Gates: `dotnet build` clean (0 warnings, 0 errors) and the fast tests passed.
-- Filed BL-1876: the content notes call a constructor with optional parameters "five-argument".
+- Filed BL-1877: the content notes call a constructor with optional parameters "five-argument".
 
 ## Log
 
