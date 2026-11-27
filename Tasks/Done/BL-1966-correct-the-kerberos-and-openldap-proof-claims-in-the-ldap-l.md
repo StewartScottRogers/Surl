@@ -8,7 +8,7 @@ depends-on: [BL-1949]
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1966 — Correct the Kerberos and OpenLDAP proof claims in the LDAP library notes
 
@@ -41,14 +41,21 @@ No store, event or fault changes: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `CLAUDE.md` says a Kerberos `GSS-SPNEGO` bind is accepted with `--keytab` (ADR-0072 Amendment 1) and answered with NTLM selected without it.
-- [ ] The `CLAUDE.md` names `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests` as the proof against the OpenLDAP-backed build, and says that build is pinned for `linux-x64` only.
-- [ ] No line of the `CLAUDE.md` describes BL-327 or BL-312 as work still to do.
-- [ ] Only that `CLAUDE.md` changes.
+- [x] The `CLAUDE.md` says a Kerberos `GSS-SPNEGO` bind is accepted with `--keytab` (ADR-0072 Amendment 1) and answered with NTLM selected without it.
+- [x] The `CLAUDE.md` names `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests` as the proof against the OpenLDAP-backed build, and says that build is pinned for `linux-x64` only.
+- [x] No line of the `CLAUDE.md` describes BL-327 or BL-312 as work still to do.
+- [x] Only that `CLAUDE.md` changes.
 
 ## Notes
+
+- 2026-11-27: Delivered by `align-and-document`. The note also states the conditions `GssSpnegoSaslExchange` puts on
+  a Kerberos bind (Kerberos first, an optimistic AP-REQ, a good ticket, a known account unless `--allow-anonymous`)
+  and names `UpstreamCurlBindsToSurlOverLdapWithKerberosTests` as its proof.
+- `dotnet build` clean (0 warnings) and the fast tests green. The conformance tests named above were read, not run.
+- Other stale statements in the same notes and in ADR-0072 are filed as a follow-up task (see Log).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The LDAP library notes state how a Kerberos GSS-SPNEGO bind is answered with and without --keytab and name the tests that prove Kerberos and the OpenLDAP-backed build; filed BL-1980 for other stale statements
