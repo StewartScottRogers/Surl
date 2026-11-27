@@ -8,7 +8,7 @@ depends-on: [BL-1924]
 touches: [Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1933 — Say in the XMPP conformance table that TLS-SRP makes STARTTLS and xmpp work with no certificate
 
@@ -37,13 +37,23 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] Row `Xmpp:RFC6120-5.3.1-1` states its condition as a certificate or TLS-SRP.
-- [ ] Row `Xmpp:Surl-Tls-2` says the `(58)` refusals do not happen under TLS-SRP, and its "Covered by" adds `ServerTlsCompositionTests.FindListenUrlWithoutCertificate_XmppUnderTlsSrp_IsNull`.
-- [ ] Every test named in the changed rows exists under that name in the solution's test projects.
+- [x] Row `Xmpp:RFC6120-5.3.1-1` states its condition as a certificate or TLS-SRP.
+- [x] Row `Xmpp:Surl-Tls-2` says the `(58)` refusals do not happen under TLS-SRP, and its "Covered by" adds `ServerTlsCompositionTests.FindListenUrlWithoutCertificate_XmppUnderTlsSrp_IsNull`.
+- [x] Every test named in the changed rows exists under that name in the solution's test projects.
 
 ## Notes
+
+- Delivered by `align-and-document`: two rows of the STARTTLS table changed. `dotnet build` clean (0 warnings) and
+  the fast tests passed on 2026-11-27.
+- Checked against source: `ServerTlsComposition.IsTlsUpgradeAvailable` is true with a certificate or under TLS-SRP,
+  and `FindListenUrlWithoutCertificate` refuses neither `xmpp` nor `xmpps` under TLS-SRP.
+- The `xmpps` half of the exception has no XMPP-named test; the same code rule is exercised with `https` by
+  `FindListenUrlWithoutCertificate_TlsSrp_IsNullForTcpAndTheWebTransportListenUrlOtherwise`. No task filed.
+- `XmppServerConnection`'s log note "no certificate is configured" is written only when no TLS upgrade is available,
+  which implies no certificate, so the note is true and no task was filed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The XMPP STARTTLS conformance table now says a certificate or TLS-SRP, and that TLS-SRP lifts the CertificateProblem (58) refusals
