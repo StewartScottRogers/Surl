@@ -41,3 +41,4 @@ and the control endpoint's removal writes the warning ADR-0132 amendment 4 gives
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
