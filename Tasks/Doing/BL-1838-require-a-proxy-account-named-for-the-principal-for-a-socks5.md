@@ -41,3 +41,4 @@ A SOCKS5 GSS-API login on a proxy started with proxy accounts is accepted only w
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
