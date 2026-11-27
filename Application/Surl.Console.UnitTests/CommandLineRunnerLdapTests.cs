@@ -11,8 +11,9 @@ namespace Surl.Console;
 /// <summary>
 /// How <see cref="CommandLineRunner"/> composes the LDAP server (BL-310): <c>ldap</c> and, through
 /// <see cref="ImplicitTlsSchemeServer"/>, <c>ldaps</c>, <c>StartTLS</c> offered once a certificate
-/// is configured or TLS-SRP is served (ADR-0072 decision 5; ADR-0122 decision 5), each bind judged
-/// by the one authentication policy, and the directory - read from
+/// is configured or TLS-SRP is served (ADR-0072 decision 5; ADR-0122 decision 5), each bind's
+/// login judged by the scheme's own authentication policy, over the accounts allowed on
+/// <c>ldap</c> (ADR-0102 decision 4.3), and the directory - read from
 /// <c>&lt;data directory&gt;/.surl/ldap/directory.ldif</c> before any listener binds with
 /// <c>--directory</c>, empty without it (ADR-0072 decision 1). No test here touches the disk or
 /// the network.
