@@ -63,3 +63,4 @@ TLS 1.3, on the path that uses `Surl.Tls13Stream`). `--no-alpn` is listed in htt
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
