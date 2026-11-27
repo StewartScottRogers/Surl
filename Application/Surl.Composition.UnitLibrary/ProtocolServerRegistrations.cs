@@ -33,8 +33,9 @@ namespace Surl.Composition;
 /// and smbs (ADR-0073 decision 6). The servers with a login judge it by their scheme's view of the
 /// accounts, <see cref="ComposedProtocolServices.AuthenticationPolicyFor"/> (ADR-0032; ADR-0102 decision 4.3);
 /// SMTP and IMAP offer STARTTLS, POP3 STLS, FTP AUTH TLS and LDAP StartTLS only when a certificate
-/// is configured. An SSH server, one for scp and one for sftp, answers with the host keys and offers the algorithms
-/// given (ADR-0051, ADR-0066). The WebSocket server echoes every client message instead with
+/// is configured or TLS-SRP is served (<see cref="ServerTlsComposition.IsTlsUpgradeAvailable"/>;
+/// ADR-0122 decision 5). An SSH server, one for scp and one for sftp, answers with the host keys and
+/// offers the algorithms given (ADR-0051, ADR-0066). The WebSocket server echoes every client message instead with
 /// <c>--ws-echo</c> (ADR-0071 decision 4). The RTSP server has no rtsps, as curl has none (ADR-0074
 /// decision 7). The MQTT server holds each subscription open with <c>--mqtt-hold-subscription</c> (ADR-0014
 /// Amendment 1).

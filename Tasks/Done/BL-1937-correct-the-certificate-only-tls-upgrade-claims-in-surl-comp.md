@@ -8,7 +8,7 @@ depends-on: [BL-1924]
 touches: [Application/Surl.Composition.UnitLibrary/ProtocolServerRegistrations.cs, Application/Surl.Composition.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1937 — Correct the certificate-only TLS upgrade claims in Surl.Composition's registration list and notes
 
@@ -38,14 +38,24 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `ProtocolServerRegistrations` remarks say STARTTLS, STLS, AUTH TLS and StartTLS are offered only when a certificate is configured or TLS-SRP is served.
-- [ ] The `gs`, `oci` and `natss` sentences of `Surl.Composition.UnitLibrary/CLAUDE.md` say the `(58)` refusal does not happen under TLS-SRP, keeping what they say about `--oci-plaintext`.
-- [ ] The start-order table's `(58)` entry is true of `FindListenUrlWithoutCertificate`, TLS-SRP and the listen URLs that require a certificate without being TLS from the first byte included.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] The `ProtocolServerRegistrations` remarks say STARTTLS, STLS, AUTH TLS and StartTLS are offered only when a certificate is configured or TLS-SRP is served.
+- [x] The `gs`, `oci` and `natss` sentences of `Surl.Composition.UnitLibrary/CLAUDE.md` say the `(58)` refusal does not happen under TLS-SRP, keeping what they say about `--oci-plaintext`.
+- [x] The start-order table's `(58)` entry is true of `FindListenUrlWithoutCertificate`, TLS-SRP and the listen URLs that require a certificate without being TLS from the first byte included.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- 2026-11-27: Made the edits in the lane session rather than delegating to `align-and-document`: five sentences in two
+  files, already read in full.
+- The `gs` sentence also names `--gs-plaintext`, which likewise lifts the `(58)`.
+- The start-order entry follows `ServerTlsComposition.RequiresCertificate` and `IsSecuredByTlsSrp`: TLS from the first
+  byte, `natss`, `webtransport`, `coaps` with neither `--user` nor `--user-file`, `xmpp` with neither
+  `--allow-plaintext-auth` nor `--allow-anonymous`; under TLS-SRP only `webtransport`, that `coaps` and DNS over QUIC.
+- No ADR: no behaviour or design decision. No follow-up filed.
+- `dotnet build -warnaserror`: 0 warnings, 0 errors. Fast tests passed in every test project.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Surl.Composition's registration remarks and notes say TLS-SRP, as well as a certificate, offers the TLS upgrade and lifts the TCP (58) refusal
