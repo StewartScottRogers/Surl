@@ -8,8 +8,9 @@ using Surl.HttpServing;
 namespace Surl.Control;
 
 /// <summary>
-/// Answers the requests that change the instance (ADR-0124 decision 7) - fault rules, seeding, reset, snapshots and
-/// restores - by calling the <see cref="IControlTarget"/>, which publishes each change on the event stream.
+/// Answers the requests that change the instance (ADR-0124 decision 7) - adding and removing fault rules, seeding,
+/// deleting files, account changes (ADR-0132, ADR-0170), reset, snapshots and restores - and the fault rule listing,
+/// by calling the <see cref="IControlTarget"/>. The target, not this class, publishes changes on the event stream.
 /// </summary>
 /// <param name="target">What the endpoint drives.</param>
 /// <param name="snapshots">The snapshots the endpoint keeps.</param>

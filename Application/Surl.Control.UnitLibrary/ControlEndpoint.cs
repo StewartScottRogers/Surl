@@ -5,8 +5,11 @@ namespace Surl.Control;
 
 /// <summary>
 /// The loopback control endpoint (ADR-0124 decision 7): HTTP and JSON under <c>/v1/</c> that let a test suite not
-/// written in .NET read a running instance's events and exchanges, change its fault plan, and seed, reset, snapshot
-/// and restore its stores, through an <see cref="IControlTarget"/>.
+/// written in .NET read a running instance's events and exchanges, change its fault plan, seed its stores and delete
+/// files, read its stores back (mail, files and folders, queues and topics, Redis keys, the LDAP directory and DNS
+/// zones; ADR-0164), add and remove its accounts, proxy accounts and TLS-SRP accounts and change their passwords,
+/// the Bearer-token account included (ADR-0132, ADR-0170), and reset, snapshot and restore its stores, through an
+/// <see cref="IControlTarget"/>.
 /// </summary>
 /// <remarks>
 /// One endpoint serves one instance. <see cref="FeedEventsAsync"/> keeps its event log filled from the target and

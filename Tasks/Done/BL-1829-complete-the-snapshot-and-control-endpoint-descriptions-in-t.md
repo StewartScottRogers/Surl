@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Wiki/Glossary.md, Application/Surl.Control.UnitLibrary]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1829 — Complete the snapshot and control endpoint descriptions in the glossary and the control library's docs
 
@@ -54,24 +54,35 @@ executable line changes. No store, event or fault changes.
 
 ## Acceptance criteria
 
-- [ ] The glossary's "snapshot" row names all 13 stores listed in Context, says the uploads, OCI token and MCP
+- [x] The glossary's "snapshot" row names all 13 stores listed in Context, says the uploads, OCI token and MCP
       session entries copy nothing and what a restore does to them, and limits the `--directory` refusal as Context
       states.
-- [ ] The glossary's "control endpoint" row says the endpoint reads events and exchanges; lists, adds and removes
+- [x] The glossary's "control endpoint" row says the endpoint reads events and exchanges; lists, adds and removes
       fault rules; seeds stores and deletes files; reads stores back; adds and removes accounts and changes their
       passwords; and resets, snapshots and restores stores.
-- [ ] The Control library's `CLAUDE.md` names the three account `PUT` routes with their body,
+- [x] The Control library's `CLAUDE.md` names the three account `PUT` routes with their body,
       `IControlTarget` members and status codes as Context gives them.
-- [ ] In that file, `(from_offset, limit)` directly follows `/v1/topics/{name}/log` and appears nowhere after the
+- [x] In that file, `(from_offset, limit)` directly follows `/v1/topics/{name}/log` and appears nowhere after the
       zones routes.
-- [ ] The class summary of `ControlEndpoint` names reading stores back and account changes, and that of
+- [x] The class summary of `ControlEndpoint` names reading stores back and account changes, and that of
       `ControlReadRequests` also names the Redis keyspace, the LDAP directory and the DNS zones.
-- [ ] `dotnet build Application/Surl.Control.UnitTests -warnaserror` is clean, and the only changed lines in `.cs`
+- [x] `dotnet build Application/Surl.Control.UnitTests -warnaserror` is clean, and the only changed lines in `.cs`
       files are comments.
 
 ## Notes
+
+- Delivered by align-and-document; build (-warnaserror, whole solution), format check and fast tests green:
+  30145 passed, 0 failed, 3 skipped. Every changed .cs line is a /// comment. No Integration tests: comments only.
+- The password PUT routes are written with {user}, not the Contexts {name}, to match the codes doc comments and
+  the other account routes.
+- Also corrected ControlStoreRequests class summary (same library, same omission).
+- The glossary no longer says account snapshots hold password hashes only: AccountStore keeps the passwords UTF-8
+  bytes in some derived credentials. The other documents that still say so are BL-1836 and BL-1837.
+- Follow-ups filed: BL-1836, BL-1837, BL-1838, BL-1839. Composition store docs are already BL-1830, the
+  StoreKind.Uploads comment BL-1831.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The glossary's snapshot and control endpoint rows and the Control library's docs name everything those things hold and serve
