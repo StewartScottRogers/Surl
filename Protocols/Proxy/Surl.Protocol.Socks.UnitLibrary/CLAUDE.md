@@ -4,9 +4,23 @@ The SOCKS server: what curl's `--socks4`, `--socks4a`, `--socks5`, `--socks5-hos
 `-x`/`--proxy` with a `socks4://`, `socks4a://`, `socks5://` or `socks5h://` URL talk to. Decided
 in ADR-0121 (decisions 1 to 4 and 6). Built by BL-558 (SOCKS4 and SOCKS4a) and BL-559 (SOCKS5,
 SOCKS5h and RFC 1929 accounts). BL-560 composes it in `Surl.Composition`
-(`ProtocolServerRegistrations.Original`, over `ComposedProtocolServices.OriginConnector` and
-`ProxyAuthenticationPolicy`), so `surl socks5://127.0.0.1:1080` and `-x socks5://...` serve it; the Unix
-domain socket (BL-561) is still to come; the upstream cases' server half is built (BL-562, below). GSS-API (BL-765, ADR-0121 amendment 2) is built but no command-line option hands the server a keytab yet.
+(`ProtocolServerRegistrations.Original`, over `ComposedProtocolServices.OriginConnector`,
+`ProxyAuthenticationPolicy` and `SocksGssApiLogin`), so `surl socks5://127.0.0.1:1080` and
+`-x socks5://...` serve it; the upstream cases' server half is built (BL-562, below).
+
+**Unix domain socket** (BL-561, ADR-0121 amendment 1): `--unix-socket <path>`, or
+`--abstract-unix-socket <name>` (Linux only), puts the one positional SOCKS listen URL on
+that socket instead of TCP, as in `surl --unix-socket /tmp/surl-socks.sock
+socks5h://localhost`. The same registration serves it: `Surl.Cli` sets
+`ListenUrl.UnixSocket` and `Surl.Networking`'s `SocketListenerFactory` binds it, so this
+library and the registration need nothing of their own for it. A second listen URL,
+`--http3` or a `-x`/`--proxy` listen URL beside either option is refused (exit 2).
+
+**GSS-API** (BL-765, ADR-0121 amendment 2; wired by BL-1066): `--keytab <file>` hands the
+server its keys. `Surl.Composition`'s `ComposeSocksGssApiLogin` reads it
+(`SurlCommandLine.KeytabFile`) and builds a `SocksGssApiLogin` over its own
+`KerberosAcceptor` for the service `rcmd` (`SocksGssApiLogin.DefaultService`; no option
+changes it), whatever `--auth` names. Without `--keytab`, method `01` is never selected.
 
 **Listen URL schemes:** `socks4`, `socks4a` - both serve SOCKS4 and SOCKS4a alike, and answer a
 SOCKS5 greeting `05 FF`; `socks5`, `socks5h` - both serve SOCKS5 with every address type, and
