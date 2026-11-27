@@ -201,7 +201,7 @@ public static class AuthenticationComposition
 
         if (commandLine.AllowAnonymous)
         {
-            log.WriteLine(WarningPrefix + "--allow-anonymous: every request and login is accepted without checking credentials");
+            log.WriteLine(WarningPrefix + "--allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)");
         }
 
         if (commandLine.AllowPlaintextAuthentication)

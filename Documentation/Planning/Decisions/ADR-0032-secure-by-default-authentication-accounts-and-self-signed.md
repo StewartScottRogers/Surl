@@ -6,6 +6,8 @@
 - **Amended:** section 3's table of `--auth` words, default set and order by
   [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3 (the SASL mechanism
   words and `apop`); the mail logins' contract is ADR-0049 decision 6, beside section 6's.
+- **Amended:** section 9's `--allow-anonymous` warning line by BL-1918 (2026-11-27), recorded in
+  section 9.
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29,
   in BL-100. Stewart approved the feature on 2026-09-29; the details he left to this ADR.
@@ -434,11 +436,22 @@ Each loosening option given writes one line to stderr on every start, after the 
 read and before any `Listening on` line, in this order:
 
 ```
-surl: warning: --allow-anonymous: every request and login is accepted without checking credentials
+surl: warning: --allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)
 surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections
 surl: warning: --auth: accepted methods are <methods>
 surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)
 ```
+
+**Amended** (2026-11-27, BL-1918, decided by Claude under Stewart's delegation): the
+`--allow-anonymous` line said `every request and login is accepted without checking
+credentials`. That was not true: some checks and refusals stay under the option - an unsigned S3
+write is refused, an OCI registry accepts no push, a Cloud Storage signature that is sent is
+checked, and a Kerberos ticket under `--keytab` must check against its keys. The line now says
+`most` and names `surl --help --allow-anonymous`, whose option page
+([ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) decision 5's paragraph) lists
+the checks and refusals that stay. The line does not list them itself, so that one place holds the
+list and a warning stays one line. Section 1's "Accept every request and login" is read with the
+same exceptions. What the option does is unchanged.
 
 - `<methods>` is the accepted set in section 3's order, joined with `, `.
 - `--auth` warns whenever it is given, even when it narrows the default: the line tells the

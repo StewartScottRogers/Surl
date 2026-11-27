@@ -81,7 +81,7 @@ public sealed partial class SurlServerTests
         }
 
         Assert.Contains(
-            "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials",
+            "surl: warning: --allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)",
             options.Log.ToString()!);
     }
 

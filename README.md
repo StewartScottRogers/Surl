@@ -195,8 +195,9 @@ or mechanism on a connection without TLS, and refuse one sent anyway. An SSH pas
 sent in clear.
 
 Five *loosening options* turn a secure default off for a test, and each writes a
-`surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept every request and login
-unchecked), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
+`surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept most requests and
+logins without checking credentials; `surl --help --allow-anonymous` lists the checks and refusals that
+stay), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
 (the HTTP, SASL and SMB methods accepted), `--self-signed` and `--throwaway-hostkey`.
 `surl --help testing` says what each loosens and why none is the default.
 

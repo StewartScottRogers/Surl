@@ -120,7 +120,7 @@ public sealed partial class SurlServerCompositionTests
 
         var listeningLine = $"Listening on http://127.0.0.1:{FakeListenerFactory.BoundPort}/";
         Assert.AreEqual(
-            "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials" + Environment.NewLine
+            "surl: warning: --allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)" + Environment.NewLine
             + "surl: warning: --fault: 1 fault rule(s) make this server misbehave on purpose" + Environment.NewLine
             + ControlWarning + Environment.NewLine
             + listeningLine + Environment.NewLine
