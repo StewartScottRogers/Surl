@@ -62,8 +62,8 @@ No store, event or fault changes: this task changes prose only.
 - The README's `get_events` bullet also says exchange bytes are never kept as events and `get_exchanges` gives them.
 - The library `CLAUDE.md` remove-account sentences are now their own bullet, apart from the add tools', and also
   give both texts for a server without such accounts.
-- Findings outside this task are filed: BL-1838 (`add_tls_srp_account` refusal text, `get_events` description)
-  and BL-1839 (account tool refusals in the README and library `CLAUDE.md`).
+- Findings outside this task are filed: BL-1844 (`add_tls_srp_account` refusal text, `get_events` description)
+  and BL-1845 (account tool refusals in the README and library `CLAUDE.md`).
 
 ## Log
 

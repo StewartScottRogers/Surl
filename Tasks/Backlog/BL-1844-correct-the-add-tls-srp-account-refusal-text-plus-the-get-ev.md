@@ -1,5 +1,5 @@
 ---
-id: BL-1838
+id: BL-1844
 title: Correct the add_tls_srp_account refusal text plus the get_events description in surl-mcp
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1838 — Correct the add_tls_srp_account refusal text plus the get_events description in surl-mcp
+# BL-1844 — Correct the add_tls_srp_account refusal text plus the get_events description in surl-mcp
 
 ## Goal
 
@@ -52,7 +52,7 @@ kind, scheme, listen URL, account, store, name and sequence."
 `ProgramTests.RunAsync_ToolsList_IncludesEachEventToolWithAnObjectInputSchemaAndADescription` compares
 `tools/list` with the constant, not with a literal.
 
-The host README and the library `CLAUDE.md` are BL-1832's and BL-1839's. BL-1833 corrects other tool
+The host README and the library `CLAUDE.md` are BL-1832's and BL-1845's. BL-1833 corrects other tool
 descriptions. No store or fault changes and no event is added: a test seeds, observes and resets exactly as
 before, and only text an agent reads changes. Upstream curl has no say in an MCP tool's text.
 

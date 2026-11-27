@@ -1,16 +1,16 @@
 ---
-id: BL-1839
+id: BL-1845
 title: Complete the surl-mcp account tool refusals in the host README plus library CLAUDE.md
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1832, BL-1838]
+depends-on: [BL-1832, BL-1844]
 touches: [Application/Surl.Mcp/README.md, Application/Surl.Mcp.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1839 — Complete the surl-mcp account tool refusals in the host README plus library CLAUDE.md
+# BL-1845 — Complete the surl-mcp account tool refusals in the host README plus library CLAUDE.md
 
 ## Goal
 
@@ -20,13 +20,13 @@ completed:
 ## Context
 
 Found while running BL-1832 (checked against the code on 2026-11-27). It waits on BL-1832, which edits the same
-two files, and on BL-1838, which changes the TLS-SRP refusal text. Find each place by its text; line numbers
+two files, and on BL-1844, which changes the TLS-SRP refusal text. Find each place by its text; line numbers
 move.
 
 - Library `CLAUDE.md`, the "`AddProxyAccountTool` / `AddTlsSrpAccountTool`" bullet gives only the refusals of a
   server without such accounts. `AddProxyAccountTool.cs` also answers
   `user <user> cannot be added: it holds ':' or already has a proxy account`. `AddTlsSrpAccountTool.cs` answers
-  `user <user> already has a TLS-SRP account` once BL-1838 is done, and accepts a `:` in the name. Take both
+  `user <user> already has a TLS-SRP account` once BL-1844 is done, and accepts a `:` in the name. Take both
   texts from the code as it is when this task runs.
 - README, the `remove_account` text gives only `server <id> has no account <user>`. `RemoveAccountTool.cs` also:
   - answers `server <id> has no Bearer-token account` when `user` is the empty string, which names the
