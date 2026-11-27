@@ -43,3 +43,4 @@ writing either claim.
 
 - 2026-11-26: Created.
 - 2026-11-26: Goal amended: BL-1795 (Stewart, 2026-11-26) pushes the packages to nuget.org, so the documents say so once the first such release is published. Check nuget.org for `Surly.Surl.Api` before writing that claim; also correct the csproj comments in `Application/Surl.Api/Surl.Api.csproj:11` and `Application/Surl.Mcp/Surl.Mcp.csproj:22`.
+- 2026-11-26: Backlog -> Doing.
