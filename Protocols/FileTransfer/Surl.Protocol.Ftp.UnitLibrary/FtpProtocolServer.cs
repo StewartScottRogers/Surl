@@ -41,8 +41,10 @@ namespace Surl.Protocol.Ftp;
 /// <b>TLS</b> (ADR-0052, decision 5). On <c>ftp://</c>, <c>AUTH TLS</c> or <c>AUTH SSL</c> is
 /// answered <c>234</c>, every byte pipelined after the <c>AUTH</c> line is thrown away unrun,
 /// and the control connection is upgraded with <see cref="IConnection.UpgradeToTlsAsync"/> -
-/// only when the listener has a certificate; without one it is <c>534 TLS is not available</c>,
-/// and a login the policy wants over TLS stays refused as plain text. <c>PBSZ</c> needs TLS,
+/// only when a TLS upgrade is available, which in <c>surl</c> means a certificate or TLS-SRP
+/// (<c>ServerTlsComposition.IsTlsUpgradeAvailable</c>; ADR-0122, decision 5); only when none is
+/// available is it <c>534 TLS is not available</c>, and a login the policy wants over TLS then
+/// stays refused as plain text. <c>PBSZ</c> needs TLS,
 /// <c>PROT</c> needs <c>PBSZ</c>, and after <c>PROT P</c> each data connection is upgraded to
 /// TLS after its <c>150</c>; <c>CCC</c> is refused, so the control connection stays
 /// encrypted. <c>ftps://</c> is TLS from the first byte - the engine's handshake - and its
@@ -110,9 +112,11 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// <param name="contentStore">The content store the server's paths name.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
     /// <param name="isTlsUpgradeAvailable">
-    /// Whether the listener has a certificate (<c>--cert</c> or <c>--self-signed</c>), so
-    /// <c>AUTH TLS</c> can upgrade the control connection and <c>FEAT</c> lists it; without one
-    /// <c>AUTH</c> is <c>534 TLS is not available</c> (ADR-0032, section 10).
+    /// Whether a TLS upgrade is available - in <c>surl</c>, a certificate (<c>--cert</c> or
+    /// <c>--self-signed</c>) or TLS-SRP (<c>ServerTlsComposition.IsTlsUpgradeAvailable</c>;
+    /// ADR-0122, decision 5) - so <c>AUTH TLS</c> can upgrade the control connection and
+    /// <c>FEAT</c> lists it; only when none is available is <c>AUTH TLS</c>
+    /// <c>534 TLS is not available</c> (ADR-0032, section 10).
     /// </param>
     public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isTlsUpgradeAvailable = false)
         : this(contentStore, authenticationPolicy, isTlsUpgradeAvailable, upstreamTestCaseReplies: null)
