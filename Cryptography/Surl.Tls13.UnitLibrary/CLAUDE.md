@@ -1,8 +1,10 @@
 # Surl.Tls13.UnitLibrary
 
 The TLS 1.3 handshake for Surl's hand-built QUIC (ADR-0082 decisions 2 and 3), built because
-`SslStream` cannot hand QUIC its per-level secrets. It has no record layer: QUIC carries the
-handshake messages in `CRYPTO` frames.
+`SslStream` cannot hand QUIC its per-level secrets. QUIC does not use the library's record layer:
+it carries the handshake messages in `CRYPTO` frames. The record layer is for TLS 1.3 over TCP
+(ADR-0157), where `Surl.Tls13Stream` drives it and this handshake for a platform whose `SslStream`
+has no TLS 1.3 server.
 
 What it holds now (BL-375):
 
