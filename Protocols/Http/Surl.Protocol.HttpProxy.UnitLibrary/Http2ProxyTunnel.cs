@@ -5,7 +5,7 @@ namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
 /// The tunnel of a <c>CONNECT</c> stream on an HTTP/2 connection to the proxy (RFC 9113
-/// section 8.5; ADR-0088 decision 6 as Amendment 5 amends it): curl's <c>DATA</c> is written to
+/// section 8.5; ADR-0088 decision 6 as Amendment 9 amends it): curl's <c>DATA</c> is written to
 /// the origin, and the origin's bytes go back as <c>DATA</c>, unchanged and unread.
 /// </summary>
 /// <remarks>

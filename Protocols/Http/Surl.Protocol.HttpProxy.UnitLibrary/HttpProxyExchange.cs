@@ -76,7 +76,7 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
 
     /// <summary>
     /// On a connection secured before the first request (the HTTPS proxy, ADR-0088 decision 6
-    /// and Amendments 2 and 5) and not agreed as <c>h2</c>, notes that curl's connection to the
+    /// and Amendments 2 and 9) and not agreed as <c>h2</c>, notes that curl's connection to the
     /// proxy is TLS; true unless the handshake agreed an ALPN protocol other than
     /// <c>http/1.1</c>, which the proxy does not serve, so the connection closes without a byte
     /// written. A plain connection notes nothing.

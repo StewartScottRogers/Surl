@@ -4,7 +4,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
-/// The HTTPS proxy over HTTP/2 (ADR-0088 decision 6 as Amendment 5 amends it): a TLS connection
+/// The HTTPS proxy over HTTP/2 (ADR-0088 decision 6 as Amendment 9 amends it): a TLS connection
 /// whose handshake agreed ALPN <c>h2</c>, what curl's <c>--proxy-http2</c> asks for, is served
 /// by <see cref="Http2ConnectionServer"/>, each stream answered by
 /// <see cref="Http2ProxyStreamHandler"/>.

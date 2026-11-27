@@ -5,7 +5,7 @@ using static Surl.Protocol.HttpProxy.ProxyTestKit;
 namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
-/// One stream of an HTTP/2 connection to the HTTPS proxy (ADR-0088 Amendment 5), served by
+/// One stream of an HTTP/2 connection to the HTTPS proxy (ADR-0088 Amendment 9), served by
 /// <see cref="Http2ProxyStreamHandler"/> on an <see cref="Http2TestStream"/>, so each answer is
 /// read back as the frames the proxy wrote. The request heads are the shapes pinned upstream
 /// curl 8.21.0 sends with <c>--proxy-http2</c> (<c>Fixtures/https-proxy-h2-*</c>): a
