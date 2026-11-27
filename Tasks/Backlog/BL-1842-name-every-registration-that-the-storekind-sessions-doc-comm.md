@@ -1,5 +1,5 @@
 ---
-id: BL-1838
+id: BL-1842
 title: Name every registration that the StoreKind.Sessions doc comment covers
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1838 — Name every registration that the StoreKind.Sessions doc comment covers
+# BL-1842 — Name every registration that the StoreKind.Sessions doc comment covers
 
 ## Goal
 

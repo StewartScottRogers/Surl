@@ -1,26 +1,26 @@
 ---
-id: BL-1837
+id: BL-1841
 title: Say in the account snapshot docs that some derived credentials are the password's bytes
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1836, BL-1831]
+depends-on: [BL-1840, BL-1831]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Application/Surl.Api/SurlSnapshot.cs, Application/Surl.Api/README.md]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1837 — Say in the account snapshot docs that some derived credentials are the password's bytes
+# BL-1841 — Say in the account snapshot docs that some derived credentials are the password's bytes
 
 ## Goal
 
 The library and `Surl.Api` documents about accounts and their snapshots say what is held of each password, as the
-amendment BL-1836 records.
+amendment BL-1840 records.
 
 ## Context
 
 Found while running BL-1829 (checked against the code on 2026-11-27). Prose and XML doc comments only; no
-executable line changes. No store, event or fault changes. Read the ADR-0132 amendment BL-1836 adds first.
+executable line changes. No store, event or fault changes. Read the ADR-0132 amendment BL-1840 adds first.
 
 `AccountStore.DeriveNamed` keeps each named account's password as UTF-8 bytes (`AwsSigV4Account`,
 `ChallengeResponseAccount`) and a base64 password's decoded bytes (`AzureStorageAccount`), and a snapshot copies

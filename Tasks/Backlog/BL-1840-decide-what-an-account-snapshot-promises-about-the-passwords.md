@@ -1,5 +1,5 @@
 ---
-id: BL-1836
+id: BL-1840
 title: Decide what an account snapshot promises about the passwords it holds
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1836 — Decide what an account snapshot promises about the passwords it holds
+# BL-1840 — Decide what an account snapshot promises about the passwords it holds
 
 ## Goal
 
@@ -19,7 +19,7 @@ A decision record states what an account snapshot holds of each password, and ma
 ## Context
 
 Found while running BL-1829 (checked against the code on 2026-11-27). Normal priority because the false statement
-is a security promise that ships in the XML docs of public types (BL-1837 corrects those).
+is a security promise that ships in the XML docs of public types (BL-1841 corrects those).
 
 - ADR-0124 decision 3 says a snapshot holds accounts "as password hashes only, never a clear password".
 - `Foundation/Surl.Authentication.UnitLibrary/AccountStore.cs`, `DeriveNamed`, keeps each named account's password

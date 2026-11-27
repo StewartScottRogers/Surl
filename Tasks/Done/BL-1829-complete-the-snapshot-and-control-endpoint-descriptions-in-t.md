@@ -77,8 +77,8 @@ executable line changes. No store, event or fault changes.
   the other account routes.
 - Also corrected ControlStoreRequests class summary (same library, same omission).
 - The glossary no longer says account snapshots hold password hashes only: AccountStore keeps the passwords UTF-8
-  bytes in some derived credentials. The other documents that still say so are BL-1836 and BL-1837.
-- Follow-ups filed: BL-1836, BL-1837, BL-1838, BL-1839. Composition store docs are already BL-1830, the
+  bytes in some derived credentials. The other documents that still say so are BL-1840 and BL-1841.
+- Follow-ups filed: BL-1840, BL-1841, BL-1842, BL-1843. Composition store docs are already BL-1830, the
   StoreKind.Uploads comment BL-1831.
 
 ## Log

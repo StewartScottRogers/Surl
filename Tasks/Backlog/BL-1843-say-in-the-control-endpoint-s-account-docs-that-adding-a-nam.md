@@ -1,5 +1,5 @@
 ---
-id: BL-1839
+id: BL-1843
 title: Say in the control endpoint's account docs that adding a name already taken answers 409
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1839 — Say in the control endpoint's account docs that adding a name already taken answers 409
+# BL-1843 — Say in the control endpoint's account docs that adding a name already taken answers 409
 
 ## Goal
 
