@@ -665,10 +665,14 @@ public sealed partial class ServingEngineTests
         var time = new ManualTimeProvider();
         var plan = new ScriptedFaultPlan(new FaultRule("c1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 5000 });
         var held = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var idleClock = new TaskCompletionSource<PauseAnnouncingIdleClock>(TaskCreationOptions.RunContinuationsAsynchronously);
         var server = new FakeConnectionProtocolServer(
             async (_, context) =>
             {
-                await CommandStageFaults.FindAndApplyAsync(context, new FaultPoint(FaultStage.Command) { Command = "GET" }, "/a");
+                var announcing = new PauseAnnouncingIdleClock(context.IdleClock);
+                idleClock.SetResult(announcing);
+                await CommandStageFaults.FindAndApplyAsync(
+                    context with { IdleClock = announcing }, new FaultPoint(FaultStage.Command) { Command = "GET" }, "/a");
                 held.SetResult(context.CancellationToken.IsCancellationRequested);
             },
             "http");
@@ -680,7 +684,10 @@ public sealed partial class ServingEngineTests
         var serving = engine.ServeAsync([Http], stop.Token);
 
         factory.ListenerFor(Http).Connect(new InMemoryConnection([]));
-        await time.TimersCreated(2).WaitAsync(Patience.Timeout);
+        // The hold creates the delay timer and only then pauses the idle clock, so the pause shows both
+        // are done; advancing on the delay timer's creation alone can fire the idle timeout first.
+        var announced = await idleClock.Task.WaitAsync(Patience.Timeout);
+        await announced.Paused.WaitAsync(Patience.Timeout);
         time.Advance(TimeSpan.FromSeconds(5));
         var cancelledAfterTheHold = await held.Task.WaitAsync(Patience.Timeout);
         await stop.CancelAsync();
