@@ -7,7 +7,13 @@ namespace Surl.Authentication;
 /// (ADR-0032, section 1), as <c>Surl.Console</c> composes them from the command line.
 /// </summary>
 /// <param name="Accounts">Every account from <c>--user</c> and <c>--user-file</c>.</param>
-/// <param name="AllowAnonymous"><c>--allow-anonymous</c>: accept every request and login unchecked.</param>
+/// <param name="AllowAnonymous">
+/// <c>--allow-anonymous</c>: accept most requests and logins without checking credentials. Some checks
+/// stay, among them: an S3 or Cloud Storage signature that is sent and any Azure Storage credential
+/// that is sent are checked, a Kerberos ticket must still check against
+/// <see cref="KerberosAcceptor"/>'s keys, and an LDAP DIGEST-MD5 or NTLM bind still needs the
+/// account's password.
+/// </param>
 /// <param name="AllowPlaintextAuthentication"><c>--allow-plaintext-auth</c>: accept plain-text secrets without TLS.</param>
 /// <param name="AcceptedMethods">
 /// <c>--auth</c>'s methods, <see cref="AuthenticationMethods.DefaultAccepted"/> when it is not given.

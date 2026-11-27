@@ -322,7 +322,7 @@ internal static class CommandLineOptions
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
             new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap", "socks"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
-            new(null, "Accept any login, or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "off",
+            new(null, "Accept most logins or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),
         Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
             new(null, "Accept passwords in clear (warns)", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "security", "signalr", "smtp", "socketio", "socks", "stomp", "testing", "websocket", "xmpp"], IsInShortList: false, Default: "off",

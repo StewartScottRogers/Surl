@@ -83,7 +83,10 @@ public sealed class SurlServerOptions
         set => field = value ?? [];
     } = [];
 
-    /// <summary>Accepts any login, or none (<c>--allow-anonymous</c>, warns on start); off by default.</summary>
+    /// <summary>
+    /// Accepts most requests and logins without checking credentials (<c>--allow-anonymous</c>, warns on
+    /// start); off by default. Some checks and refusals stay, as <c>surl --help --allow-anonymous</c> says.
+    /// </summary>
     public bool AllowAnonymous { get; set; }
 
     /// <summary>Accepts passwords sent over an unencrypted connection (<c>--allow-plaintext-auth</c>, warns on start); off by default.</summary>
