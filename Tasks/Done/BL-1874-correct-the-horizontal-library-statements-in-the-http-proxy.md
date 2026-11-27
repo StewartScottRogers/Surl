@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1874 — Correct the horizontal library statements in the HTTP proxy's docs, ADR-0088 and the glossary
 
@@ -39,20 +39,29 @@ Found by BL-1836 and checked against the repository on 2026-11-27. Prose only. N
 
 ## Acceptance criteria
 
-- [ ] The proxy's `CLAUDE.md` does not say any ADR allows it to reference `Surl.Authentication.UnitLibrary`, and
+- [x] The proxy's `CLAUDE.md` does not say any ADR allows it to reference `Surl.Authentication.UnitLibrary`, and
       still says it reaches the authentication checks through `IAuthenticationPolicy` (ADR-0088 Amendment 3).
-- [ ] ADR-0088 decision 1 says beside its table that Amendment 3 removes the `Surl.Authentication.UnitLibrary`
+- [x] ADR-0088 decision 1 says beside its table that Amendment 3 removes the `Surl.Authentication.UnitLibrary`
       reference.
-- [ ] The glossary row names all thirteen `Surl.Cryptography.<Name>.UnitLibrary` projects (not
+- [x] The glossary row names all thirteen `Surl.Cryptography.<Name>.UnitLibrary` projects (not
       `Surl.Cryptography.UnitLibrary`), each added one with its deciding ADR.
-- [ ] The row's "Name in code" cell adds `MlKem768`, `MlKem1024`, `X448` for Curve448, `CurveSm2` and `Srp6a`, and
+- [x] The row's "Name in code" cell adds `MlKem768`, `MlKem1024`, `X448` for Curve448, `CurveSm2` and `Srp6a`, and
       any statement in it about which libraries share a project is still true.
-- [ ] The row limits "composes into SSH" to the libraries `Surl.Protocol.Ssh` composes, and says which libraries
+- [x] The row limits "composes into SSH" to the libraries `Surl.Protocol.Ssh` composes, and says which libraries
       reference the other four.
 
 ## Notes
+
+- Delivered by `align-and-document`; prose only, in the three files `touches` names. The ADR-0088 table is kept as
+  first decided, with a dated "superseded in part by Amendment 3" note under it.
+- The glossary row's definition also changed where the four added libraries made it untrue: "the base class library
+  lacks" now adds "or has on only some platforms (ML-KEM)" (ADR-0082), and "bytes in and bytes out" is now "with no
+  socket, file or clock", because `Srp` also parses `tpasswd` text.
+- No decision was needed, so no ADR. `dotnet build` clean (0 warnings) and every fast test assembly passed.
+- Other drift seen and left alone is filed as BL-1894.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The HTTP proxy's CLAUDE.md and ADR-0088 no longer present a Surl.Authentication reference as allowed, and the glossary row covers all thirteen primitive libraries.
