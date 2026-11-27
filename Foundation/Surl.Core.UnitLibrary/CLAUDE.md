@@ -56,9 +56,12 @@ connection and every data connection (`ExchangeDataConnections.DropBudget`), eac
 connection is aborted and the note and one `FaultAppliedEvent` are written once. With `FaultRule.Close = Graceful`
 (ADR-0188, BL-1613) each joined connection is instead disposed (lingering close, ADR-0021), last joined first so data goes
 before control, no `Abort`, and the note reads `Exchange <id> cut after <N> bytes sent by fault rule <rule id>, closing
-gracefully.`; a datagram flow ignores `Close` and behaves as a drop. The `FaultAppliedEvent` of every `Accept`-stage
-drop carries `Close` (BL-1794), how the engine ended it rather than what the rule asked: `Graceful` for the graceful cut,
-`Reset` for the reset cut, a drop before any byte and every datagram drop; a `Delay`'s event carries none.
+gracefully.`; a datagram flow ignores `Close` and behaves as a drop, except for an `IGracefulCutDatagramProtocolServer`
+(HTTP/3; ADR-0188 amendment 5, BL-1801): its flow is a `GracefullyCutAfterBytesDatagramFlow` (whole datagrams counted as
+`SilencedAfterBytesDatagramFlow` does, closing datagrams sent uncounted), the server closes its connection at the cut,
+and the note is the graceful one. The `FaultAppliedEvent` of every `Accept`-stage drop carries `Close` (BL-1794), how the
+engine ended it rather than what the rule asked: `Graceful` for either graceful cut, `Reset` for the reset cut, a drop
+before any byte and every other datagram drop; a `Delay`'s event carries none.
 
 An `Accept`-stage `Delay` hold ends when the client leaves (ADR-0141, amendment 2; BL-1521): the engine
 races the delay against `IConnection.WatchForPeerCloseAsync` (64 KiB read-ahead, bytes kept for a client that

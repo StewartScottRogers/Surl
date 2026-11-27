@@ -377,15 +377,40 @@ public sealed class QuicApplicationConnection
         }
     }
 
-    /// <summary>Sends the output's datagrams, in order, and wakes every waiter; called under the lock.</summary>
+    /// <summary>
+    /// Sends the output's datagrams, in order, and wakes every waiter; called under the lock. When they
+    /// cut an <see cref="IGracefullyCutDatagramFlow"/> and the connection is still open, closes it with no
+    /// error (ADR-0188, amendment 5).
+    /// </summary>
     private async Task SendAsync(QuicConnectionOutput output, CancellationToken cancellationToken)
     {
-        foreach (var datagram in output.Datagrams)
+        await SendDatagramsAsync(output.Datagrams, cancellationToken);
+        if (flow is IGracefullyCutDatagramFlow { IsCut: true } && !connection.IsClosed)
         {
-            await flow.SendAsync(datagram, cancellationToken);
+            await SendDatagramsAsync(connection.CloseWithNoError().Datagrams, cancellationToken);
         }
 
         Signal();
+    }
+
+    /// <summary>
+    /// Sends each datagram. In the closing state every datagram carries <c>CONNECTION_CLOSE</c>, so on an
+    /// <see cref="IGracefullyCutDatagramFlow"/> it goes as a closing datagram, which is never counted or
+    /// discarded.
+    /// </summary>
+    private async Task SendDatagramsAsync(IReadOnlyList<byte[]> datagrams, CancellationToken cancellationToken)
+    {
+        foreach (var datagram in datagrams)
+        {
+            if (connection.IsClosing && flow is IGracefullyCutDatagramFlow cuttable)
+            {
+                await cuttable.SendClosingDatagramAsync(datagram, cancellationToken);
+            }
+            else
+            {
+                await flow.SendAsync(datagram, cancellationToken);
+            }
+        }
     }
 
     private void Signal()

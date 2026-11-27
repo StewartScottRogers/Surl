@@ -267,7 +267,10 @@ public sealed partial class ServingEngine
     /// connection gracefully instead when <see cref="FaultRule.Close"/> is
     /// <see cref="FaultClose.Graceful"/>. Each application publishes a <see cref="FaultAppliedEvent"/> on
     /// <paramref name="events"/>; a drop's event carries <see cref="FaultAppliedEvent.Close"/>, how the
-    /// engine ended it (<see cref="FaultClose.Reset"/> for a datagram flow).
+    /// engine ended it (<see cref="FaultClose.Reset"/> for a datagram flow, except that an
+    /// <see cref="IGracefulCutDatagramProtocolServer"/> under a graceful rule with
+    /// <see cref="FaultRule.AfterBytes"/> is handed an <see cref="IGracefullyCutDatagramFlow"/>, closes its
+    /// connection with no error at the count, and its event is <see cref="FaultClose.Graceful"/>).
     /// </param>
     /// <exception cref="ArgumentException">
     /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.

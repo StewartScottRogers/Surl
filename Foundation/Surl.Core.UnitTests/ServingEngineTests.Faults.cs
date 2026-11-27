@@ -313,7 +313,78 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_GracefulDropRuleOnADatagramFlow_BehavesAsADrop()
+    public async Task ServeAsync_GracefulDropRuleOnADatagramServerWithItsOwnClose_CutsTheFlowAndPublishesGraceful()
+    {
+        var factory = new FakeListenerFactory();
+        var logs = new FakeExchangeLogFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 6, Close = FaultClose.Graceful });
+        var cutAfterEachSend = new List<bool>();
+        var server = new FakeGracefulCutDatagramProtocolServer(
+            async (flow, context) =>
+            {
+                var cut = (IGracefullyCutDatagramFlow)flow;
+                await cut.SendAsync("abcd"u8.ToArray(), context.CancellationToken);
+                cutAfterEachSend.Add(cut.IsCut);
+                await cut.SendAsync("efgh"u8.ToArray(), context.CancellationToken);
+                cutAfterEachSend.Add(cut.IsCut);
+                await cut.SendAsync("i"u8.ToArray(), context.CancellationToken);
+                await cut.SendClosingDatagramAsync("close"u8.ToArray(), context.CancellationToken);
+                await cut.SendClosingDatagramAsync("close"u8.ToArray(), context.CancellationToken);
+            },
+            "tftp");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), logs, stream, plan, server);
+        var flow = new FakeDatagramFlow("rrq"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Tftp69], stop.Token);
+
+        factory.DatagramListenerFor(Tftp69).Open(flow);
+        await flow.WhenDisposed.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        CollectionAssert.AreEqual(
+            new[] { "abcd", "close", "close" }, flow.Sent.Select(sent => Encoding.ASCII.GetString(sent)).ToArray());
+        CollectionAssert.AreEqual(new[] { false, true }, cutAfterEachSend);
+        CollectionAssert.Contains(
+            logs.LogOf(1).Notes.ToList(), "Exchange 1 cut after 6 bytes sent by fault rule f1, closing gracefully.");
+        Assert.AreEqual(FaultClose.Graceful, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ResetDropRuleOnADatagramServerWithItsOwnClose_SilencesTheFlowAndPublishesReset()
+    {
+        var factory = new FakeListenerFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 5 });
+        var server = new FakeGracefulCutDatagramProtocolServer(
+            async (flow, context) =>
+            {
+                Assert.IsNotInstanceOfType<IGracefullyCutDatagramFlow>(flow);
+                await flow.SendAsync("data"u8.ToArray(), context.CancellationToken);
+                await flow.SendAsync("more"u8.ToArray(), context.CancellationToken);
+            },
+            "tftp");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), stream, plan, server);
+        var flow = new FakeDatagramFlow("rrq"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Tftp69], stop.Token);
+
+        factory.DatagramListenerFor(Tftp69).Open(flow);
+        await flow.WhenDisposed.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        CollectionAssert.AreEqual(new[] { "data" }, flow.Sent.Select(sent => Encoding.ASCII.GetString(sent)).ToArray());
+        Assert.AreEqual(FaultClose.Reset, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_GracefulDropRuleOnADatagramServerWithoutItsOwnClose_BehavesAsAResetDrop()
     {
         var factory = new FakeListenerFactory();
         var logs = new FakeExchangeLogFactory();

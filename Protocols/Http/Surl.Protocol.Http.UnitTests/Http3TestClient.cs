@@ -70,6 +70,12 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
     /// <summary>Where the server reports decrypted bytes; null leaves the context's discarding sink.</summary>
     public IDecryptedBytesSink? DecryptedBytes { get; set; }
 
+    /// <summary>
+    /// What <see cref="Http3ProtocolServer"/> is given in place of <see cref="Http3TestQuicClient.Flow"/>,
+    /// made from it, when a test sets one before starting the server; null gives it the flow itself.
+    /// </summary>
+    public Func<InMemoryDatagramFlow, IDatagramFlow>? WrapFlow { get; set; }
+
     /// <summary>Starts the server with <paramref name="limits"/> and a content store holding <c>file.txt</c>.</summary>
     public Task Serve(CancellationToken cancellationToken, ExchangeLimits? limits = null, IContentFileSystem? fileSystem = null, bool allowUploads = false)
     {
@@ -92,7 +98,7 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
         if (ProtocolServerPolicy is { } policy)
         {
             Clock = Time;
-            Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout, TrustsClientCertificateChain, Cookies).ServeAsync(Flow, context);
+            Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout, TrustsClientCertificateChain, Cookies).ServeAsync(WrapFlow?.Invoke(Flow) ?? Flow, context);
             return Serving;
         }
 

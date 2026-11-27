@@ -97,7 +97,7 @@ public sealed partial class ServingEngine
 
     // The Accept-stage fault acts before the server sees the flow (ADR-0124, decision 4): a drop
     // without after-bytes leaves the flow unanswered; one with after-bytes lets the server send
-    // that many bytes and then discards what it sends.
+    // that many bytes and then cuts the flow.
     private async Task FaultThenServeFlowAsync(
         IDatagramFlow flow, AcceptedFlowRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
     {
@@ -109,14 +109,27 @@ public sealed partial class ServingEngine
         }
         else if (drop.AfterBytes is long afterBytes and > 0)
         {
-            var silenced = new SilencedAfterBytesDatagramFlow(
-                flow, afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
-            await route.Server.ServeAsync(new IdleClockRestartingDatagramFlow(silenced, deadlines), context);
+            await route.Server.ServeAsync(CutAfterBytes(flow, drop, afterBytes, route, deadlines, context), context);
         }
         else
         {
             NoteAndPublishDrop(drop, context, "before any byte");
         }
+    }
+
+    // A close=graceful drop on a server with a graceful close of its own (HTTP/3) hands it a flow
+    // that tells it when to close (ADR-0188, amendment 5); every other drop with after-bytes only
+    // stops the flow being heard, and its event says Reset.
+    private IDatagramFlow CutAfterBytes(
+        IDatagramFlow flow, FaultRule drop, long afterBytes, AcceptedFlowRoute route, ExchangeDeadlines deadlines,
+        ExchangeContext context)
+    {
+        var graceful = drop.Close == FaultClose.Graceful && route.Server is IGracefulCutDatagramProtocolServer;
+        Action onCut = () => NoteAndPublishAfterBytes(drop, context, afterBytes, graceful);
+
+        return graceful
+            ? new GracefullyCutAfterBytesDatagramFlow(new IdleClockRestartingDatagramFlow(flow, deadlines), afterBytes, onCut)
+            : new IdleClockRestartingDatagramFlow(new SilencedAfterBytesDatagramFlow(flow, afterBytes, onCut), deadlines);
     }
 
     // Where one datagram listener's flows go: the listen URL and server they are served under,

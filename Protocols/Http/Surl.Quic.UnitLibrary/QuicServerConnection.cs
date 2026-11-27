@@ -253,6 +253,23 @@ public sealed partial class QuicServerConnection : IDisposable
         return new QuicConnectionOutput(Flush(), []);
     }
 
+    /// <summary>
+    /// Ends the connection with no error: a <c>CONNECTION_CLOSE</c> of type <c>0x1c</c> carrying
+    /// <c>NO_ERROR</c> (RFC 9000 section 20.1), in a 1-RTT packet once the handshake is complete and at
+    /// the Initial and Handshake levels before (section 10.2.3). Nothing once the connection has ended.
+    /// </summary>
+    /// <returns>The datagrams to send.</returns>
+    public QuicConnectionOutput CloseWithNoError()
+    {
+        if (IsClosed)
+        {
+            return QuicConnectionOutput.Empty;
+        }
+
+        CloseWithTransportError((ulong)QuicTransportErrorCode.NoError, 0);
+        return new QuicConnectionOutput(Flush(), []);
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {

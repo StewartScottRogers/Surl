@@ -44,6 +44,46 @@ public sealed class Http3ProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_FlowCutByAGracefulDropFault_ClosesTheConnectionWithNoErrorInPlaceOfTheAnswer()
+    {
+        // 8,000 bytes hold the handshake and the server's SETTINGS, and end inside the 20,000-byte answer,
+        // which the 12,000-byte initial congestion window would let out further.
+        const int FileLength = 20_000;
+        const int AfterBytes = 8_000;
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "large.bin"), new byte[FileLength], FileTime);
+        UnitTestGracefullyCutDatagramFlow? cut = null;
+        using var client = new Http3TestClient
+        {
+            ProtocolServerPolicy = new AnonymousAuthenticationPolicy(),
+            WrapFlow = flow => cut = new UnitTestGracefullyCutDatagramFlow(flow, AfterBytes),
+        };
+        await client.StartAsync(Token, fileSystem: fileSystem);
+
+        client.Send(0, client.Request("GET", "/large.bin"), fin: true);
+        await client.FinishAsync(Token);
+
+        var closes = client.OneRttFrames<QuicConnectionCloseFrame>().Select(frame => (frame.IsApplicationError, frame.ErrorCode)).Distinct();
+        Assert.AreEqual((false, (ulong)QuicTransportErrorCode.NoError), closes.Single());
+        var (answered, fin) = client.StreamSent(0);
+        Assert.IsTrue(answered.Length is > 0 and < AfterBytes, $"{answered.Length} bytes of the answer");
+        Assert.IsFalse(fin);
+        Assert.IsTrue(cut!.IsCut);
+        Assert.IsNotEmpty(cut.ClosingDatagrams);
+    }
+
+    [TestMethod]
+    public void Server_HasAGracefulCloseOfItsOwnForACutFlow()
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+
+        var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero);
+
+        Assert.IsInstanceOfType<IGracefulCutDatagramProtocolServer>(server);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void RequiresClientCertificate_IsWhetherATrustCheckWasGiven(bool givesTrustCheck)
