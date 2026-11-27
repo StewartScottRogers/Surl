@@ -8,7 +8,7 @@ depends-on: [BL-1867, BL-1880]
 touches: [Application/Surl.Console/CLAUDE.md, Application/Surl.Console/CommandLineRunner.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1882 — Correct the start description in the Surl.Console notes plus the TLS settings parameter comment
 
@@ -33,15 +33,28 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `createListenerFactory` doc comment says the settings are `null` only when no listen URL needs TLS.
-- [ ] The bullet names every file `ComposeAuthentication` reads, in the order it reads them, or points to where that is stated without giving a partial list.
-- [ ] The bullet and the start step table place the content file system before the listen-URL refusals and the content store after authentication, as `ComposeAvailableAsync` does.
-- [ ] The bullet's server list agrees with `ProtocolServerRegistrations.Original`, `SocksProtocolServer` included, or points to that list without a partial one.
-- [ ] `dotnet build Application/Surl.Console -warnaserror` is clean and the diff of `CommandLineRunner.cs` changes comment lines only.
+- [x] The `createListenerFactory` doc comment says the settings are `null` only when no listen URL needs TLS.
+- [x] The bullet names every file `ComposeAuthentication` reads, in the order it reads them, or points to where that is stated without giving a partial list.
+- [x] The bullet and the start step table place the content file system before the listen-URL refusals and the content store after authentication, as `ComposeAvailableAsync` does.
+- [x] The bullet's server list agrees with `ProtocolServerRegistrations.Original`, `SocksProtocolServer` included, or points to that list without a partial one.
+- [x] `dotnet build Application/Surl.Console -warnaserror` is clean and the diff of `CommandLineRunner.cs` changes comment lines only.
 
 ## Notes
+
+- Made in the session rather than delegated to `align-and-document`: two files, text already traced to the code.
+- The bullet names all ten start files in `ComposeAuthentication`'s order and lists `SocksProtocolServer`.
+- Also corrected in the same bullet, because each was false against the code: the `--dns-transport` option
+  refusal was missing; the listen-URL certificate refusal covers more than TLS-first URLs; the lock is also
+  taken on each writable `--share`; the TLS upgrade is offered under TLS-SRP too
+  (`ServerTlsComposition.IsTlsUpgradeAvailable`). The `takeDataDirectoryLock` doc comment in
+  `CommandLineRunner.cs` had the same `--share` omission.
+- Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0,
+  fast tests exit 0 with no failures. No integration-level code changed.
+- Follow-up: BL-1917 (the same two points in `Surl.Composition` comments). BL-1881 already covers its
+  `CreateListenerFactory` comment and the start's class summary.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Surl.Console notes and CommandLineRunner comments describe the start order, start files, server list and TLS settings as Surl.Composition runs them

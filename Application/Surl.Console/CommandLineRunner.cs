@@ -18,17 +18,17 @@ namespace Surl.Console;
 /// </summary>
 /// <param name="createListenerFactory">
 /// Creates the factory that starts the listeners, given the process's TLS settings
-/// (<see langword="null"/> when no listen URL is TLS from the first byte); <c>surl</c> passes
-/// one that creates a <see cref="SocketListenerFactory"/>.
+/// (<see langword="null"/> only when no listen URL needs TLS, as <see cref="ServerTlsComposition"/>
+/// decides); <c>surl</c> passes one that creates a <see cref="SocketListenerFactory"/>.
 /// </param>
 /// <param name="canOpenDataDirectory">
 /// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never
 /// called without <c>--directory</c>. <c>surl</c> passes <see cref="DataDirectoryProbe.CanOpen"/>.
 /// </param>
 /// <param name="takeDataDirectoryLock">
-/// Takes the data directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data
-/// directory as given with <c>--directory</c>; never called without <c>--directory</c>.
-/// <c>surl</c> passes <see cref="DataDirectoryLock.Take"/>.
+/// Takes a directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data directory as
+/// given with <c>--directory</c> and then each writable <c>--share</c> path; never called
+/// without either. <c>surl</c> passes <see cref="DataDirectoryLock.Take"/>.
 /// </param>
 /// <param name="timeProvider">The one clock every exchange runs on.</param>
 /// <param name="dataDirectoryFileSystem">
