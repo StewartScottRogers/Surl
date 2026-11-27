@@ -18,8 +18,8 @@ public static class ReadLogTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Read the records of a topic's log on a running Surl server's message bus from an offset: offset, timestamp, "
-        + "key and payload (text when UTF-8 or else base64), and the next offset. Moves no subscription's or "
-        + "group's offset.";
+        + "key and payload (text when UTF-8 with no control character other than tab, CR and LF, else base64), and "
+        + "the next offset. Moves no subscription's or group's offset.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

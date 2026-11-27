@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1833 — Correct the byte rules in the surl-mcp tool descriptions for set_key plus the read-back tools
 
@@ -40,20 +40,28 @@ comment text, with tests that pin it.
 
 ## Acceptance criteria
 
-- [ ] `SetKeyTool.Description` says the key and value hold at most 16 MiB together, and no longer says "each" of
+- [x] `SetKeyTool.Description` says the key and value hold at most 16 MiB together, and no longer says "each" of
       that limit.
-- [ ] `SetKeyTool.Description` and the class `<summary>` say `key_base64` is answered for a key that is not
+- [x] `SetKeyTool.Description` and the class `<summary>` say `key_base64` is answered for a key that is not
       UTF-8 or that holds a control character other than tab, CR and LF.
-- [ ] The `Description` of each of the six read-back tools named in Context says bytes are text only when they are
+- [x] The `Description` of each of the six read-back tools named in Context says bytes are text only when they are
       UTF-8 with no control character other than tab, CR and LF, else base64.
-- [ ] A test in `Application/Surl.Mcp.UnitTests` asserts the control-character wording in each of the seven
+- [x] A test in `Application/Surl.Mcp.UnitTests` asserts the control-character wording in each of the seven
       descriptions, and another asserts `set_key`'s "together" limit.
-- [ ] The tests of `Surl.Mcp.UnitTests` pass with no `TestCategory=Integration`, and
+- [x] The tests of `Surl.Mcp.UnitTests` pass with no `TestCategory=Integration`, and
       `dotnet build Application/Surl.Mcp.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- The six read-back tools share one phrase, "text when UTF-8 with no control character other than tab, CR and
+  LF, else base64", so one test pins all six.
+- The tests are in `ToolDescriptionByteRuleTests`, one class for the seven descriptions, because they pin one
+  rule (`ReadBackJson`'s) across tools.
+- 2026-11-27: `Surl.Mcp.UnitTests` 461 passed. Solution build 0 warnings, `dotnet format --verify-no-changes`
+  exit 0, all fast tests 30182 passed, 0 failed, 3 skipped. No tool behaviour changed.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. surl-mcp tool descriptions now state when bytes come back as base64, and set_key's states its 16 MiB limit covers key and value together

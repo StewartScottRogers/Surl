@@ -17,8 +17,8 @@ public static class ReadFileTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Read a file from a running Surl server's content store, the one its HTTP, FTP, SFTP and other file servers "
-        + "serve: its size, modification time, content type and exact bytes, as text when UTF-8 or else base64, at "
-        + "most 16 MiB.";
+        + "serve: its size, modification time, content type and exact bytes (text when UTF-8 with no control "
+        + "character other than tab, CR and LF, else base64), at most 16 MiB.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
