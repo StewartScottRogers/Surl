@@ -1,5 +1,5 @@
 ---
-id: BL-1921
+id: BL-1924
 title: Correct the certificate-only TLS upgrade comments in Surl.Composition and the XMPP server
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1921 — Correct the certificate-only TLS upgrade comments in Surl.Composition and the XMPP server
+# BL-1924 — Correct the certificate-only TLS upgrade comments in Surl.Composition and the XMPP server
 
 ## Goal
 

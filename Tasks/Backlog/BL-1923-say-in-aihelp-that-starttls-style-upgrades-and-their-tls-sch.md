@@ -1,5 +1,5 @@
 ---
-id: BL-1920
+id: BL-1923
 title: Say in --aihelp that STARTTLS-style upgrades and their TLS schemes work under TLS-SRP with no certificate
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1920 — Say in --aihelp that STARTTLS-style upgrades and their TLS schemes work under TLS-SRP with no certificate
+# BL-1923 — Say in --aihelp that STARTTLS-style upgrades and their TLS schemes work under TLS-SRP with no certificate
 
 ## Goal
 

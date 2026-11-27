@@ -1,5 +1,5 @@
 ---
-id: BL-1922
+id: BL-1925
 title: Correct the implicit TLS scheme and TLS upgrade entries in the glossary
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1922 — Correct the implicit TLS scheme and TLS upgrade entries in the glossary
+# BL-1925 — Correct the implicit TLS scheme and TLS upgrade entries in the glossary
 
 ## Goal
 

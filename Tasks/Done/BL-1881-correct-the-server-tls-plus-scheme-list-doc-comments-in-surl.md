@@ -45,7 +45,7 @@ No store, event or fault is involved: documentation only.
   `FormatMissingCertificate`, `IsCertificateConfigured` and upgradable-scheme comments, the `Registrations` remarks).
 - 2026-11-27: Verified: build with warnings as errors clean, format check clean, fast tests 30310 passed, 0 failed,
   3 skipped; 0 non-comment lines in the `.cs` diff. Integration tests not run: comments only.
-- 2026-11-27: Filed BL-1920, BL-1921 and BL-1922 for false statements found outside `touches`.
+- 2026-11-27: Filed BL-1923, BL-1924 and BL-1925 for false statements found outside `touches`.
 
 ## Log
 
