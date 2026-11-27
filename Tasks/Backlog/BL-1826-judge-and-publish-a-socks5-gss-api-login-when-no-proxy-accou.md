@@ -1,5 +1,5 @@
 ---
-id: BL-1821
+id: BL-1826
 title: Judge and publish a SOCKS5 GSS-API login when no proxy account is given
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1821 — Judge and publish a SOCKS5 GSS-API login when no proxy account is given
+# BL-1826 — Judge and publish a SOCKS5 GSS-API login when no proxy account is given
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1822
+id: BL-1827
 title: Share one Kerberos replay cache between the SOCKS5 GSS-API login and the other Kerberos logins
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1822 — Share one Kerberos replay cache between the SOCKS5 GSS-API login and the other Kerberos logins
+# BL-1827 — Share one Kerberos replay cache between the SOCKS5 GSS-API login and the other Kerberos logins
 
 ## Goal
 

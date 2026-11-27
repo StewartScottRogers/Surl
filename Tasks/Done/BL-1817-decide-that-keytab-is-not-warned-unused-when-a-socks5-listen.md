@@ -36,8 +36,8 @@ ADR-0057 says when `surl: warning: --keytab is unused: --auth accepts neither ne
   neither word and only `socks4`, `socks4a` or non-SOCKS schemes are served. The condition is the scheme alone.
   BL-1818 implements it; the code still writes the warning today.
 - The README row also gained amendment 2 (`ldap` service), which it had left out.
-- Follow-ups filed: BL-1821 (SOCKS5 GSS-API login is not published or refusable without a proxy account) and
-  BL-1822 (SOCKS5 has its own replay cache, against ADR-0057 decision 7). BL-1819 now also depends on BL-1821,
+- Follow-ups filed: BL-1826 (SOCKS5 GSS-API login is not published or refusable without a proxy account) and
+  BL-1827 (SOCKS5 has its own replay cache, against ADR-0057 decision 7). BL-1819 now also depends on BL-1826,
   because its help text says `refuse-login` can refuse that login.
 - `touches` not extended: only task board files changed beside the two listed.
 

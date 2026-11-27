@@ -4,7 +4,7 @@ title: Describe SOCKS5 GSS-API, the ldap service and the SOCKS exception in the 
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1818, BL-1821]
+depends-on: [BL-1818, BL-1826]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-26
@@ -26,7 +26,7 @@ Found while working BL-1809. Both texts are in `Application/Surl.Cli.UnitLibrary
 - Both say a Kerberos login "is accepted only when an account of exactly that name exists". That is not so for SOCKS5: `Socks5GssApiNegotiation` accepts any ticket the keys accept and `AuthenticationPolicy.JudgeKerberosLoginAsync` looks up no account (ADR-0165 decisions 7 to 9); a `refuse-login` fault rule can still refuse it. State what the code does.
 - `ManualTextTests` and `AiHelpTextTests` in `Application/Surl.Cli.UnitTests` pin these texts (`ManualTextTests` pins the service-list line). The manual is laid out to 79 columns.
 - Found by BL-1817: under `surl`, `refuse-login` reaches a SOCKS5 GSS-API login only when `-U` or
-  `--proxy-user-file` is given, until BL-1821 is done; hence the dependency.
+  `--proxy-user-file` is given, until BL-1826 is done; hence the dependency.
 - Stand-in: help text only; no store, event or fault is involved.
 
 ## Acceptance criteria
