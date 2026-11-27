@@ -90,30 +90,30 @@ public sealed class HelpTextTests
     [
         "        Sets the authentication methods surl accepts and offers, a",
         "        comma-separated list in any case. For HTTP: negotiate, ntlm, digest,",
-        "        basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL",
-        "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
-        "        names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm,",
-        "        digest-md5, cram-md5, plain, login, oauthbearer, xoauth2 and external,",
-        "        and apop for POP3's APOP. For SMB: ntlmv1, the only login curl makes in",
-        "        an SMB session setup; accepting ntlm never accepts it. external logs in",
-        "        as the TLS client certificate --cacert verifies, so it is offered only",
-        "        on a connection that sent one. gssapi logs in with a Kerberos ticket",
-        "        checked against the --keytab keys, as the account named for the",
-        "        ticket's client principal, such as user@EXAMPLE.COM, and is offered",
-        "        first; a start that gives it without --keytab is refused (exit code 2).",
-        "        surl refuses a word outside the list as an option badly used (exit code",
-        "        2). A test uses it to offer one method alone, such as --auth digest for",
-        "        curl's --digest. ntlm and negotiate are not in the default because an",
-        "        NTLM response is built on MD4 and HMAC-MD5 of the password and is open",
-        "        to relay and offline cracking, and Negotiate carries NTLM; ntlmv1 is",
-        "        not because its responses are DES over the bare MD4 hash of the",
-        "        password, open to offline cracking by anyone who sees one; gssapi is",
-        "        not because it needs --keytab; digest-md5 is not because RFC 6331 made",
-        "        it Historic and curl picks it over every other mechanism; apop is not",
-        "        because its MD5 construction leaks password characters to anyone who",
-        "        can choose the timestamp it signs. surl warns on every start while",
-        "        --auth is given, from the info log level up, naming the methods it",
-        "        accepts.",
+        "        basic, bearer and aws-sigv4. For SASL logins to the SMTP, IMAP, POP3,",
+        "        LDAP, AMQP 0-9-1, AMQP 1.0, Kafka and XMPP servers, each mechanism by",
+        "        its name in lower case, as curl's login option AUTH=<mech> names it:",
+        "        gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5,",
+        "        cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for",
+        "        POP3's APOP. For SMB: ntlmv1, the only login curl makes in an SMB",
+        "        session setup; accepting ntlm never accepts it. external logs in as the",
+        "        TLS client certificate --cacert verifies, so it is offered only on a",
+        "        connection that sent one. gssapi logs in with a Kerberos ticket checked",
+        "        against the --keytab keys, as the account named for the ticket's client",
+        "        principal, such as user@EXAMPLE.COM, and is offered first; a start that",
+        "        gives it without --keytab is refused (exit code 2). surl refuses a word",
+        "        outside the list as an option badly used (exit code 2). A test uses it",
+        "        to offer one method alone, such as --auth digest for curl's --digest.",
+        "        ntlm and negotiate are not in the default because an NTLM response is",
+        "        built on MD4 and HMAC-MD5 of the password and is open to relay and",
+        "        offline cracking, and Negotiate carries NTLM; ntlmv1 is not because its",
+        "        responses are DES over the bare MD4 hash of the password, open to",
+        "        offline cracking by anyone who sees one; gssapi is not because it needs",
+        "        --keytab; digest-md5 is not because RFC 6331 made it Historic and curl",
+        "        picks it over every other mechanism; apop is not because its MD5",
+        "        construction leaks password characters to anyone who can choose the",
+        "        timestamp it signs. surl warns on every start while --auth is given,",
+        "        from the info log level up, naming the methods it accepts.",
     ];
 
     private static readonly string[] AzPlaintextExplanationLines =
@@ -688,10 +688,16 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: amqp1, auth, http, imap, ldap, pop3, rtsp, security, smb,",
-                "        smtp, testing, websocket.",
+                "        Categories: amqp, amqp1, auth, http, imap, ldap, pop3, rtsp, security,",
+                "        smb, smtp, testing, websocket.",
                 "",
             ]);
+
+    [TestMethod]
+    [DataRow("amqp", DisplayName = "AMQP 0-9-1")]
+    [DataRow("amqp1", DisplayName = "AMQP 1.0")]
+    public void Answer_AmqpCategory_ListsAuth(string category) =>
+        StringAssert.Contains(HelpText.Answer(category).Output, "--auth <methods>");
 
     [TestMethod]
     [DataRow("--manual", DisplayName = "Long name")]

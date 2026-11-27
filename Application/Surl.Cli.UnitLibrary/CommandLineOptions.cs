@@ -35,8 +35,9 @@ internal static class CommandLineOptions
 
     private const string AuthExplanation =
         "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
-        + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
-        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5, "
+        + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SASL logins to the SMTP, IMAP, POP3, LDAP, "
+        + "AMQP 0-9-1, AMQP 1.0, Kafka and XMPP servers, each mechanism by its name in lower case, as curl's login "
+        + "option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5, "
         + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP. For SMB: ntlmv1, "
         + "the only login curl makes in an SMB session setup; accepting ntlm never accepts it. "
         + "external logs in as the TLS client certificate --cacert verifies, so it is "
@@ -301,7 +302,7 @@ internal static class CommandLineOptions
             new(null, "Accept passwords in clear (warns)", ["amqp1", "auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "security", "smtp", "stomp", "testing", "websocket"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["amqp1", "auth", "http", "imap", "ldap", "pop3", "rtsp", "security", "smb", "smtp", "testing", "websocket"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
+            new("<methods>", "Authentication methods accepted", ["amqp", "amqp1", "auth","http", "imap", "ldap", "pop3", "rtsp", "security", "smb", "smtp", "testing", "websocket"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
                 AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["ldap", "security", "smb", "testing", "tls"], IsInShortList: false, Default: "off",

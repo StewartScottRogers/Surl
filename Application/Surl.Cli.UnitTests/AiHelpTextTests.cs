@@ -705,6 +705,18 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Auth_SaysAuthSetsTheSaslMechanismsOfEveryServerThatReadsItForSaslTheAmqpOnesIncluded()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+        var manual = string.Join(' ', ManualText.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        StringAssert.Contains(page, "and for SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka and XMPP servers each mechanism by its lower-case name,");
+        StringAssert.Contains(page, "external and aws-sigv4, and the Kafka and XMPP servers accept SCRAM too.");
+        StringAssert.Contains(manual, "For SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka and XMPP servers, each mechanism by its name in lower case,");
+        StringAssert.Contains(manual, "external and aws-sigv4, and the Kafka and XMPP servers accept SCRAM too.");
+    }
+
+    [TestMethod]
     public void Answer_Auth_SaysTheUnusedKeytabWarningIsNotWrittenForASocks5Listener()
     {
         var page = AiHelpText.Answer("auth").Output;
