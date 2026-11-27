@@ -38,3 +38,4 @@ The short descriptions of `--allow-anonymous` no longer say that any or every lo
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
