@@ -30,3 +30,4 @@ Found in BL-1880. The TLS-SRP paragraph of the `tls` topic in `Application/Surl.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
