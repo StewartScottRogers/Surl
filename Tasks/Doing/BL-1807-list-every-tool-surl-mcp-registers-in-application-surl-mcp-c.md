@@ -29,3 +29,4 @@ Found by BL-1799, which counted 25 names there against the 40 `registry.AddTool`
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
