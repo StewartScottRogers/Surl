@@ -325,8 +325,11 @@ decision 6). The terms below are defined in the [glossary](../Wiki/Glossary.md),
   `101 Switching Protocols` carries `Date`, `Server: surl`, `Upgrade`, `Connection` and the
   `Sec-WebSocket-Accept` RFC 6455 requires; no subprotocol or extension is ever selected.
 - **The logins** (ADR-0071 decision 3): the upgrade is judged through
-  `IHttpAuthenticationSession` as an HTTP `GET` is - no login needed with no account configured,
-  one needed once any is, Basic and Bearer over `ws://` refused `403` unchecked without
+  `IHttpAuthenticationSession` as an HTTP `GET` is - without `--allow-anonymous`, no login needed
+  on a scheme that has never had an account and that no `--user-ldap` directory serves, one needed
+  once it has had an account, a removal of the last while the server runs included
+  ([ADR-0132](../Planning/Decisions/ADR-0132-how-the-account-book-changes-while-the-server-runs.md)
+  amendment 5), Basic and Bearer over `ws://` refused `403` unchecked without
   `--allow-plaintext-auth` - and a `401` carries the HTTP challenges.
 - **What surl sends** (decision 4): the file at the request path as one binary message, or a
   directory's listing as one text message (each name, `/` after a directory, then LF), in frames
@@ -449,10 +452,14 @@ defined in the [glossary](../Wiki/Glossary.md), section "LDAP, SMB and RTSP".
   `RECORD` and `TEARDOWN` store the RTP payloads the client sends, both only with
   `--allow-uploads` and within `--max-filesize`.
 - **The RTSP login** (decision 7): every request is judged through `IHttpAuthenticationSession`
-  as an HTTP request is: no login for a read while no account is configured, one for every
-  request, `OPTIONS` included, once any is, and always for an upload; Basic and Bearer refused
-  `403` unchecked without `--allow-plaintext-auth`; a `401` carrying the HTTP challenges, which
-  curl's `--digest` answers on the same connection.
+  as an HTTP request is: without `--allow-anonymous`, no login for a read on a scheme that has
+  never had an account and that no `--user-ldap` directory serves, one for every request,
+  `OPTIONS` included, once it has had an account, a removal of the last while the server runs
+  included
+  ([ADR-0132](../Planning/Decisions/ADR-0132-how-the-account-book-changes-while-the-server-runs.md)
+  amendment 5), and always for an upload; Basic and Bearer refused `403` unchecked without
+  `--allow-plaintext-auth`; a `401` carrying the HTTP challenges, which curl's `--digest` answers
+  on the same connection.
 - **Limits** (ADR-0072 decision 6, ADR-0073 decision 7, ADR-0074 decision 8): an LDAP message
   past `--max-message` gets the Notice of Disconnection, and the idle timeout and maximum duration
   the Notice `unavailable`; an SMB message past `--max-message` (at most 131071 bytes) is answered

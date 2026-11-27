@@ -152,13 +152,18 @@ Uploads still need `--allow-uploads`, in memory too.
 ## Logging in
 
 Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
-With no account configured, HTTP `GET` and `HEAD`, WebSocket upgrades and RTSP reads need no
-login and every login is refused; once any account is configured, every HTTP and RTSP request
-and WebSocket upgrade needs one. Every other HTTP method, every RTSP upload, every MQTT
-`CONNECT`, every FTP and SSH login - curl's own anonymous FTP login included - every SMTP
-`MAIL`, IMAP mailbox command and POP3 maildrop command, every LDAP search but the root DSE's and
-every SMB session setup needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
-of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
+On a scheme that has never had an account, HTTP `GET` and `HEAD`, WebSocket upgrades and RTSP
+reads need no login (unless a `--user-ldap` directory serves the scheme), and with no account
+and no such directory every login checked against the accounts is refused. Once a scheme has had
+an account allowed to log in to it, every HTTP and RTSP request and WebSocket upgrade on it needs
+a login, and still does after the last such account is removed while the server runs, until a
+reset or restore returns the accounts to a state in which it had none
+([ADR-0132 amendment 5](Documentation/Planning/Decisions/ADR-0132-how-the-account-book-changes-while-the-server-runs.md)).
+Every other HTTP method, every RTSP upload, every MQTT `CONNECT`, every FTP and SSH login -
+curl's own anonymous FTP login included - every SMTP `MAIL`, IMAP mailbox command and POP3
+maildrop command, every LDAP search but the root DSE's and every SMB session setup needs one
+whether or not there is an account. An account is `-u`/`--user <user:password>` (repeatable), or a
+line of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
 keeps the password out of the process list. An empty user name holds a Bearer token.
 Here `accounts.txt` holds the line `alice:s3cret`:
 

@@ -84,7 +84,10 @@ DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
 - EDNS(0) padding is answered on DoH and DoQ (`DnsResponseWriter.WritePaddedWithin`, multiples of 468; UDP and TCP never pad).
 - The optional login (BL-827; ADR-0092 decision 5): a handler made with an `IHttpAuthenticationSession` (the exchange constructor's
   `authentication`) judges every request to `/dns-query` by it, before the method, as a read: `401` with one
-  `WWW-Authenticate` per challenge, or `403`. `DnsConnectionRoutingProtocolServer` starts it from the `dns` policy; no account, no challenge.
+  `WWW-Authenticate` per challenge, or `403`. `DnsConnectionRoutingProtocolServer` starts it from the `dns` policy,
+  which challenges a request without credentials only when a login is required to read `dns`: once the scheme has had
+  an account, a removal of the last while the server runs included (ADR-0132, amendment 5), or when the
+  `--user-ldap` directory serves it. `--allow-anonymous` lets every request through.
 
 DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
 
