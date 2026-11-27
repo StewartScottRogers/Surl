@@ -75,3 +75,4 @@ before, and only text an agent reads changes. Upstream curl has no say in an MCP
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
