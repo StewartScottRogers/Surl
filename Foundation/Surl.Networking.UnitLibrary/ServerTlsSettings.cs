@@ -7,11 +7,14 @@ using Surl.TlsSrp;
 namespace Surl.Networking;
 
 /// <summary>
-/// The process's server-side TLS settings (ADR-0010, sections 3 and 5; ADR-0122 decision 5): either
-/// the certificate every listener serves through <see cref="System.Net.Security.SslStream"/>, its
-/// intermediates, and the trust anchors that verify a client certificate; or, made by
+/// The process's server-side TLS settings (ADR-0010, sections 3 and 5; ADR-0122 decision 5; ADR-0157):
+/// either the certificate every listener serves, its intermediates, and the trust anchors that verify
+/// a client certificate, served through <see cref="System.Net.Security.SslStream"/> or, for the
+/// TLS 1.3 handshakes <see cref="ServerTlsHandshake"/> gives it where <c>SslStream</c> has no TLS 1.3
+/// server, through <see cref="Surl.Tls13Stream.Tls13ServerStream"/>; or, made by
 /// <see cref="ForTlsSrp"/>, the SRP accounts every listener serves TLS-SRP with instead, through
-/// <see cref="TlsSrpServer"/>. Every handshake Surl runs over TCP uses one instance.
+/// <see cref="TlsSrpServer"/> and its <see cref="TlsSrpStream"/>. Every server handshake over a
+/// stream connection (TCP, Unix domain socket or FTP data) runs under these settings.
 /// </summary>
 /// <remarks>
 /// The certificate is exported to PKCS#12 in memory and re-imported for serving (ADR-0010,
@@ -98,8 +101,10 @@ public sealed class ServerTlsSettings : IDisposable
     }
 
     /// <summary>
-    /// The SRP accounts every handshake serves TLS-SRP with, or <see langword="null"/> when the
-    /// settings serve a certificate through <see cref="System.Net.Security.SslStream"/>.
+    /// The SRP accounts every handshake serves TLS-SRP with, through <see cref="TlsSrpServer"/> and
+    /// its <see cref="TlsSrpStream"/>, or <see langword="null"/> when the settings serve a certificate,
+    /// through <see cref="System.Net.Security.SslStream"/> or, where
+    /// <see cref="ServerTlsHandshake"/> chooses it, <see cref="Surl.Tls13Stream.Tls13ServerStream"/>.
     /// </summary>
     public TlsSrpAccounts? TlsSrpAccounts { get; }
 

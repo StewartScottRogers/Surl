@@ -3,9 +3,11 @@ using Surl.Tls13;
 namespace Surl.Networking;
 
 /// <summary>
-/// Reads the first TLS record off a transport and says whether it is a ClientHello that only a
-/// TLS 1.3 server can answer (ADR-0157, decision 1), keeping every byte it read so the chosen
-/// stream can have them replayed.
+/// Reads the first TLS record off a transport and says of a ClientHello in it whether it offers
+/// TLS 1.3 and no version below it (<see cref="OffersOnlyTls13"/>) and whether it offers TLS 1.3
+/// at all (<see cref="OffersTls13"/>), which a listener limited to TLS 1.3 goes by (ADR-0157,
+/// decision 1 and amendment 1). It keeps every byte it read so the chosen stream can have them
+/// replayed.
 /// </summary>
 internal sealed class ClientHelloPeek
 {

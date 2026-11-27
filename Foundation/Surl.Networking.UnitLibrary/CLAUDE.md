@@ -112,8 +112,12 @@ protocol server.
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN.
-- TLS-SRP (ADR-0122 decision 5; BL-567). `ServerTlsSettings.ForTlsSrp(accounts, random)` makes
-  settings with no certificate whose `TlsSrpAccounts` is set; `ServerTlsHandshake` then runs
+- TLS-SRP (ADR-0122 decision 5; BL-567). `ServerTlsSettings.ForTlsSrp(accounts, random, certificate)`
+  makes settings whose `TlsSrpAccounts` is set. `certificate`, a `TlsSrpServerCertificate`, is
+  optional (`null` by default): it signs the SRP key exchange, so without it only the unsigned
+  suites are served and with it the certificate-signed ones too (ADR-0122 decision 2).
+  `ServerTlsComposition.ComposeTlsSrp` in `Surl.Composition` passes one when `--cert` or
+  `--self-signed` gives a certificate. Under these settings `ServerTlsHandshake` runs
   `Surl.TlsSrp`'s `TlsSrpServer` over the transport instead of `SslStream`, on every listener and
   every `UpgradeToTlsAsync`. The session is TLS 1.2, the agreed SRP suite (IANA numbers, as
   `TlsCipherSuite` has them), ALPN `http/1.1` or none, SNI, no client certificate, and
@@ -141,12 +145,18 @@ protocol server.
   `StreamConnectionWatchTests` (a scripted stream: bytes then FIN, bytes then reset) cover it.
 - TLS minimums (ADR-0006, section 4; BL-048). `ServerTlsSettings.AcceptedVersions` is a
   `TlsVersionRange` (public): a lowest and a highest of TLS 1.0, 1.1, 1.2, 1.3, TLS 1.2 to
-  1.3 by default, whose `AcceptedProtocols` every handshake enables; a lowest above the
-  highest is `ArgumentException`. Every handshake refuses renegotiation
-  (`AllowRenegotiation = false`) and never sets `CipherSuitesPolicy`, so cipher suites are
-  the operating system's. The head timeout is the caller's: `Surl.Core` passes
-  `UpgradeToTlsAsync` a token cancelled at `ExchangeLimits.HeadTimeout` and writes the log
-  note. `Foundation/Surl.Networking.UnitTests/Fixtures` holds the upstream curl recordings showing its
+  1.3 by default; a lowest above the highest is `ArgumentException`.
+  For `SslStream` only (`ServerTlsSettings.CreateAuthenticationOptions`): the handshake enables
+  the range's `AcceptedProtocols`, refuses renegotiation (`AllowRenegotiation = false`) and never
+  sets `CipherSuitesPolicy`, so its cipher suites are the operating system's. TLS-SRP ignores
+  `AcceptedVersions`: it is TLS 1.2 only, with `Surl.TlsSrp`'s SRP suites, and `TlsSrpStream`
+  answers a renegotiation attempt (a handshake record after the handshake) with a
+  `no_renegotiation` warning. The hand-built `Tls13ServerStream` is TLS 1.3, which has no
+  renegotiation, with `Surl.Tls13`'s cipher suites; it serves only when the range includes
+  TLS 1.3, and the range's `Lowest` decides which ClientHellos it takes (the TLS 1.3 bullet
+  below). The head timeout is the caller's: `Surl.Core` passes `UpgradeToTlsAsync` a token
+  cancelled at `ExchangeLimits.HeadTimeout` and writes the log note.
+  `Foundation/Surl.Networking.UnitTests/Fixtures` holds the upstream curl recordings showing its
   defaults complete with renegotiation off.
 - Reading the TLS option files (ADR-0010, sections 3 and 5), at startup before any listener
   binds. `ServerCertificateFileLoader.Load` reads `--cert` as `ServerCertificateFormat`
@@ -157,10 +167,11 @@ protocol server.
   `ClientTrustAnchorFileLoader.Load` reads `--cacert` (PEM blocks or one DER certificate).
   Every failure is `TlsFileLoadException` carrying a `TlsFileLoadFailure` -
   `ServerCertificateUnusable`, `CaCertificateNotFound`, `CaCertificateUnreadable` - which
-  `Surl.Console` maps to `CertificateProblem` (58), `FailedInit` (2) and
-  `CaCertificateBadFile` (77). Parsing the `--cert-type`/`--key-type` words and refusing
-  `--key` with `P12` is the command line's job; the loader takes the enums. Tests write
-  generated certificates and keys under `Path.GetTempPath()` (`TemporaryTlsFiles`).
+  `Surl.Composition`'s `ServerTlsComposition.DescribeTlsFileFailure` maps to
+  `CertificateProblem` (58), `FailedInit` (2) and `CaCertificateBadFile` (77). Parsing the
+  `--cert-type`/`--key-type` words and refusing `--key` with `P12` is the command line's job;
+  the loader takes the enums. Tests write generated certificates and keys under
+  `Path.GetTempPath()` (`TemporaryTlsFiles`).
 - The TLS tests run real `SslStream` handshakes over `InMemoryDuplexStream` (test project)
   with certificates made by `CertificateRequest`, so they are fast tests on every platform;
   `TcpConnectionListenerTlsTests` (Integration) repeats one over a loopback socket.

@@ -93,7 +93,7 @@ internal sealed class ServerTlsHandshake
                 transport,
                 cancellationToken)
             : settings.CanServeTls13Stream && tls13Support.SslStreamLacksTls13Server
-                ? AuthenticateTls13OnlyWithHandBuiltStreamAsync(transport, cancellationToken)
+                ? AuthenticateByClientHelloAsync(transport, cancellationToken)
                 : AuthenticateSslStreamAsync(transport, cancellationToken);
 
     private static async Task<(Stream Stream, TlsSession Session)> AuthenticateTlsSrpAsync(
@@ -111,10 +111,15 @@ internal sealed class ServerTlsHandshake
         }
     }
 
-    // ADR-0157 decision 1: the platform's SslStream has no TLS 1.3 server, so a client that offers
-    // TLS 1.3 and nothing lower is served by the hand-built stream; any other client, and any hello
-    // that is not one whole ClientHello record, goes to SslStream with the bytes read replayed.
-    private async Task<(Stream Stream, TlsSession Session)> AuthenticateTls13OnlyWithHandBuiltStreamAsync(
+    // ADR-0157 decision 1 and amendment 1: the platform's SslStream has no TLS 1.3 server, so the
+    // first record is read and the handshake goes one of three ways:
+    // - the hand-built stream serves a ClientHello that offers TLS 1.3 and nothing lower and, on a
+    //   listener limited to TLS 1.3, every ClientHello that offers TLS 1.3;
+    // - on a listener limited to TLS 1.3, a parsed ClientHello that does not offer TLS 1.3 is
+    //   refused with a fatal protocol_version alert;
+    // - SslStream gets every other ClientHello, and any bytes that do not parse as one whole
+    //   ClientHello record, with the bytes read replayed.
+    private async Task<(Stream Stream, TlsSession Session)> AuthenticateByClientHelloAsync(
         Stream transport, CancellationToken cancellationToken)
     {
         ClientHelloPeek peek;

@@ -14,7 +14,8 @@ namespace Surl.Networking;
 /// transport failures into <see cref="IOException"/>; the transport is the caller's, so
 /// this runs without a socket in the fast tests. With a <see cref="ServerTlsHandshake"/> it
 /// can be upgraded to TLS (ADR-0010, section 1), after which it reads and writes through the
-/// secured stream the handshake returns and so still carries plaintext.
+/// secured stream the handshake returns - a <see cref="TlsSrpStream"/>, a
+/// <see cref="Tls13ServerStream"/> or an <see cref="SslStream"/> - and so still carries plaintext.
 /// </summary>
 /// <remarks>Not safe for concurrent reads, or concurrent writes; one read and one write may run at once.</remarks>
 internal sealed class StreamConnection : IConnection
