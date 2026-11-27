@@ -52,6 +52,11 @@ them. These statements say or imply otherwise:
 
 ## Notes
 
+- From BL-1840 (2026-11-27): the amendment is ADR-0132 amendment 3, with a table of what is held and who reads it.
+  Two incomplete (not false) statements in the same library: the `AccountBook` class summary leaves out the Azure
+  Storage key, and the XML docs of `AwsSigV4Account` and `NamedAccountCredentials` do not say `coaps` and Cloud
+  Storage's V4 HMAC also read the secret.
+
 ## Log
 
 - 2026-11-27: Created.

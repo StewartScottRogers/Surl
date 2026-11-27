@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1840 — Decide what an account snapshot promises about the passwords it holds
 
@@ -44,21 +44,32 @@ is a security promise that ships in the XML docs of public types (BL-1841 correc
 
 ## Acceptance criteria
 
-- [ ] ADR-0132 has an amendment, marked "Decided by Claude under Stewart's delegation", saying that a snapshot of a
+- [x] ADR-0132 has an amendment, marked "Decided by Claude under Stewart's delegation", saying that a snapshot of a
       named account holds the password's SHA-256 and derived credentials, that some of those are the password's
       UTF-8 bytes (or, for Azure Storage, the bytes a base64 password decodes to), which login methods need them,
       and why they are kept; the ADR's "Amended by" line lists it.
-- [ ] The amendment says the empty-name Bearer-token account is held as its SHA-256 only.
-- [ ] ADR-0124 decision 3 no longer states "password hashes only, never a clear password" without a correction or
+- [x] The amendment says the empty-name Bearer-token account is held as its SHA-256 only.
+- [x] ADR-0124 decision 3 no longer states "password hashes only, never a clear password" without a correction or
       a pointer to the amendment, and its "Amended by" line names it.
-- [ ] ADR-0036 decision 7's "still keeps no clear password" carries a pointer to the amendment or to ADR-0043.
-- [ ] The ADR index rows in `Documentation/Planning/Decisions/README.md` for ADR-0132 and ADR-0124 state nothing
+- [x] ADR-0036 decision 7's "still keeps no clear password" carries a pointer to the amendment or to ADR-0043.
+- [x] The ADR index rows in `Documentation/Planning/Decisions/README.md` for ADR-0132 and ADR-0124 state nothing
       the amendment contradicts.
-- [ ] Only files under `Documentation/Planning/Decisions` change.
+- [x] Only files under `Documentation/Planning/Decisions` change.
 
 ## Notes
+
+- Decision (ADR-0132 amendment 3, decided by Claude under Stewart's delegation): keep the code, correct the
+  promise. Dropping the bytes would remove logins, and encrypting them in the same process protects nothing.
+- Checked against the code on 2026-11-27: `coaps` and Cloud Storage's V4 HMAC read `AwsSigV4Account.Secret`;
+  `CRAM-MD5`, `DIGEST-MD5` and `APOP` read `ChallengeResponseAccount.Password` (one shared array). A snapshot
+  shares the book's unchanging records and nothing zeroes them. `AccountBook.TryFindPreSharedKey` is public and
+  returns the password bytes to in-process code; the amendment records and accepts that.
+- Also given a pointer: ADR-0158 (directory snapshot, "the account book's hashes") and ADR-0170 decision 12.
+- `dotnet build` clean (0 warnings) and the fast tests green on 2026-11-27. No code changed.
+- Left for BL-1841, which already covers the library and `Surl.Api` documents: noted there too.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0132 amendment 3 says what an account snapshot holds of each password, matching AccountStore; ADR-0124, ADR-0036, ADR-0158, ADR-0170 and the index point to it
