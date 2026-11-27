@@ -13,11 +13,11 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// The user name stays visible and every header, size and length octet is logged as received; only
 /// the password's bytes change. Every other frame is logged as received, and so is every byte after
 /// one that is not an AMQP protocol header or a SASL frame of at most
-/// <see cref="Amqp1FrameLimits.MinMaxFrameSize"/> bytes (the AMQP frames after SASL, or TLS records).
+/// <see cref="Amqp1FrameLimits.LargestMaxFrameSizeOffered"/> bytes (the AMQP frames after SASL, or TLS records).
 /// </summary>
 /// <remarks>
-/// A SASL frame is held until it is whole, never more than <see cref="Amqp1FrameLimits.MinMaxFrameSize"/>
-/// bytes. A <c>sasl-init</c> cut off by the end of the exchange is logged up to its descriptor and
+/// A SASL frame is held until it is whole, never more than
+/// <see cref="Amqp1FrameLimits.LargestMaxFrameSizeOffered"/> bytes, the largest the negotiation ever reads. A <c>sasl-init</c> cut off by the end of the exchange is logged up to its descriptor and
 /// then as one mask.
 /// </remarks>
 internal sealed class Amqp1SaslInitBytesRedactor : IReceivedBytesRedactor
@@ -136,7 +136,7 @@ internal sealed class Amqp1SaslInitBytesRedactor : IReceivedBytesRedactor
         }
 
         var size = BinaryPrimitives.ReadUInt32BigEndian(bytes);
-        if (size < FrameHeaderBytes || size > Amqp1FrameLimits.MinMaxFrameSize)
+        if (size < FrameHeaderBytes || size > Amqp1FrameLimits.LargestMaxFrameSizeOffered)
         {
             stage = Stage.PassThrough;
             return true;

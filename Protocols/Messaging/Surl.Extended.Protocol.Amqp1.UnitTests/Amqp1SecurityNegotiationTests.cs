@@ -383,7 +383,7 @@ public sealed class Amqp1SecurityNegotiationTests
     [DataRow("0000001100010000" + "005341C00401A30150", DisplayName = "sasl-init in an AMQP frame")]
     [DataRow("0000001102010000" + "005343C00401A00178", DisplayName = "sasl-response instead of sasl-init")]
     [DataRow("0000000C02010000" + "00534145", DisplayName = "sasl-init without its mechanism")]
-    [DataRow("0000020102010000", DisplayName = "SASL frame above 512 bytes")]
+    [DataRow("0001000102010000", DisplayName = "SASL frame above 65536 bytes")]
     public async Task NegotiateAsync_AnythingButASaslInit_ClosesWithNoBytes(string frame)
     {
         var connection = Connection(SaslHeader + frame);
@@ -393,6 +393,69 @@ public sealed class Amqp1SecurityNegotiationTests
         Assert.IsFalse(result.IsReadyForAmqp);
         Assert.AreEqual(SaslHeader + MechanismsPlain, Convert.ToHexString(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
+    }
+
+    // ADR-0107's BL-1884 amendment: a Kerberos AP-REQ does not fit MIN-MAX-FRAME-SIZE.
+    [TestMethod]
+    public async Task NegotiateAsync_SaslInitWithA700ByteInitialResponse_IsHandedToThePolicyAndAnsweredOutcomeOk()
+    {
+        var token = Enumerable.Range(0, 700).Select(index => (byte)index).ToArray();
+        var policy = new UnitTestAmqp1SaslPolicy("GSSAPI")
+        {
+            ScriptedSteps = [new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null)],
+        };
+        var init = Hex(Amqp1Frame.Carrying(0, new Amqp1SaslInit(new Amqp1Symbol("GSSAPI")) { InitialResponse = token }));
+        var connection = Connection(SaslHeader + init + AmqpHeader);
+
+        var result = await Negotiation(policy, connection).NegotiateAsync();
+
+        Assert.IsTrue(result.IsReadyForAmqp);
+        Assert.AreEqual("alice", result.AccountName);
+        CollectionAssert.AreEqual(token, policy.Starts.Single().InitialResponse!.Value.ToArray());
+        StringAssert.EndsWith(Convert.ToHexString(connection.WrittenBytes), OutcomeOk + AmqpHeader);
+    }
+
+    [TestMethod]
+    public async Task NegotiateAsync_SaslResponseOver512Bytes_IsHandedToThePolicy()
+    {
+        var answer = new byte[700];
+        var policy = new UnitTestAmqp1SaslPolicy("GSSAPI")
+        {
+            ScriptedSteps =
+            [
+                UnitTestAmqp1SaslPolicy.Challenge(string.Empty),
+                new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null),
+            ],
+        };
+        var response = Hex(Amqp1Frame.Carrying(0, new Amqp1SaslResponse(answer)));
+        var connection = Connection(SaslHeader + Hex(Init("GSSAPI", null)) + response + AmqpHeader);
+
+        var result = await Negotiation(policy, connection).NegotiateAsync();
+
+        Assert.IsTrue(result.IsReadyForAmqp);
+        CollectionAssert.AreEqual(answer, policy.ScriptedResponses.Single());
+    }
+
+    [TestMethod]
+    [DataRow(1048576L, 65536, true, DisplayName = "default --max-message, at 65536")]
+    [DataRow(0L, 65536, true, DisplayName = "no --max-message limit, at 65536")]
+    [DataRow(0L, 65537, false, DisplayName = "no --max-message limit, above 65536")]
+    [DataRow(600L, 600, true, DisplayName = "--max-message 600, at it")]
+    [DataRow(600L, 601, false, DisplayName = "--max-message 600, above it")]
+    [DataRow(100L, 512, true, DisplayName = "--max-message below 512, at 512")]
+    [DataRow(100L, 513, false, DisplayName = "--max-message below 512, above 512")]
+    public async Task NegotiateAsync_SaslInitFrameSize_IsReadUpToTheMaxFrameSizeOffered(long maxMessageBytes, int frameBytes, bool isRead)
+    {
+        var policy = new UnitTestAmqp1SaslPolicy("PLAIN");
+        var connection = Connection(SaslHeader + Convert.ToHexString(PlainInitOfSize(frameBytes)));
+        var context = Context(new RecordingExchangeLog()) with
+        {
+            Limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 102400, 8192, maxMessageBytes, 104857600),
+        };
+
+        await new Amqp1SecurityNegotiation(policy, Amqp1SecurityNegotiationOptions.Default, connection, context).NegotiateAsync();
+
+        Assert.HasCount(isRead ? 1 : 0, policy.Starts);
     }
 
     [TestMethod]
@@ -416,6 +479,22 @@ public sealed class Amqp1SecurityNegotiationTests
         });
 
     private static string Hex(Amqp1Frame frame) => Convert.ToHexString(frame.Encode());
+
+    // A PLAIN sasl-init frame of exactly frameBytes bytes: the extended header (DOFF, Part 2 section
+    // 2.3.1) is left alone, and the initial response is as long as it takes.
+    private static byte[] PlainInitOfSize(int frameBytes)
+    {
+        var responseBytes = frameBytes;
+        byte[] encoded;
+        do
+        {
+            encoded = Amqp1Frame.Carrying(0, new Amqp1SaslInit(new Amqp1Symbol("PLAIN")) { InitialResponse = new byte[responseBytes] }).Encode();
+            responseBytes -= encoded.Length - frameBytes;
+        }
+        while (encoded.Length != frameBytes);
+
+        return encoded;
+    }
 
     private Amqp1SecurityNegotiation Negotiation(
         UnitTestAmqp1SaslPolicy policy,

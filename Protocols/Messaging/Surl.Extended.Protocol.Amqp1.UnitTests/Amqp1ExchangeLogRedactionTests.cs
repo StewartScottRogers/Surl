@@ -207,8 +207,17 @@ public sealed class Amqp1ExchangeLogRedactionTests
     {
         var tiny = Concat(SaslHeader, [0, 0, 0, 4], PlainInit);
         AssertLogged(tiny, tiny);
-        var huge = Concat(SaslHeader, [0, 0, 2, 1], PlainInit);
+        var huge = Concat(SaslHeader, [0, 1, 0, 1], PlainInit);
         AssertLogged(huge, huge);
+    }
+
+    [TestMethod]
+    public void PlainInitOver512Bytes_Password_IsLoggedMasked()
+    {
+        var password = new string('s', 700);
+        var init = Init("PLAIN", "\0alice\0" + password, wide: true);
+
+        AssertLogged(Concat(SaslHeader, Replace(init, password)), Concat(SaslHeader, init));
     }
 
     [TestMethod]

@@ -659,4 +659,7 @@ The AMQP servers keep offering `GSSAPI`, and decision 2's table gains a row:
   (ADR-0107 decision 2), which the AP-REQs measured in Amendment 1 (635 bytes or more) exceed, so
   such a ticket closes an `amqp1` or `amqp1s` connection before it is checked. AMQP 0-9-1 limits a
   frame before `connection.tune-ok` to 4096 bytes (ADR-0112). Whether surl accepts larger AMQP 1.0
-  SASL frames is a follow-up task's decision, not this one's.
+  SASL frames is a follow-up task's decision, not this one's. That decision is
+  [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md)'s BL-1884 amendment
+  (2026-11-27): surl now reads an AMQP 1.0 SASL frame up to 65536 bytes (or `--max-message`), so
+  such a ticket is checked.

@@ -26,7 +26,8 @@ The type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
   frame, a type other than AMQP `0x00` or SASL `0x01` - and refuses each as
   `amqp:connection:framing-error` without reading the rest; it skips the extended header when DOFF
   is above 2. An empty frame (no body) is a heartbeat. `Amqp1FrameLimits` holds MIN-MAX-FRAME-SIZE
-  (512) and the `max-frame-size` offered for a `--max-message` (at most 65536).
+  (512), the `max-frame-size` offered for a `--max-message` (at most 65536) and the largest SASL
+  frame read, which is the same number (ADR-0107's BL-1884 amendment).
 - `Amqp1FrameBody.Read` reads the performative at the start of a frame body and the payload after
   it. The nine AMQP performatives (`Amqp1Open` to `Amqp1Close`) and the five SASL ones
   (`Amqp1SaslMechanisms` to `Amqp1SaslOutcome`) are records whose fields default as section 2.7
@@ -54,8 +55,11 @@ Protocol headers and SASL (BL-511; ADR-0107 decisions 1 and 2):
   every other login goes through `ISaslAuthenticationPolicy`, each challenge a `sasl-challenge`, each
   answer a `sasl-response`. SCRAM's server-final travels as the outcome's `additional-data`. After
   outcome 0 only `AMQP 0 1 0 0` is accepted; anything else, a further SASL frame included, is
-  answered `AMQP 0 1 0 0` and closed. A SASL frame over 512 bytes, an AMQP frame or a frame out of
-  order closes with no bytes. Headers and frames are read exactly, so pipelined bytes are kept.
+  answered `AMQP 0 1 0 0` and closed. A SASL frame is read up to 65536 bytes, or `--max-message`
+  when smaller, never below 512 (past the specification's 512, so a Kerberos ticket reaches
+  `GSSAPI`); a larger one, an AMQP frame or a frame out of order closes with no bytes. Headers and
+  frames are read exactly, so pipelined bytes are kept. `Amqp1SaslInitBytesRedactor` masks a
+  `PLAIN` password in the exchange log in any SASL frame of 65536 bytes at most.
 
 Connections, sessions and links (BL-512; ADR-0107 decisions 3, 4 and 7):
 

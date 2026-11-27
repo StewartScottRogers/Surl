@@ -13,9 +13,9 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// connection with a certificate is answered in kind and upgraded, and the client starts again
 /// inside TLS. Every other header is answered <c>AMQP 3 1 0 0</c> and closed. After a successful
 /// <c>sasl-outcome</c> only <c>AMQP 0 1 0 0</c> is accepted; anything else - a further SASL frame
-/// included - is answered <c>AMQP 0 1 0 0</c> and closed. SASL frames are at most 512 bytes; a
-/// larger one, an AMQP frame, or one out of order closes the connection with no bytes, since the
-/// SASL layer has no error frame. Headers and frames are read exactly, never a byte past them, so
+/// included - is answered <c>AMQP 0 1 0 0</c> and closed. A SASL frame is read up to
+/// <see cref="Amqp1FrameLimits.LargestSaslFrameSizeRead"/>; a larger one, an AMQP frame, or one
+/// out of order closes the connection with no bytes, since the SASL layer has no error frame. Headers and frames are read exactly, never a byte past them, so
 /// pipelined bytes are kept for the next layer. A failed TLS handshake throws
 /// <see cref="TlsHandshakeException"/>, which the engine notes. One instance serves one connection.
 /// </remarks>
@@ -179,11 +179,11 @@ public sealed class Amqp1SecurityNegotiation(
         return new(true, accountName);
     }
 
-    // The performative when the next frame is a SASL frame of 512 bytes at most carrying a T; null otherwise.
+    // The performative when the next frame is a SASL frame, no larger than the largest read, carrying a T; null otherwise.
     private async ValueTask<T?> ReadSaslPerformativeAsync<T>()
         where T : Amqp1Performative
     {
-        var read = await frameReader.ReadFrameAsync(Amqp1FrameLimits.MinMaxFrameSize, CancellationToken);
+        var read = await frameReader.ReadFrameAsync(Amqp1FrameLimits.LargestSaslFrameSizeRead(context.Limits.MaxMessageBytes), CancellationToken);
         if (read.Frame is not { Type: Amqp1FrameType.Sasl } frame)
         {
             return null;
