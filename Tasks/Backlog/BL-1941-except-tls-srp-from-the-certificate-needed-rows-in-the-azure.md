@@ -1,5 +1,5 @@
 ---
-id: BL-1939
+id: BL-1941
 title: Except TLS-SRP from the certificate-needed rows in the Azure Storage, OCI registry and S3 conformance tables
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1939 — Except TLS-SRP from the certificate-needed rows in the Azure Storage, OCI registry and S3 conformance tables
+# BL-1941 — Except TLS-SRP from the certificate-needed rows in the Azure Storage, OCI registry and S3 conformance tables
 
 ## Goal
 

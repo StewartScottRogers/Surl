@@ -1,5 +1,5 @@
 ---
-id: BL-1940
+id: BL-1942
 title: Correct the certificate-only TLS upgrade claims in the Surl.Console mail, FTP and LDAP test class summaries
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1940 — Correct the certificate-only TLS upgrade claims in the Surl.Console mail, FTP and LDAP test class summaries
+# BL-1942 — Correct the certificate-only TLS upgrade claims in the Surl.Console mail, FTP and LDAP test class summaries
 
 ## Goal
 
