@@ -18,14 +18,39 @@ public sealed class CoapsCompositionTests
     [DataRow(false, false, false)]
     [DataRow(true, false, true)]
     [DataRow(false, true, false)]
-    public void CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAnAccountExists(bool allowAnonymous, bool hasAccount, bool expectedAnonymous)
+    public void CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAReadNeedsALogin(bool allowAnonymous, bool hasAccount, bool expectedAnonymous)
     {
         var services = ComposeServices(allowAnonymous, hasAccount ? [new Account("alice", "pw")] : []);
 
         var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
 
         Assert.AreEqual(expectedAnonymous, rules.AllowsAnonymous);
-        Assert.AreEqual(hasAccount, rules.HasAccounts());
+        Assert.AreEqual(hasAccount, rules.IsLoginRequiredToRead());
+    }
+
+    [TestMethod]
+    [DataRow(false, true, DisplayName = "accounts built empty, the one account added")]
+    [DataRow(true, false, DisplayName = "accounts built with the one account")]
+    public void CoapAccessRulesFor_OnlyAccountRemoved_RefusesAnUnauthenticatedReadUntilAResetOfAccountsBuiltEmpty(
+        bool isBuiltWithTheAccount, bool mayReadAfterReset)
+    {
+        var account = new Account("alice", "pw");
+        var services = ComposeServices(false, isBuiltWithTheAccount ? [account] : []);
+        var book = services.AuthenticationPolicy.Settings.Accounts;
+        if (!isBuiltWithTheAccount)
+        {
+            book.Add(account);
+        }
+
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+
+        Assert.IsTrue(book.Remove("alice"));
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Reset();
+
+        Assert.AreEqual(mayReadAfterReset, rules.MayRead(peerIsAuthenticated: false));
     }
 
     [TestMethod]

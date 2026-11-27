@@ -12,26 +12,26 @@ public sealed class CoapAccessRulesTests
     [DataRow(false, true, true, true, true)]
     [DataRow(false, false, false, true, false)]
     [DataRow(false, true, false, false, false)]
-    public void MayReadAndMayWrite_FollowTheTable(bool allowsAnonymous, bool hasAccounts, bool authenticated, bool reads, bool writes)
+    public void MayReadAndMayWrite_FollowTheTable(bool allowsAnonymous, bool isLoginRequired, bool authenticated, bool reads, bool writes)
     {
-        var rules = new CoapAccessRules(allowsAnonymous, () => hasAccounts);
+        var rules = new CoapAccessRules(allowsAnonymous, () => isLoginRequired);
 
         Assert.AreEqual(reads, rules.MayRead(authenticated));
         Assert.AreEqual(writes, rules.MayWrite(authenticated));
     }
 
     [TestMethod]
-    public void Constructor_NullHasAccounts_Throws() =>
+    public void Constructor_NullIsLoginRequiredToRead_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => new CoapAccessRules(AllowsAnonymous: false, null!));
 
     [TestMethod]
-    public void MayRead_AccountsChangeAfterConstruction_AsksAgain()
+    public void MayRead_LoginBecomesRequiredAfterConstruction_AsksAgain()
     {
-        var hasAccounts = false;
-        var rules = new CoapAccessRules(AllowsAnonymous: false, () => hasAccounts);
+        var isLoginRequired = false;
+        var rules = new CoapAccessRules(AllowsAnonymous: false, () => isLoginRequired);
         Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
 
-        hasAccounts = true;
+        isLoginRequired = true;
 
         Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
     }

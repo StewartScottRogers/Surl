@@ -17,9 +17,9 @@ public sealed class SecureCoapProtocolServerTests
 {
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(10);
 
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, IsLoginRequiredToRead: () => false);
 
-    private static readonly CoapAccessRules Private = new(AllowsAnonymous: false, HasAccounts: () => true);
+    private static readonly CoapAccessRules Private = new(AllowsAnonymous: false, IsLoginRequiredToRead: () => true);
 
     // RFC 7252 section 3: CON GET, Message ID 0x0102, token 0x7A, Uri-Path "a.txt" (delta 11, length 5).
     private static readonly byte[] GetATxt = [0x41, 0x01, 0x01, 0x02, 0x7A, 0xB5, (byte)'a', (byte)'.', (byte)'t', (byte)'x', (byte)'t'];

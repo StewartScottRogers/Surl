@@ -13,7 +13,7 @@ public sealed class CoapFlowObserversTests
 {
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(10);
 
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, IsLoginRequiredToRead: () => false);
 
     // RFC 7641 section 2 and RFC 7252 section 3: CON GET, Message ID 1, token 4A, Observe 0 (delta 6,
     // length 0), Uri-Path "a.txt" (delta 5, length 5).
@@ -237,13 +237,13 @@ public sealed class CoapFlowObserversTests
     [TestMethod]
     public async Task ServeAsync_AccountAddedWhileObserved_Notifies401WithoutObserveAndRemovesTheObserver()
     {
-        var hasAccounts = false;
+        var isLoginRequired = false;
         await using var harness = new Harness(
-            new CoapTestStore().WithFile("a.txt", "one"), rules: new CoapAccessRules(AllowsAnonymous: false, () => hasAccounts));
+            new CoapTestStore().WithFile("a.txt", "one"), rules: new CoapAccessRules(AllowsAnonymous: false, () => isLoginRequired));
         var observer = harness.Open(Registration);
         await observer.ReceiveAsync(1);
 
-        hasAccounts = true;
+        isLoginRequired = true;
         await harness.AdvanceWhenTimerIsPendingAsync(TimeSpan.FromSeconds(60));
         var notification = await observer.ReceiveAsync(2);
         observer.Flow.DeliverFromClient(new byte[] { 0x60, 0x00, 0xFF, 0xFF });

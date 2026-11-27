@@ -240,7 +240,7 @@ a keyword, the Level says "(unkeyworded)". Rows from ADR-0083 and ADR-0087 cover
 | Coap:RFC7252-7.1-1 | MUST, MAY | A server offering discovery supports port 5683; 5684 may serve it too. | `CommandLineRunnerExtendedProtocolTests.RunAsync_CoapListenUrl_ListensAtItsDefaultPort` |
 | Coap:ADR0083-6-1 | MUST | `SURL_EXTENSIONS=0` leaves `coap` and `coaps` unregistered. | `CommandLineRunnerExtendedProtocolTests.ComposeExtendedSchemes_ThisBuild_RegistersCoapAndCoapsWithTheSwitchUnsetAndNotWithItAtZero` |
 | Coap:ADR0087-3-1 | MUST | A `coaps` listen URL with neither a certificate nor an account is refused before any listener binds, `CertificateProblem` (58). | `CommandLineRunnerExtendedProtocolTests.RunAsync_CoapsWithoutACertificateOrAnAccount_ExitsWithCertificateProblem`, `CoapsCompositionTests.FindListenUrlWithoutCertificate_CoapsWithNoAccountOrCertificate_IsTheListenUrl` |
-| Coap:ADR0096-6-1 | MUST | The access rules (`--allow-anonymous`, whether an account exists) and the PSK lookup from the accounts reach both server types. | `CoapsCompositionTests.CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAnAccountExists`, `LookUpKey_Identity_IsTheAccountsPasswordOrNothing`, `ServeAsync_AccountsAloneWithNoCertificate_BuildsAPreSharedKeyServer` |
+| Coap:ADR0096-6-1 | MUST | The access rules (`--allow-anonymous`, whether a read needs a login) and the PSK lookup from the accounts reach both server types. | `CoapsCompositionTests.CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAReadNeedsALogin`, `LookUpKey_Identity_IsTheLiveBooksPasswordOrNothing`, `ServeAsync_AccountsAloneWithNoCertificate_BuildsAPreSharedKeyServer` |
 
 ## Live client (BL-477; ADR-0083 decisions 1 to 3)
 
