@@ -355,18 +355,36 @@ await server.RestoreAsync(clean);           // back to the snapshot
 await server.ResetAsync();                  // or back to how the server started
 ```
 
-`ResetAsync` returns files, mail, messages and accounts, and the keyspace, directory and zones (ADR-0158),
-to the server's start: the `Files` given at start and no others, the configured mailboxes holding nothing, no
-retained or queued messages, exactly the accounts given at start, empty Redis databases, and the directory
-and zones as `--directory` loaded them (empty without it). It also clears the broker state the message bus
-carries (ADR-0159): the AMQP 0-9-1 broker's declared exchanges and bindings and the MQTT 5 broker's sessions
-kept with no connection. A snapshot is an in-memory copy (at most
-256 MiB) that only the server that took it restores; another
+`ResetAsync`, `SnapshotAsync` and `RestoreAsync` take every store the server holds, in this order: files,
+mail, messages and accounts, then, each only when composed or served, proxy accounts, TLS-SRP accounts, the
+Redis keyspace, the LDAP directory, AMQP 0-9-1 exchanges, Kafka producers, sessions, DNS zones and uploads
+(`StoreKind` names each; ADR-0158, ADR-0159, ADR-0167, ADR-0170).
+
+| State | `ResetAsync` leaves | A snapshot copies | `RestoreAsync` leaves |
+| --- | --- | --- | --- |
+| Files | the `Files` given at start and no others | yes | the snapshot's |
+| Mail | the configured mailboxes holding nothing | yes, with UIDs and flags | the snapshot's |
+| Messages | no retained or queued messages | retained messages, topic logs, committed offsets and queues, except a queue exclusive to a connection | the snapshot's |
+| Accounts, proxy accounts, TLS-SRP accounts | exactly those given at start | yes | the snapshot's |
+| Redis keyspace, LDAP directory, DNS zones | empty databases, an empty directory, no zone | yes | the snapshot's |
+| AMQP 0-9-1 exchanges and bindings | none a client declared | yes | the snapshot's |
+| Kafka producer state | none | yes | the snapshot's |
+| Kafka consumer groups | dropped | no | dropped |
+| MQTT 5 sessions kept with no connection | none | yes, without queued deliveries | the snapshot's, except where a client connected under the same identifier keeps its own |
+| MQTT 5 pending Wills, queued deliveries and unacknowledged publishes | discarded | no | discarded |
+| OCI registry tokens | revoked | no | revoked |
+| MCP OAuth clients, codes and tokens, and MCP HTTP sessions | deleted and ended | no | deleted and ended |
+| Uploads open or staged (S3, Azure Storage, Google Cloud Storage, OCI), and Azure Storage's remembered committed block lists | discarded | no | discarded, even one begun before the snapshot |
+
+A snapshot is an in-memory copy (at most 256 MiB) that only the server that took it restores; another
 server's throws `ArgumentException`. Every mailbox gets a new `UIDVALIDITY` on reset and restore,
 so an IMAP client resynchronises; open connections stay open and see the new contents on their
-next command. Each seed, reset and restore is a `StoreChanged` event the queries above find. With
-`DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
-`InvalidOperationException` so a fixture never empties a real directory; seeding them still works.
+next command. Each seed publishes `StoreChanged` events the queries above find, and each store publishes one
+on reset and on restore, except `StoreKind.Uploads` and `StoreKind.Sessions`, under which each server
+publishes its own: uploads named `s3`, `azure`, `gcs` and `oci`; sessions with an empty name (MQTT 5),
+`oci` and `mcp`. With `DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
+`InvalidOperationException` at the files, the first store, so a fixture never empties a real directory; a
+share on disk makes them throw there too. Seeding files, mail and messages on disk still works.
 
 **A snapshot holds secrets.** Each account and proxy account is held with the SHA-256 of its
 password and, when it is named, the credentials derived from the password, some of which are the

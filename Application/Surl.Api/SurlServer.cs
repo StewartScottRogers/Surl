@@ -210,24 +210,52 @@ public sealed class SurlServer : IAsyncDisposable
     public SurlServerTlsSrpAccounts TlsSrpAccounts { get; }
 
     /// <summary>
-    /// Returns the content store, the mail store, the message bus and the accounts, in that order, to their state
-    /// at start (ADR-0124, decision 3): the files <see cref="SurlServerOptions.Files"/> gave and no others, the
-    /// configured mailboxes holding no messages (each with a new <c>UIDVALIDITY</c>), the configured topics and
-    /// queues holding no messages, and exactly the accounts given at start. Open sessions keep their connections
-    /// and see the new contents on their next command. Publishes one <see cref="StoreChangedEvent"/> with
-    /// <see cref="StoreChange.Reset"/> per store.
+    /// Returns every store the server holds to its state at start (ADR-0124, decision 3), one at a time in this
+    /// order: the content store, the mail store, the message bus and the accounts, then, each only when composed or
+    /// served, the proxy accounts, the TLS-SRP accounts, the Redis keyspace, the LDAP directory, the AMQP 0-9-1
+    /// exchanges, the Kafka producers, the sessions, the DNS zones and the uploads.
+    /// <para>
+    /// Afterwards the content store holds the files <see cref="SurlServerOptions.Files"/> gave and no others; the
+    /// configured mailboxes hold no messages (each with a new <c>UIDVALIDITY</c>); the configured topics and queues
+    /// hold no messages; the accounts, proxy accounts and TLS-SRP accounts are exactly those given at start; the
+    /// Redis databases and the LDAP directory are empty and there is no DNS zone; no client-declared AMQP 0-9-1
+    /// exchange or binding remains; and the Kafka brokers hold no producer state and no consumer group.
+    /// </para>
+    /// <para>
+    /// What clients left on the servers goes too: every open or staged object upload (S3, Azure Storage, Google
+    /// Cloud Storage, OCI) is discarded, with the Azure Storage server's remembered committed block lists; every OCI
+    /// registry token is revoked; every MCP server OAuth client, code and token is deleted and every MCP HTTP session
+    /// ended; and the MQTT 5 brokers' sessions kept with no connection, pending Wills, queued deliveries and
+    /// unacknowledged publishes are discarded. Open connections stay open and see the new contents on their next
+    /// command.
+    /// </para>
+    /// <para>
+    /// Each store publishes one <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Reset"/>, except
+    /// <see cref="StoreKind.Uploads"/> and <see cref="StoreKind.Sessions"/>, under which each server publishes its
+    /// own: the composed object servers' uploads name theirs <c>s3</c>, <c>azure</c>, <c>gcs</c> and <c>oci</c>; the
+    /// sessions are the MQTT 5 brokers' (an empty name), <c>oci</c> and <c>mcp</c>.
+    /// </para>
     /// </summary>
-    /// <param name="cancellationToken">Cancels the wait for the content store.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store or for an object server's uploads.</param>
     /// <returns>A task that completes once every store is reset.</returns>
-    /// <exception cref="InvalidOperationException">A store refused, such as one on disk under
-    /// <see cref="SurlServerOptions.DataDirectory"/>; the message names it, and the stores before it are reset.</exception>
+    /// <exception cref="InvalidOperationException">A store refused; the message names it, and the stores before it are
+    /// reset. A content store on disk (<see cref="SurlServerOptions.DataDirectory"/> or a share) refuses, as the
+    /// uploads then would; being first, it leaves every store as it was.</exception>
     public Task ResetAsync(CancellationToken cancellationToken = default) =>
         composedServing.Stores.ResetAsync(cancellationToken);
 
     /// <summary>
-    /// Takes an in-memory copy of every store - files, mail with its UIDs and flags, retained and queued messages,
-    /// and accounts - that <see cref="RestoreAsync"/> gives back to this server (ADR-0124, decision 3). Changes
-    /// nothing.
+    /// Takes an in-memory copy of the stores <see cref="ResetAsync"/> lists, those this server holds, in that order,
+    /// that <see cref="RestoreAsync"/> gives back to this server (ADR-0124, decision 3): files, mail with its UIDs and
+    /// flags, the message bus's retained messages, topic logs, queues and committed offsets (no queue exclusive to a
+    /// connection), accounts, proxy accounts, TLS-SRP accounts, Redis keys, LDAP entries, AMQP 0-9-1 exchanges and
+    /// bindings, Kafka producer state, the MQTT 5 brokers' sessions kept with no connection (without queued
+    /// deliveries) and DNS zones. Changes nothing and publishes nothing.
+    /// <para>
+    /// It copies nothing from the uploads (S3, Azure Storage, Google Cloud Storage, OCI), the OCI registry tokens or
+    /// the MCP servers' OAuth state and HTTP sessions. Nor does it copy a Kafka consumer group or an MQTT 5 pending
+    /// Will or unacknowledged publish. <see cref="SurlSnapshot"/> says which secrets it holds.
+    /// </para>
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait for the content store.</param>
     /// <returns>The snapshot.</returns>
@@ -237,16 +265,29 @@ public sealed class SurlServer : IAsyncDisposable
         new(this, await composedServing.Stores.TakeSnapshotAsync(cancellationToken));
 
     /// <summary>
-    /// Replaces every store's contents with <paramref name="snapshot"/>'s, in the order <see cref="ResetAsync"/>
-    /// takes them; every mailbox gets a new <c>UIDVALIDITY</c>. Publishes one <see cref="StoreChangedEvent"/> with
-    /// <see cref="StoreChange.Restored"/> per store.
+    /// Puts back what <paramref name="snapshot"/> copied, and only that, replacing each store's contents in the order
+    /// <see cref="ResetAsync"/> takes them; every mailbox gets a new <c>UIDVALIDITY</c>.
+    /// <para>
+    /// What <see cref="SnapshotAsync"/> did not copy is not brought back, and what there is of it when the restore
+    /// runs goes, even if it began before the snapshot was taken: every open or staged object upload (S3, Azure
+    /// Storage, Google Cloud Storage, OCI) is discarded, with the Azure Storage server's remembered committed block
+    /// lists; every OCI registry token is revoked; every MCP server OAuth client, code and token is deleted and every
+    /// MCP HTTP session ended; every Kafka consumer group is dropped; and the MQTT 5 brokers' pending Wills, queued
+    /// deliveries and unacknowledged publishes are discarded.
+    /// </para>
+    /// <para>
+    /// Each store publishes one <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Restored"/>, except
+    /// <see cref="StoreKind.Uploads"/> and <see cref="StoreKind.Sessions"/>, under which each server publishes its
+    /// own, named as for <see cref="ResetAsync"/>.
+    /// </para>
     /// </summary>
     /// <param name="snapshot">A snapshot this server took.</param>
-    /// <param name="cancellationToken">Cancels the wait for the content store.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store or for an object server's uploads.</param>
     /// <returns>A task that completes once every store is restored.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="snapshot"/> was taken by another server.</exception>
-    /// <exception cref="InvalidOperationException">A store refused; the message names it.</exception>
+    /// <exception cref="InvalidOperationException">A store refused; the message names it, and the stores before it are
+    /// restored.</exception>
     public Task RestoreAsync(SurlSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);

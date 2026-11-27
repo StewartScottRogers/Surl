@@ -8,7 +8,7 @@ depends-on: [BL-1831]
 touches: [Application/Surl.Api/SurlServer.cs, Application/Surl.Api/README.md, Foundation/Surl.Protocol.Abstractions.UnitLibrary/StoreKind.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1847 — Cover every registered store in the Surl.Api reset, snapshot and restore docs and the StoreKind.Sessions comment
 
@@ -49,22 +49,37 @@ executable line changes. No store, event or fault changes. Paths below under `Co
 
 ## Acceptance criteria
 
-- [ ] The `ResetAsync` summary covers every store in the order Context gives, saying the later ones exist only
+- [x] The `ResetAsync` summary covers every store in the order Context gives, saying the later ones exist only
       when composed or served, and that uploads, OCI tokens and MCP state are discarded, revoked or ended.
-- [ ] The `RestoreAsync` summary says only what the snapshot copied is put back, and what happens to uploads, OCI
+- [x] The `RestoreAsync` summary says only what the snapshot copied is put back, and what happens to uploads, OCI
       tokens and MCP state.
-- [ ] The `SnapshotAsync` summary says which of those stores it copies nothing from.
-- [ ] No summary in `SurlServer.cs` says reset or restore publishes exactly one event per store; they say each
+- [x] The `SnapshotAsync` summary says which of those stores it copies nothing from.
+- [x] No summary in `SurlServer.cs` says reset or restore publishes exactly one event per store; they say each
       server publishes its own for `Uploads` and `Sessions`.
-- [ ] The README paragraph names every store Context lists and no longer says "password hashes only"; it says a
+- [x] The README paragraph names every store Context lists and no longer says "password hashes only"; it says a
       snapshot holds secrets, including a named account's password bytes.
-- [ ] The `StoreKind.Sessions` comment names MQTT 5 sessions, OCI registry tokens and MCP OAuth state and HTTP
+- [x] The `StoreKind.Sessions` comment names MQTT 5 sessions, OCI registry tokens and MCP OAuth state and HTTP
       sessions; `dotnet build Application/Surl.Api.UnitTests -warnaserror` is clean and the only changed lines in
       `.cs` files are comments.
 
 ## Notes
 
+- Changed: `SurlServer.cs` XML doc comments and the README's "Seed, reset, snapshot" section (the paragraph
+  became the store order, a reset / snapshot / restore table and a shorter paragraph).
+- `StoreKind.cs` needed no change: BL-1842 already made the `Sessions` comment name all three kinds of state.
+  The README's "password hashes only" was already gone and its "A snapshot holds secrets" paragraph already
+  matches `AccountStore.DeriveNamed` (BL-1841), so that paragraph is unchanged.
+- Where the code is narrower than Context, the docs follow the code: only MQTT 5 sessions kept with no connection
+  are copied, without queued deliveries; through `SurlServer` a content store on disk is first and refuses, so
+  reset leaves every store as it was.
+- Follow-ups: the combiner's uploads-only name is BL-1848 (already filed); the `ComposedStores.cs`
+  `cancellationToken` comments are BL-1859 (filed by this run).
+- Verified 2026-11-27: `dotnet build -warnaserror` of the solution 0 warnings, `dotnet format
+  --verify-no-changes` clean, fast tests all passed (3 skipped, in Surl.Content and Surl.Networking).
+  No Integration run: comments and prose only.
+
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Surl.Api reset, snapshot and restore comments and README cover every registered store and what is copied, discarded or revoked
