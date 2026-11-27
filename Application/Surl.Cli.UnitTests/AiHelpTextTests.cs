@@ -249,6 +249,18 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_TlsTopic_SaysQuicAndDtlsListenersStillNeedACertificateUnderTlsSrp()
+    {
+        var tls = AiHelpText.Answer("tls").Output;
+
+        Assert.Contains("every TLS listen URL on TCP, and every STARTTLS upgrade, serve TLS 1.2 with the unsigned SRP suites and no certificate", tls);
+        Assert.Contains(
+            "TLS-SRP secures TCP listeners only: a `webtransport` listen URL, a DNS over QUIC one (`--dns-transport quic`) and a `coaps` one with no `--user` or `--user-file` account "
+            + "still need `--cert` or `--self-signed`, else surl exits 58, and with one they serve that certificate.",
+            tls);
+    }
+
+    [TestMethod]
     public void Answer_AmqpTopic_NamesCramMd5AsOfferedByDefaultAndWhatAllowAnonymousOffers()
     {
         var amqp = AiHelpText.Answer("amqp").Output;
