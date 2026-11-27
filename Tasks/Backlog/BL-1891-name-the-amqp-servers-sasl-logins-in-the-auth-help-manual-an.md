@@ -1,5 +1,5 @@
 ---
-id: BL-1886
+id: BL-1891
 title: Name the AMQP servers' SASL logins in the --auth help, manual and AI help text
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1886 — Name the AMQP servers' SASL logins in the --auth help, manual and AI help text
+# BL-1891 — Name the AMQP servers' SASL logins in the --auth help, manual and AI help text
 
 ## Goal
 

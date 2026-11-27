@@ -1,5 +1,5 @@
 ---
-id: BL-1887
+id: BL-1892
 title: Bring the --keytab help's AMQP 1.0 SASL frame limit into line with BL-1884
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1887 — Bring the --keytab help's AMQP 1.0 SASL frame limit into line with BL-1884
+# BL-1892 — Bring the --keytab help's AMQP 1.0 SASL frame limit into line with BL-1884
 
 ## Goal
 

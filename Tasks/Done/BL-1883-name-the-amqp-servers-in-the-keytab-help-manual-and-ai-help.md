@@ -31,8 +31,8 @@ The --keytab manual section and AI help say that the AMQP 0-9-1 and AMQP 1.0 ser
 ## Notes
 
 - `ManualText.cs` and `AiHelpProse.cs`: the service list now has `amqp` for `amqp`, `amqps`, `amqp1` and `amqp1s`, and the SASL `GSSAPI` sentence names the AMQP 0-9-1 and AMQP 1.0 servers.
-- Both also state the frame limits, because BL-1884 is not Done: a ticket is checked only when its frame fits, 4096 bytes on AMQP 0-9-1 before `connection.tune-ok` (`Amqp0FrameLimits.FrameMinSize`) and 512 for an AMQP 1.0 SASL frame (`Amqp1SecurityNegotiation` reads with `MinMaxFrameSize`). BL-1887 brings this into line with BL-1884.
-- `CommandLineOptions.cs` unchanged: the `--keytab` row names no server, and the `gssapi` sentences name only `--keytab`. The `--auth` texts' "For SMTP, IMAP and POP3 logins" leaves AMQP out of the mechanism list as a whole, not only `gssapi`; filed as BL-1886.
+- Both also state the frame limits, because BL-1884 is not Done: a ticket is checked only when its frame fits, 4096 bytes on AMQP 0-9-1 before `connection.tune-ok` (`Amqp0FrameLimits.FrameMinSize`) and 512 for an AMQP 1.0 SASL frame (`Amqp1SecurityNegotiation` reads with `MinMaxFrameSize`). BL-1892 brings this into line with BL-1884.
+- `CommandLineOptions.cs` unchanged: the `--keytab` row names no server, and the `gssapi` sentences name only `--keytab`. The `--auth` texts' "For SMTP, IMAP and POP3 logins" leaves AMQP out of the mechanism list as a whole, not only `gssapi`; filed as BL-1891.
 - `--keytab`'s help categories (`auth`, `ldap`) are unchanged.
 - Tests: `ManualTextTests.Text_SaysTheAmqpServersUseTheKeytabForTheServiceAmqpWithinTheirFrameLimits`, `AiHelpTextTests.Answer_Auth_SaysTheAmqpServersUseTheKeytabForTheServiceAmqpWithinTheirFrameLimits`.
 - 2026-11-27 verify: build 0 warnings, format check clean, fast tests 30227 passed, 3 skipped, 0 failed. No `Integration` run: text only.
