@@ -283,10 +283,11 @@ public sealed class ManualTextTests
             "    0-9-1 and AMQP 1.0 servers use them too, and so does the LDAP server's",
             "    GSS-SPNEGO bind. The AMQP servers' service is amqp, and a ticket is checked",
             "    only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before",
-            "    connection.tune-ok, and 512 for an AMQP 1.0 SASL frame, so a larger one",
-            "    closes the connection unchecked. A socks5 or socks5h listener's GSS-API",
-            "    login (method 01, curl's --socks5-gssapi) uses the keys whatever --auth",
-            "    names. A Kerberos login is the ticket's client principal, written",
+            "    connection.tune-ok, and 65536 for an AMQP 1.0 SASL frame (--max-message",
+            "    when smaller, never below 512; --max-message 0 leaves 65536), so a larger",
+            "    one closes the connection unchecked. A socks5 or socks5h listener's",
+            "    GSS-API login (method 01, curl's --socks5-gssapi) uses the keys whatever",
+            "    --auth names. A Kerberos login is the ticket's client principal, written",
             "    user@EXAMPLE.COM. An HTTP, SASL or GSS-SPNEGO Kerberos login is accepted",
             "    only when an account of exactly that name exists, unless --allow-anonymous",
             "    is given. A SOCKS5 GSS-API login needs a proxy account (-U,",
@@ -874,7 +875,7 @@ public sealed class ManualTextTests
 
         StringAssert.Contains(words, "amqp for the schemes amqp, amqps, amqp1 and amqp1s,");
         StringAssert.Contains(words, "the SASL GSSAPI logins of the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1 and AMQP 1.0 servers use them too,");
-        StringAssert.Contains(words, "The AMQP servers' service is amqp, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before connection.tune-ok, and 512 for an AMQP 1.0 SASL frame, so a larger one closes the connection unchecked.");
+        StringAssert.Contains(words, "The AMQP servers' service is amqp, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before connection.tune-ok, and 65536 for an AMQP 1.0 SASL frame (--max-message when smaller, never below 512; --max-message 0 leaves 65536), so a larger one closes the connection unchecked.");
     }
 
     [TestMethod]

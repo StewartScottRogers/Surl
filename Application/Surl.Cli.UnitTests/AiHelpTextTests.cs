@@ -701,7 +701,7 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("auth").Output;
 
-        StringAssert.Contains(page, "The AMQP servers' service is `amqp`, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before `connection.tune-ok`, and 512 for an AMQP 1.0 SASL frame, so a larger one closes the connection unchecked.");
+        StringAssert.Contains(page, "The AMQP servers' service is `amqp`, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before `connection.tune-ok`, and 65536 for an AMQP 1.0 SASL frame (`--max-message` when smaller, never below 512; `--max-message 0` leaves 65536), so a larger one closes the connection unchecked.");
     }
 
     [TestMethod]
