@@ -32,3 +32,4 @@ Measured against the built `surl` while working BL-1926 (2026-11-27): both comma
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
