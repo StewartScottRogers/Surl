@@ -8,7 +8,7 @@ depends-on: [BL-1881]
 touches: [Application/Surl.Composition.UnitLibrary/SurlServerCompositionSeams.cs, Application/Surl.Composition.UnitLibrary/SurlServerComposition.Start.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1919 — Correct the data directory lock seam comment and the ComposeAuthentication file list comment
 
@@ -27,13 +27,21 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `TakeDataDirectoryLock` comment names both `--directory` and each writable `--share` path, as `TakeEveryLock` does.
-- [ ] The `ComposeAuthentication` comment names every file the method reads, in the order read, or names none.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean and the diff of each `.cs` file changes comment lines only.
+- [x] The `TakeDataDirectoryLock` comment names both `--directory` and each writable `--share` path, as `TakeEveryLock` does.
+- [x] The `ComposeAuthentication` comment names every file the method reads, in the order read, or names none.
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean and the diff of each `.cs` file changes comment lines only.
 
 ## Notes
+
+- The `ComposeAuthentication` comment now names no file, and lists what the method composes. The full file list
+  is already on `SurlServerCompositionSeams.ReadStartFile`; a second copy would drift from the code again.
+- Made directly in the lane session rather than through `align-and-document`: two comments, both read against
+  `TakeEveryLock` and `ComposeAuthentication`.
+- Verified 2026-11-27: build `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests
+  exit 0 with no failure.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The data directory lock seam and ComposeAuthentication comments in Surl.Composition say what the code does

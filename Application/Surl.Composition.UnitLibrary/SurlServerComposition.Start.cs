@@ -251,9 +251,9 @@ public static partial class SurlServerComposition
     private static ProtocolServerRegistration[] AllRegistrations() =>
         [.. ProtocolServerRegistrations.Original, .. ExtendedProtocolServers.Registrations];
 
-    // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
-    // and --hostcert files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
-    // ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
+    // Mailboxes, authentication, groups, shared folders, proxy authentication, host keys and the control
+    // token are composed and checked before the lock is taken and any listener binds (ADR-0032, sections 1
+    // and 2; ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
     private static (ComposedAuthentication? Authentication, SurlStartFailure? Failure) ComposeAuthentication(
         SurlCommandLine commandLine, SurlServerCompositionSeams seams, EventStreamAndFaultPlan instruments)
     {
