@@ -48,7 +48,7 @@ Documentation only: no row's value and no behaviour changes.
   to move it behind `Surl.Networking`'s serving would be a behaviour change, outside this task.
 - Verify (2026-11-27): build 0 warnings, format clean, fast tests 30,212 passed, 0 failed,
   3 skipped. Comment-only change, so no integration run.
-- Follow-up filed: BL-1859 (the same wording in the library's `CLAUDE.md`).
+- Follow-up filed: BL-1876 (the same wording in the library's `CLAUDE.md`).
 
 ## Log
 

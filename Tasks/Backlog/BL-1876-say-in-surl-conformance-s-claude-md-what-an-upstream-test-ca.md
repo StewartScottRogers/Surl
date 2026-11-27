@@ -1,5 +1,5 @@
 ---
-id: BL-1859
+id: BL-1876
 title: Say in Surl.Conformance's CLAUDE.md what an upstream test-case server row's built flag means
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1859 — Say in Surl.Conformance's CLAUDE.md what an upstream test-case server row's built flag means
+# BL-1876 — Say in Surl.Conformance's CLAUDE.md what an upstream test-case server row's built flag means
 
 ## Goal
 
