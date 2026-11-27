@@ -146,8 +146,10 @@ public static class ExtendedProtocolServers
         // The MQTT 5.0 broker (ADR-0093, BL-975) over the one message bus the MQTT server shares, so retained messages
         // persist where the bus persists them; only session state is the broker's. mqtt5s is TLS from the first byte through
         // TlsSchemes. mqtt5+ws is the same broker behind a WebSocket upgrade. mqtt stays the 3.1.1 server.
+        // The one policy judges both the CONNECT password and enhanced authentication (ADR-0093 decision 2, BL-1903).
         new(["mqtt5", "mqtt5s"], services => new Mqtt5Broker(
             new Mqtt5BrokerState(services.MessageBus), services.AuthenticationPolicyFor("mqtt5"),
+            saslAuthenticationPolicy: services.AuthenticationPolicyFor("mqtt5"),
             disconnectsAfterRetained: services.Mqtt5DisconnectsAfterRetained)),
         new(["mqtt5+ws"], services => new Mqtt5WebSocketServer((Mqtt5Broker)services.ComposedServerFor("mqtt5"))),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(

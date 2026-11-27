@@ -99,6 +99,10 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
   never calls the composer while they are off.
+- The MQTT 5.0 broker (ADR-0093 decision 2, BL-1903): the one `Mqtt5Broker` for `mqtt5` and `mqtt5s`, which
+  `mqtt5+ws` wraps, is built with `AuthenticationPolicyFor("mqtt5")` as both its password policy and its SASL policy, so
+  a `CONNECT` with Authentication Method `SCRAM-SHA-256` or `SCRAM-SHA-1` logs in when `--auth` names it; without
+  `--auth` SCRAM is not accepted and every method is `0x8C`. Tests: `Mqtt5EnhancedAuthenticationCompositionTests`.
 - `mcp+stdio:` (ADR-0111 decision 5, BL-979): `ExtendedProtocolServers.Registrations` has an entry for the scheme whose
   `McpStdioListenUrlServer` only claims it, so the parser accepts it (the listen URL has an empty host and port 0;
   `ListenUrlParser` reads it apart). It is never served through the engine: the host calls `McpStdioComposition.IsAsked`,
