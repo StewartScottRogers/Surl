@@ -108,10 +108,12 @@ is decided in
 | Upstream test cases | 2,013 | `tests/data` at tag `curl-8_21_0` |
 | Upstream test servers | 7 in C, 11 scripts | `tests/server` and `tests/` at tag `curl-8_21_0` |
 
-### 29 schemes, 15 protocol servers and a content store
+### 29 schemes, 17 protocol servers and a content store
 
 These are the original protocols. The 19 extended servers answer further schemes; they are listed
-under "Extended protocols" below and are not counted here.
+under "Extended protocols" below and are not counted here. Of the 17, 15 answer the 29 schemes
+(`file` needs no server); the other two, `Surl.Protocol.HttpProxy` and `Surl.Protocol.Socks`,
+are proxies curl goes through, and the SOCKS proxy schemes are not among the 29.
 
 | Library | Schemes answered |
 | --- | --- |
@@ -130,6 +132,8 @@ under "Extended protocols" below and are not counted here.
 | `Surl.Protocol.Tftp` | `tftp` |
 | `Surl.Protocol.Telnet` | `telnet` |
 | `Surl.Protocol.Dict` | `dict` |
+| `Surl.Protocol.HttpProxy` | no further scheme: the `http` and `https` listen URLs given with `-x`/`--proxy`, which upstream curl reaches with `-x`/`--proxy` and `-p`/`--proxytunnel`; it forwards `http://` requests and `ftp://` `GET`s and tunnels `CONNECT` ([ADR-0088](../Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md)) |
+| `Surl.Protocol.Socks` | the proxy schemes `socks4`, `socks4a`, `socks5`, `socks5h`, for curl's `--socks4`, `--socks4a`, `--socks5`, `--socks5-hostname` and `-x`/`--proxy`; it serves `CONNECT` only and relays the bytes ([ADR-0121](../Planning/Decisions/ADR-0121-how-surl-serves-socks4-socks4a-socks5-and-socks5h.md)) |
 | none | `file` has no wire and no server; `Surl.Content` serves files to every protocol that needs them instead (ADR-0002) |
 
 ### Built for Phase 2: FTP, FTPS, SCP and SFTP
@@ -897,7 +901,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Control endpoint | `Surl.Control` (the loopback HTTP and JSON endpoint of `--control`, ADR-0124 decision 7; served by `surl --control` and by `Surl.Api` through `SurlServerOptions.ControlListenUrl`, both over `Surl.Composition`) | Abstractions, `Surl.HttpServing` |
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
-| Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |
+| Protocol servers | `Surl.Protocol.<Name>` (17) | Abstractions, and where needed the horizontal libraries of ADR-0002's table as later ADRs amend it: `Surl.Content` for FTP, SSH, TFTP, SMB, HTTP, WebSocket, RTSP, DICT, Gopher and LDAP; the nine hand-built SSH primitive libraries for SSH; `Surl.MailStore` for SMTP, IMAP and POP3; `Surl.LineProtocol` for those three and both proxies; `Surl.HttpMessage` (ADR-0070) for HTTP, the HTTP proxy, WebSocket and RTSP; `Surl.Http2` for HTTP and both proxies; `Surl.Hpack` for HTTP and the HTTP proxy; `Surl.Cookies`, `Surl.HttpServing`, `Surl.Http3`, `Surl.Qpack` and `Surl.Quic` for HTTP; `Surl.WebSocket` for WebSocket; `Surl.MessageBus` for MQTT; and `Surl.Kerberos` for SOCKS |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) and for the DES of SMB's NTLMv1 (ADR-0073 decision 10), `Surl.Cryptography.Rc4`, for NTLM's key exchange and the LDAP security layers (ADR-0072 decision 4), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
 | Message bus | `Surl.MessageBus` (the one `MessageBus` of a `surl` run: live fan-out, retained messages, named queues and topic logs over canonical topics, with the declared topics, queues, topic maps and topic access of `--topic`, `--queue`, `--topic-map` and `--topic-access`; persisted under `<path>/.surl/bus`), in `Protocols/Messaging/`, beside the content store and the mail store as the third store the servers of one job share, used by `Surl.Protocol.Mqtt` and by the extended NATS and STOMP servers `surl` registers, decided by [ADR-0100](../Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md) decision 3 | Abstractions and `Surl.Content`, for `IContentFileSystem` |

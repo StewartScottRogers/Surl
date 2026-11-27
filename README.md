@@ -664,15 +664,17 @@ Each `.UnitTests` project sits beside the library it tests.
 | `Application/` | the three hosts - `surl` (`Surl.Console`), `Surl.Api` and `surl-mcp` (`Surl.Mcp`) - the command line (`Surl.Cli`), the composition they share (`Surl.Composition`), `Surl.Mcp.UnitLibrary` and the control endpoint (`Surl.Control`) |
 | `Foundation/` | the protocol contracts, networking, content store, accounts, cookies and output |
 | `Cryptography/` | the hand-built primitives (ChaCha20, Curve25519, Ed25519, Poly1305 and others), the TLS 1.3 handshake for QUIC, and Kerberos |
+| `Protocols/DataStore/` | the extended Redis server |
 | `Protocols/FileTransfer/` | FTP, SSH (SCP and SFTP), TFTP and SMB |
-| `Protocols/Http/` | HTTP, WebSocket and RTSP, with HTTP/2, HTTP/3, QUIC, HPACK and QPACK |
+| `Protocols/Http/` | HTTP, the HTTP and HTTPS proxy, WebSocket and RTSP, with HTTP/2, HTTP/3, QUIC, HPACK and QPACK, and the HTTP message, HTTP serving, WebSocket and MCP serving libraries |
 | `Protocols/Mail/` | SMTP, IMAP and POP3, and the mail store they share |
 | `Protocols/Messaging/` | LDAP and MQTT, and the shared message bus |
 | `Protocols/Lookup/`, `Protocols/Terminal/` | DICT and Gopher, and TELNET |
+| `Protocols/Proxy/` | the SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy server (the HTTP proxy is in `Protocols/Http/`) |
 | `Conformance/` | the tests that run pinned upstream curl against a live `surl` |
 
 An extended protocol server is named `Surl.Extended.Protocol.<Name>`. It sits in the folder
-for its job beside the original servers, with Redis in `Protocols/DataStore/`.
+for its job beside the original servers.
 
 ## Read more
 
