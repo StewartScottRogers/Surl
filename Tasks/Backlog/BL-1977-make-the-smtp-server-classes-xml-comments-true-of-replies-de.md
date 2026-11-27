@@ -1,5 +1,5 @@
 ---
-id: BL-1974
+id: BL-1977
 title: Make the SMTP server classes' XML comments true of replies, delivery, faults and test cases
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1974 — Make the SMTP server classes' XML comments true of replies, delivery, faults and test cases
+# BL-1977 — Make the SMTP server classes' XML comments true of replies, delivery, faults and test cases
 
 ## Goal
 

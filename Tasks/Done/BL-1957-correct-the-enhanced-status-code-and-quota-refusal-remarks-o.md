@@ -46,7 +46,7 @@ In `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpProtocolServer.cs`, class 
   returns `QuotaExceeded` for it).
 - Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 0 failed.
   The diff changes only `///` lines in `SmtpProtocolServer.cs`.
-- Other stale remarks found are filed as BL-1974, BL-1975 and BL-1976.
+- Other stale remarks found are filed as BL-1977, BL-1978 and BL-1979.
 
 ## Log
 

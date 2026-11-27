@@ -1,5 +1,5 @@
 ---
-id: BL-1976
+id: BL-1979
 title: Add a dated amendment note to ADR-0053 saying 354 and 334 carry no enhanced status code
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1976 — Add a dated amendment note to ADR-0053 saying 354 and 334 carry no enhanced status code
+# BL-1979 — Add a dated amendment note to ADR-0053 saying 354 and 334 carry no enhanced status code
 
 ## Goal
 

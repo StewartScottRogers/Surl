@@ -1,5 +1,5 @@
 ---
-id: BL-1975
+id: BL-1978
 title: Bring the SMTP library's CLAUDE.md up to date with delivery, command faults and redaction
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1975 — Bring the SMTP library's CLAUDE.md up to date with delivery, command faults and redaction
+# BL-1978 — Bring the SMTP library's CLAUDE.md up to date with delivery, command faults and redaction
 
 ## Goal
 
