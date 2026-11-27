@@ -10,9 +10,9 @@ using Tls13AlertException = Surl.Tls13.TlsAlertException;
 namespace Surl.Networking;
 
 /// <summary>
-/// Runs the server side of a TLS handshake over a connection's stream for one listener
-/// (ADR-0010, sections 1, 4 and 5): the process's <see cref="ServerTlsSettings"/> and the ALPN
-/// protocol IDs its listen URL's scheme offers.
+/// Runs the server side of a TLS handshake over a connection's stream for one listener or
+/// data-connection opener (ADR-0010, sections 1, 4 and 5), under the <see cref="ServerTlsSettings"/>
+/// and with the ALPN protocol IDs it was created with.
 /// </summary>
 internal sealed class ServerTlsHandshake
 {
@@ -20,9 +20,9 @@ internal sealed class ServerTlsHandshake
     private readonly ITls13Support tls13Support;
 
     /// <summary>
-    /// Creates the handshake for a listener.
+    /// Creates the handshake for a listener or data-connection opener.
     /// </summary>
-    /// <param name="settings">The process's TLS settings.</param>
+    /// <param name="settings">The TLS settings the handshake runs under.</param>
     /// <param name="applicationProtocols">The ALPN protocol IDs offered; empty offers none.</param>
     /// <param name="tls13Support">Says whether <see cref="SslStream"/> can serve TLS 1.3; the platform's answer when <see langword="null"/>.</param>
     public ServerTlsHandshake(ServerTlsSettings settings, IReadOnlyList<SslApplicationProtocol> applicationProtocols, ITls13Support? tls13Support = null)
@@ -39,9 +39,9 @@ internal sealed class ServerTlsHandshake
 
     /// <summary>
     /// The handshake for a listener on <paramref name="listenUrl"/>, or <see langword="null"/>
-    /// when the process has no TLS settings.
+    /// when <paramref name="settings"/> is <see langword="null"/>.
     /// </summary>
-    /// <param name="settings">The process's TLS settings, or <see langword="null"/>.</param>
+    /// <param name="settings">The listener's TLS settings, or <see langword="null"/> for none.</param>
     /// <param name="listenUrl">The listener's listen URL; its scheme, and whether it is a proxy's, pick the ALPN protocol IDs.</param>
     /// <returns>The handshake, or <see langword="null"/>.</returns>
     public static ServerTlsHandshake? ForListener(ServerTlsSettings? settings, ListenUrl listenUrl) =>

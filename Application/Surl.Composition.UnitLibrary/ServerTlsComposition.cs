@@ -9,11 +9,12 @@ using Surl.TlsSrp;
 namespace Surl.Composition;
 
 /// <summary>
-/// The process's server-side TLS settings as the command line asks for them (ADR-0010,
-/// section 3; ADR-0020; ADR-0032, section 10): none when no listen URL is TLS from the first
-/// byte and none can be upgraded with a certificate given; otherwise the <c>--cert</c> certificate,
-/// or a throwaway one with <c>--self-signed</c>, with the <c>--cacert</c> trust anchors and the
-/// accepted TLS versions. It owns every certificate it loaded or made,
+/// One server start's server-side TLS settings as the command line asks for them (ADR-0010,
+/// section 3; ADR-0020; ADR-0032, section 10; ADR-0122 decision 5): none when no listen URL is TLS
+/// from the first byte and none can be upgraded, with a certificate given or by TLS-SRP; otherwise,
+/// under TLS-SRP, <see cref="ServerTlsSettings.ForTlsSrp"/>'s settings, and else the <c>--cert</c>
+/// certificate, or a throwaway one with <c>--self-signed</c>, with the <c>--cacert</c> trust anchors
+/// and the accepted TLS versions. It owns every certificate it loaded or made,
 /// and disposing it disposes them.
 /// </summary>
 public sealed class ServerTlsComposition : IDisposable

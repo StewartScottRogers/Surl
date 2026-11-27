@@ -40,7 +40,10 @@ internal sealed class ClientHelloPeek
     public bool OffersTls13 => ClientHello?.SupportedVersions is { } versions && versions.Contains(Tls13Version);
 
     /// <summary>
-    /// Reads the first record: its header and fragment, or as much as the transport gives before it ends.
+    /// Reads the first record: its five-byte header and then its fragment, or as much as the transport
+    /// gives before it ends. Only the header, or as much of it as arrived, is read when the transport
+    /// ends inside it, when the record type is not handshake (22) or when the length it gives is over
+    /// 16384.
     /// </summary>
     /// <param name="transport">The connection's plaintext stream.</param>
     /// <param name="cancellationToken">Cuts the read off.</param>

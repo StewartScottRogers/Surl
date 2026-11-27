@@ -6,8 +6,8 @@ namespace Surl.Networking;
 /// <summary>
 /// Starts the socket-backed listeners (ADR-0004, section 6): TCP connection listeners through
 /// <see cref="TcpConnectionListener"/> and UDP datagram listeners through
-/// <see cref="UdpDatagramListener"/>. It holds only the process's TLS settings, so one
-/// instance serves every listen URL.
+/// <see cref="UdpDatagramListener"/>. It holds only the TLS settings it was given, if any, and a
+/// clock, so one instance serves every listen URL.
 /// </summary>
 public sealed class SocketListenerFactory : IListenerFactory
 {
@@ -26,7 +26,7 @@ public sealed class SocketListenerFactory : IListenerFactory
     /// Creates a factory whose connection listeners secure connections with
     /// <paramref name="tlsSettings"/> when upgraded (ADR-0010).
     /// </summary>
-    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="tlsSettings">The TLS settings the connection listeners are given, or <see langword="null"/> for none.</param>
     public SocketListenerFactory(ServerTlsSettings? tlsSettings)
         : this(tlsSettings, null)
     {
@@ -36,7 +36,7 @@ public sealed class SocketListenerFactory : IListenerFactory
     /// Creates a factory as <see cref="SocketListenerFactory(ServerTlsSettings?)"/> does, whose connections
     /// time their peek waits and closes by <paramref name="timeProvider"/> (ADR-0124, decision 6).
     /// </summary>
-    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="tlsSettings">The TLS settings the connection listeners are given, or <see langword="null"/> for none.</param>
     /// <param name="timeProvider">The instance's clock; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     public SocketListenerFactory(ServerTlsSettings? tlsSettings, TimeProvider? timeProvider)
     {

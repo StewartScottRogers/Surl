@@ -62,7 +62,7 @@ internal sealed class StreamConnection : IConnection
     /// <param name="localEndPoint">The local endpoint the connection was accepted on.</param>
     /// <param name="remoteEndPoint">The client's endpoint.</param>
     /// <param name="transportControl">Half-closes and resets the transport under <paramref name="stream"/>.</param>
-    /// <param name="tlsHandshake">The listener's TLS handshake, or <see langword="null"/> when the process has no TLS settings.</param>
+    /// <param name="tlsHandshake">The TLS handshake an upgrade runs, or <see langword="null"/> for a connection that cannot be secured.</param>
     /// <param name="timeProvider">Times the graceful and lingering close; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     public StreamConnection(
         Stream stream,

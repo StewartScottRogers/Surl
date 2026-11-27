@@ -90,13 +90,14 @@ protocol server.
   to `TcpConnectionListener.StartAsync` (or `UnixSocketConnectionListener.StartAsync` when the
   listen URL's `UnixSocket` is set) and `UdpDatagramListener.StartAsync`; it is what the
   composition root hands the serving engine. It holds only the optional `ServerTlsSettings`
-  it passes to every connection listener. Both one-line members are excluded from coverage
-  and exercised by `SocketListenerFactoryTests` (Integration). Its `StartSharedPortListenersAsync`
+  it passes to every connection listener and a `TimeProvider`. Both one-line members are
+  excluded from coverage and exercised by `SocketListenerFactoryTests` (Integration). Its `StartSharedPortListenersAsync`
   (an `https` listen URL with `--http3`) binds through `SharedPortListenerPair`, so a port-0 pair
   whose UDP port is taken is retried; it too is excluded and exercised by
   `SharedPortListenerPairIntegrationTests`.
-- Server-side TLS (ADR-0010). `ServerTlsSettings` (public, one per process) holds the
-  certificate every listener serves - re-imported through PKCS#12 by
+- Server-side TLS (ADR-0010). `ServerTlsSettings` (public; `Surl.Composition` makes at most
+  one for each server start, so a process running several servers can hold several) holds the
+  certificate every listener given it serves - re-imported through PKCS#12 by
   `ServerCertificateImport` so Schannel can serve it, so its key must be exportable - its
   intermediates, and the `--cacert` trust anchors; with anchors, every handshake requires a
   client certificate that `ClientCertificateVerifier` chains to exactly those anchors, with
