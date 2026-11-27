@@ -1,5 +1,5 @@
 ---
-id: BL-1812
+id: BL-1817
 title: Decide that --keytab is not warned unused when a SOCKS5 listener reads it (amend ADR-0057)
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1812 — Decide that --keytab is not warned unused when a SOCKS5 listener reads it (amend ADR-0057)
+# BL-1817 — Decide that --keytab is not warned unused when a SOCKS5 listener reads it (amend ADR-0057)
 
 ## Goal
 

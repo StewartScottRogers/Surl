@@ -32,8 +32,8 @@ Found by BL-1806. The file says the Unix domain socket (BL-561) "is still to com
   `rcmd`, whatever `--auth` names). Checked against `ComposeSocksGssApiLogin`,
   `ProtocolServerRegistrations.Original` and `UnixSocketCombination`.
 - Only Markdown changed. `dotnet build` had 0 warnings and 0 errors; the fast tests had 0 failures.
-- Found outside this task and filed: BL-1812, BL-1813, BL-1814 (the `--keytab is unused` warning and
-  help text ignore SOCKS5), BL-1815 (stale statements in two other `CLAUDE.md` files), BL-1816 (decide
+- Found outside this task and filed: BL-1817, BL-1818, BL-1819 (the `--keytab is unused` warning and
+  help text ignore SOCKS5), BL-1820 (stale statements in two other `CLAUDE.md` files), BL-1816 (decide
   whether a SOCKS5 GSS-API login needs an account).
 
 ## Log

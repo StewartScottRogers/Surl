@@ -1,5 +1,5 @@
 ---
-id: BL-1815
+id: BL-1820
 title: Correct stale statements in the Surl.Cli and Surl.Composition CLAUDE.md files
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1815 — Correct stale statements in the Surl.Cli and Surl.Composition CLAUDE.md files
+# BL-1820 — Correct stale statements in the Surl.Cli and Surl.Composition CLAUDE.md files
 
 ## Goal
 

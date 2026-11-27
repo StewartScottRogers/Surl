@@ -24,12 +24,12 @@ principal as the account name and looks up no account, so any principal the keyt
 SOCKS proxy, unless a `refuse-login` fault rule refuses it. `--keytab`'s manual text
 (`Application/Surl.Cli.UnitLibrary/ManualText.cs`) says a Kerberos login is accepted only when an account of
 exactly that name exists. Weigh secure by default (root `CLAUDE.md`) and what ADR-0057, ADR-0121 amendment 2
-and ADR-0165 already decide. BL-1814 changes the same help text.
+and ADR-0165 already decide. BL-1819 changes the same help text.
 
 ## Acceptance criteria
 
 - [ ] ADR-0165 (an amendment) states whether a SOCKS5 GSS-API login needs an account of the principal's name, which options loosen that, and why.
-- [ ] If the decision changes behaviour, the code and help text tasks it needs are filed in `Tasks/Backlog`, and BL-1814's context names the decision.
+- [ ] If the decision changes behaviour, the code and help text tasks it needs are filed in `Tasks/Backlog`, and BL-1819's context names the decision.
 
 ## Notes
 
