@@ -40,7 +40,8 @@ that needs no .NET runtime.
   (an account given at start too; an empty string names the Bearer-token account) and answers `{user}`;
   `server <id> has no account <user>` when it holds no such account, or
   `server <id> has no Bearer-token account` for an empty `user`. Removing the last account adds a `warning`
-  member and a second text block, both `server <id> has no account left and now needs no login`. Neither
+  member and a second text block, both
+  `server <id> has no local account left; it still asks for a login wherever it did`. Neither
   tool needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
   `seed_mail` resolves its `to` as SMTP's `RCPT TO` does (ADR-0050 decision 5, ADR-0102 decision 1.1): without
   a mail domain only the local part counts, matched exactly or else ignoring case, and the domain is ignored,
