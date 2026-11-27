@@ -189,9 +189,9 @@ public sealed partial class AiHelpTextTests
     private const string OverviewHostsParagraph =
         "The same servers start in-process from .NET through the `Surly.Surl.Api` package (namespace `Surl.Api`): `SurlServer.StartAsync` takes a "
         + "`SurlServerOptions`, whose properties are these options, and its help is the package README and XML documentation. "
-        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools "
-        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` describe themselves, and it serves these pages as "
-        + "the `surl://aihelp` resources.";
+        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools, "
+        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` among them, describe themselves, and it serves "
+        + "these pages as the `surl://aihelp` resources.";
 
     [TestMethod]
     public void Answer_Stomp_SaysATopicSubscriptionGetsLiveMessagesAndNoRetainedOne()
