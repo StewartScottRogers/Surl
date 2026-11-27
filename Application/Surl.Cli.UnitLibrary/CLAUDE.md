@@ -1,7 +1,5 @@
 # Surl.Cli.UnitLibrary
 
-Phase 1.
-
 Surl's command line: the option table, argument parsing, the help, the AI help and the
 manual, and the mapping from a bad command line to a `SurlExitCode`. `surl [options] <url>`
 names what to listen on, the way `curl [options] <url>` names what to fetch. An option
@@ -9,6 +7,7 @@ keeps curl's name and meaning wherever a server-side meaning exists (`--cert`, `
 `--cacert`, `-u`, `-v`, `-s`, `-S`, `--trace`, `--trace-ascii`, `--trace-time`); the table
 is ADR-0007's, with the rows ADR-0010, ADR-0031, ADR-0032, ADR-0033, ADR-0034 and ADR-0046
 add. It references
+`Surl.Cookies.UnitLibrary` (for `CookieDefinitionReader` and `CookieDefinition`),
 `Surl.Core.UnitLibrary`, `Surl.Output.UnitLibrary` (for `LogLevel` and `TraceDumpLayout`)
 and `Surl.Protocol.Abstractions.UnitLibrary`.
 
@@ -28,8 +27,11 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `CommandLineAccount` to `SurlCommandLine.Accounts`, split at the first `:`; a refusal
   of one never echoes its value (`CommandLineOption.ArgumentHoldsSecret`), and a user name
   given twice is refused after the whole line is read. `--user-file` is kept as a path
-  (`SurlCommandLine.UserFile`) and read by `Surl.Console`, and so is `--keytab`
-  (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: category `auth`, not negatable). `--allow-anonymous`,
+  (`SurlCommandLine.UserFile`) and read at start by `Surl.Composition`'s `AuthenticationComposition`,
+  and so is `--keytab` (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: category `auth`, not
+  negatable), read by its `KeytabComposition`; both read through the file-reading function the host
+  passes in as `SurlServerCompositionSeams.ReadStartFile` (`Surl.Console`'s `CommandLineRunner` hands
+  on its `readStartFile` seam; without one the disk is read). `--allow-anonymous`,
   `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
   case-insensitively, in ADR-0032 section 3's order) and `--self-signed` are parsed here;
   `--self-signed` with `--cert` is refused.
@@ -51,11 +53,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   refused after the whole line is read; `--throwaway-hostkey` (`ThrowawayHostKey`) with
   `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`;
   `--ssh-ciphers` and `--ssh-macs` set `SshCiphers` and `SshMacs` to their comma-separated names,
-  kept as given (`OptionArgumentReader.SshAlgorithmNames`, ADR-0066), which `Surl.Console` checks. `--pass`
+  kept as given (`OptionArgumentReader.SshAlgorithmNames`, ADR-0066), which `Surl.Composition`'s
+  `SshAlgorithmComposition.FindRefusal` checks at start. `--pass`
   without `--cert` is accepted when a `--hostkey` is given. Each is in the `ssh` help category
   (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
-  server reads. `Surl.Console` reads the files and serves every one of these options, `--hostcert`
-  included (BL-222).
+  server reads. `Surl.Composition` reads the files, through the same `ReadStartFile` seam
+  (`SshHostKeyComposition` each `--hostkey` and `--hostcert` file, `AuthenticationComposition` each
+  `--authorized-keys` file), and serves every one of these options, `--hostcert` included (BL-222).
 - Layer-2 items (ADR-0101 decisions 3, 5 rows 10 to 13, and 6): `ConfigurationItemReader.Read`
   reads one item option argument by its `ConfigurationItemShape` (Argument column, separator,
   `ConfigurationItemValueKind` after it, its own keys and flags as `ConfigurationItemAttributeKind`,
@@ -160,8 +164,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   (`ArgumentHoldsSecret`), `--srp-verifiers <file>` and `--srp-groups <file>` set the
   `SurlCommandLine` members of those names; `ServesTlsSrp` is true when any is given. Once the whole
   line is read `TlsSrpCombination` refuses, in order, an option without its partner, `--tlsauthtype`
-  with no account, no listen URL that uses TLS (implicit TLS or `ftp`, `imap`, `ldap`, `natss`, `pop3`,
-  `smtp`, `xmpp`), then TLS-SRP beside `--http3`, `--cacert`, `--tls-max` below 1.2 or `--tlsv1.3`,
+  with no account, no listen URL that uses TLS (it counts the listen URLs given bare or by `--url`
+  and the `-x`/`--proxy` listen URLs alike: one counts when it is implicit TLS, as an `https` proxy
+  is, or its scheme is `ftp`, `imap`, `ldap`, `natss`, `pop3`, `smtp` or `xmpp`), then TLS-SRP beside
+  `--http3`, `--cacert`, `--tls-max` below 1.2 or `--tlsv1.3`,
   each `FailedInit` with the try-help line. `--cert` (an RSA key, else exit 58) and `--self-signed` are allowed
   beside TLS-SRP and add the RSA-signed SRP suites (BL-1099). Reading the files is
   `Surl.Composition`'s.

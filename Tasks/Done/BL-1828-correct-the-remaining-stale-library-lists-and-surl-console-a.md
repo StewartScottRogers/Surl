@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary/CLAUDE.md, Application/Surl.Composition.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1828 — Correct the remaining stale library lists and Surl.Console attributions in the Surl.Cli and Surl.Composition CLAUDE.md files
 
@@ -36,15 +36,23 @@ In `Application/Surl.Composition.UnitLibrary/CLAUDE.md`:
 
 ## Acceptance criteria
 
-- [ ] Both files' reference descriptions agree with the `ProjectReference` items in their csproj files.
-- [ ] The Cli file names the `Surl.Composition` types that read or check `--user-file`, `--keytab`, `--ssh-ciphers`, `--ssh-macs` and the SSH files, wherever it now says `Surl.Console` does.
-- [ ] The TLS-SRP bullet states which listen URLs `TlsSrpCombination` counts, `--proxy` listen URLs included.
-- [ ] The Composition file states the position of the readable-by-others warning as `ComposedServing.WriteStartUpLines` writes it.
-- [ ] "Phase 1." is removed, or kept with a statement in Notes of why it is still true.
+- [x] Both files' reference descriptions agree with the `ProjectReference` items in their csproj files.
+- [x] The Cli file names the `Surl.Composition` types that read or check `--user-file`, `--keytab`, `--ssh-ciphers`, `--ssh-macs` and the SSH files, wherever it now says `Surl.Console` does.
+- [x] The TLS-SRP bullet states which listen URLs `TlsSrpCombination` counts, `--proxy` listen URLs included.
+- [x] The Composition file states the position of the readable-by-others warning as `ComposedServing.WriteStartUpLines` writes it.
+- [x] "Phase 1." is removed, or kept with a statement in Notes of why it is still true.
 
 ## Notes
+
+- Reference lists: Cli gained `Surl.Cookies.UnitLibrary` (4 references); Composition's intro now covers all 48 (17
+  original servers, 19 extended, 12 other libraries).
+- "Phase 1." removed: Product-Overview's Phasing table does list `Surl.Cli` under phase 1, but the bare line read as
+  the library's scope, and the file now covers much later work.
+- Verified: `dotnet build` 0 warnings, 0 errors; fast tests exit 0. Docs only, so no `.cs` or project file changed.
+- Stale statements found outside this task's scope are filed as BL-1859 to BL-1863.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Both CLAUDE.md files match the code on references, file readers, the TLS-SRP listen URL rule and warning order

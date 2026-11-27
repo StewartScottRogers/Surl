@@ -1,7 +1,10 @@
 # Surl.Composition
 
 The one place protocol servers are composed (ADR-0099 decision 1). It references every original
-protocol server and the horizontal libraries they need; `Surl.Console` and `Surl.Api` reference
+protocol server (`Surl.Protocol.*`), every extended server (`Surl.Extended.Protocol.*`),
+`Surl.Cli`, `Surl.Control`, and the libraries `Surl.Authentication`, `Surl.Content`,
+`Surl.Cookies`, `Surl.Core`, `Surl.Networking`, `Surl.Output`, `Surl.Protocol.Abstractions`,
+`Surl.MessageBus`, `Surl.Kerberos` and `Surl.Dtls`. `Surl.Console` and `Surl.Api` reference
 it, and `Surl.Mcp` reaches it through `Surl.Api`. It references no host, and no protocol server or
 horizontal library may reference it (ADR-0099 decision 11, held by
 `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`).
@@ -227,7 +230,9 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 - `ReadableByOthersWarning` - `surl: warning: <file> is readable by other users and may hold
   passwords` (ADR-0101 decision 5, BL-684, BL-780), written by `ComposedServing` through
   `WriteForFilesThatMayHoldPasswords` for each `SurlCommandLine.ConfigFiles` file in the order read
-  (never `-`, standard input) and then the `--user-file`, right after the `--fault` warning, from
+  (never `-`, standard input) and then the `--user-file`, after the loosening, `--fault`,
+  `--control`, share and topic `@everyone` and `--mail-catch-all` warnings and before the
+  `--keytab` lines (`ComposedServing.WriteStartUpLines`), from
   info up, when the mode read through `SurlServerCompositionSeams.ReadStartFileUnixMode`
   (`ReadDiskMode` by default: `null` on Windows or when unreadable) grants group or other read.
 - `MailboxComposition` - the mail domains and mailboxes (ADR-0102 decisions 1.1, 1.2, 1.4 and 5,
