@@ -40,3 +40,4 @@ The control endpoint's removal of the last account writes the warning ADR-0132 a
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
