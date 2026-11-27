@@ -40,3 +40,4 @@ Found while working BL-1949 (2026-11-27). Comment text only; no behaviour change
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
