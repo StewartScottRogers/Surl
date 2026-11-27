@@ -2,12 +2,14 @@
 
 Phase 1 onward; the full push is Phase 6.
 
-The server half of upstream curl's own test suite. Upstream curl 8.21.0 ships 2,013 test
+Upstream curl's own test suite, with Surl as the server. Upstream curl 8.21.0 ships 2,013 test
 cases in `tests/data` (tag `curl-8_21_0`, counted 2026-09-28); each names a command line,
-the server's scripted replies and what to verify. This library parses those cases, plays
-each case's replies from Surl while a pinned upstream curl build runs the case's command
-line, and checks the case's verify section - so upstream curl's own suite, not one of
-Surl's invention, decides whether Surl answers correctly.
+the server's scripted replies and what to verify. This library parses those cases and checks
+a run case's verify section - so upstream curl's own suite, not one of Surl's invention,
+decides whether Surl answers correctly. It holds no server half:
+`Surl.Conformance.UnitTests` composes the server halves and runs the cases against them with
+pinned upstream curl builds. The last paragraph of "Upstream test cases (ADR-0080)" below says
+where the server halves come from.
 
 Only builds pinned in `UpstreamCurlBuilds.json` run here as the oracle; the Curl port is never
 the oracle, a test client of Surl or an expected value (ADR-0003). It runs here only as the thing
@@ -415,7 +417,18 @@ instead (ADR-0080's 2026-11-26 amendment):
 - SSH keys. The tests' `UpstreamTestCaseFileServers` makes the run's host key and client key
   pair and gives `%SSHSRVMD5`, `%SSHSRVSHA256` and `%SSHKEYALGO`.
 
-This library references only `Surl.Protocol.Abstractions.UnitLibrary`. It does not hold the server halves: each protocol library carries its own optional seam for a
-case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types
-only (parts by name as bytes, `<servercmd>` lines as strings). The data itself is not here: it is
+This library references only `Surl.Protocol.Abstractions.UnitLibrary`. It does not hold the
+server halves, which come from three places and are composed by `Surl.Conformance.UnitTests`
+(`UpstreamTestCaseServerHalves`, `UpstreamTestCaseFileServers`,
+`UpstreamTestCaseTlsSrpServerHalf`):
+
+- an optional upstream test-case seam in a protocol library, for HTTP (the `http/2` and
+  `http/3` gateways too), the HTTP proxy, FTP, TFTP, Gopher, MQTT, IMAP, POP3, SMTP, SOCKS,
+  TELNET and DNS;
+- Surl's ordinary servers, for DICT, SCP, SFTP and SMB;
+- the test project itself, for `httptls+srp` (`UpstreamTestCaseTlsSrpServerHalf`, over
+  `Surl.TlsSrp`).
+
+A reply is handed to a seam as BCL types only (parts by name as bytes, `<servercmd>` lines as
+strings). The data itself is not here: it is
 `Surl.Conformance.UnitTests/UpstreamTestCases/`, with curl's `COPYING` and `SHA256SUMS`.

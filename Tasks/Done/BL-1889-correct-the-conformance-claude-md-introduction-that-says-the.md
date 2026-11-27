@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1889 — Correct the Conformance CLAUDE.md introduction that says the library plays the server half
 
@@ -35,16 +35,24 @@ Found during BL-1849 (checked on 2026-11-27). Docs only.
 
 ## Acceptance criteria
 
-- [ ] The introduction no longer says the library is the server half or plays a case's replies.
-- [ ] It says the library parses the cases and checks a case's verify section, and that the server halves are
+- [x] The introduction no longer says the library is the server half or plays a case's replies.
+- [x] It says the library parses the cases and checks a case's verify section, and that the server halves are
       composed by `Surl.Conformance.UnitTests`.
-- [ ] It says where the server halves come from (protocol library seams, Surl's ordinary servers, the test
+- [x] It says where the server halves come from (protocol library seams, Surl's ordinary servers, the test
       project's TLS-SRP half), or points to the later paragraph that does, which then says all three.
-- [ ] Only that `CLAUDE.md` changes.
+- [x] Only that `CLAUDE.md` changes.
 
 ## Notes
+
+- The introduction points to the last paragraph of "Upstream test cases (ADR-0080)" instead of repeating the
+  three sources, so the list is kept in one place. That paragraph now lists all three.
+- Checked against `UpstreamTestCaseServerHalves.CreateServers`, `UpstreamTestCaseFileServers` and
+  `UpstreamTestCaseTlsSrpServerHalf`, and the csproj's one project reference.
+- The two-paragraph edit was made in the lane itself, without delegating to `align-and-document`.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: passed. `verify` not run: no `.cs` or project file changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Conformance CLAUDE.md says the library parses and verifies the cases and where the three kinds of server half come from
