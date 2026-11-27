@@ -36,3 +36,4 @@ section 5 for TLS over TCP. QUIC itself still does not use that record layer.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
