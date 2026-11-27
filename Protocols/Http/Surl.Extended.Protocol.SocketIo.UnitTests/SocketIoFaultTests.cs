@@ -72,13 +72,8 @@ public sealed class SocketIoFaultTests
         var client = await SocketIoClient.ConnectAsync(harness, harness.Context(faults: new ScriptedFaultPlan(Rule(FaultKind.Delay)), events: events));
 
         client.SendText("40" + TokenPayload);
-        var waited = DateTime.UtcNow;
-        while (events.Events.Count == 0 && DateTime.UtcNow - waited < TimeSpan.FromSeconds(30))
-        {
-            await Task.Delay(10);
-        }
-
-        harness.Clock.Advance(TimeSpan.FromMilliseconds(1));
+        // The FaultAppliedEvent is published before the delay's timer exists, so wait for the timer itself.
+        await harness.Clock.AdvanceWhenWaitingAsync(TimeSpan.FromMilliseconds(1));
         StringAssert.StartsWith((await client.WaitForMessagesAsync(2))[1], "40{\"sid\":");
         Assert.AreEqual(FaultKind.Delay, events.Events.OfType<FaultAppliedEvent>().Single().Kind);
         await client.EndAsync();
