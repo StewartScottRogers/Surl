@@ -1,5 +1,5 @@
 ---
-id: BL-1796
+id: BL-1801
 title: Close an HTTP/3 connection gracefully on a close=graceful drop fault, as ADR-0188 says
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1796 — Close an HTTP/3 connection gracefully on a close=graceful drop fault, as ADR-0188 says
+# BL-1801 — Close an HTTP/3 connection gracefully on a close=graceful drop fault, as ADR-0188 says
 
 ## Goal
 

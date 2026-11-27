@@ -86,7 +86,7 @@ control endpoint's events). Seeding, reset and fault configuration are unchanged
 - Also fixed `FaultRule.Close`'s XML doc, which said no server read it.
 - Results: build 0 warnings, format clean, fast tests green in all 83 test projects; Abstractions, Core and Control at
   100% line and branch coverage, 0 failing members. Code review: nothing to fix.
-- Filed BL-1796: ADR-0188 promises a graceful HTTP/3 close that the code does not do.
+- Filed BL-1801: ADR-0188 promises a graceful HTTP/3 close that the code does not do.
 
 ## Log
 
