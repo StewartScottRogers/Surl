@@ -38,10 +38,10 @@ The match is case-insensitive on every platform and whole-segment only: `.surlx`
 `.surl-upload-<guid>` and `sub/.surl` are ordinary dot-files. Never weaken this rule; the
 rule holds in memory too, so an upload can never create a `.surl`.
 
-Named shares and buckets (ADR-0102 decisions 2.1 and 2.4, built by BL-655) arrive through
-`ContentStore`'s five-argument constructor as `ContentShare` (name, full path, its own
-`IContentFileSystem`, `IsReadOnly`, `Schemes`; null is every scheme) and `ContentBucket`
-(name, content path). A first request segment naming a share maps the rest inside the share,
+Named shares and buckets (ADR-0102 decisions 2.1 and 2.4, built by BL-655) arrive through the
+`shares` and `buckets` parameters of `ContentStore`'s constructor as `ContentShare` (name, full
+path, its own `IContentFileSystem`, `IsReadOnly`, `Schemes`; null is every scheme) and
+`ContentBucket` (name, content path). A first request segment naming a share maps the rest inside the share,
 under every rule of the root (exposure options, segment refusals, no escape through a link,
 `.surl` hidden); the share shadows the root entry of its name for every scheme. A lookup
 names its scheme with `MapRequestPathForScheme`; a share the scheme does not see, and any
@@ -69,8 +69,11 @@ behave exactly as before, and with grants they never open a closed share. The ro
 access rows.
 
 Stand-in events and faults (ADR-0124 decisions 1 and 4, ADR-0129, built by BL-789):
-`ContentStore`'s five-argument constructor takes an optional `ISurlEventPublisher` and
-`IFaultPlan` (null: publish nothing, find nothing), held in internal `ContentStoreEventsAndFaults`.
+`ContentStore`'s constructor that takes `shares` and `buckets` also takes optional `events`
+(`ISurlEventPublisher?`) and `faults` (`IFaultPlan?`) (null: publish nothing, find nothing), held
+in internal `ContentStoreEventsAndFaults`, and optional `sweepClock` (`TimeProvider?`): when given,
+the constructor calls `RemoveAbandonedUploadFiles` with it before it captures the configured state
+(ADR-0150); null sweeps nothing.
 After each change it publishes one `StoreChangedEvent` (`Content`, `ExchangeId` the `ContentCaller.ExchangeId` that made it, set with `WithExchange(long)`, else null; seeds, reset and restore are null; BL-872): `Written`
 with the file's whole length (write, append, committed session), `Deleted` (file or empty
 folder), `Renamed` with `PreviousName` (one event), `Created` (folder). `Name` is the request

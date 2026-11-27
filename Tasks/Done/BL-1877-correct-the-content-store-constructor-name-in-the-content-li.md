@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Content.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1877 — Correct the content store constructor name in the content library notes
 
@@ -22,13 +22,22 @@ Found while working BL-1870. The notes say "`ContentStore`'s five-argument const
 
 ## Acceptance criteria
 
-- [ ] The file no longer contains the text "five-argument constructor".
-- [ ] Each of the two paragraphs describes the constructor by parameters that exist in `ContentStore.cs`, saying which are optional where it mentions optional ones.
-- [ ] Only `Foundation/Surl.Content.UnitLibrary/CLAUDE.md` changes, apart from this task file.
+- [x] The file no longer contains the text "five-argument constructor".
+- [x] Each of the two paragraphs describes the constructor by parameters that exist in `ContentStore.cs`, saying which are optional where it mentions optional ones.
+- [x] Only `Foundation/Surl.Content.UnitLibrary/CLAUDE.md` changes, apart from this task file.
 
 ## Notes
+
+- Both paragraphs now name the constructor by its `shares` and `buckets` parameters; the events
+  paragraph names the optional `events`, `faults` and `sweepClock`.
+- The notes say the sweep runs before the configured state is captured, which is the order in the
+  code. The `sweepClock` doc comment in `ContentStore.cs` says the constructor "first calls" the
+  sweep, though argument checks and share setup come before it. Left as it is: code files are
+  outside this task, and no task was filed for a one-word nuance with no effect on callers.
+- Docs only. `dotnet build` clean (0 warnings, 0 errors); fast tests passed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The content library notes name the ContentStore constructor by its real parameters, including optional events, faults and sweepClock
