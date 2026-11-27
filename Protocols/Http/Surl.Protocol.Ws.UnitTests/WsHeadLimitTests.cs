@@ -57,7 +57,7 @@ public sealed class WsHeadLimitTests
         var serving = Server().ServeAsync(connection, Context(log, clock, TestContext.CancellationToken));
 
         clock.Advance(HeadTimeout);
-        await EndLingeringCloseAsync(clock, connection, serving);
+        await EndLingeringCloseAsync(clock, connection, serving, TimersCreatedWhenLingeringAfterAWriteDeadline);
 
         Assert.AreEqual(Refusal("408 Request Timeout"), Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
