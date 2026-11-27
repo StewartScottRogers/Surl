@@ -1,5 +1,5 @@
 ---
-id: BL-1957
+id: BL-1964
 title: Name Surl.Composition as the loader of the mail store in the Surl.MailStore notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1957 — Name Surl.Composition as the loader of the mail store in the Surl.MailStore notes
+# BL-1964 — Name Surl.Composition as the loader of the mail store in the Surl.MailStore notes
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1959
+id: BL-1966
 title: Correct the Kerberos and OpenLDAP proof claims in the LDAP library notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1959 — Correct the Kerberos and OpenLDAP proof claims in the LDAP library notes
+# BL-1966 — Correct the Kerberos and OpenLDAP proof claims in the LDAP library notes
 
 ## Goal
 

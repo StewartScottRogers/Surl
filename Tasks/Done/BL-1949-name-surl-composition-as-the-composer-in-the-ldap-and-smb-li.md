@@ -56,7 +56,7 @@ No store, event or fault is involved: documentation only.
 - The SMB sentence now names `Surl.Composition`'s `ProtocolServerRegistrations.Original`. It is the only file outside
   the board that this task changes.
 - Verified 2026-11-27: `dotnet build` with 0 warnings and 0 errors; every fast test assembly passed, 0 failed.
-- Filed for the stale statements found outside this task's files: BL-1955 to BL-1961.
+- Filed for the stale statements found outside this task's files: BL-1962 to BL-1961.
 
 ## Log
 

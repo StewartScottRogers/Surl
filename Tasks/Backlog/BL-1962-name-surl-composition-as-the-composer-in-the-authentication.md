@@ -1,5 +1,5 @@
 ---
-id: BL-1955
+id: BL-1962
 title: Name Surl.Composition as the composer in the authentication policy contract comments
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1955 — Name Surl.Composition as the composer in the authentication policy contract comments
+# BL-1962 — Name Surl.Composition as the composer in the authentication policy contract comments
 
 ## Goal
 

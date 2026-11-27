@@ -1,5 +1,5 @@
 ---
-id: BL-1958
+id: BL-1965
 title: Name Surl.Composition as the composer in the Telnet server's comments and notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1958 — Name Surl.Composition as the composer in the Telnet server's comments and notes
+# BL-1965 — Name Surl.Composition as the composer in the Telnet server's comments and notes
 
 ## Goal
 

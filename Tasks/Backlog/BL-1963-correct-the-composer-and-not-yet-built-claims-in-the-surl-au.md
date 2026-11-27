@@ -1,5 +1,5 @@
 ---
-id: BL-1956
+id: BL-1963
 title: Correct the composer and not-yet-built claims in the Surl.Authentication comments and notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1956 — Correct the composer and not-yet-built claims in the Surl.Authentication comments and notes
+# BL-1963 — Correct the composer and not-yet-built claims in the Surl.Authentication comments and notes
 
 ## Goal
 
