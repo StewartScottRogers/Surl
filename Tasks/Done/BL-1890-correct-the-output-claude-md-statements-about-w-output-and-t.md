@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Output.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1890 — Correct the Output CLAUDE.md statements about -w output and the start-up warnings
 
@@ -31,16 +31,22 @@ Found during BL-1849 (checked against the code on 2026-11-27). Docs only.
 
 ## Acceptance criteria
 
-- [ ] The file no longer says a `-w` style line per exchange is not built.
-- [ ] It says `-w` output is not in this library and names `WriteOutFormat` (`Surl.Cli`) and `WriteOutPrinter`
+- [x] The file no longer says a `-w` style line per exchange is not built.
+- [x] It says `-w` output is not in this library and names `WriteOutFormat` (`Surl.Cli`) and `WriteOutPrinter`
       (`Surl.Console`).
-- [ ] It says `Surl.Console`'s `LogStreams` picks the writer and `Surl.Composition`'s `ComposedServing` writes the
+- [x] It says `Surl.Console`'s `LogStreams` picks the writer and `Surl.Composition`'s `ComposedServing` writes the
       start-up warnings and the throwaway-certificate note.
-- [ ] Only that `CLAUDE.md` changes.
+- [x] Only that `CLAUDE.md` changes.
 
 ## Notes
+
+- Checked against `ComposedServing.cs`, `LogStreams.cs`, `WriteOutPrinter.cs` and `CommandLineOptions.cs` on
+  2026-11-27. The edit was made in the session rather than by `align-and-document`: one paragraph, with the facts
+  already named by the task. The paragraph is now a three-item list. The `verify` skill was not needed (no `.cs` or
+  project file changed); `dotnet build` finished with 0 warnings and the fast tests passed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Output CLAUDE.md now says where -w output and the start-up warnings are written
