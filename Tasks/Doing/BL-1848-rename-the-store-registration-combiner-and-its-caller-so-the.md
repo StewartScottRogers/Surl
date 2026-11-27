@@ -58,3 +58,4 @@ store order and published events do not change. All in `Application/Surl.Composi
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
