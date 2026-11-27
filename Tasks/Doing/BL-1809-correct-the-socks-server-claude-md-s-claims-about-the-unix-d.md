@@ -30,3 +30,4 @@ Found by BL-1806. The file says the Unix domain socket (BL-561) "is still to com
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
