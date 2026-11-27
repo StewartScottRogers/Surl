@@ -662,12 +662,12 @@ Each `.UnitTests` project sits beside the library it tests.
 | Folder | Holds |
 | --- | --- |
 | `Application/` | the three hosts - `surl` (`Surl.Console`), `Surl.Api` and `surl-mcp` (`Surl.Mcp`) - the command line (`Surl.Cli`), the composition they share (`Surl.Composition`), `Surl.Mcp.UnitLibrary` and the control endpoint (`Surl.Control`) |
-| `Foundation/` | the protocol contracts, networking, content store, accounts, cookies and output |
-| `Cryptography/` | the hand-built primitives (ChaCha20, Curve25519, Ed25519, Poly1305 and others), the TLS 1.3 handshake for QUIC, and Kerberos |
+| `Foundation/` | the protocol contracts, the serving engine (`Surl.Core`), networking, content store, accounts, cookies, output and the compression codecs (`Surl.Compression`) |
+| `Cryptography/` | the hand-built primitives (ChaCha20, Curve25519, Ed25519, Poly1305 and others), TLS 1.3 (the handshake for QUIC, and a server stream for where `SslStream` cannot serve the client), DTLS 1.2, TLS-SRP, and Kerberos with its loopback test KDC |
 | `Protocols/DataStore/` | the extended Redis server |
 | `Protocols/FileTransfer/` | FTP, SSH (SCP and SFTP), TFTP and SMB |
 | `Protocols/Http/` | HTTP, the HTTP and HTTPS proxy, WebSocket and RTSP, with HTTP/2, HTTP/3, QUIC, HPACK and QPACK, and the HTTP message, HTTP serving, WebSocket and MCP serving libraries |
-| `Protocols/Mail/` | SMTP, IMAP and POP3, and the mail store they share |
+| `Protocols/Mail/` | SMTP, IMAP and POP3, the mail store they share, and the line machinery (`Surl.LineProtocol`) they share with the HTTP and SOCKS proxies |
 | `Protocols/Messaging/` | LDAP and MQTT, and the shared message bus |
 | `Protocols/Lookup/`, `Protocols/Terminal/` | DICT and Gopher, and TELNET |
 | `Protocols/Proxy/` | the SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy server (the HTTP proxy is in `Protocols/Http/`) |
