@@ -44,9 +44,10 @@ standard output, and they serve no session.
   After the tools it adds the `surl://aihelp` resources with one `AddResources(new AiHelpResourceProvider())`
   line (ADR-0103 decision 6) and serves one session through `McpStreamSession`, with `serverInfo`
   `{"name": "surl-mcp", "title": "Surl", "version": <SurlMcpHelpText.Version>}` - the assembly's informational
-  version up to any `+` - and `Program.Instructions` as the `instructions`. When the input ends or the token is
-  cancelled, disposing `RunningSurlServers` stops every server it started, and it exits 0. Nothing registers a
-  tool or resource by scanning or reflection.
+  version up to any `+` - and `Program.Instructions` as the `instructions`, which name every registered tool,
+  grouped by job; a `ProgramTests` test fails, naming the tool, when `tools/list` gives one the text leaves out.
+  When the input ends or the token is cancelled, disposing `RunningSurlServers` stops every server it started,
+  and it exits 0. Nothing registers a tool or resource by scanning or reflection.
 - `SurlMcpCommandLine` - `--root <dir>` (else `SURL_MCP_ROOT`; empty is unset), `--allow-non-loopback`,
   `--max-servers <n>` (1 to 64), `--log-level <level>` (surl's five words, any case), `--help`, `--version`. A
   later option overrides an earlier one; `--help` or `--version` answers at once. Any other word, a missing
