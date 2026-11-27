@@ -1,5 +1,5 @@
 ---
-id: BL-1894
+id: BL-1897
 title: Correct the amendment lists in ADR-0088's header and the HTTP proxy's CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1894 — Correct the amendment lists in ADR-0088's header and the HTTP proxy's CLAUDE.md
+# BL-1897 — Correct the amendment lists in ADR-0088's header and the HTTP proxy's CLAUDE.md
 
 ## Goal
 

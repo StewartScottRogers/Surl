@@ -58,7 +58,7 @@ Found by BL-1836 and checked against the repository on 2026-11-27. Prose only. N
   lacks" now adds "or has on only some platforms (ML-KEM)" (ADR-0082), and "bytes in and bytes out" is now "with no
   socket, file or clock", because `Srp` also parses `tpasswd` text.
 - No decision was needed, so no ADR. `dotnet build` clean (0 warnings) and every fast test assembly passed.
-- Other drift seen and left alone is filed as BL-1894.
+- Other drift seen and left alone is filed as BL-1897.
 
 ## Log
 
