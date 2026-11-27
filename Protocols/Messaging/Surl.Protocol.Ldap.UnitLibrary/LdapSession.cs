@@ -214,9 +214,10 @@ internal sealed partial class LdapSession
             : SendAsync(LdapMessageEncoder.EncodeExtendedResponse(
                 messageId, new LdapResult(LdapResultCode.ProtocolError, string.Empty, "unsupported extended operation"), null, null));
 
-    // StartTLS is offered only by a server with a certificate, on a connection not yet TLS
-    // (ADR-0072 decision 5); otherwise it is an unknown extended operation, or refused
-    // operationsError on a connection already TLS.
+    // StartTLS is offered only while a TLS upgrade is available - a certificate is configured or
+    // TLS-SRP is served (ADR-0122 decision 5) - on a connection not yet TLS (ADR-0072 decision
+    // 5). It is also recognized on a connection already TLS, to be refused operationsError;
+    // otherwise it is an unknown extended operation.
     private bool IsStartTlsRecognized => isTlsUpgradeAvailable || connection.TlsSession is not null;
 
     // A bind resets the connection's identity: a failed bind leaves it anonymous (RFC 4511,

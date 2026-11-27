@@ -8,7 +8,7 @@ depends-on: [BL-1924]
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1931 — Correct the certificate-only StartTLS claims in the LDAP server's comments and notes
 
@@ -36,14 +36,24 @@ No store, event or fault is involved: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The "TLS." remarks and the three `isTlsUpgradeAvailable` params of `LdapProtocolServer` name both a certificate and TLS-SRP, and say `StartTLS` is an unknown extended operation only when no upgrade is available.
-- [ ] The `LdapSession` comment and the `CLAUDE.md` root DSE sentence name both a certificate and TLS-SRP.
-- [ ] No comment or `CLAUDE.md` line in the library says `StartTLS` depends on a certificate alone.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] The "TLS." remarks and the three `isTlsUpgradeAvailable` params of `LdapProtocolServer` name both a certificate and TLS-SRP, and say `StartTLS` is an unknown extended operation only when no upgrade is available.
+- [x] The `LdapSession` comment and the `CLAUDE.md` root DSE sentence name both a certificate and TLS-SRP.
+- [x] No comment or `CLAUDE.md` line in the library says `StartTLS` depends on a certificate alone.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- 2026-11-27: Comments and `CLAUDE.md` text only, in `LdapProtocolServer.cs`, `LdapSession.cs` and the library `CLAUDE.md`.
+  The comments also say what `LdapSession` does on a connection already TLS: `StartTLS` is refused
+  `operationsError` whether or not an upgrade is available, so "unknown extended operation" applies only to a
+  connection not yet TLS.
+- 2026-11-27: `dotnet build -warnaserror` clean (0 warnings, 0 errors); fast tests green in every test project.
+- Follow-ups filed: BL-1944 (stale `Surl.Console` attributions in the LDAP notes and the test class summary), BL-1945
+  (the XMPP refused-`starttls` log note names a certificate only). The other certificate-only claims seen outside the
+  library are already on the board (BL-1927, BL-1937, BL-1938, BL-1942).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The LDAP library's comments and CLAUDE.md say StartTLS is available with a certificate or under TLS-SRP

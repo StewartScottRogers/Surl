@@ -36,12 +36,14 @@ runs one `LdapSession` per connection. `LdapBindJudge` decides each bind into an
 name mapped by `LdapBindNames`; SASL binds and `WinLDAP`'s Sicily binds
 (`LdapSicilyAuthentication`, `LdapSicilyChoice`) through `LdapSaslBindJudge`, which runs the
 policy's `ISaslExchange` and holds the exchange in progress between binds. The session answers
-searches (the root DSE with the policy's `supportedSASLMechanisms` and, with a certificate,
-`StartTLS`), compares, writes (refused), `StartTLS` (the upgrade, after discarding what
-`LdapMessageFrameReader` read past the request), other extended operations, abandon and unbind;
-once a bind installs an `ISaslSecurityLayer` every message both ways is one 4-byte-length buffer
-the layer protects. It sends the Notice of Disconnection for what it cannot read
-(`LdapDiagnostics`) and for a limit, and notes each decision (`LdapLogText`). `ldaps` is the
+searches (the root DSE with the policy's `supportedSASLMechanisms` and, on a connection not
+yet TLS while a TLS upgrade is available - a certificate is configured or TLS-SRP is served,
+`Surl.Composition`'s `ServerTlsComposition.IsTlsUpgradeAvailable` - `StartTLS` in
+`supportedExtension`), compares, writes (refused), `StartTLS` (the upgrade, after discarding
+what `LdapMessageFrameReader` read past the request), other extended operations, abandon and
+unbind; once a bind installs an `ISaslSecurityLayer` every message both ways is one
+4-byte-length buffer the layer protects. It sends the Notice of Disconnection for what it
+cannot read (`LdapDiagnostics`) and for a limit, and notes each decision (`LdapLogText`). `ldaps` is the
 same exchange inside the engine's implicit TLS: `Surl.Console` registers the server a second
 time behind `ImplicitTlsSchemeServer` (BL-310). Its tests replay request bytes recorded from the
 pinned Windows build (`Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`), the SASL policy and
