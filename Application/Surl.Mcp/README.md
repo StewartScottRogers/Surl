@@ -37,8 +37,11 @@ that needs no .NET runtime.
 - `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `add_proxy_account`, `remove_proxy_account`, `add_tls_srp_account`, `remove_tls_srp_account`, `set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password` - change a
   running server's stores as a test would. `delete_file` takes a request `path` and answers `{path}`;
   `no file at <path>` when nothing, a folder or a hidden path is there. `remove_account` takes a `user`
-  (an account given at start too) and answers `{user}`; `server <id> has no account <user>` when it holds
-  none. Neither needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
+  (an account given at start too; an empty string names the Bearer-token account) and answers `{user}`;
+  `server <id> has no account <user>` when it holds no such account, or
+  `server <id> has no Bearer-token account` for an empty `user`. Removing the last account adds a `warning`
+  member and a second text block, both `server <id> has no account left and now needs no login`. Neither
+  tool needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
   `seed_mail` resolves its `to` as SMTP's `RCPT TO` does (ADR-0050 decision 5, ADR-0102 decision 1.1): without
   a mail domain only the local part counts, matched exactly or else ignoring case, and the domain is ignored,
   so `ALICE@example.com` and `alice@other.org` both deliver to account `alice`. With `--mail-domain`, its

@@ -8,7 +8,7 @@ depends-on: [BL-1832, BL-1844]
 touches: [Application/Surl.Mcp/README.md, Application/Surl.Mcp.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1845 — Complete the surl-mcp account tool refusals in the host README plus library CLAUDE.md
 
@@ -38,18 +38,26 @@ No store, event or fault changes: this task changes prose only.
 
 ## Acceptance criteria
 
-- [ ] The library `CLAUDE.md` add-tools bullet gives `add_proxy_account`'s
+- [x] The library `CLAUDE.md` add-tools bullet gives `add_proxy_account`'s
       `user <user> cannot be added: ...` refusal in full, as `AddProxyAccountTool.cs` writes it.
-- [ ] The same bullet gives `add_tls_srp_account`'s taken-name refusal exactly as `AddTlsSrpAccountTool.cs`
+- [x] The same bullet gives `add_tls_srp_account`'s taken-name refusal exactly as `AddTlsSrpAccountTool.cs`
       writes it, and does not say that tool refuses a `:`.
-- [ ] The README's `remove_account` text says an empty `user` names the Bearer-token account and gives
+- [x] The README's `remove_account` text says an empty `user` names the Bearer-token account and gives
       `server <id> has no Bearer-token account` for when none is held.
-- [ ] The README's `remove_account` text gives the warning `server <id> has no account left and now needs no
+- [x] The README's `remove_account` text gives the warning `server <id> has no account left and now needs no
       login`, as a `warning` member and a second text block, when the last account is removed.
 
 ## Notes
+
+- Delivered by `align-and-document`; prose only, in the two files `touches` names. Texts checked against
+  `AddProxyAccountTool.cs`, `AddTlsSrpAccountTool.cs` and `RemoveAccountTool.cs` on 2026-11-27.
+- The bullet also now writes the two no-such-accounts refusals in full instead of cut with `...`.
+- The `now needs no login` warning is quoted as the code writes it. BL-1854 (in Doing) decides what removing
+  the last account leaves a server needing; if it changes that text, it changes these two documents.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: no failures.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The library CLAUDE.md gives both add tools' taken-name refusals and the surl-mcp README gives every remove_account answer
