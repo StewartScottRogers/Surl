@@ -61,3 +61,4 @@ is a security promise that ships in the XML docs of public types (BL-1841 correc
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
