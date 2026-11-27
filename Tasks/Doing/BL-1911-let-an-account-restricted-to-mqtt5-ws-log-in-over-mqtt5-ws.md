@@ -36,3 +36,4 @@ An account restricted by `protocols=mqtt5+ws` logs in over `mqtt5+ws` and stays 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
