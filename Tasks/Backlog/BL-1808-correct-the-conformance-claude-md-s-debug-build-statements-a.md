@@ -1,5 +1,5 @@
 ---
-id: BL-1806
+id: BL-1808
 title: Correct the conformance CLAUDE.md's Debug build statements and amend ADR-0080 on where port variables and SSH keys are made
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-053
 created: 2026-11-26
 completed:
 ---
-# BL-1806 — Correct the conformance CLAUDE.md's Debug build statements and amend ADR-0080 on where port variables and SSH keys are made
+# BL-1808 — Correct the conformance CLAUDE.md's Debug build statements and amend ADR-0080 on where port variables and SSH keys are made
 
 ## Goal
 

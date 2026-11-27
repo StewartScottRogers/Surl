@@ -50,14 +50,14 @@ Found during BL-1803 (2026-11-26).
 - Choice (decided by Claude): the conformance `CLAUDE.md` keeps no intent list. No open task plans to
   move the port variables or the SSH keys into the library, so the paragraph states where each is
   built today. No ADR here: nothing about behaviour or design changes; amending ADR-0080's wording
-  is outside `touches` and is filed as BL-1806.
+  is outside `touches` and is filed as BL-1808.
 - The DNS paragraph's "runs for real if a debug build is ever pinned" was removed: a Debug build is
   pinned, and no pin is given `override-dns`.
 - The edits were made in the session instead of through `align-and-document`: the check of the code
   had already been done, so a fresh agent would only have repeated it.
 - Verify: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast
   tests all passed. Integration tests not run: the diff is comments and Markdown.
-- Follow-up: BL-1806.
+- Follow-up: BL-1808.
 
 ## Log
 
