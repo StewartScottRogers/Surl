@@ -1,5 +1,5 @@
 ---
-id: BL-1829
+id: BL-1839
 title: Decide what removing the last proxy account leaves a proxy asking for, and what the warning says
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1829 — Decide what removing the last proxy account leaves a proxy asking for, and what the warning says
+# BL-1839 — Decide what removing the last proxy account leaves a proxy asking for, and what the warning says
 
 ## Goal
 

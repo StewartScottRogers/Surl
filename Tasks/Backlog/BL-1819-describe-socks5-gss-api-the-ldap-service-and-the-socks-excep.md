@@ -4,7 +4,7 @@ title: Describe SOCKS5 GSS-API, the ldap service and the SOCKS exception in the 
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1818, BL-1826, BL-1828]
+depends-on: [BL-1818, BL-1826, BL-1838]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-26
@@ -24,7 +24,7 @@ Found while working BL-1809. Both texts are in `Application/Surl.Cli.UnitLibrary
 - `AiHelpProse.cs`, the paragraph beginning "`--keytab <file>` reads Kerberos service keys" (about line 72), also leaves out `rcmd` and SOCKS5. The `proxy` topic paragraph about SOCKS already says them correctly.
 - Both state the unused warning with no SOCKS exception. BL-1818 changes the behaviour (decision: the ADR-0057 amendment from BL-1817).
 - Both say a Kerberos login "is accepted only when an account of exactly that name exists". Decision (BL-1816,
-  ADR-0165 amendment 1, built by BL-1828): a SOCKS5 GSS-API login needs a proxy account (`-U`,
+  ADR-0165 amendment 1, built by BL-1838): a SOCKS5 GSS-API login needs a proxy account (`-U`,
   `--proxy-user-file`; never `--user`) of exactly the principal's name when the proxy was started with proxy
   accounts, even an empty file; with none, any ticket the keys accept is accepted; `--allow-anonymous` skips
   the account match. The `proxy` topic paragraph about SOCKS does not say this yet.

@@ -4,7 +4,7 @@ title: Judge and publish a SOCKS5 GSS-API login when no proxy account is given
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1828]
+depends-on: [BL-1838]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-26
@@ -29,7 +29,7 @@ login-judged event and a `refuse-login` fault rule refuses it.
   project (`Foundation/Surl.Authentication.UnitLibrary` or `Surl.Protocol.Abstractions.UnitLibrary`), add it to
   `touches`. Record a design choice as an ADR-0165 amendment.
 - ADR-0165 amendment 1 (BL-1816): with no proxy account, every ticket the keytab's keys accept stays accepted.
-  After BL-1828 an `AuthenticationPolicy` over an empty account book refuses it unless `AllowAnonymous`, so the
+  After BL-1838 an `AuthenticationPolicy` over an empty account book refuses it unless `AllowAnonymous`, so the
   policy composed here must not be that.
 - No byte Surl sends changes unless a fault rule refuses the login.
 

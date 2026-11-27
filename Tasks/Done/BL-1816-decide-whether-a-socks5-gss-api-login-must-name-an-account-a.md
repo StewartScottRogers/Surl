@@ -37,10 +37,10 @@ and ADR-0165 already decide. BL-1819 changes the same help text.
   proxy account of exactly the principal's name; `--allow-anonymous` skips the match. A proxy started with no
   proxy account asks no login (method `00` is open), so any ticket the keys accept stays accepted. Why: a keytab
   must not widen a proxy account list to a whole realm (ADR-0057), and refusing where `00` is open protects nothing.
-- The behaviour changes: BL-1828 (code). BL-1819 names the decision and now depends on BL-1828 too. BL-1826 also
-  depends on BL-1828, so the policy it composes keeps accepting any ticket with no proxy account.
+- The behaviour changes: BL-1838 (code). BL-1819 names the decision and now depends on BL-1838 too. BL-1826 also
+  depends on BL-1838, so the policy it composes keeps accepting any ticket with no proxy account.
 - Found by reading, not tested: the "proxy now needs no login" warning looks false once the last proxy account is
-  removed. Filed BL-1829 to confirm and decide.
+  removed. Filed BL-1839 to confirm and decide.
 - Written in the lane session rather than by `align-and-document`: the decision needed the same reading, and a
   second agent would have repeated it.
 - Nothing measured: no byte Surl sends is new (a refusal is the existing `01 FF`).
@@ -49,4 +49,4 @@ and ADR-0165 already decide. BL-1819 changes the same help text.
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
-- 2026-11-26: Doing -> Done. ADR-0165 amendment 1 decides a SOCKS5 GSS-API login needs a proxy account of the principal's name when the proxy has proxy accounts; BL-1828 and BL-1829 filed
+- 2026-11-26: Doing -> Done. ADR-0165 amendment 1 decides a SOCKS5 GSS-API login needs a proxy account of the principal's name when the proxy has proxy accounts; BL-1838 and BL-1839 filed

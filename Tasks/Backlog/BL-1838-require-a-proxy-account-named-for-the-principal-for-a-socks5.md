@@ -1,5 +1,5 @@
 ---
-id: BL-1828
+id: BL-1838
 title: Require a proxy account named for the principal for a SOCKS5 GSS-API login
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1828 — Require a proxy account named for the principal for a SOCKS5 GSS-API login
+# BL-1838 — Require a proxy account named for the principal for a SOCKS5 GSS-API login
 
 ## Goal
 

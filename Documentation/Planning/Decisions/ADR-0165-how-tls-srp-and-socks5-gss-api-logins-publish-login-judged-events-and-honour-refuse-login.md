@@ -106,7 +106,7 @@ Follow-up tasks, in order (contracts first):
 ## Amendment 1 - a SOCKS5 GSS-API login needs a proxy account when the proxy has proxy accounts (BL-1816, 2026-11-26)
 
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-26, in
-BL-1816. It amends decisions 7 to 9. It is the rule the code is to follow; BL-1828 builds it.
+BL-1816. It amends decisions 7 to 9. It is the rule the code is to follow; BL-1838 builds it.
 
 ### Context
 
@@ -191,7 +191,7 @@ account tools (`Surl.Mcp`) and the control endpoint add or remove the name betwe
 
 ### Consequences
 
-1. BL-1828: `Surl.Authentication`: `AuthenticationPolicy.JudgeKerberosLoginAsync` matches the
+1. BL-1838: `Surl.Authentication`: `AuthenticationPolicy.JudgeKerberosLoginAsync` matches the
    account, with the Socks library's `CLAUDE.md` saying so.
 2. BL-1826 (judging a login when no proxy account is given) must keep accepting any principal there,
    as row 1 of the table says.
