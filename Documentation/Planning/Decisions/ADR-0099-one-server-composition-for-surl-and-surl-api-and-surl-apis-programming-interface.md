@@ -444,3 +444,15 @@ artifact and attaches `Surly.Surl.Api.<version>.nupkg` to the GitHub release bes
 `SHA256SUMS`. The checksum step names the package at the tag's version, so a missing or misversioned package
 fails the release. Decision 10's package is unchanged, and attaching it to a release is not a feed push: nothing
 is pushed to nuget.org or any other feed (BL-643 stands).
+
+## Amendment 2026-11-26 (2): each release tag pushes the package to nuget.org (BL-1795)
+
+**Decided by Stewart**, 2026-11-26: push the NuGet packages to nuget.org. This replaces decision 10's "pushing it
+to nuget.org is a release action that needs Stewart" and the previous amendment's "nothing is pushed to
+nuget.org or any other feed": Stewart's say-so is now given once, for every `v*` tag.
+
+**Decision.** After creating the GitHub release, `release.yml`'s release job logs in to nuget.org with
+`NuGet/login@v1` (trusted publishing: the account `StewartScottRogers` holds a policy for this repository's
+`release.yml`; the job's OIDC token, `id-token: write`, is traded for a key valid one hour, so no secret is
+stored) and runs `dotnet nuget push Surly.Surl.Api.<version>.nupkg --skip-duplicate`. A dry run pushes
+nothing. A pushed version cannot be deleted from nuget.org, only unlisted, which is why the push is tag-only.

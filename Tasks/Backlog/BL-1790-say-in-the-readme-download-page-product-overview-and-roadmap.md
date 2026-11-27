@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: docs
 depends-on: [BL-1789]
-touches: [README.md, DOWNLOAD.md, Documentation/Product/Product-Overview.md, Documentation/Planning/Roadmap.md]
+touches: [README.md, DOWNLOAD.md, Documentation/Product/Product-Overview.md, Documentation/Planning/Roadmap.md, Application/Surl.Api/Surl.Api.csproj, Application/Surl.Mcp/Surl.Mcp.csproj]
 requirement: none
 created: 2026-11-26
 completed:
@@ -15,8 +15,8 @@ completed:
 ## Goal
 
 The four documents say what is true of releases now: which are published, that each carries the
-binary archives, the two NuGet packages (from the first release after BL-1789) and `SHA256SUMS`,
-and that nothing in `release.yml` pushes a package to a feed.
+binary archives, the two NuGet packages (from v0.1.10, the first release after BL-1789) and `SHA256SUMS`,
+and that from the first release after BL-1795 the release job also pushes both packages to nuget.org.
 
 ## Context
 
@@ -42,3 +42,4 @@ writing either claim.
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Goal amended: BL-1795 (Stewart, 2026-11-26) pushes the packages to nuget.org, so the documents say so once the first such release is published. Check nuget.org for `Surly.Surl.Api` before writing that claim; also correct the csproj comments in `Application/Surl.Api/Surl.Api.csproj:11` and `Application/Surl.Mcp/Surl.Mcp.csproj:22`.
