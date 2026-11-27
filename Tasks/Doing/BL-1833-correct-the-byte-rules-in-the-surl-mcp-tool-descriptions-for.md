@@ -56,3 +56,4 @@ comment text, with tests that pin it.
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
