@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary/CLAUDE.md, Foundation/Surl.Output.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1871 — Remove the stale Phase 1 line from the networking plus output library notes
 
@@ -27,14 +27,20 @@ Check the Output claim against the file and its `.cs` files before removing the 
 
 ## Acceptance criteria
 
-- [ ] The Networking file contains no line that reads only "Phase 1.".
-- [ ] The Output file contains no such line, or Notes states why its line is still true.
-- [ ] Where a line is removed, the title is followed by one blank line and then the first descriptive paragraph.
-- [ ] This task changes no other line of either file.
+- [x] The Networking file contains no line that reads only "Phase 1.".
+- [x] The Output file contains no such line, or Notes states why its line is still true.
+- [x] Where a line is removed, the title is followed by one blank line and then the first descriptive paragraph.
+- [x] This task changes no other line of either file.
 
 ## Notes
+
+- Removed "Phase 1." and the blank line after it from both files (`git diff`: 2 deletions each, nothing else).
+- Output claim confirmed: `ListenerStatusLine.cs` writes the Unix domain socket form of the status line (ADR-0094 decision 6, added in commit f9adc27c7), later than Phase 1's decisions.
+- Drift seen and left alone: the Output file's "`-w` style line per exchange is not built yet" is already filed as BL-1890; the `ListenerStatusLine` doc comments for a Unix socket URL are filed as BL-1893.
+- Only Markdown changed, so the `docs` pipeline needs no `verify`; `dotnet build` (0 warnings, 0 errors) and the fast tests passed anyway.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Networking and Output library CLAUDE.md files no longer open with a bare Phase 1 line
