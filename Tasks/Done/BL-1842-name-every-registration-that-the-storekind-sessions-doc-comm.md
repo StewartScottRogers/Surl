@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary/StoreKind.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1842 — Name every registration that the StoreKind.Sessions doc comment covers
 
@@ -34,15 +34,25 @@ library; no contract or executable line changes.
 
 ## Acceptance criteria
 
-- [ ] The `StoreKind.Sessions` comment names the MQTT 5 sessions, the OCI registry tokens, and the MCP OAuth state
+- [x] The `StoreKind.Sessions` comment names the MQTT 5 sessions, the OCI registry tokens, and the MCP OAuth state
       and HTTP sessions, and cites ADR-0159 and ADR-0167.
-- [ ] It says the OCI and MCP state is not copied into a snapshot, and what reset and restore do to it.
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitTests -warnaserror` is clean, and the only changed
+- [x] It says the OCI and MCP state is not copied into a snapshot, and what reset and restore do to it.
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitTests -warnaserror` is clean, and the only changed
       lines are comments.
 
 ## Notes
+
+- The comment also names the MQTT 5 pending Wills, which `Mqtt5SessionStoreRegistration` registers under the same
+  member: a snapshot copies none (`Mqtt5BrokerState.TakeSnapshot`), reset and restore discard them (ADR-0159
+  decision 2).
+- Checked against `McpSessionStoreRegistration`, `OciTokenStoreRegistration`, `Mqtt5SessionStoreRegistration` and
+  ADR-0167 decisions 2 and 3.
+- The one-comment edit was made in the session, not delegated to `align-and-document`.
+- Verify: `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` clean; fast tests 29875
+  passed, 3 skipped, 0 failed (82 assemblies). Integration tests not run: no executable line changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The StoreKind.Sessions doc comment names every registration it covers: MQTT 5 sessions and pending Wills, OCI tokens, MCP OAuth state and HTTP sessions.
