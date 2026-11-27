@@ -37,3 +37,4 @@ Check the Output claim against the file and its `.cs` files before removing the 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
