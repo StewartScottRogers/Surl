@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md, Documentation/Planning/Decisions/ADR-0159-which-broker-held-state-a-reset-snapshot-and-restore-of-the-message-bus-cover.md, Documentation/Planning/Decisions/ADR-0167-what-a-reset-snapshot-and-restore-do-with-in-progress-object-uploads-and-the-oci-and-mcp-servers-tokens.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1896 — Amend ADR-0158, ADR-0159 and ADR-0167 to describe the store registration seam the code has, not IControllableStore
 
@@ -31,15 +31,26 @@ behaviour changes.
 
 ## Acceptance criteria
 
-- [ ] Each of the three ADRs has a dated amendment, named in its header and "Decided by Claude under Stewart's
+- [x] Each of the three ADRs has a dated amendment, named in its header and "Decided by Claude under Stewart's
       delegation", saying how a store joins `ComposedStores` in the code, and that this supersedes its
       `IControllableStore` text.
-- [ ] The ADR-0158 row of the decisions index no longer says stores join through `IControllableStore`.
-- [ ] No original decision sentence is rewritten in the ADRs, and no `.cs` file changes.
+- [x] The ADR-0158 row of the decisions index no longer says stores join through `IControllableStore`.
+- [x] No original decision sentence is rewritten in the ADRs, and no `.cs` file changes.
 
 ## Notes
+
+- The full description is in ADR-0158 Amendment 3; ADR-0159 Amendment 2 and ADR-0167 Amendment 2 link to it and give
+  only their own classes, so the seam is described once. Why: three copies would drift apart.
+- Each superseded decision gained an italic pointer to its amendment, the convention BL-1857 used; no original
+  sentence changed.
+- The amendments also record what else differed from the code: `ComposedStores` has `RegisteredStoreOrder`, not
+  `Order`; no broker registers from `ExtendedProtocolServers`; and a typed seed or read method still means editing
+  `ComposedStores`.
+- `ProtocolServerRegistration` has only `Schemes`, `Create` and `MakesLogin`: no `ControlledStore`.
+- Gates: `dotnet build` 0 warnings, 0 errors; fast tests passed. No `.cs` file changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0158, ADR-0159, ADR-0167 and the index describe the ComposedStoreRegistration seam the code has

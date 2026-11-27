@@ -13,6 +13,8 @@
 - **Amended by:** [ADR-0166](ADR-0166-which-client-changes-to-the-amqp-0-9-1-exchange-table-the-mqtt-5-sessions-and-the-kafka-producer-states-publish-store-changed-events.md) (which client changes publish).
 - **Amended (2026-11-27, BL-1857):** decisions 3 and 4's order across stores: the broker registrations follow the
   accounts, and content comes before the bus; see Amendment 1.
+- **Amended (2026-11-27, BL-1896):** the registration seam decision 3 names (`IControllableStore`) is superseded by
+  the one the code has; see Amendment 2, decided by Claude under Stewart's delegation.
 
 ## Context
 
@@ -77,6 +79,7 @@ registrations in ordinal order of scheme, then accounts. The broker does **not**
 and `Restored` events: an event arrives after the bus is already swapped, cannot take part in a snapshot, cannot
 refuse and cannot report a failure naming the store. One `StoreChangedEvent` per registration is published
 (`Reset`, `Restored`), as for every store. *This decision's order across stores is superseded; see Amendment 1.*
+*Its registration seam, and where it is registered from, are superseded; see Amendment 2.*
 
 ### 4. `--directory`
 
@@ -116,3 +119,17 @@ the code runs; no code changes. The whole order is in
   and these three.
 - **Decision 4.** Content comes before the bus, so the order does not put the bus first. With `--directory` the
   content store refuses first, which still stops a whole-instance reset or snapshot before any broker is reached.
+
+## Amendment 2 (2026-11-27, BL-1896): how a broker's state joins `ComposedStores`
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-1896. It records the seam
+the code has; no code changes. The seam is described in
+[ADR-0158 Amendment 3](ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md#amendment-3-2026-11-27-bl-1896-how-a-store-joins-composedstores).
+
+This supersedes the `IControllableStore` text of "Builds on" and decision 3: no such interface exists, and no
+broker registers from `ExtendedProtocolServers`. In `Surl.Composition`, `Amqp0ExchangeStoreRegistration`,
+`KafkaBrokerStoreRegistration` and `Mqtt5SessionStoreRegistration` each build a `ComposedStoreRegistration` over the
+composed brokers, or none when there is no such broker. `ControlledBrokerAndSessionStores`
+(`SurlServerComposition.Start.cs`) lists them for `ComposedStores`, the MQTT 5 one inside the `StoreKind.Sessions`
+entry that `SameKindStoreRegistrations.Combine` builds. Decision 3's other rules stand: no broker watches the bus's
+events, and each registration's reset or restore publishes its own `StoreChangedEvent`.

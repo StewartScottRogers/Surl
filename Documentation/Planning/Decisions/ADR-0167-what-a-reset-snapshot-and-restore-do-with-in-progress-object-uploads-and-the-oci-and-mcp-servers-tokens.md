@@ -13,6 +13,8 @@
 - **Acted on by:** BL-1228 to BL-1233 (decision 6).
 - **Amended (2026-11-27, BL-1857):** decision 3's order across stores: the sessions and uploads entries follow the
   accounts, and the uploads entry is last; see Amendment 1.
+- **Amended (2026-11-27, BL-1896):** the registration seam "Builds on" and decision 3 name (`IControllableStore`)
+  is superseded by the one the code has; see Amendment 2, decided by Claude under Stewart's delegation.
 
 ## Context
 
@@ -84,6 +86,7 @@ Order across stores: content, mail, bus, then the server registrations in ordina
 tokens within a scheme), then accounts. Uploads follow content because their temporary files live in it. These
 registrations' snapshots hold nothing (`ByteCount` 0) but still take part, so a restore clears the state.
 *The "Order across stores" sentence above is superseded; see Amendment 1.*
+*The `IControllableStore` sentence that opens this decision is superseded; see Amendment 2.*
 
 ### 4. A removed account's tokens stop at once
 
@@ -141,3 +144,23 @@ This replaces decision 3's "Order across stores" sentence.
   - **uploads:** S3, then Azure Storage, then Google Cloud Storage, then the OCI registry.
 - So the OCI tokens are reset before the OCI uploads, not after them. Uploads still follow content, where their
   temporary files live.
+
+## Amendment 2 (2026-11-27, BL-1896): how each server's state joins `ComposedStores`
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-1896. It records the seam
+the code has; no code changes. The seam is described in
+[ADR-0158 Amendment 3](ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md#amendment-3-2026-11-27-bl-1896-how-a-store-joins-composedstores).
+
+This supersedes the `IControllableStore` text of "Builds on" and decision 3: no such interface exists. In
+`Surl.Composition`, each state decision 3 lists has a `*StoreRegistration` class that builds a
+`ComposedStoreRegistration` over the composed servers, or none when there is no such server:
+
+| `StoreKind` | Classes, in the order they run | Listed by (`SurlServerComposition.Start.cs`) |
+| --- | --- | --- |
+| `Sessions` | `Mqtt5SessionStoreRegistration` (ADR-0159), `OciTokenStoreRegistration`, `McpSessionStoreRegistration` | `ControlledBrokerAndSessionStores` |
+| `Uploads` | `S3UploadStoreRegistration`, `AzureStagedUploadStoreRegistration`, `GcsStagedUploadStoreRegistration`, `OciUploadStoreRegistration` | `ControlledUploads` |
+
+`SameKindStoreRegistrations.Combine` joins each row into the one entry `ComposedStores` has for that kind. Decision
+3's other rules stand: no server learns of a reset by watching events, each class publishes its own
+`StoreChangedEvent`, and the snapshots of this ADR's own classes (all but the MQTT 5 one) hold nothing
+(`ByteCount` 0).
