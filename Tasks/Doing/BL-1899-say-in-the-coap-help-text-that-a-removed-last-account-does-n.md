@@ -33,3 +33,4 @@ The `coap` `--aihelp` paragraph says a read stays refused after the last account
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
