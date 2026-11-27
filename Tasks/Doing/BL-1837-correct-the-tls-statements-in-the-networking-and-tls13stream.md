@@ -37,3 +37,4 @@ Found by BL-1811. Check each against the code before editing:
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
