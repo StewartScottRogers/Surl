@@ -1,7 +1,5 @@
 # Surl.Networking.UnitLibrary
 
-Phase 1.
-
 The production transports behind the seams in `Surl.Protocol.Abstractions`: accepting TCP
 and Unix domain socket connections and UDP datagrams on the addresses a listen URL names;
 server-side TLS on those connections (certificates and keys, client-certificate

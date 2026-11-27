@@ -1,7 +1,5 @@
 # Surl.Output.UnitLibrary
 
-Phase 1.
-
 What Surl writes about its exchanges, at the log level the command line picks (ADR-0033),
 and the listener status line. It references `Surl.Protocol.Abstractions.UnitLibrary` only.
 
