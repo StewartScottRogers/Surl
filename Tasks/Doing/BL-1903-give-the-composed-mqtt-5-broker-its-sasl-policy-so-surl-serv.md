@@ -33,3 +33,4 @@ A `CONNECT` with an Authentication Method that `--auth` accepts logs in over `mq
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
