@@ -8,7 +8,7 @@ depends-on: []
 touches: [Cryptography/Surl.Tls13.UnitLibrary/TlsAlertException.cs, Cryptography/Surl.Tls13.UnitLibrary/TlsKeyExchange.cs, Cryptography/Surl.Tls13.UnitLibrary/CLAUDE.md, Cryptography/Surl.Tls13Stream.UnitLibrary/Tls13ServerStream.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1905 — Correct the TLS 1.3 docs on alerts over TCP and key share generator draws
 
@@ -33,15 +33,23 @@ Found by BL-1895 on 2026-11-27. Comments and prose only. No store, event or faul
 
 ## Acceptance criteria
 
-- [ ] `TlsAlertException`'s summary says how the alert reaches the peer over QUIC and over TCP.
-- [ ] `TlsKeyExchange.Agree`'s summary names every draw from `random`, and `AgreeCurveSm2` and `AgreeFiniteField` each have exactly one summary.
-- [ ] `CLAUDE.md` states that curveSM2MLKEM768 draws ML-KEM's m and then a 32-byte curveSM2 private key.
-- [ ] The `random` parameter doc of `Tls13ServerStream.AcceptAsync` excludes NIST curve keys.
-- [ ] The diff to the three `.cs` files changes comment lines only, and `dotnet build` has no warnings.
+- [x] `TlsAlertException`'s summary says how the alert reaches the peer over QUIC and over TCP.
+- [x] `TlsKeyExchange.Agree`'s summary names every draw from `random`, and `AgreeCurveSm2` and `AgreeFiniteField` each have exactly one summary.
+- [x] `CLAUDE.md` states that curveSM2MLKEM768 draws ML-KEM's m and then a 32-byte curveSM2 private key.
+- [x] The `random` parameter doc of `Tls13ServerStream.AcceptAsync` excludes NIST curve keys.
+- [x] The diff to the three `.cs` files changes comment lines only, and `dotnet build` has no warnings.
 
 ## Notes
+
+- Delivered by `align-and-document`. No ADR: no design or behaviour decision.
+- Also corrected, in the same files: the `TlsKeyExchange` class summary now lists x448, curveSM2,
+  curveSM2MLKEM768 and x448's all-zero refusal, and the `AgreeClassicalFirstHybrid` summary now
+  includes curveSM2MLKEM768.
+- Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes`
+  clean, fast tests 30276 passed, 0 failed, 3 skipped.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The TLS 1.3 docs now say how alerts travel over QUIC and TCP and what each key share draws from the injected generator.

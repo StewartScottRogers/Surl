@@ -54,7 +54,8 @@ And the server handshake (BL-376):
   `Surl.Cryptography.Curve25519`; the NIST curves are `ECDiffieHellman`, with the
   point checked on the curve by `TlsNistCurve` first, so a bad point is the same alert on every
   platform. Randomness comes from an injected `RandomNumberGenerator`, in share order: the server
-  random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key. No session ticket.
+  random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key (x25519 alone
+  draws only that key after the server random, a NIST curve nothing more). No session ticket.
 
 And the groups a curl offers only when `--curves` names one alone (BL-1008, ADR-0147), served after
 those five in this order:
@@ -66,6 +67,8 @@ those five in this order:
   the server random; the NIST key is the base class library's `ECDiffieHellman`.
 - curveSM2MLKEM768 (`11EE`), draft-yang-tls-hybrid-sm2-mlkem (BL-1030, ADR-0147): laid out like
   SecP256r1MLKEM768 with the curveSM2 point in the NIST curve's place (1249 bytes in, 1153 out).
+  After the server random it draws ML-KEM's 32-byte m and then a 32-byte curveSM2 private key
+  from the injected `RandomNumberGenerator`.
 - x448 (`001E`) through `Surl.Cryptography.Curve448` (BL-1010), RFC 7748 with the all-zero secret
   refused; the 56-byte private key comes from the injected `RandomNumberGenerator` after the
   server random.
