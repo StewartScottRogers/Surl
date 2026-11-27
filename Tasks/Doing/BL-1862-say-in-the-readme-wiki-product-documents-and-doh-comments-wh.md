@@ -37,3 +37,4 @@ scheme that has never had an account, a removal while the server runs included.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
