@@ -117,9 +117,13 @@ curl --cacert server.pem https://127.0.0.1:8443/hello.txt
 ```
 
 Here `site` is a directory holding `hello.txt`, and `server.pem` and `server.key` are a
-certificate for `127.0.0.1` and its private key. A secure listen URL needs a certificate:
-without `--cert`, surl ends with exit code 58 before it listens, unless `--self-signed`
-asks for a throwaway certificate that no client can verify, so curl must skip verification:
+certificate for `127.0.0.1` and its private key. A secure listen URL needs a certificate,
+unless it is a TCP one that TLS-SRP secures (`--tlsuser` and `--tlspassword`, or
+`--srp-verifiers` and `--srp-groups`;
+[ADR-0122](Documentation/Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md)).
+Without TLS-SRP and without `--cert`, surl ends with exit code 58 before it listens, unless
+`--self-signed` asks for a throwaway certificate that no client can verify, so curl must skip
+verification:
 
 ```
 surl --directory site --self-signed https://127.0.0.1:8443/
@@ -324,8 +328,8 @@ curl -o hello.txt ws://127.0.0.1:8081/hello.txt
 ```
 
 A path that is not there is refused `404 Not Found`, and curl exits 22, as it does for any answer
-but `101`. `wss` is TLS from the first byte, so it needs `--cert` or `--self-signed`; there,
-curl's `-u` Basic login is checked rather than refused as a password in clear. curl answers no
+but `101`. `wss` is TLS from the first byte, so it needs `--cert`, `--self-signed` or TLS-SRP;
+over it, curl's `-u` Basic login is checked rather than refused as a password in clear. curl answers no
 `401` on an upgrade, so it logs in only with what it sends unasked: Basic (`-u`), Bearer
 (`--oauth2-bearer`) and AWS Signature Version 4 (`--aws-sigv4`):
 
@@ -374,8 +378,8 @@ The SMB server answers `smb` and `smbs`
 ([ADR-0073](Documentation/Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)).
 Each top-level directory under `--directory` is a share, so `smb://host/docs/readme.txt` is the
 file `http://host/docs/readme.txt` serves. curl logs in to SMB with NTLMv1 only, a weak method
-that `--auth ntlmv1` must name; uploads (`-T`) need `--allow-uploads`, and `smbs` needs `--cert`
-or `--self-signed`. Here `site/docs/readme.txt` exists, and curl is a build that lists `smb`
+that `--auth ntlmv1` must name; uploads (`-T`) need `--allow-uploads`, and `smbs` needs `--cert`,
+`--self-signed` or TLS-SRP. Here `site/docs/readme.txt` exists, and curl is a build that lists `smb`
 (the Git for Windows build does not):
 
 ```
