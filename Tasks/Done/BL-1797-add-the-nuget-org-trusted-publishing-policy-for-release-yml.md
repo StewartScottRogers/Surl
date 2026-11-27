@@ -8,7 +8,7 @@ depends-on: []
 touches: [.github/workflows/release.yml]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1797 — Add the nuget.org trusted publishing policy for release.yml so a release can push Surly.Surl.Api and Surly.Surl.Mcp
 
@@ -29,13 +29,19 @@ A rerun of that job fails earlier until BL-1796's change is in a tag.
 
 ## Acceptance criteria
 
-- [ ] https://api.nuget.org/v3-flatcontainer/surly.surl.api/index.json and
+- [x] https://api.nuget.org/v3-flatcontainer/surly.surl.api/index.json and
       .../surly.surl.mcp/index.json each list a version.
-- [ ] The documents' "not on nuget.org yet" statements (README, DOWNLOAD.md, Product-Overview,
+- [x] The documents' "not on nuget.org yet" statements (README, DOWNLOAD.md, Product-Overview,
       Roadmap) are filed for correction or corrected.
 
 ## Notes
 
+- 2026-11-27: The policy already existed; its creator is the nuget.org user StewartRogers86,
+  not the GitHub name. Commit c65ad0895 set `user: StewartRogers86` in release.yml, and the
+  v0.1.12 release (tag commit 097e1d8e0, run 46064723943) pushed both packages; both index
+  documents list 0.1.12. The documents' corrections are filed as BL-1977.
+
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Done. Stewart closed it: nuget.org lists Surly.Surl.Api and Surly.Surl.Mcp 0.1.12 after release.yml logged in as StewartRogers86 (c65ad0895); docs corrections filed as BL-1977.
