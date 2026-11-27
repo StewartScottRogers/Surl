@@ -1,5 +1,5 @@
 ---
-id: BL-1801
+id: BL-1803
 title: Correct the stale conformance statements in the glossary, the conformance library's CLAUDE.md and the pass-rate file
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-053
 created: 2026-11-26
 completed:
 ---
-# BL-1801 — Correct the stale conformance statements in the glossary, the conformance library's CLAUDE.md and the pass-rate file
+# BL-1803 — Correct the stale conformance statements in the glossary, the conformance library's CLAUDE.md and the pass-rate file
 
 ## Goal
 

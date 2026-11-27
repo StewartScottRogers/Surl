@@ -43,7 +43,7 @@ of 100% as not yet proven, while the "Current" table in
   Debug-curl and libtest HTTP/2 and HTTP/3 cases were checked to be in
   `upstream-test-cases-passing.linux-x64.txt`. The roadmap's Phase 6 text says the same.
 - `dotnet build` clean (0 warnings) and the fast tests green. No `.cs` or project file changed.
-- Follow-ups filed: BL-1801 (glossary, `Surl.Conformance` CLAUDE.md, pass-rate file notes) and
+- Follow-ups filed: BL-1803 (glossary, `Surl.Conformance` CLAUDE.md, pass-rate file notes) and
   BL-1802 (FR-054, FR-055, FR-057). README and product overview statements are BL-1799's.
 - Not filed: this branch's "Releases" table in the pass-rate file stops at `0.1.2`; the report from
   `align-and-document` is that `origin/master` has rows through `0.1.11` (not re-checked here).
