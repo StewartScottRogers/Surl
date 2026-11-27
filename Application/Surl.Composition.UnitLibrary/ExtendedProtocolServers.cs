@@ -243,15 +243,17 @@ public static class ExtendedProtocolServers
     }
 
     /// <summary>
-    /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether any
-    /// account is allowed on <c>coap</c> or the <c>--user-ldap</c> directory serves it (ADR-0149, amendment 2). CoAP carries no
-    /// password, so a directory only makes the server private: no peer logs in through it. The accounts are asked at each read,
-    /// so one added or removed while the server runs counts at once (ADR-0132).
+    /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether a
+    /// login is required to read: an account allowed on <c>coap</c> is held or has been held, or the <c>--user-ldap</c>
+    /// directory serves it (ADR-0149, amendment 2). CoAP carries no password, so a directory only makes the server private: no
+    /// peer logs in through it. The question is asked at each read, so an account added while the server runs counts at once,
+    /// and removing the last one leaves reads refused until a reset or restore returns the accounts to a state in which there
+    /// never was one (ADR-0132, amendment 5).
     /// </summary>
     internal static CoapAccessRules CoapAccessRulesFor(ComposedProtocolServices services)
     {
         var settings = services.AuthenticationPolicyFor("coap").Settings;
-        return new CoapAccessRules(services.AuthenticationPolicy.Settings.AllowAnonymous, () => settings.HasAccountToLogInTo("coap"));
+        return new CoapAccessRules(services.AuthenticationPolicy.Settings.AllowAnonymous, () => settings.IsLoginRequiredToRead("coap"));
     }
 
     /// <summary>

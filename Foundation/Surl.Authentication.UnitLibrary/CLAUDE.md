@@ -57,8 +57,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   each HTTP method (BL-111, BL-113, BL-120, BL-121, BL-122) implements. The policy offers and
   checks only the methods it is given that `--auth` accepts; an `Authorization` of any other
   method is treated as missing.
-- A request without credentials is challenged when there is an account to log in to or the request
-  is a write, and proceeds anonymously otherwise. `AuthenticationSettings.RequiresLoginWithoutAccounts`
+- A request without credentials is challenged when a login is required to read
+  (`AuthenticationSettings.IsLoginRequiredToRead`: an account is held or has been held, or the directory
+  serves the scheme) or the request is a write, and proceeds anonymously otherwise. So removing the last
+  account opens no read (ADR-0132 amendment 5, BL-1863). `AuthenticationSettings.RequiresLoginWithoutAccounts`
   (`false` by default; BL-1850, ADR-0132 amendment 4) challenges it in either case, a `GET` or `HEAD`
   with an empty account book included, and forbids it when no accepted method can be offered.
   `--allow-anonymous` and a connection's NTLM or Negotiate login still come first. A `ForScheme` view
@@ -498,8 +500,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   account check, SSH public keys - refuses it with the same verdict, note and `RefusalDelay` as no
   such account. With no restricted account left out, the view is the settings themselves.
 - `Surl.Composition` builds one `AuthenticationPolicy`, with its HTTP methods over the view's
-  `Accounts`, per scheme (BL-653); a view with no accounts left serves HTTP anonymous reads as
-  ADR-0032 section 4 serves them with none configured.
+  `Accounts`, per scheme (BL-653). Whether a scheme needs a login to read is judged per view
+  (ADR-0132 amendment 5, BL-1863): a view that has never held an account serves HTTP anonymous reads
+  as ADR-0032 section 4 serves them with none configured; a view that has held one, configured or
+  added while the server ran, keeps challenging such a read after its last account is removed, whether
+  or not accounts for other schemes remain. A reset returns the answer the configured accounts give,
+  and a restore the one that held when the snapshot was taken.
 
 ## Login events and refuse-login (BL-791, ADR-0128)
 
@@ -541,6 +547,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   credentials, the password's UTF-8 bytes among them, so a snapshot holds secrets: treat it as holding every
   named account's password. The `Account.Password` string is not kept. The empty-name account is held as its
   SHA-256 only (ADR-0132 amendment 3).
+- Each `AccountSet` also keeps `HeldSchemes`: the different `Account.Schemes` values of every account held until
+  then, no name and no credential among them (ADR-0132 amendment 5, BL-1863). `Add`, `Remove` and `SetPassword`
+  carry it on, `Reset` starts it again from the configured accounts, and an `AccountSnapshot` records it for
+  `Restore`. A view filters it as it filters the accounts, and `AuthenticationSettings.IsLoginRequiredToRead`
+  asks whether any is left (the internal `AccountBook.HasHeldAccount`). `HasAccounts` still means an account is
+  held now.
 - `ForScheme` always returns a live view over the same store (filtered again only when the set changes), and
   `AuthenticationSettings.ForScheme` always uses it, so a change reaches every scheme's logins at once. A
   view's changes act on the book it came from. Authorized keys do not change with the accounts.
@@ -570,9 +582,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   bind password, a DN or the URL. The refusal delay counts from the check's start.
 - `CheckPasswordLoginAsync`, HTTP Basic, SASL `PLAIN`/`LOGIN` and SSH `password` consult it.
 - `LdapAccountSource.Serves` admits a scheme `protocols=` names or its TLS twin, as `Account.MayLogInOn` does.
-  `AuthenticationSettings.HasAccountToLogInTo(scheme)` is the one answer to "is there an account to log in to":
-  the book's accounts, or a directory serving the scheme (ADR-0149 amendments 1 and 2). HTTP reads and the
-  CoAP access rules ask it (BL-1669).
+  `AuthenticationSettings.IsLoginRequiredToRead(scheme)` is the one answer to "does a read need a login":
+  an account the book or view holds or has held (ADR-0132 amendment 5), or a directory serving the scheme
+  (ADR-0149 amendments 1 and 2). HTTP reads and the CoAP access rules ask it (BL-1669).
 - The HTTP family (reads and Basic logins) and SSH password logins ask the directory about the scheme of their
   policy's `AuthenticationSettings.ForScheme` view (`ws`, `rtsp`, `sftp`, `scp`, ...), and about `http` or `ssh`
   when the settings are no view (`DirectorySchemeFor`; ADR-0149 amendments 2 and 3). Login events and fault

@@ -198,9 +198,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 
 - CoAP access rules (ADR-0097 decision 6, ADR-0149 amendment 2, BL-1669):
   `ExtendedProtocolServers.CoapAccessRulesFor` counts `coap` private when
-  `AuthenticationSettings.HasAccountToLogInTo("coap")` is true on the `coap` policy: an account allowed there, or a
-  `--user-ldap` directory serving `coap` or `coaps`. The rules ask it at each read, so an account added or removed
-  while the server runs counts at once (ADR-0132, BL-1683).
+  `AuthenticationSettings.IsLoginRequiredToRead("coap")` is true on the `coap` policy: an account allowed there is
+  held or has been held, or a `--user-ldap` directory serves `coap` or `coaps`. The rules ask it at each read, so an
+  account added while the server runs counts at once (ADR-0132, BL-1683), and removing the last one leaves reads
+  refused until a reset or restore returns the accounts to a state in which there never was one (ADR-0132
+  amendment 5, BL-1863).
 - `coaps` pre-shared keys (ADR-0170 and its amendment 1, BL-1688): `DeferredCoapsProtocolServer` builds the server at
   the first flow and always gives it the live account lookup, so the PSK suites are offered while no account exists
   (every identity then ends in `decrypt_error`) and an account added later logs in. Tests: `CoapsCompositionTests`.

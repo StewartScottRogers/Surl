@@ -311,4 +311,136 @@ public sealed class HttpAuthenticationSessionTests
         Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
         Assert.IsNull(verdict.AccountName);
     }
+
+    private AuthenticationPolicy DigestPolicy(AuthenticationSettings settings) =>
+        new(
+            settings,
+            [
+                new ScriptedHttpAuthenticationMethod(
+                    AuthenticationMethod.Digest, ["Digest realm=\"surl\""], new HttpCredentialCheck(HttpCredentialOutcome.Refused, null, [])),
+            ],
+            clock);
+
+    private static AuthenticationSettings SettingsOver(AccountBook accounts, bool allowAnonymous = false) =>
+        new(accounts, allowAnonymous, false, AuthenticationMethods.DefaultAccepted);
+
+    private async Task<HttpAuthenticationOutcome> JudgeGetAsync(AuthenticationSettings settings)
+    {
+        var session = DigestPolicy(settings).StartHttpConnection(PolicyFixture.Tls);
+
+        return (await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None)).Outcome;
+    }
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "a book built with the account")]
+    [DataRow(false, DisplayName = "a book built empty that had the account added")]
+    public async Task JudgeAsync_AfterTheLastAccountIsRemoved_ChallengesAGetWithoutCredentials(bool isBuiltWithTheAccount)
+    {
+        var alice = new Account("alice", "wonderland");
+        var accounts = new AccountBook(isBuiltWithTheAccount ? [alice] : []);
+        if (!isBuiltWithTheAccount)
+        {
+            accounts.Add(alice);
+        }
+
+        accounts.Remove("alice");
+
+        var outcome = await JudgeGetAsync(SettingsOver(accounts));
+
+        Assert.IsFalse(accounts.HasAccounts);
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, outcome);
+    }
+
+    [TestMethod]
+    [DataRow("http", HttpAuthenticationOutcome.Challenge, DisplayName = "the http view, which lost its account")]
+    [DataRow("rtsp", HttpAuthenticationOutcome.Proceed, DisplayName = "the rtsp view, which never had one")]
+    public async Task JudgeAsync_AfterTheOnlyHttpAccountIsRemovedWhileAMailAccountRemains_JudgesEachViewByItsOwnAccounts(
+        string scheme, HttpAuthenticationOutcome expected)
+    {
+        var accounts = new AccountBook(
+        [
+            new Account("web", "pw") { Schemes = new HashSet<string> { "http" } },
+            new Account("mail", "pw") { Schemes = Account.MailSchemes },
+        ]);
+        var view = SettingsOver(accounts).ForScheme(scheme);
+
+        accounts.Remove("web");
+        var outcome = await JudgeGetAsync(view);
+
+        Assert.IsTrue(accounts.HasAccounts);
+        Assert.AreEqual(expected, outcome);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_AfterResetOfABookBuiltEmpty_ProceedsOnAGetAgain()
+    {
+        var accounts = new AccountBook([]);
+        accounts.Add(new Account("alice", "wonderland"));
+        accounts.Remove("alice");
+
+        accounts.Reset();
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, await JudgeGetAsync(SettingsOver(accounts)));
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_AfterResetOfABookBuiltWithAnAccount_StillChallengesAGet()
+    {
+        var accounts = new AccountBook([new Account("alice", "wonderland")]);
+        accounts.Remove("alice");
+
+        accounts.Reset();
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, await JudgeGetAsync(SettingsOver(accounts)));
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_AfterRestore_AnswersAGetAsWhenTheSnapshotWasTaken()
+    {
+        var accounts = new AccountBook([]);
+        var settings = SettingsOver(accounts);
+        var beforeAnyAccount = accounts.TakeSnapshot();
+        accounts.Add(new Account("alice", "wonderland"));
+        accounts.Remove("alice");
+        var afterTheRemoval = accounts.TakeSnapshot();
+
+        accounts.Restore(beforeAnyAccount);
+        var restoredBeforeAnyAccount = await JudgeGetAsync(settings);
+        accounts.Restore(afterTheRemoval);
+        var restoredAfterTheRemoval = await JudgeGetAsync(settings);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, restoredBeforeAnyAccount);
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, restoredAfterTheRemoval);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_AllowAnonymousAfterTheLastAccountIsRemoved_StillProceeds()
+    {
+        var accounts = new AccountBook([new Account("alice", "wonderland")]);
+        accounts.Remove("alice");
+
+        var outcome = await JudgeGetAsync(SettingsOver(accounts, allowAnonymous: true));
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, outcome);
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_OnAConnectionNtlmLoggedInAfterTheAccountIsRemoved_ProceedsThereAndChallengesANewOne()
+    {
+        var accounts = new AccountBook([new Account("tester", "secret")]);
+        var settings = new AuthenticationSettings(accounts, false, false, new HashSet<AuthenticationMethod> { AuthenticationMethod.Ntlm });
+        var policy = new AuthenticationPolicy(
+            settings, [new NtlmAuthenticationMethod(accounts, new FixedNtlmServerChallengeSource())], clock);
+        var session = policy.StartHttpConnection(null);
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 1), CancellationToken.None);
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 2), CancellationToken.None);
+        accounts.Remove("tester");
+
+        var onTheLoggedIn = await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+        var onANewOne = await policy.StartHttpConnection(null).JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, onTheLoggedIn.Outcome);
+        Assert.AreEqual("tester", onTheLoggedIn.AccountName);
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, onANewOne.Outcome);
+    }
 }

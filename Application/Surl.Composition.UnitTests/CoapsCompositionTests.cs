@@ -29,7 +29,7 @@ public sealed class CoapsCompositionTests
     }
 
     [TestMethod]
-    public void CoapAccessRulesFor_AccountAddedAndRemovedAfterComposing_FollowsTheBook()
+    public void CoapAccessRulesFor_AccountAddedAndRemovedAfterComposing_StaysClosedUntilAReset()
     {
         var services = ComposeServices(false, []);
         var book = services.AuthenticationPolicy.Settings.Accounts;
@@ -45,6 +45,10 @@ public sealed class CoapsCompositionTests
         Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
 
         book.Remove("alice");
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Reset();
 
         Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
     }

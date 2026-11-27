@@ -41,7 +41,7 @@ public sealed class AccountBook
     private readonly ChallengeResponseAccount dummyChallengeResponseAccount = new(null, RandomNumberGenerator.GetBytes(16));
     private readonly byte[] dummyScramSaltKey = RandomNumberGenerator.GetBytes(32);
     private readonly AccountStore store;
-    private readonly Func<DerivedAccount, bool>? isAdmitted;
+    private readonly Func<IReadOnlySet<string>?, bool>? admits;
     private FilteredAccountSet? filtered;
 
     /// <summary>
@@ -90,15 +90,15 @@ public sealed class AccountBook
         dummyDigestAccount = new DigestAccount(null, [store.DummyUserHashes, store.DummyUserHashes]);
     }
 
-    // A view of source's store admitting only the accounts isAdmitted admits: every secret and
-    // value derived from one is shared, never derived again, and a name it leaves out finds the
-    // dummies as an unknown name does (ADR-0102, decision 4.3).
-    private AccountBook(AccountBook source, Func<DerivedAccount, bool> isAdmitted)
+    // A view of source's store admitting only the accounts whose schemes admits admits: every
+    // secret and value derived from one is shared, never derived again, and a name it leaves out
+    // finds the dummies as an unknown name does (ADR-0102, decision 4.3).
+    private AccountBook(AccountBook source, Func<IReadOnlySet<string>?, bool> admits)
     {
         secretComparer = source.secretComparer;
         store = source.store;
         dummyDigestAccount = new DigestAccount(null, [store.DummyUserHashes, store.DummyUserHashes]);
-        this.isAdmitted = isAdmitted;
+        this.admits = admits;
     }
 
     /// <summary>
@@ -108,10 +108,19 @@ public sealed class AccountBook
     public IReadOnlyList<string> UserNames => [.. Current.Accounts.Select(account => account.UserName)];
 
     /// <summary>
-    /// Whether any account is configured. With none, every login is refused and HTTP serves
-    /// anonymous reads (ADR-0032, section 4).
+    /// Whether this book or view holds an account now. With none, every login checked against it is
+    /// refused. <see langword="false"/> does not mean that no login is needed: a scheme that has had
+    /// an account keeps asking for one until a reset or restore returns the accounts to a state in
+    /// which it never had one (ADR-0132, amendment 5;
+    /// <see cref="AuthenticationSettings.IsLoginRequiredToRead"/>).
     /// </summary>
     public bool HasAccounts => Current.PasswordHashes.Count > 0;
+
+    /// <summary>
+    /// Whether this book or view holds an account now or has held one that a removal has since
+    /// taken away; a reset or restore returns the answer with the accounts (ADR-0132, amendment 5).
+    /// </summary>
+    internal bool HasHeldAccount => Current.HeldSchemes.Count > 0;
 
     /// <summary>
     /// The comparer every check of a secret, or of a value computed from one, goes through.
@@ -120,7 +129,7 @@ public sealed class AccountBook
 
     // The set this book judges by: the store's, or, for a scheme view, the store's as the view
     // admits it, built again only when the store's set has changed.
-    private AccountSet Current => isAdmitted is null ? store.Current : FilterCurrent(isAdmitted);
+    private AccountSet Current => admits is null ? store.Current : FilterCurrent(admits);
 
     /// <summary>
     /// The view of these accounts a server answering <paramref name="scheme"/> judges logins by:
@@ -136,11 +145,13 @@ public sealed class AccountBook
     {
         ArgumentNullException.ThrowIfNull(scheme);
 
-        var admitted = isAdmitted;
+        var admitted = admits;
 
         return new AccountBook(
             this,
-            admitted is null ? account => account.MayLogInOn(scheme) : account => admitted(account) && account.MayLogInOn(scheme));
+            admitted is null
+                ? schemes => Account.SchemesAdmit(schemes, scheme)
+                : schemes => admitted(schemes) && Account.SchemesAdmit(schemes, scheme));
     }
 
     /// <summary>
@@ -196,6 +207,8 @@ public sealed class AccountBook
     /// <summary>
     /// Returns the accounts to exactly those configured at start, removing every account added
     /// since and bringing back every one removed, and publishes <see cref="StoreChange.Reset"/>.
+    /// A scheme only an account added since could log in on no longer needs a login to read
+    /// (ADR-0132, amendment 5).
     /// </summary>
     public void Reset() => store.Reset();
 
@@ -212,6 +225,8 @@ public sealed class AccountBook
 
     /// <summary>
     /// Replaces the accounts with <paramref name="snapshot"/>'s and publishes <see cref="StoreChange.Restored"/>.
+    /// Each scheme then needs a login to read as it did when the snapshot was taken (ADR-0132,
+    /// amendment 5).
     /// </summary>
     /// <param name="snapshot">A snapshot taken of this book or one of its views.</param>
     /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
@@ -366,7 +381,7 @@ public sealed class AccountBook
             RandomNumberGenerator.GetBytes(hash.Length),
             RandomNumberGenerator.GetBytes(hash.Length));
 
-    private AccountSet FilterCurrent(Func<DerivedAccount, bool> admits)
+    private AccountSet FilterCurrent(Func<IReadOnlySet<string>?, bool> admitsSchemes)
     {
         var source = store.Current;
         var cached = Volatile.Read(ref filtered);
@@ -375,7 +390,7 @@ public sealed class AccountBook
             return cached.Set;
         }
 
-        var set = source.Where(admits);
+        var set = source.Where(admitsSchemes);
         Volatile.Write(ref filtered, new FilteredAccountSet(source, set));
 
         return set;
