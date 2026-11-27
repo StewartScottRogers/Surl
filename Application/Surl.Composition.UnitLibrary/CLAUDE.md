@@ -1,8 +1,8 @@
 # Surl.Composition
 
 The one place protocol servers are composed (ADR-0099 decision 1). It references every original
-protocol server and the horizontal libraries they need; `Surl.Console` references it, and so will
-`Surl.Api` and possibly `Surl.Mcp` (BL-612). It references no host, and no protocol server or
+protocol server and the horizontal libraries they need; `Surl.Console` and `Surl.Api` reference
+it, and `Surl.Mcp` reaches it through `Surl.Api`. It references no host, and no protocol server or
 horizontal library may reference it (ADR-0099 decision 11, held by
 `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`).
 

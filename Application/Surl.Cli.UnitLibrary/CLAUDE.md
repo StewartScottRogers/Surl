@@ -39,7 +39,9 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ProxyDefaultPorts` 443 for `https` and 1080 for each of the other five, the SOCKS schemes by ADR-0121
   decision 5; `ListenUrl.IsProxy` set; any other scheme `UnsupportedProtocol`), `OptionArgumentReader.ProxyListenUrlText`, `ReadAccount` and
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
-  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`; their option rows are BL-1004's.
+  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. Their option rows in `CommandLineOptions`
+  are `-x`/`--proxy` (category `proxy`), `-U`/`--proxy-user` (`ArgumentHoldsSecret`) and `--proxy-user-file`
+  (both `auth` and `proxy`), and `--proxy-allow-origin` (`proxy` and `security`) (BL-1004).
   `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
   `GivenProxyAuthenticationMethods`, apart from `--auth`; `AcceptedProxyAuthenticationMethods` defaults to
   `digest`, `basic`.
@@ -71,7 +73,9 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `SurlCommandLine.Groups`, a group name given twice is refused after the whole line is read, and
   the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
   cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
-  `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+  `AccountGroupExpansion`. The other option rows that read their argument by a `ConfigurationItemShape` are
+  `--user-ldap`, `--mailbox`, `--mail-alias`, `--mail-catch-all`, `--shared-folder`, `--share`,
+  `--share-access`, `--bucket`, `--topic`, `--queue`, `--topic-map`, `--topic-access` and `--fault`.
 - `--user-ldap <ldap-url>[;bind-dn=...][;bind-password-file=...][;ca-file=...][;timeout=...][;protocols=...][;plaintext]`
   (category `auth`, ADR-0149 decisions 3 and 7, BL-673): `ConfiguredLdapAccountSourceReader` reads it by its
   `Shape` (the URL is the head, no separator) into `SurlCommandLine.UserLdap`, a `ConfiguredLdapAccountSource`;
@@ -85,8 +89,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   (`<share>=<member>:<r|rw>,...`, a member twice refused) and `ConfiguredBucketReader`
   (`<name>=<path>`) read into `SurlCommandLine.Shares`, `ShareAccess` and `Buckets`.
   `ConfiguredContentConflicts.Find` holds the whole-line checks (a share, bucket or access share
-  twice, a bucket named as a share, an access naming no share). No option row uses them yet:
-  BL-989 adds the rows and calls `Find`; BL-988 composes them.
+  twice, a bucket named as a share, an access naming no share). BL-989 added the rows `--share` and
+  `--share-access` (category `content`) and `--bucket` (`content` and `s3`); the parser counts each like
+  `--group` and calls `Find` from `RefuseContentCombination` once the line is read; `Surl.Composition`'s
+  `ContentShareComposition` composes them (BL-988).
 - Messaging items (ADR-0101 decision 4, ADR-0102 decision 3; BL-990): `ConfiguredTopicReader`
   (`<filter>[;retain][;qos=<0|1|2>]`, `qos` exactly `0`, `1` or `2` else `is badly used here`),
   `ConfiguredQueueReader` (`<name>[;durable]`), `ConfiguredTopicMapReader`
@@ -138,14 +144,16 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   winning; `--control-token-file <file>` is kept as a path (`ControlTokenFile`). Each without the
   other is refused once the whole line is read. All four refusals are `(2) ...` with no try-help
   line. Both are in the `security` and `testing` categories; the `control` `--aihelp` topic sits
-  beside `exit-codes`. Serving the endpoint and reading the token file are BL-816's.
+  beside `exit-codes`. `Surl.Composition` does the rest: `ControlComposition.ReadToken` reads the token
+  file at start, and `ComposedServing.ServeAsync` binds the control listener and serves the endpoint on it
+  (a `ControlProtocolServer` over a `ComposedControlTarget`).
 - Unix domain sockets (ADR-0094 decisions 1 and 2, BL-548): `--unix-socket <path>` and
   `--abstract-unix-socket <name>` (category `surl`) set `SurlCommandLine.UnixSocket`, the last
-  one winning. Once the whole line is read `UnixSocketCombination` refuses, in order, a second
-  listen URL, a UDP scheme (`tftp`, `coap`, `coaps`, `dns`), `--http3`, and `ftp`/`ftps` (until
-  BL-605), each `option --<name>: <reason>` with exit 2 and the try-help line, then sets the socket
-  on the one listen URL's `ListenUrl.UnixSocket`. Binding it, and the 45 refusals, are
-  `Surl.Networking`'s.
+  one winning. Once the whole line is read `UnixSocketCombination` refuses, in order, a
+  `-x`/`--proxy` listen URL (`RefuseProxy`), then (`Refuse`) a second listen URL, a UDP scheme (`tftp`,
+  `coap`, `coaps`, `dns`) and `--http3`, each `option --<name>: <reason>` with exit 2 and the try-help
+  line; `Apply` then sets the socket on the one listen URL's `ListenUrl.UnixSocket`. Binding it, and the
+  45 refusals, are `Surl.Networking`'s.
 - TLS-SRP (ADR-0122 decision 6 and Amendment 2, BL-567), category `tls` (and `auth` for all but
   `--tlsauthtype`): `--tlsauthtype <SRP>` (`OptionArgumentReader.TlsAuthenticationTypeWord`, any case,
   into `TlsAuthenticationType`), `--tlsuser <name>` (`SrpUserName` reading), `--tlspassword <password>`
