@@ -40,3 +40,4 @@ engine only for flows that are QUIC. A test uses this to cut a DNS-over-QUIC or 
 
 - 2026-11-26: Created.
 - 2026-11-26: Renumbered from BL-1802 to BL-1815; an archived task holds BL-1802.
+- 2026-11-27: Backlog -> Doing.
