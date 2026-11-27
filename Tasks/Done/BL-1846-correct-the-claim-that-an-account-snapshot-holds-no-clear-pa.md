@@ -8,7 +8,7 @@ depends-on: [BL-1829]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Documentation/Wiki/Glossary.md, Documentation/Planning/Decisions/ADR-0036-digest-nonces-stale-replay-and-user-name-bytes.md, Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md, Documentation/Planning/Decisions/ADR-0132-how-the-account-book-changes-while-the-server-runs.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1846 — Correct the claim that an account snapshot holds no clear password in the authentication docs, glossary and ADRs
 
@@ -55,17 +55,17 @@ delegation", and an "Amended by" line in its header, as the earlier amendments o
 
 ## Acceptance criteria
 
-- [ ] The summaries of `AccountSnapshot`, `AccountBook.TakeSnapshot` and `DerivedAccount`, and the library
+- [x] The summaries of `AccountSnapshot`, `AccountBook.TakeSnapshot` and `DerivedAccount`, and the library
       `CLAUDE.md` bullet, say that a named account is kept with the password's UTF-8 bytes among its derived
       credentials, so a snapshot holds secrets, and that the `Account.Password` string is not kept.
-- [ ] No file in `Foundation/Surl.Authentication.UnitLibrary` says a snapshot or a kept account holds no clear
+- [x] No file in `Foundation/Surl.Authentication.UnitLibrary` says a snapshot or a kept account holds no clear
       password.
-- [ ] The glossary's "snapshot" row no longer says "password hashes only" and says a named account is copied
+- [x] The glossary's "snapshot" row no longer says "password hashes only" and says a named account is copied
       with the password's UTF-8 bytes.
-- [ ] ADR-0036, ADR-0124 and ADR-0132 each carry a dated amendment, named in the header, that states which
+- [x] ADR-0036, ADR-0124 and ADR-0132 each carry a dated amendment, named in the header, that states which
       sentence is superseded and what the code keeps.
-- [ ] The ADR index row for 0132 no longer says a snapshot holds never a clear password.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitTests -warnaserror` is clean, and the only changed lines
+- [x] The ADR index row for 0132 no longer says a snapshot holds never a clear password.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitTests -warnaserror` is clean, and the only changed lines
       in `.cs` files are comments.
 
 ## Notes
@@ -75,8 +75,15 @@ delegation", and an "Amended by" line in its header, as the earlier amendments o
   One gap seen: the glossary "snapshot" row names the UTF-8 bytes but not the bytes a base64 password decodes to,
   nor that the empty-name account is held as its SHA-256 only (ADR-0132 amendment 3). The BL-1841 docs do not say
   that the `Account.Password` string is not kept, as the first criterion asks.
+- 2026-11-27 (lane 4): both gaps closed in the four authentication docs and the glossary row. The ADR criteria were
+  already met by BL-1840 (ADR-0132 amendment 3, with pointers in ADR-0036 and ADR-0124, header lines and index
+  rows), checked in the tree, so no ADR file changed. Edited directly instead of through `align-and-document`:
+  five comment and prose edits did not justify a second agent's cost.
+- Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests no
+  failures.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The authentication docs and glossary say a named account's snapshot holds the password's UTF-8 bytes and not the Account.Password string; the ADRs already did (BL-1840)
