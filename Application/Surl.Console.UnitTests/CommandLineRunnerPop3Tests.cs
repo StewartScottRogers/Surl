@@ -9,9 +9,9 @@ namespace Surl.Console;
 /// <summary>
 /// How <see cref="CommandLineRunner"/> composes the POP3 server (BL-209): <c>pop3</c> and, through
 /// <see cref="ImplicitTlsSchemeServer"/>, <c>pop3s</c> (ADR-0056 decision 8), <c>STLS</c> offered
-/// once a certificate is configured, and the one mail store the SMTP server delivers into, so
-/// mail sent over <c>smtp</c> is retrieved over <c>pop3</c> in the same run. No test here touches
-/// the disk or the network.
+/// once a certificate is configured or TLS-SRP is served, and the one mail store the SMTP server
+/// delivers into, so mail sent over <c>smtp</c> is retrieved over <c>pop3</c> in the same run. No
+/// test here touches the disk or the network.
 /// </summary>
 [TestClass]
 public sealed class CommandLineRunnerPop3Tests

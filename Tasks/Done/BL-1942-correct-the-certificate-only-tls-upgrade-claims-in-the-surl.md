@@ -8,7 +8,7 @@ depends-on: [BL-1924]
 touches: [Application/Surl.Console.UnitTests/CommandLineRunnerFtpTests.cs, Application/Surl.Console.UnitTests/CommandLineRunnerImapTests.cs, Application/Surl.Console.UnitTests/CommandLineRunnerLdapTests.cs, Application/Surl.Console.UnitTests/CommandLineRunnerPop3Tests.cs, Application/Surl.Console.UnitTests/CommandLineRunnerSmtpTests.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1942 — Correct the certificate-only TLS upgrade claims in the Surl.Console mail, FTP and LDAP test class summaries
 
@@ -33,13 +33,21 @@ No store, event or fault is involved: comments only.
 
 ## Acceptance criteria
 
-- [ ] Each of the five class summaries says its upgrade is offered once a certificate is configured or TLS-SRP is served.
-- [ ] The diff to the five files changes only `///` comment lines.
-- [ ] `dotnet build Application/Surl.Console.UnitTests -warnaserror` is clean.
+- [x] Each of the five class summaries says its upgrade is offered once a certificate is configured or TLS-SRP is served.
+- [x] The diff to the five files changes only `///` comment lines.
+- [x] `dotnet build Application/Surl.Console.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- Delivered by `align-and-document`. The claim was checked against `ServerTlsComposition.IsTlsUpgradeAvailable`.
+- The LDAP summary also cites ADR-0122 decision 5, because its ADR-0072 citation covered only the certificate half.
+- Verified 2026-11-27: line-ending script rewrote 0 files, `dotnet build -warnaserror` 0 warnings, `dotnet format
+  --verify-no-changes` clean, fast tests 30366 passed, 0 failed, 3 skipped. No integration tests: comments only.
+- Filed for what is outside this task: BL-1952 (same claim in the `ProtocolServerRegistrations` remarks) and BL-1953
+  (the "one policy" and "opener the runner creates" wording in the FTP and LDAP summaries).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The FTP, IMAP, LDAP, POP3 and SMTP test class summaries say the TLS upgrade is offered with a certificate or under TLS-SRP

@@ -10,9 +10,9 @@ namespace Surl.Console;
 /// <summary>
 /// How <see cref="CommandLineRunner"/> composes the FTP server (BL-182): <c>ftp</c> and, TLS from
 /// the first byte, <c>ftps</c>, both answered by the one server (ADR-0052 decision 5); <c>AUTH
-/// TLS</c> offered once a certificate is configured; logins judged by the one policy; and the
-/// data connections opened through the opener the runner creates with the process's TLS settings
-/// (ADR-0052 decision 9). No test here touches the disk or the network.
+/// TLS</c> offered once a certificate is configured or TLS-SRP is served; logins judged by the
+/// one policy; and the data connections opened through the opener the runner creates with the
+/// process's TLS settings (ADR-0052 decision 9). No test here touches the disk or the network.
 /// </summary>
 [TestClass]
 public sealed class CommandLineRunnerFtpTests
