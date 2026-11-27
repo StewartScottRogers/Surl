@@ -70,3 +70,4 @@ source is refused with `amqp:not-allowed`). ADR-0107's "Amended by" header lines
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
