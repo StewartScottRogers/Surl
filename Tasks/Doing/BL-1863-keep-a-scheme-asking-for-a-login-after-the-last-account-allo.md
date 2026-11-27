@@ -47,3 +47,4 @@ returns the accounts to a state in which it never had one.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
