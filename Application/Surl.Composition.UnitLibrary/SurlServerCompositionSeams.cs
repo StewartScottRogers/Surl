@@ -12,8 +12,9 @@ namespace Surl.Composition;
 /// </summary>
 /// <param name="CreateListenerFactory">
 /// Creates the factory that starts the listeners, given this start's TLS settings
-/// (<see langword="null"/> when no listen URL is TLS from the first byte and none can be upgraded);
-/// <c>surl</c> passes one that creates a <c>SocketListenerFactory</c>.
+/// (<see langword="null"/> only when no listen URL needs TLS, as
+/// <see cref="ServerTlsComposition.Compose"/> says); <c>surl</c> passes one that creates a
+/// <c>SocketListenerFactory</c>.
 /// </param>
 /// <param name="CanOpenDataDirectory">
 /// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never called

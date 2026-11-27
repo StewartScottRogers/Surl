@@ -23,22 +23,28 @@ using Surl.Protocol.Http;
 namespace Surl.Composition;
 
 /// <summary>
-/// The ordered start (ADR-0099, decision 2): the option refusals, the data directory, the content
-/// store, the listen-URL refusals, authentication and host keys, the lock, the service state and
-/// server TLS, each refusal returned rather than written.
+/// The ordered start (ADR-0099, decision 2), in this order: the option refusals, the data
+/// directory, the content file system, the listen-URL refusals, authentication and host keys (with
+/// the other start files read before the lock), the check that each scheme a <c>protocols=</c> list
+/// names makes a login, the shares and buckets, the message bus configuration, the content store and
+/// its bucket folders, the locks, the service state, the protocol servers (then the AMQP 0-9-1
+/// exchanges kept on disk and the stores a test controls) and server TLS, each refusal returned
+/// rather than written.
 /// </summary>
 public static partial class SurlServerComposition
 {
     /// <summary>
-    /// Runs the ordered start of <paramref name="commandLine"/> up to and including server TLS and
-    /// the service state, opening no log or trace file: <c>--auth gssapi</c> without
-    /// <c>--keytab</c> and an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer (2),
-    /// a data directory that cannot be opened (37), a TLS-first listen URL with no certificate (58)
-    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files read before the
-    /// lock (37, 2, or 77 for the <c>--user-ldap</c> <c>ca-file</c>), the shares and
-    /// buckets (2, or 37 for a share or bucket directory that cannot be opened), the data
-    /// directory's lock (124 or 23), the service state (37, or 2) and the TLS files (58, 2 or 77,
-    /// or 37 for a TLS-SRP file), in that order.
+    /// Runs the ordered start of <paramref name="commandLine"/> up to and including server TLS,
+    /// opening no log or trace file: <c>--auth gssapi</c> without <c>--keytab</c>, an
+    /// <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer and <c>--dns-transport</c>
+    /// transports that cannot use a <c>dns</c> listen URL's port (2), a data directory that cannot be
+    /// opened (37), a listen URL that requires a certificate and has none (58) or an <c>scp</c> or
+    /// <c>sftp</c> one with no host key (2), the start files read before the lock (37, 2, or 77 for
+    /// the <c>--user-ldap</c> <c>ca-file</c>), a <c>protocols=</c> scheme that makes no login (2),
+    /// the shares and buckets (2, or 37 for a share directory that cannot be opened), the message bus
+    /// configuration (2), a bucket directory that cannot be opened (37), the data directory's and
+    /// writable shares' locks (124 or 23), the service state (37, or 2), the AMQP 0-9-1 exchanges
+    /// (37) and server TLS (58, 2 or 77, or 37 for a TLS-SRP file), in that order.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="seams">What the host hands the composition.</param>
@@ -116,9 +122,11 @@ public static partial class SurlServerComposition
     }
 
     /// <summary>
-    /// Formats the <c>(58)</c> message for a listen URL that is TLS from the first byte with
-    /// neither <c>--cert</c> nor <c>--self-signed</c>, after the <c>surl: </c> prefix, the URL
-    /// written as the status line writes it, with the port as given (ADR-0032, section 10).
+    /// Formats the <c>(58)</c> message for a listen URL that requires a certificate with neither
+    /// <c>--cert</c> nor <c>--self-signed</c>
+    /// (<see cref="ServerTlsComposition.FindListenUrlWithoutCertificate"/>), after the <c>surl: </c>
+    /// prefix, the URL written as the status line writes it, with the port as given (ADR-0032,
+    /// section 10). A <c>coaps</c> URL's message also offers <c>--user</c> for a pre-shared key.
     /// </summary>
     /// <param name="listenUrl">The first such listen URL.</param>
     /// <returns>The message.</returns>
@@ -165,7 +173,7 @@ public static partial class SurlServerComposition
             ? "(2) --auth gssapi needs --keytab"
             : SshAlgorithmComposition.FindRefusal(commandLine);
 
-    // A listen URL TLS from the first byte with no certificate to serve (ADR-0032, section 10),
+    // A listen URL that requires a certificate and has none to serve (ADR-0032, section 10),
     // then an scp or sftp one with no host key to serve (ADR-0051, decision 4): each refused
     // before any listener binds. A scheme no server answers never gets here: every scheme
     // ListenUrlParser accepts is registered, and it refuses every other one with (1).
