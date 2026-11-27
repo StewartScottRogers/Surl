@@ -15,17 +15,18 @@ public sealed class CoapsCompositionTests
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(30);
 
     [TestMethod]
-    [DataRow(false, false, false)]
-    [DataRow(true, false, true)]
-    [DataRow(false, true, false)]
-    public void CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAReadNeedsALogin(bool allowAnonymous, bool hasAccount, bool expectedAnonymous)
+    [DataRow(false, false, false, false)]
+    [DataRow(true, false, true, false)]
+    [DataRow(false, true, false, true)]
+    public void CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAReadNeedsALogin(
+        bool allowAnonymous, bool hasAccount, bool expectedAnonymous, bool expectedLoginRequiredToRead)
     {
         var services = ComposeServices(allowAnonymous, hasAccount ? [new Account("alice", "pw")] : []);
 
         var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
 
         Assert.AreEqual(expectedAnonymous, rules.AllowsAnonymous);
-        Assert.AreEqual(hasAccount, rules.IsLoginRequiredToRead());
+        Assert.AreEqual(expectedLoginRequiredToRead, rules.IsLoginRequiredToRead());
     }
 
     [TestMethod]
