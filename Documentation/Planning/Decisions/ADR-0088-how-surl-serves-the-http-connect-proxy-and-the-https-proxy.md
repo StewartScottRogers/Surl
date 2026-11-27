@@ -63,6 +63,12 @@ recorder's run; BL-553 measures NTLM's three legs whole.
 | --- | --- | --- |
 | `Surl.Protocol.HttpProxy.UnitLibrary`, in `Protocols/Http/` | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`, `Surl.Authentication.UnitLibrary` | the HTTP and HTTPS proxy server, decisions 3 to 6 |
 
+**Superseded in part by Amendment 3** ("No reference to `Surl.Authentication`", 2026-11-05;
+note added here 2026-11-27 by BL-1874): it removes the `Surl.Authentication.UnitLibrary`
+reference from the table above, which is kept as first decided. The proxy reaches the
+authentication checks through `IAuthenticationPolicy`. The library's `CLAUDE.md` lists the
+references it has.
+
 - The planning assumption is adopted, with its `.UnitTests` twin beside it. Namespace
   `Surl.Protocol.HttpProxy`. It is a protocol server: it references no other protocol server
   (not `Surl.Protocol.Http`), constructs no socket, and is held to the solution's quality gates.

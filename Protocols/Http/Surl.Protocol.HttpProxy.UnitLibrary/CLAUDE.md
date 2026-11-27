@@ -106,10 +106,12 @@ upstream curl 8.21.0 with the recorder playing the proxy; its README says how ea
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`,
 and the horizontal `Surl.Http2.UnitLibrary`, `Surl.Hpack.UnitLibrary` (ADR-0086) and
-`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendments 16, 20, 23 and 25) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
-through `IAuthenticationPolicy` as the HTTP server does, so it needs no reference (Amendment 3).
-Referencing another protocol server is a build break, and
-`Surl.Protocol.Abstractions.UnitTests` fails if one appears.
+`Surl.LineProtocol.UnitLibrary` (ADR-0182 Amendments 16, 20, 23 and 25) only. It does not reference
+`Surl.Authentication.UnitLibrary`, and must not: the proxy reaches the authentication checks
+through `IAuthenticationPolicy`, as the HTTP server does (ADR-0088 Amendment 3).
+Referencing another protocol server is a build break.
+`Surl.Protocol.Abstractions.UnitTests` fails if a reference to `Surl.Authentication.UnitLibrary` or
+to another protocol server appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here: curl's
 connection comes from the listener seam and every origin connection from `IOriginConnector`, so the
