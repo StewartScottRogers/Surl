@@ -691,9 +691,17 @@ public sealed partial class AiHelpTextTests
     {
         var page = AiHelpText.Answer("auth").Output;
 
-        StringAssert.Contains(page, "where the service is `HTTP` for http and https, `smtp`, `imap`, `pop` or `ldap`, and `rcmd` for a `socks5` or `socks5h` listener.");
-        StringAssert.Contains(page, "the SMTP, IMAP, POP3 and LDAP servers' SASL `GSSAPI` logins use them too, and so does the LDAP server's `GSS-SPNEGO` bind (see the ldap topic).");
+        StringAssert.Contains(page, "where the service is `HTTP` for http and https, `smtp`, `imap`, `pop` or `ldap`, `amqp` for the schemes `amqp`, `amqps`, `amqp1` and `amqp1s`, and `rcmd` for a `socks5` or `socks5h` listener.");
+        StringAssert.Contains(page, "the SASL `GSSAPI` logins of the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1 and AMQP 1.0 servers use them too, and so does the LDAP server's `GSS-SPNEGO` bind (see the ldap topic).");
         StringAssert.Contains(page, "A `socks5` or `socks5h` listener's GSS-API login (method `01`, curl's `--socks5-gssapi`) uses the keys whatever `--auth` names (see the socks topic).");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysTheAmqpServersUseTheKeytabForTheServiceAmqpWithinTheirFrameLimits()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "The AMQP servers' service is `amqp`, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before `connection.tune-ok`, and 512 for an AMQP 1.0 SASL frame, so a larger one closes the connection unchecked.");
     }
 
     [TestMethod]

@@ -264,9 +264,10 @@ public sealed class ManualTextTests
             "    kadmin ktadd and Windows' ktpass /out write, big-endian entries of",
             "    principal, timestamp, key version number, enctype and key. A key serves",
             "    the principal the keytab names it for, <service>/<host>@<REALM>, where the",
-            "    service is HTTP for http and https, smtp, imap, pop or ldap, and rcmd for a",
-            "    socks5 or socks5h listener; the host and the realm are whatever the keytab",
-            "    names. Only the AES keys are kept (aes128-cts-hmac-sha1-96,",
+            "    service is HTTP for http and https, smtp, imap, pop or ldap, amqp for the",
+            "    schemes amqp, amqps, amqp1 and amqp1s, and rcmd for a socks5 or socks5h",
+            "    listener; the host and the realm are whatever the keytab names. Only the",
+            "    AES keys are kept (aes128-cts-hmac-sha1-96,",
             "    aes256-cts-hmac-sha1-96, aes128-cts-hmac-sha256-128,",
             "    aes256-cts-hmac-sha384-192); each key of another enctype, such as",
             "    rc4-hmac, is skipped with \"surl: warning: --keytab: skipped the <enctype>",
@@ -278,14 +279,18 @@ public sealed class ManualTextTests
             "    byte is ever logged.",
             "",
             "    HTTP negotiate accepts a Kerberos ticket under the --keytab keys, bare or",
-            "    inside SPNEGO; the SMTP, IMAP, POP3 and LDAP servers' SASL GSSAPI logins",
-            "    use them too, and so does the LDAP server's GSS-SPNEGO bind. A socks5 or",
-            "    socks5h listener's GSS-API login (method 01, curl's --socks5-gssapi) uses",
-            "    the keys whatever --auth names. A Kerberos login is the ticket's client",
-            "    principal, written user@EXAMPLE.COM. An HTTP, SASL or GSS-SPNEGO Kerberos",
-            "    login is accepted only when an account of exactly that name exists, unless",
-            "    --allow-anonymous is given. A SOCKS5 GSS-API login needs a proxy account",
-            "    (-U, --proxy-user-file; never --user or --user-file) of exactly that name",
+            "    inside SPNEGO; the SASL GSSAPI logins of the SMTP, IMAP, POP3, LDAP, AMQP",
+            "    0-9-1 and AMQP 1.0 servers use them too, and so does the LDAP server's",
+            "    GSS-SPNEGO bind. The AMQP servers' service is amqp, and a ticket is checked",
+            "    only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before",
+            "    connection.tune-ok, and 512 for an AMQP 1.0 SASL frame, so a larger one",
+            "    closes the connection unchecked. A socks5 or socks5h listener's GSS-API",
+            "    login (method 01, curl's --socks5-gssapi) uses the keys whatever --auth",
+            "    names. A Kerberos login is the ticket's client principal, written",
+            "    user@EXAMPLE.COM. An HTTP, SASL or GSS-SPNEGO Kerberos login is accepted",
+            "    only when an account of exactly that name exists, unless --allow-anonymous",
+            "    is given. A SOCKS5 GSS-API login needs a proxy account (-U,",
+            "    --proxy-user-file; never --user or --user-file) of exactly that name",
             "    when the proxy was started with proxy accounts, even an empty",
             "    --proxy-user-file; with none, any ticket the keys accept is accepted;",
             "    --allow-anonymous skips the account match. No Kerberos login uses the",
@@ -860,6 +865,16 @@ public sealed class ManualTextTests
         ];
 
         Assert.AreEqual(string.Concat(lines.Select(line => line + NewLine)), ManualText.Text);
+    }
+
+    [TestMethod]
+    public void Text_SaysTheAmqpServersUseTheKeytabForTheServiceAmqpWithinTheirFrameLimits()
+    {
+        var words = string.Join(' ', ManualText.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        StringAssert.Contains(words, "amqp for the schemes amqp, amqps, amqp1 and amqp1s,");
+        StringAssert.Contains(words, "the SASL GSSAPI logins of the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1 and AMQP 1.0 servers use them too,");
+        StringAssert.Contains(words, "The AMQP servers' service is amqp, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before connection.tune-ok, and 512 for an AMQP 1.0 SASL frame, so a larger one closes the connection unchecked.");
     }
 
     [TestMethod]
