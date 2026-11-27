@@ -64,7 +64,7 @@ public sealed class TelnetProtocolServer : IConnectionProtocolServer
     private readonly TelnetUpstreamTestCaseReplies? upstreamTestCaseReplies;
 
     /// <summary>
-    /// Creates the server as <c>Surl.Console</c> composes it: banner, CRLF echo and <c>quit</c>.
+    /// Creates the server as <c>Surl.Composition</c> composes it: banner, CRLF echo and <c>quit</c>.
     /// </summary>
     public TelnetProtocolServer()
     {
