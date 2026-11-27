@@ -60,3 +60,4 @@ rewritten. No stand-in store, event or fault applies: this task changes prose on
 
 - 2026-11-26: Created.
 - 2026-11-26: Renumbered from BL-1806 to BL-1813; an archived task holds BL-1806.
+- 2026-11-26: Backlog -> Doing.
