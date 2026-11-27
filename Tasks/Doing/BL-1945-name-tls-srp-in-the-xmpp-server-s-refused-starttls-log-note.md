@@ -31,3 +31,4 @@ Found while working BL-1931 (2026-11-27), read from source. `Protocols/Messaging
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
