@@ -8,7 +8,7 @@ depends-on: []
 touches: [Cryptography/Surl.Tls13.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1894 — Correct the QUIC only statements in the Tls13 library CLAUDE.md
 
@@ -33,14 +33,23 @@ handshake, for TLS 1.3 over TCP (ADR-0157). In `Cryptography/Surl.Tls13.UnitLibr
 
 ## Acceptance criteria
 
-- [ ] The "Malformed input" paragraph states what happens to the alert over QUIC and over TCP.
-- [ ] The `TlsServerHandshakeOptions` bullet and the ALPN alert row say what TCP listeners pass, as well as QUIC.
-- [ ] The test-source sentence names every source of expected values in `Surl.Tls13.UnitTests`.
-- [ ] The only file changed outside `Tasks/` is that `CLAUDE.md`.
+- [x] The "Malformed input" paragraph states what happens to the alert over QUIC and over TCP.
+- [x] The `TlsServerHandshakeOptions` bullet and the ALPN alert row say what TCP listeners pass, as well as QUIC.
+- [x] The test-source sentence names every source of expected values in `Surl.Tls13.UnitTests`.
+- [x] The only file changed outside `Tasks/` is that `CLAUDE.md`.
 
 ## Notes
+
+- `align-and-document` made the edit and read every test file for sources of expected values; the sentence became a
+  list. It also corrected the `Receive` bullet, which described the `ClientHello` property and byte levels as QUIC only.
+- Prose only. `dotnet build`: 0 warnings, 0 errors. Fast tests: every test project passed.
+- Follow-ups: BL-1902 (the hand-built handshake refuses a TCP ClientHello with no ALPN when the listener offers a
+  list, against ADR-0010; found by reading code, not measured) and BL-1903 (XML and test comments that read as
+  QUIC only). BL-1895, already filed, covers `TlsAlert.cs` and `TlsServerHandshake.cs`.
+- The `CLAUDE.md` describes today's ALPN refusal over TCP, so BL-1902 has to update that table row.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Surl.Tls13 CLAUDE.md says which statements hold for QUIC only and which also for TLS 1.3 over TCP, and lists every source of expected test values
