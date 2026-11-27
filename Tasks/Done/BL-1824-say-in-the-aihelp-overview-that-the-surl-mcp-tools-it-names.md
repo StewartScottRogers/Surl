@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-27
 ---
 # BL-1824 — Say in the --aihelp overview that the surl-mcp tools it names are only some of them
 
@@ -35,14 +35,19 @@ No store, event or fault applies: this task changes help text only.
 
 ## Acceptance criteria
 
-- [ ] `AiHelpProse.OverviewHosts` holds the sentence quoted in Context.
-- [ ] `OverviewHostsParagraph` in `AiHelpTextTests` pins the same text, and the tests of `Surl.Cli.UnitTests`
+- [x] `AiHelpProse.OverviewHosts` holds the sentence quoted in Context.
+- [x] `OverviewHostsParagraph` in `AiHelpTextTests` pins the same text, and the tests of `Surl.Cli.UnitTests`
       pass.
-- [ ] `dotnet build Application/Surl.Cli.UnitTests -warnaserror` is clean.
+- [x] `dotnet build Application/Surl.Cli.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- Verified with the whole solution: `dotnet build -warnaserror` 0 warnings (covers `Surl.Cli.UnitTests`),
+  `dotnet format --verify-no-changes` clean, fast tests 0 failed, `Surl.Cli.UnitTests` 1983 passed.
+- Help text only: no new option, topic, exit code or behaviour, so no ADR.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The --aihelp overview presents start_server, list_servers, stop_server and get_exchanges as some of surl-mcp's tools
