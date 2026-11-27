@@ -17,10 +17,10 @@ library and the registration need nothing of their own for it. A second listen U
 `--http3` or a `-x`/`--proxy` listen URL beside either option is refused (exit 2).
 
 **GSS-API** (BL-765, ADR-0121 amendment 2; wired by BL-1066): `--keytab <file>` hands the
-server its keys. `Surl.Composition`'s `ComposeSocksGssApiLogin` reads it
-(`SurlCommandLine.KeytabFile`) and builds a `SocksGssApiLogin` over its own
-`KerberosAcceptor` for the service `rcmd` (`SocksGssApiLogin.DefaultService`; no option
-changes it), whatever `--auth` names. Without `--keytab`, method `01` is never selected.
+server its keys. `Surl.Composition`'s `ComposeSocksGssApiLogin` builds a `SocksGssApiLogin`
+over the authentication policy's `KerberosAcceptor`, so the instance reads the file once and has
+one replay cache (ADR-0057 amendment 5), for the service `rcmd`
+(`SocksGssApiLogin.DefaultService`; no option changes it), whatever `--auth` names. Without `--keytab`, method `01` is never selected.
 When the proxy policy was composed with proxy accounts (`-U`, `--proxy-user-file`, an empty
 file included) and without `--allow-anonymous`, a GSS-API login is accepted only when a proxy
 account has exactly the client principal's name (`user@EXAMPLE.COM`, compared ordinally; its
