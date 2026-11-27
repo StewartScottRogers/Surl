@@ -1,5 +1,5 @@
 ---
-id: BL-1941
+id: BL-1946
 title: Correct the Surl.Composition ownership claims and ADR links in the POP3 library
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1941 — Correct the Surl.Composition ownership claims and ADR links in the POP3 library
+# BL-1946 — Correct the Surl.Composition ownership claims and ADR links in the POP3 library
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1945
+id: BL-1950
 title: Fix the broken ADR links in the FTP and SSH library notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1945 — Fix the broken ADR links in the FTP and SSH library notes
+# BL-1950 — Fix the broken ADR links in the FTP and SSH library notes
 
 ## Goal
 

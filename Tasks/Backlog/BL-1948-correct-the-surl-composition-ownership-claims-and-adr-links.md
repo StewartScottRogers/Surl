@@ -1,5 +1,5 @@
 ---
-id: BL-1943
+id: BL-1948
 title: Correct the Surl.Composition ownership claims and ADR links in the SMTP library
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1943 — Correct the Surl.Composition ownership claims and ADR links in the SMTP library
+# BL-1948 — Correct the Surl.Composition ownership claims and ADR links in the SMTP library
 
 ## Goal
 

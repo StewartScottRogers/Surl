@@ -1,5 +1,5 @@
 ---
-id: BL-1942
+id: BL-1947
 title: Correct the Surl.Composition ownership claims and ADR links in the IMAP library
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1942 — Correct the Surl.Composition ownership claims and ADR links in the IMAP library
+# BL-1947 — Correct the Surl.Composition ownership claims and ADR links in the IMAP library
 
 ## Goal
 

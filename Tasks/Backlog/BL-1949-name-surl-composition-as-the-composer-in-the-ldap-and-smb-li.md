@@ -1,5 +1,5 @@
 ---
-id: BL-1944
+id: BL-1949
 title: Name Surl.Composition as the composer in the LDAP and SMB library notes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1944 — Name Surl.Composition as the composer in the LDAP and SMB library notes
+# BL-1949 — Name Surl.Composition as the composer in the LDAP and SMB library notes
 
 ## Goal
 
