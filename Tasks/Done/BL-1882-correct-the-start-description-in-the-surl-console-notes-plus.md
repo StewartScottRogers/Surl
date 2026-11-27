@@ -50,7 +50,7 @@ No store, event or fault is involved: documentation only.
   `CommandLineRunner.cs` had the same `--share` omission.
 - Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0,
   fast tests exit 0 with no failures. No integration-level code changed.
-- Follow-up: BL-1917 (the same two points in `Surl.Composition` comments). BL-1881 already covers its
+- Follow-up: BL-1919 (the same two points in `Surl.Composition` comments). BL-1881 already covers its
   `CreateListenerFactory` comment and the start's class summary.
 
 ## Log

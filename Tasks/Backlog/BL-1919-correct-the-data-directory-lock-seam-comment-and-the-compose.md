@@ -1,5 +1,5 @@
 ---
-id: BL-1917
+id: BL-1919
 title: Correct the data directory lock seam comment and the ComposeAuthentication file list comment
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1917 — Correct the data directory lock seam comment and the ComposeAuthentication file list comment
+# BL-1919 — Correct the data directory lock seam comment and the ComposeAuthentication file list comment
 
 ## Goal
 
