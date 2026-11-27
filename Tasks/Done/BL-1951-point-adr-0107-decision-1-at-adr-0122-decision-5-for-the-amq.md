@@ -36,7 +36,7 @@ use; do not rewrite the recorded decision.
 - Checked the note against ADR-0122 decisions 2 and 5 and Amendment 4, and against
   `ServerTlsComposition.IsTlsUpgradeAvailable` and its use in `ExtendedProtocolServers.cs`.
 - The ADR's other stale statements (decision 7 under TLS-SRP, the ADR-0146 pointer and others) are
-  filed as BL-1956, not changed here.
+  filed as BL-1959, not changed here.
 - Only Markdown changed, so the `verify` skill was not needed. `dotnet build` was clean (0 warnings)
   and every fast test project passed.
 

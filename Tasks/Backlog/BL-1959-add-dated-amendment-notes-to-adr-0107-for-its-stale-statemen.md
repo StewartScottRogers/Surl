@@ -1,5 +1,5 @@
 ---
-id: BL-1956
+id: BL-1959
 title: Add dated amendment notes to ADR-0107 for its stale statements about amqp1s TLS, transactions and TFTP
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1956 — Add dated amendment notes to ADR-0107 for its stale statements about amqp1s TLS, transactions and TFTP
+# BL-1959 — Add dated amendment notes to ADR-0107 for its stale statements about amqp1s TLS, transactions and TFTP
 
 ## Goal
 
