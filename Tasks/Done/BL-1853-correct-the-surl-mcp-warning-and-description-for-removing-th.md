@@ -38,7 +38,7 @@ completed: 2026-11-27
   constant, since that one would pass for any wording.
 - The private method `OpenedProxy` is renamed `RemovedLastAccount`: the removal no longer opens the proxy.
 - No new ADR: ADR-0132 amendment 4 already decides the text.
-- Filed BL-1879: `Application/Surl.Mcp/README.md` quotes the server accounts' old warning, and BL-1859 does not touch
+- Filed BL-1886: `Application/Surl.Mcp/README.md` quotes the server accounts' old warning, and BL-1859 does not touch
   that project.
 - Verified: `dotnet build -warnaserror` clean, `dotnet format --verify-no-changes` exit 0, fast tests green.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1879
+id: BL-1886
 title: Correct the surl-mcp host README for removing the last server account
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1879 — Correct the surl-mcp host README for removing the last server account
+# BL-1886 — Correct the surl-mcp host README for removing the last server account
 
 ## Goal
 
