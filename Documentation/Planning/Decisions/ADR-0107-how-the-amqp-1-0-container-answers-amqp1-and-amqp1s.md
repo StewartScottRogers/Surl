@@ -12,6 +12,9 @@
   "Not served yet").
 - **Amended by:** the BL-513 amendment below (decisions 5 and 6) and the BL-1884 amendment below
   (decisions 2 and 7: SASL frames over 512 bytes are read).
+- **Amended (2026-11-27, BL-1951):** decision 1's TLS header is also offered under TLS-SRP
+  ([ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) decision 5); see the note under
+  decision 1's table.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -79,6 +82,17 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
 | `AMQP 2 1 0 0` (TLS) on `amqp1` with a certificate (`--cert` or `--self-signed`) | answered `AMQP 2 1 0 0`, then the TLS handshake (`IConnection.UpgradeToTlsAsync`, TLS 1.2 and 1.3); inside it the client starts again with a SASL or AMQP header, judged by this table | the same |
 | `AMQP 2 1 0 0` on `amqp1` without a certificate, or on `amqp1s` (already TLS), or after a TLS layer | answered `AMQP 3 1 0 0`, then closed | the same |
 | any other 8 bytes (another version, AMQP 0-9-1's `AMQP 0 0 9 1`, not `AMQP` at all) | answered `AMQP 3 1 0 0`, then closed | the same |
+
+*Amended 2026-11-27 (BL-1951), pointing at
+[ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) decision 5:* TLS-SRP, as well as a
+certificate, makes the TLS upgrade available. The third row also covers `amqp1` under TLS-SRP, and
+the fourth row's "on `amqp1` without a certificate" means with neither a certificate nor TLS-SRP.
+`ServerTlsComposition.IsTlsUpgradeAvailable` is true when `--cert` or `--self-signed` is given or
+TLS-SRP is served, and `Surl.Composition` passes it to the container as
+`Amqp1SecurityNegotiationOptions.CanUpgradeToTls`. Under TLS-SRP, with a certificate or without one,
+the handshake after the header is TLS-SRP's (ADR-0122 decision 5), which is TLS 1.2 only (its
+decision 2), not the third row's "TLS 1.2 and 1.3". ADR-0122 Amendment 4 accepts the TLS-SRP options
+when `amqp1://` is the only listen URL.
 
 - **After a successful SASL outcome** the client sends `AMQP 0 1 0 0` and the container answers it
   (Part 5 section 5.3.1); any other header there is answered `AMQP 0 1 0 0` and closed.
