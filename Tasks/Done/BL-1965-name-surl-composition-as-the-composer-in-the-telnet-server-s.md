@@ -49,7 +49,7 @@ No store, event or fault changes: documentation only.
   `new TelnetProtocolServer()` for `telnet`.
 - 2026-11-27: full `dotnet build` clean (0 warnings), format check of `TelnetProtocolServer.cs` clean, fast tests
   green.
-- Filed BL-1977 for other stale Telnet comments (delay and drop faults, the held-back final LF), directly with the
+- Filed BL-1983 for other stale Telnet comments (delay and drop faults, the held-back final LF), directly with the
   board script.
 
 ## Log

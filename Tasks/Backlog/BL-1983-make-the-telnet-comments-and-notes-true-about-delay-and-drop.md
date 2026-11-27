@@ -1,5 +1,5 @@
 ---
-id: BL-1977
+id: BL-1983
 title: Make the Telnet comments and notes true about delay and drop faults and the final line feed
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1977 — Make the Telnet comments and notes true about delay and drop faults and the final line feed
+# BL-1983 — Make the Telnet comments and notes true about delay and drop faults and the final line feed
 
 ## Goal
 
