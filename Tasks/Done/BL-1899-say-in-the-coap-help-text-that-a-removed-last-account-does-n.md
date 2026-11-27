@@ -40,7 +40,7 @@ The `coap` `--aihelp` paragraph says a read stays refused after the last account
 - Verification: `dotnet build` clean; `Surl.Cli.UnitTests` 1992 passed; `dotnet format --verify-no-changes` clean on
   `Surl.Cli.UnitLibrary`. In the full fast run one test outside this task failed
   (`SocketIoFaultTests.Connect_UnderADelayRule_IsServedAfterTheHold`, timeout) and its project passed 291 of 291 when
-  rerun. Filed BL-1905.
+  rerun. Filed BL-1908.
 
 ## Log
 

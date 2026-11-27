@@ -1,5 +1,5 @@
 ---
-id: BL-1905
+id: BL-1908
 title: Stop the Socket.IO delay fault test advancing the clock before the hold starts
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1905 — Stop the Socket.IO delay fault test advancing the clock before the hold starts
+# BL-1908 — Stop the Socket.IO delay fault test advancing the clock before the hold starts
 
 ## Goal
 
