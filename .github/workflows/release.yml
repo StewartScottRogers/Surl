@@ -507,8 +507,9 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"
 
       # Pushes both packages to nuget.org (Stewart, 2026-11-26; BL-1795). Trusted publishing: the
-      # nuget.org account StewartScottRogers holds a policy for this repository's release.yml, and
-      # NuGet/login trades the job's OIDC token for a key that lasts one hour, so no secret is stored.
+      # nuget.org account StewartRogers86 (not the GitHub name StewartScottRogers) created a policy
+      # for this repository's release.yml, and NuGet/login, given that policy creator's nuget.org
+      # name, trades the job's OIDC token for a key that lasts one hour, so no secret is stored.
       # --skip-duplicate lets a rerun of a tag's release job pass over a package that is already up,
       # so it pushes only what is missing. "Re-run failed jobs" pushes the packages the run already
       # packed, the ones it set out to attach to the release. "Re-run all jobs" packs them again,
@@ -518,7 +519,7 @@ jobs:
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: StewartScottRogers
+          user: StewartRogers86
 
       - name: Push the packages to nuget.org
         working-directory: dist
