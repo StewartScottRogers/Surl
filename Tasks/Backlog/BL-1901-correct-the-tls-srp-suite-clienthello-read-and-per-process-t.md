@@ -1,5 +1,5 @@
 ---
-id: BL-1898
+id: BL-1901
 title: Correct the TLS-SRP suite, ClientHello read and per-process TLS settings comments
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1898 — Correct the TLS-SRP suite, ClientHello read and per-process TLS settings comments
+# BL-1901 — Correct the TLS-SRP suite, ClientHello read and per-process TLS settings comments
 
 ## Goal
 

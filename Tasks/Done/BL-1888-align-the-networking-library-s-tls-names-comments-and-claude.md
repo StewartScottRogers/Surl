@@ -70,7 +70,7 @@ method name only; no behaviour changes.
   `TlsClientConnector`'s client handshakes do not use these settings, and Unix domain socket handshakes do.
 - Verified 2026-11-27: `dotnet build -warnaserror` and `dotnet format --verify-no-changes` clean; fast tests 30270
   passed, 3 skipped, 0 failed; Networking `Integration` tests 27 passed.
-- Filed BL-1898 for three stale statements outside this task's criteria.
+- Filed BL-1901 for three stale statements outside this task's criteria.
 
 ## Log
 
