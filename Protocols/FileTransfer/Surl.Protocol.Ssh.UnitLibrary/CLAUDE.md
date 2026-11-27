@@ -2,16 +2,16 @@
 
 Phase 2. The SSH server for upstream curl's `scp://` and `sftp://` requests: the transport,
 host keys and user authentication as
-[ADR-0051](../Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md)
+[ADR-0051](../../../Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md)
 decides (amended by
-[ADR-0058](../Documentation/Planning/Decisions/ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
-[ADR-0060](../Documentation/Planning/Decisions/ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md)
+[ADR-0058](../../../Documentation/Planning/Decisions/ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
+[ADR-0060](../../../Documentation/Planning/Decisions/ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md)
 and
-[ADR-0061](../Documentation/Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)),
+[ADR-0061](../../../Documentation/Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)),
 and SCP and SFTP as
-[ADR-0054](../Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)
+[ADR-0054](../../../Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)
 decides.
-[ADR-0062](../Documentation/Planning/Decisions/ADR-0062-surl-keeps-ks-canonical-mpint-though-libssh2-1-11-1-on-wincng-fails-1-exchange-in-256.md)
+[ADR-0062](../../../Documentation/Planning/Decisions/ADR-0062-surl-keeps-ks-canonical-mpint-though-libssh2-1-11-1-on-wincng-fails-1-exchange-in-256.md)
 records why the exchange hash keeps K's canonical `mpint`. Terms (host key, algorithm offer,
 weak SSH algorithm, strict key exchange, key re-exchange, session channel, SCP command, SFTP
 subsystem) are the glossary's, section "SSH, SCP and SFTP".
