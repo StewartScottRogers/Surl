@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Surl.Api;
 using Surl.Cli;
 using Surl.McpServing;
@@ -31,6 +32,22 @@ public sealed class ProgramTests
         Assert.AreEqual(SurlMcpHelpText.Version, serverInfo.GetProperty("version").GetString());
         Assert.AreEqual(JsonValueKind.Object, result.GetProperty("capabilities").GetProperty("tools").ValueKind);
         Assert.AreEqual(Program.Instructions, result.GetProperty("instructions").GetString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ToolsList_EveryListedToolIsNamedAsAWholeWordInTheInstructions()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var names = result.GetProperty("tools").EnumerateArray().Select(tool => tool.GetProperty("name").GetString()!).ToArray();
+        Assert.IsNotEmpty(names);
+
+        // An underscore is a word character to \b, so "read_keys" does not name read_key.
+        var unnamed = names.Where(name => !Regex.IsMatch(Program.Instructions, $@"\b{Regex.Escape(name)}\b")).ToArray();
+        Assert.IsEmpty(unnamed, $"Program.Instructions does not name: {string.Join(", ", unnamed)}");
     }
 
     [TestMethod]
@@ -103,6 +120,42 @@ public sealed class ProgramTests
         Assert.IsFalse(inputSchema.GetProperty("additionalProperties").GetBoolean());
         Assert.AreEqual("server_id", inputSchema.GetProperty("required")[0].GetString());
         CollectionAssert.AreEqual(properties, inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ToolsList_RemoveProxyAccountsDescriptionSaysRemovingTheLastAccountDoesNotOpenTheProxy()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var tool = Assert.ContainsSingle(
+            result.GetProperty("tools").EnumerateArray().Where(tool => tool.GetProperty("name").GetString() == RemoveProxyAccountTool.Name));
+        var description = tool.GetProperty("description").GetString()!;
+        StringAssert.Contains(
+            description,
+            "Removing the last proxy account does not open the proxy: without --allow-anonymous it then lets no new "
+            + "client through; the result then carries a warning, and add_proxy_account lets that account in.");
+        Assert.DoesNotContain("no login", description);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ToolsList_RemoveAccountsDescriptionSaysRemovingTheLastAccountDoesNotOpenTheServer()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var tool = Assert.ContainsSingle(
+            result.GetProperty("tools").EnumerateArray().Where(tool => tool.GetProperty("name").GetString() == RemoveAccountTool.Name));
+        var description = tool.GetProperty("description").GetString()!;
+        StringAssert.Contains(
+            description,
+            "Removing the last account does not open the server: it still asks for a login wherever it did; the result "
+            + "then carries a warning, and add_account lets that account in.");
+        Assert.DoesNotContain("no login", description);
     }
 
     [TestMethod]

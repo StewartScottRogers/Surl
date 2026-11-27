@@ -1,10 +1,13 @@
 # Surl.Kerberos.UnitLibrary
 
 Hand-built Kerberos 5 for surl's Kerberos acceptor (ADR-0057 decision 6), which
-`Surl.Authentication.UnitLibrary` will reference for Kerberos inside Negotiate and SASL
-`GSSAPI` (BL-240). The hand-built test KDC, `Surl.Kerberos.TestKdc.UnitLibrary` (ADR-0065
-decision 1), references it too and reads its internals (the enctype profiles, `KerberosDer`
-and the message readers) through `InternalsVisibleTo`, as its tests do.
+`Surl.Authentication.UnitLibrary` references for Kerberos inside Negotiate and SASL
+`GSSAPI` (BL-240). The other production projects that reference it are
+`Surl.Kerberos.TestKdc.UnitLibrary`, `Surl.Protocol.Socks.UnitLibrary`,
+`Surl.Composition.UnitLibrary` and `Surl.Console`. The hand-built test KDC,
+`Surl.Kerberos.TestKdc.UnitLibrary` (ADR-0065 decision 1), also reads its internals (the
+enctype profiles, `KerberosDer` and the message readers) through `InternalsVisibleTo`, as the
+KDC's tests do.
 
 Holds today: the public `KerberosEncryptionType` (enctypes 17, 18, 19 and 20, ADR-0057
 decision 3) and, internal, the crypto those enctypes need - RFC 3961's `n-fold` (`NFold`) and

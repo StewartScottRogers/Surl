@@ -7,8 +7,8 @@
     the release's SHA256SUMS, and puts surl.exe in a directory of its own. -AddToPath also
     puts that directory on the user PATH. See DOWNLOAD.md.
 
-    No release has been published yet; until one is, this script stops at "no release
-    found".
+    surl-mcp and the NuGet packages are not fetched. When asked for the newest release and
+    GitHub lists none, this script stops at "no release found".
 
 .EXAMPLE
     irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1 | iex

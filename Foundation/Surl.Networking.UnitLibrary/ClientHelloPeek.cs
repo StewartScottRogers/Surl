@@ -3,9 +3,11 @@ using Surl.Tls13;
 namespace Surl.Networking;
 
 /// <summary>
-/// Reads the first TLS record off a transport and says whether it is a ClientHello that only a
-/// TLS 1.3 server can answer (ADR-0157, decision 1), keeping every byte it read so the chosen
-/// stream can have them replayed.
+/// Reads the first TLS record off a transport and says of a ClientHello in it whether it offers
+/// TLS 1.3 and no version below it (<see cref="OffersOnlyTls13"/>) and whether it offers TLS 1.3
+/// at all (<see cref="OffersTls13"/>), which a listener limited to TLS 1.3 goes by (ADR-0157,
+/// decision 1 and amendment 1). It keeps every byte it read so the chosen stream can have them
+/// replayed.
 /// </summary>
 internal sealed class ClientHelloPeek
 {
@@ -38,7 +40,10 @@ internal sealed class ClientHelloPeek
     public bool OffersTls13 => ClientHello?.SupportedVersions is { } versions && versions.Contains(Tls13Version);
 
     /// <summary>
-    /// Reads the first record: its header and fragment, or as much as the transport gives before it ends.
+    /// Reads the first record: its five-byte header and then its fragment, or as much as the transport
+    /// gives before it ends. Only the header, or as much of it as arrived, is read when the transport
+    /// ends inside it, when the record type is not handshake (22) or when the length it gives is over
+    /// 16384.
     /// </summary>
     /// <param name="transport">The connection's plaintext stream.</param>
     /// <param name="cancellationToken">Cuts the read off.</param>

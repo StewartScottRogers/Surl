@@ -6,14 +6,18 @@ curl: for each protocol upstream curl speaks, it is the server that answers.
 
 ## Run it
 
-The `Surly.Surl.Mcp` NuGet package is a .NET tool package of type `McpServer`; an MCP client runs it with
+The `Surly.Surl.Mcp` NuGet package is a .NET tool package of type `McpServer`. When a configured package
+source holds it, an MCP client runs it with
 
 ```
 dnx Surly.Surl.Mcp
 ```
 
-or after `dotnet tool install --global Surly.Surl.Mcp`, as `surl-mcp`. The release's `surl-mcp-<rid>`
-archives hold the same server as a native binary that needs no .NET runtime.
+or after `dotnet tool install --global Surly.Surl.Mcp`, as `surl-mcp`. nuget.org held no version of the
+package on 2026-11-26. [GitHub releases](https://github.com/StewartScottRogers/Surl/releases) from
+`v0.1.10` carry it as a `.nupkg` file: download that file into a folder and give either command
+`--add-source <folder>`. A release's `surl-mcp-<rid>` archives hold the same server as a native binary
+that needs no .NET runtime.
 
 ## Tools
 
@@ -23,7 +27,9 @@ archives hold the same server as a native binary that needs no .NET runtime.
 - `get_exchanges` - the bytes each client sent and was answered, with the listen URL and scheme of each
   exchange, filtered by scheme and listen URL.
 - `get_events` - the events a server kept (exchanges started and ended, logins judged, store changes, faults
-  applied, hooks failed), filtered by kind, scheme, listen URL, account, `store` and `name` and sequence.
+  applied, hooks failed, and the kinds `consumer_group_changed` and `cookie_received`), filtered by kind,
+  scheme, listen URL, account, `store` and `name` and sequence. An exchange's bytes are never kept as events;
+  `get_exchanges` gives them.
 - `wait_for_event` - waits up to `timeout_ms` (1 to 60000 milliseconds) for the first event matching the
   same filters, or answers `timed_out`. `store` is a store in snake_case (`content`, `mail`, `bus`, ...) and
   `name` a path, mailbox, topic, queue, key or account, matched exactly or as a segment prefix
@@ -31,8 +37,12 @@ archives hold the same server as a native binary that needs no .NET runtime.
 - `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `add_proxy_account`, `remove_proxy_account`, `add_tls_srp_account`, `remove_tls_srp_account`, `set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password` - change a
   running server's stores as a test would. `delete_file` takes a request `path` and answers `{path}`;
   `no file at <path>` when nothing, a folder or a hidden path is there. `remove_account` takes a `user`
-  (an account given at start too) and answers `{user}`; `server <id> has no account <user>` when it holds
-  none. Neither needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
+  (an account given at start too; an empty string names the Bearer-token account) and answers `{user}`;
+  `server <id> has no account <user>` when it holds no such account, or
+  `server <id> has no Bearer-token account` for an empty `user`. Removing the last account adds a `warning`
+  member and a second text block, both
+  `server <id> has no local account left; it still asks for a login wherever it did`. Neither
+  tool needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
   `seed_mail` resolves its `to` as SMTP's `RCPT TO` does (ADR-0050 decision 5, ADR-0102 decision 1.1): without
   a mail domain only the local part counts, matched exactly or else ignoring case, and the domain is ignored,
   so `ALICE@example.com` and `alice@other.org` both deliver to account `alice`. With `--mail-domain`, its
@@ -40,10 +50,12 @@ archives hold the same server as a native binary that needs no .NET runtime.
 - `set_key`, `add_ldap_entries`, `add_dns_zone` - seed the Redis keyspace, the LDAP directory and the DNS
   zones (ADR-0158). `set_key` takes a `key` and a `value` (UTF-8 text, or `key_base64` and `value_base64`;
   together at most 16 MiB), an optional `database` (0 to 15) and `expire_ms` (1 to 31536000000), and answers
-  `{key, byte_count}` without echoing the value. `add_ldap_entries` takes `ldif` and answers `{entry_count}`;
-  `add_dns_zone` takes `apex` and `zone_text` and answers `{apex, byte_count}`. A `changetype:` record, a
-  second zone for an apex, a key past the keyspace's bounds, or a server with no Redis, LDAP or DNS server
-  composed is refused with the store's own words.
+  `{key, database, event_name, byte_count}` without echoing the value. `key_base64` takes the place of `key`
+  for a key that is not UTF-8, or that holds a control character other than tab, CR and LF; `event_name` is the
+  name of the store change (`<database>/<key>`) and `byte_count` the length of the value. `add_ldap_entries`
+  takes `ldif` and answers `{entry_count}`; `add_dns_zone` takes `apex` and `zone_text` and answers
+  `{apex, byte_count}`. A `changetype:` record, a second zone for an apex, a key past the keyspace's bounds, or
+  a server with no Redis, LDAP or DNS server composed is refused with the store's own words.
 - `reset_server`, `snapshot_server`, `restore_server` - return a server's stores, the three above included, and
   the AMQP 0-9-1 and MQTT 5 broker state, to their configured state, or save and restore them.
 - `list_mailboxes`, `list_messages`, `read_message`, `read_file`, `list_files`, `browse_queue`,
@@ -53,8 +65,9 @@ archives hold the same server as a native binary that needs no .NET runtime.
   `limit`), `browse_queue` (`queue`, `after_position`, `limit`), `read_retained_message` (`topic`) and
   `read_log` (`topic`, `from_offset`, `limit`). `read_key` (`key` or `key_base64`, `database`) and `list_keys`
   (`pattern`, `after_key`, `limit`, `database`) read back the Redis keyspace, `read_directory` (`{"ldif"}`, `userPassword` values omitted) the LDAP directory, and `read_zone` (`{"apex","zone"}` for one `apex`, else `{"zones":[...]}`) the DNS zones, the same way (ADR-0164 decision 9): a key
-  with its type, size, expiry and, for a string, its value; a listing never holds a value. Bytes come back as `text` when well-formed UTF-8, else
-  `base64` (a log key as `key` or `key_base64`). One item is at most 16 MiB and a list takes `limit` 1 to
+  with its type, size, expiry and, for a string, its value; a listing never holds a value. Bytes come back as
+  `text` only when they are well-formed UTF-8 with no control character other than tab, CR and LF, and as
+  `base64` otherwise (a log key as `key` or `key_base64`). One item is at most 16 MiB and a list takes `limit` 1 to
   1000 (default 100) with `has_more`. A read changes nothing, publishes no event and trips no fault. An absent
   owner, mailbox, UID, file, queue or log, or a breach of a bound, is `isError: true` with the reason; an
   absent retained message answers `{"retained": false}`, not an error.

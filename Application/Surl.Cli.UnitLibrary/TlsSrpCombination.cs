@@ -23,11 +23,14 @@ internal static class TlsSrpCombination
 
     /// <summary>
     /// The listen URL schemes that start in plain text and can upgrade to TLS, which TLS-SRP then
-    /// secures: <c>STARTTLS</c> and its kin (ADR-0122 decision 5), as <c>Surl.Composition</c>'s
-    /// <c>ServerTlsComposition</c> lists them.
+    /// secures: <c>STARTTLS</c> and its kin (ADR-0122 decision 5 and Amendment 4). They are every
+    /// scheme in the <c>UpgradableSchemes</c> of <c>Surl.Composition</c>'s
+    /// <c>ServerTlsComposition</c>, and <c>natss</c> from its <c>UpgradeRequiredSchemes</c>. The
+    /// other scheme there, <c>webtransport</c>, is left out because it is QUIC, which TLS-SRP does
+    /// not secure.
     /// </summary>
     private static readonly FrozenSet<string> UpgradableSchemes =
-        FrozenSet.Create(StringComparer.OrdinalIgnoreCase, "ftp", "imap", "ldap", "natss", "pop3", "smtp", "xmpp");
+        FrozenSet.Create(StringComparer.OrdinalIgnoreCase, "amqp1", "ftp", "imap", "ldap", "natss", "pop3", "smtp", "xmpp");
 
     /// <summary>
     /// Refuses the first TLS-SRP combination that cannot work, in this order: <c>--tlsuser</c>

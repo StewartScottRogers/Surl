@@ -9,12 +9,13 @@ using Surl.TlsSrp;
 namespace Surl.Composition;
 
 /// <summary>
-/// The process's server-side TLS settings as the command line asks for them (ADR-0010,
-/// section 3; ADR-0020; ADR-0032, section 10): none when no listen URL is TLS from the first
-/// byte and none can be upgraded with a certificate given; otherwise the <c>--cert</c> certificate,
-/// or a throwaway one with <c>--self-signed</c>, with the <c>--cacert</c> trust anchors and the
-/// accepted TLS versions. It owns every certificate it loaded or made,
-/// and disposing it disposes them.
+/// One server start's server-side TLS settings as the command line asks for them (ADR-0010,
+/// section 3; ADR-0020; ADR-0032, section 10; ADR-0122 decision 5): none only when no listen URL
+/// needs TLS (<see cref="Compose"/> says which do); otherwise, under TLS-SRP,
+/// <see cref="ServerTlsSettings.ForTlsSrp"/>'s settings, which carry a certificate only with
+/// <c>--cert</c> or <c>--self-signed</c>, and else the <c>--cert</c> certificate, or a throwaway one
+/// with <c>--self-signed</c>, with the <c>--cacert</c> trust anchors and the accepted TLS versions.
+/// It owns every certificate it loaded or made, and disposing it disposes them.
 /// </summary>
 public sealed class ServerTlsComposition : IDisposable
 {
@@ -39,16 +40,19 @@ public sealed class ServerTlsComposition : IDisposable
     /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; IMAP's <c>STARTTLS</c>, ADR-0055
     /// decision 11; POP3's <c>STLS</c>, ADR-0056 decision 8; FTP's <c>AUTH TLS</c>, ADR-0052
     /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5; the extended AMQP 1.0 container's
-    /// TLS header on <c>amqp1</c>, ADR-0107 decision 1; XMPP's <c>STARTTLS</c>, ADR-0114 decision 2), which it does only when a
-    /// certificate is configured.
+    /// TLS header on <c>amqp1</c>, ADR-0107 decision 1; XMPP's <c>STARTTLS</c>, ADR-0114 decision 2), which it does only when
+    /// <see cref="IsTlsUpgradeAvailable"/>: a certificate is configured or TLS-SRP is served.
     /// </summary>
     private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "amqp1", "ftp", "imap", "ldap", "pop3", "smtp", "xmpp" };
 
     /// <summary>
-    /// The listen URL schemes that start in plain text but whose server requires TLS before a login,
-    /// so they need a certificate as a scheme TLS from the first byte does: the extended
-    /// <c>natss</c> (ADR-0113 decision 6), the extended <c>coaps</c> when no account gives it a pre-shared key (ADR-0087 decision 3, BL-476), and the extended <c>webtransport</c>, which is UDP and
-    /// QUIC, whose TLS 1.3 needs a certificate from its first packet (BL-461).
+    /// The listen URL schemes that require a certificate whatever the options, as a scheme TLS from
+    /// the first byte does, though <see cref="TlsSchemes"/> does not list them: the extended
+    /// <c>natss</c>, which starts in plain text and requires TLS before <c>CONNECT</c> (ADR-0113
+    /// decision 6), and the extended <c>webtransport</c>, which is UDP and QUIC, whose TLS 1.3 needs a
+    /// certificate from its first packet (BL-461). <see cref="RequiresCertificate"/> adds
+    /// <c>coaps</c> and <c>xmpp</c>, which require one only under some options, and under TLS-SRP
+    /// <see cref="IsSecuredByTlsSrp"/> lifts the requirement from a TCP listener.
     /// </summary>
     private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss", WebTransportScheme };
 
@@ -60,7 +64,7 @@ public sealed class ServerTlsComposition : IDisposable
 
     /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
-    /// when no listen URL is TLS from the first byte and none can be upgraded.
+    /// only when no listen URL needs TLS (<see cref="Compose"/> says which do).
     /// </summary>
     public ServerTlsSettings? Settings { get; }
 
@@ -77,8 +81,10 @@ public sealed class ServerTlsComposition : IDisposable
     public string? ThrowawayCertificatePem { get; }
 
     /// <summary>
-    /// The same certificate as QUIC's TLS 1.3 serves it, with <c>--http3</c> (ADR-0082, decision 6);
-    /// <see langword="null"/> without it or when no TLS is served.
+    /// The same certificate as QUIC's TLS 1.3 and <c>coaps</c>' DTLS serve it, with <c>--http3</c>
+    /// (ADR-0082, decision 6) or a <c>webtransport</c>, <c>coaps</c> or DNS over QUIC listen URL,
+    /// under TLS-SRP too (ADR-0122 Amendment 5); <see langword="null"/> otherwise, and when no
+    /// certificate is served.
     /// </summary>
     public QuicServerCertificate? QuicCertificate { get; }
 
@@ -113,21 +119,28 @@ public sealed class ServerTlsComposition : IDisposable
     }
 
     /// <summary>
-    /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
-    /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6; <c>xmpp</c> unless <c>--allow-plaintext-auth</c> or <c>--allow-anonymous</c> is given, ADR-0114 decision 2), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
-    /// given (ADR-0032, section 10).
+    /// Finds the first listen URL, in command-line order, that requires a certificate and has none
+    /// to serve because neither <c>--cert</c> nor <c>--self-signed</c> was given (ADR-0032, section
+    /// 10). A listen URL requires one when it is TLS from the first byte
+    /// (<see cref="ListenUrl.IsImplicitTls"/>); when it is <c>natss</c> (ADR-0113 decision 6) or
+    /// <c>webtransport</c> (BL-461); when it is <c>coaps</c> and there is neither a <c>--user</c>
+    /// account nor a <c>--user-file</c> to give a pre-shared key (ADR-0087 decision 3); or when it is
+    /// <c>xmpp</c> and neither <c>--allow-plaintext-auth</c> nor <c>--allow-anonymous</c> is given
+    /// (ADR-0114 decision 2). Under TLS-SRP, which secures the TCP listeners without a certificate,
+    /// only a <c>webtransport</c>, <c>coaps</c> (requiring one as above) or DNS over QUIC listen URL
+    /// can be that one (ADR-0122 Amendment 5).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl) && !IsSecuredByTlsSrp(commandLine, listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl) && !IsSecuredByTlsSrp(commandLine, listenUrl))
             : null;
 
     // Under TLS-SRP every TCP listener is secured without a certificate (ADR-0122 decisions 2 and 5);
-    // QUIC (webtransport) and DTLS (coaps) are not TLS-SRP's, so they still need one.
-    private static bool IsSecuredByTlsSrp(SurlCommandLine commandLine, string scheme) =>
-        commandLine.ServesTlsSrp && scheme is not (WebTransportScheme or CoapsScheme);
+    // QUIC (webtransport, DNS over QUIC) and DTLS (coaps) are not TLS-SRP's, so they still need one.
+    private static bool IsSecuredByTlsSrp(SurlCommandLine commandLine, ListenUrl listenUrl) =>
+        commandLine.ServesTlsSrp && !NeedsQuicCertificate(listenUrl);
 
     /// <summary>
     /// Whether a server that can upgrade a plaintext connection to TLS offers it: a certificate is
@@ -139,8 +152,9 @@ public sealed class ServerTlsComposition : IDisposable
         IsCertificateConfigured(commandLine) || commandLine.ServesTlsSrp;
 
     /// <summary>
-    /// Whether a certificate is configured, <c>--cert</c> or <c>--self-signed</c>: what makes a
-    /// server that can upgrade a plaintext connection offer it (ADR-0053, decision 5).
+    /// Whether a certificate is configured, <c>--cert</c> or <c>--self-signed</c>: one of the two
+    /// things that make a server that can upgrade a plaintext connection offer it (ADR-0053,
+    /// decision 5), TLS-SRP being the other (<see cref="IsTlsUpgradeAvailable"/>).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <returns><see langword="true"/> when either is given.</returns>
@@ -148,18 +162,25 @@ public sealed class ServerTlsComposition : IDisposable
         commandLine.CertificateFile is not null || commandLine.SelfSigned;
 
     /// <summary>
-    /// Reads the TLS option files and builds the settings, when a listen URL needs them: one
-    /// TLS from the first byte, or, with a certificate configured, one that can be upgraded. The
-    /// files are read only then, as upstream curl reads <c>--cert</c> only for a TLS transfer.
-    /// Without <c>--cert</c> it makes the throwaway certificate, which the caller allows only
-    /// with <c>--self-signed</c> (<see cref="FindListenUrlWithoutCertificate"/>).
+    /// Reads the TLS option files and builds the settings when a listen URL needs TLS, and
+    /// otherwise reads nothing and composes none, as upstream curl reads <c>--cert</c> only for a TLS
+    /// transfer. A listen URL needs TLS when it requires a certificate
+    /// (<see cref="FindListenUrlWithoutCertificate"/> says which do, TLS-SRP aside); when its server
+    /// can upgrade a plaintext connection (<see cref="UpgradableSchemes"/>) and
+    /// <see cref="IsTlsUpgradeAvailable"/>; or when it is <c>coaps</c> and
+    /// <see cref="IsCertificateConfigured"/>.
+    /// Under TLS-SRP it reads the <c>--srp-groups</c> and <c>--srp-verifiers</c> files and the
+    /// <c>--cert</c> and <c>--key</c> ones, never <c>--cacert</c>, and makes a throwaway certificate
+    /// only with <c>--self-signed</c>. Otherwise it reads the <c>--cacert</c>, <c>--cert</c> and
+    /// <c>--key</c> files given, and without <c>--cert</c> makes the throwaway certificate, which the
+    /// caller allows only with <c>--self-signed</c> (<see cref="FindListenUrlWithoutCertificate"/>).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="timeProvider">Supplies "now" for the throwaway certificate and client-chain verification.</param>
     /// <param name="readFile">Reads a TLS option file's bytes (the <c>ReadStartFile</c> seam); <see langword="null"/> reads the disk.</param>
     /// <returns>The composition, which the caller disposes once serving has ended.</returns>
-    /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded.</exception>
-    /// <exception cref="TlsSrpAccountsException">A <c>--srp-verifiers</c> or <c>--srp-groups</c> file cannot be read, or a TLS-SRP user is given twice.</exception>
+    /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded, or under TLS-SRP the <c>--cert</c> certificate's key is not RSA.</exception>
+    /// <exception cref="TlsSrpAccountsException">A <c>--srp-verifiers</c> or <c>--srp-groups</c> file cannot be read or is malformed, or a TLS-SRP user is given twice.</exception>
     public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile = null)
     {
         if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl)))
@@ -197,7 +218,8 @@ public sealed class ServerTlsComposition : IDisposable
     // TLS-SRP settings (ADR-0122 decisions 4 and 5): the accounts, and one random source for them and
     // every handshake, owned by the composition.
     // With --cert or --self-signed the certificate and its RSA key ride along, for the certificate-signed
-    // SRP suites (ADR-0122 decision 6).
+    // SRP suites (ADR-0122 decision 6), and QUIC and DTLS listeners serve the same certificate
+    // (ADR-0122 Amendment 5).
     private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile)
     {
         var random = RandomNumberGenerator.Create();
@@ -205,9 +227,9 @@ public sealed class ServerTlsComposition : IDisposable
         try
         {
             var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
-            var (certificate, fingerprint, pem) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
+            var (certificate, quicCertificate, fingerprint, pem) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
             return new ServerTlsComposition(
-                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, null, owned, pem, null, composed.GroupIndexesOutsideRfc5054);
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, quicCertificate, owned, pem, null, composed.GroupIndexesOutsideRfc5054);
         }
         catch (Exception failure) when (failure is TlsSrpAccountsException or TlsFileLoadException)
         {
@@ -216,7 +238,7 @@ public sealed class ServerTlsComposition : IDisposable
         }
     }
 
-    private static (TlsSrpServerCertificate? Certificate, string? ThrowawayFingerprint, string? ThrowawayPem) ComposeTlsSrpCertificate(
+    private static (TlsSrpServerCertificate? Certificate, QuicServerCertificate? QuicCertificate, string? ThrowawayFingerprint, string? ThrowawayPem) ComposeTlsSrpCertificate(
         SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile, List<IDisposable> owned)
     {
         if (commandLine.CertificateFile is { } certificateFile)
@@ -229,17 +251,30 @@ public sealed class ServerTlsComposition : IDisposable
                 commandLine.KeyPassphrase,
                 readFile);
             owned.Add(loaded);
-            return (TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned), null, null);
+            var signing = TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned);
+            return (signing, ComposeOwnedQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates, owned), null, null);
         }
 
         if (!commandLine.SelfSigned)
         {
-            return (null, null, null);
+            return (null, null, null, null);
         }
 
         var throwaway = ThrowawayServerCertificate.Create(timeProvider, commandLine.ListenUrls.Select(listenUrl => listenUrl.Host));
         owned.Add(throwaway);
-        return (TlsSrpCertificateOf(throwaway, [], owned), ThrowawayServerCertificate.Sha256FingerprintOf(throwaway), throwaway.ExportCertificatePem());
+        return (
+            TlsSrpCertificateOf(throwaway, [], owned),
+            ComposeOwnedQuicCertificate(commandLine, throwaway, [], owned),
+            ThrowawayServerCertificate.Sha256FingerprintOf(throwaway),
+            throwaway.ExportCertificatePem());
+    }
+
+    private static QuicServerCertificate? ComposeOwnedQuicCertificate(
+        SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediates, List<IDisposable> owned)
+    {
+        var quicCertificate = ComposeQuicCertificate(commandLine, certificate, intermediates);
+        owned.AddRange(OwnedKey(quicCertificate));
+        return quicCertificate;
     }
 
     private static TlsSrpServerCertificate TlsSrpCertificateOf(

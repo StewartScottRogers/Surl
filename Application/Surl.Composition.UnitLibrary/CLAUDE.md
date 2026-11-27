@@ -1,8 +1,11 @@
 # Surl.Composition
 
 The one place protocol servers are composed (ADR-0099 decision 1). It references every original
-protocol server and the horizontal libraries they need; `Surl.Console` references it, and so will
-`Surl.Api` and possibly `Surl.Mcp` (BL-612). It references no host, and no protocol server or
+protocol server (`Surl.Protocol.*`), every extended server (`Surl.Extended.Protocol.*`),
+`Surl.Cli`, `Surl.Control`, and the libraries `Surl.Authentication`, `Surl.Content`,
+`Surl.Cookies`, `Surl.Core`, `Surl.Networking`, `Surl.Output`, `Surl.Protocol.Abstractions`,
+`Surl.MessageBus`, `Surl.Kerberos` and `Surl.Dtls`. `Surl.Console` and `Surl.Api` reference
+it, and `Surl.Mcp` reaches it through `Surl.Api`. It references no host, and no protocol server or
 horizontal library may reference it (ADR-0099 decision 11, held by
 `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`).
 
@@ -39,7 +42,15 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `ProxyRedactionCompositionTests`). The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
-  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.
+  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone, with
+  `AuthenticationSettings.RequiresLoginWithoutAccounts` set, so an empty `--proxy-user-file` or the removal of the last
+  proxy account never lets in a client that had to name one: without `--allow-anonymous` a `GET` without credentials is
+  then challenged as a `CONNECT` is, and `ComposedControlTarget` warns on that removal (ADR-0132 amendment 4, BL-1851;
+  `ProxyCompositionTests`, `ComposedControlTargetAccountRemovalTests`); with neither option, a
+  `NoAccountProxyAuthenticationPolicy`, which asks for no login but has an `AuthenticationPolicy` with no accounts and
+  `AllowAnonymous` judge each SOCKS5 GSS-API login, so any principal the keytab's keys accept stands, the login is
+  published and `refuse-login` applies, ADR-0165 decisions 7 to 9, BL-1826; `NoAccountProxyAuthenticationPolicyTests`);
+  `--proxy-allow-origin '*'` warns.
   The rule refuses each proxy's and SOCKS listener's own end point, one on port 0 included: the start's one
   `BoundProxyEndPoints`, which `ListenerStartReporter.ListenUrlBound` fills as each such listener binds, is read by the
   rule on every check (ADR-0088 Amendment 11). Tests: `ProxyCompositionTests`, `BoundProxyEndPointsTests`.
@@ -88,14 +99,23 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
   never calls the composer while they are off.
+- The MQTT 5.0 broker (ADR-0093 decision 2, BL-1903, BL-1911): two `Mqtt5Broker`s over the instance's one
+  `ComposedProtocolServices.Mqtt5BrokerState`, so connected clients, sessions and Wills are shared - one for `mqtt5` and
+  `mqtt5s` with `AuthenticationPolicyFor("mqtt5")`, and one behind the `Mqtt5WebSocketServer` for `mqtt5+ws` with
+  `AuthenticationPolicyFor("mqtt5+ws")`, so an account's `protocols=` admits `mqtt5+ws` only by that name and
+  `mqtt5` does not admit it (ADR-0102 decision 4.3, amendment of 2026-11-27). Each broker gets its policy as both its
+  password policy and its SASL policy, so a `CONNECT` with Authentication Method `SCRAM-SHA-256` or `SCRAM-SHA-1` logs
+  in when `--auth` names it; without `--auth` SCRAM is not accepted and every method is `0x8C`. Only the `mqtt5` broker
+  is a registered server, so the sessions store resets the shared state once. Tests:
+  `Mqtt5EnhancedAuthenticationCompositionTests`, `Mqtt5WebSocketAccountSchemeCompositionTests`.
 - `mcp+stdio:` (ADR-0111 decision 5, BL-979): `ExtendedProtocolServers.Registrations` has an entry for the scheme whose
   `McpStdioListenUrlServer` only claims it, so the parser accepts it (the listen URL has an empty host and port 0;
   `ListenUrlParser` reads it apart). It is never served through the engine: the host calls `McpStdioComposition.IsAsked`,
   `FindRefusal` (another or proxy listen URL beside it, `--trace`/`--trace-ascii`/`--log-file` to `-`, `--fault` or `--control` (BL-1191, ADR-0162), each `FailedInit`)
   and `ServeAsync`, which serves `McpStdioSession` over the content store on the streams it is given, writing the
   `Listening on mcp+stdio:` line (info up) to the log only. `SURL_EXTENSIONS=0` leaves the scheme unregistered.
-- DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58).
-- DNS over QUIC (ADR-0092 decision 5, BL-1019): `--dns-transport quic` expands a `dns` listen URL to a datagram-only one with `IsImplicitTls` on 853 (`DnsTransportComposition`; refused beside `udp` on one explicit port and on port 53, exit 2); the `dns` datagram registration is a `DnsDatagramRoutingProtocolServer` sending that listen URL to a `DnsOverQuicProtocolServer` (built on its first flow from `QuicCertificate`) and every other to `DnsUdpProtocolServer`. It needs `--cert` or `--self-signed` (58).
+- DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58), except under TLS-SRP.
+- DNS over QUIC (ADR-0092 decision 5, BL-1019): `--dns-transport quic` expands a `dns` listen URL to a datagram-only one with `IsImplicitTls` on 853 (`DnsTransportComposition`; refused beside `udp` on one explicit port and on port 53, exit 2); the `dns` datagram registration is a `DnsDatagramRoutingProtocolServer` sending that listen URL to a `DnsOverQuicProtocolServer` (built on its first flow from `QuicCertificate`) and every other to `DnsUdpProtocolServer`. It needs `--cert` or `--self-signed` (58), under TLS-SRP too (ADR-0122 Amendment 5).
 - `ComposeRegisteredSchemes` and `ComposeExtendedSchemes` list the registered schemes, built over
   `ComposeUnservedProtocolServers` with a policy of no accounts and no HTTP method
   (`ComposePolicyWithoutAccounts`), since nothing is served through them: `--version`'s
@@ -139,18 +159,24 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   three-argument overload builds over the instance's stream, so account changes are published too).
   Seeds go through each store's own seed path: `SeedMailAsync` and `SeedPublishAsync`/`SeedEnqueueAsync`
   then save the store (a bus save that fails throws `IOException` with its message), `SeedFileAsync`,
-  `DeleteFileAsync` (BL-954; Done or Absent, never the fault plan), `SeedFolder`, `AddAccount`, `RemoveAccount`. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` work on
-  every store in `ComposedStores.StoreOrder` (content, mail, bus, accounts), or on one `StoreKind`; the
+  `DeleteFileAsync` (BL-954; Done or Absent, never the fault plan), `SeedFolder`, `AddAccount`, `RemoveAccount`.
+  Whole-instance reset, snapshot and restore (`ResetAsync`, `TakeSnapshotAsync`, `RestoreAsync`) cover every store
+  in `ComposedStores.RegisteredStoreOrder`, in that order (a restore: the stores the snapshot holds, in the order
+  taken); `ResetAsync` and `TakeSnapshotAsync` also take one `StoreKind`. `ComposedStores.StoreOrder` is only its
+  first four (content, mail, bus, accounts); others can follow them, each only when composed or served, in this
+  order: proxy accounts, TLS-SRP accounts, Redis keyspace, LDAP directory, AMQP 0-9-1 exchanges, Kafka producers,
+  sessions, DNS zones, uploads. The
   first refusal stops a whole-instance operation with a `ComposedStoreException`
   (an `InvalidOperationException` whose `Store` names the store, the store's own refusal inner). A
   `ComposedSnapshot` holds one snapshot per store, `ByteCount` together, refused past
   `MaxSnapshotBytes` (`DefaultMaxSnapshotBytes`, 256 MiB) at the store that passed it; another
   instance's snapshot is an `ArgumentException`. With `--directory` the content store (its index is on
-  disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
-  snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
+  disk), the mail store, the bus, the AMQP 0-9-1 exchanges and the uploads refuse reset, snapshot and restore, so
+  a whole-instance reset or snapshot stops at `Content` (a `--share` on disk makes the content store and the
+  uploads refuse too); seeding content, mail and the bus is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
 - The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed and a `redis` or `rediss` listen URL is served (never with `SURL_EXTENSIONS=0`; ADR-0158 Amendment 1, BL-1410) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. Tests: `RedisKeyspaceStoreTests`.
-- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed and a `dns` listen URL is served (never with `SURL_EXTENSIONS=0`; BL-1410) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, last (after the broker stores, which already follow the directory), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. The LDAP directory likewise is held and registered only when an `ldap` or `ldaps` listen URL is served; a seed of an unserved store is an `InvalidOperationException` (BL-1410). Tests: `DnsZoneStoreTests`, `ServedStoresTests`.
+- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed and a `dns` listen URL is served (never with `SURL_EXTENSIONS=0`; BL-1410) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, after the broker stores (which already follow the directory) and before the uploads entry (`StoreKind.Uploads`), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. The LDAP directory likewise is held and registered only when an `ldap` or `ldaps` listen URL is served; a seed of an unserved store is an `InvalidOperationException` (BL-1410). Tests: `DnsZoneStoreTests`, `ServedStoresTests`.
 - The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
   `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
   `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a
@@ -158,8 +184,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   refuses an invalid address `BadRequest`, no such account or a recipient outside the mail domains `NotFound`, a
   failed delivery `Conflict`; a file path a request may not name is `BadRequest`; a bus refusal maps by
   `RefusalKindOf`; a store on disk refused reset, snapshot or restore is `Conflict`. `ReadEventsAsync` reads its own
-  subscription, bytes included, and ends without throwing when cancelled.
-  Tests: `ComposedControlTargetTests`, `FaultItemTextTests`.
+  subscription, bytes included, and ends without throwing when cancelled. A removal that leaves no account writes
+  `surl: warning: no local account left; the server still asks for a login wherever it did` to the log, with or
+  without `--user-ldap`; one that leaves an account writes nothing. `ComposedStores.HasAccounts` `false` means no
+  account is held: removing the last one does not open the server (ADR-0132 amendment 5, BL-1865).
+  Tests: `ComposedControlTargetTests`, `ComposedControlTargetAccountRemovalTests`, `FaultItemTextTests`.
 - Serving the control endpoint (ADR-0124 decision 7, BL-977): with `--control`, `ControlComposition.ReadToken` has read
   the token (`ComposedAuthentication.ControlToken`), and `ComposedServing.ServeAsync` first binds the control listener
   through the same `IListenerFactory`, on its own `ServingEngine` over a `ControlProtocolServer` (a `ControlEndpoint`
@@ -181,9 +210,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 
 - CoAP access rules (ADR-0097 decision 6, ADR-0149 amendment 2, BL-1669):
   `ExtendedProtocolServers.CoapAccessRulesFor` counts `coap` private when
-  `AuthenticationSettings.HasAccountToLogInTo("coap")` is true on the `coap` policy: an account allowed there, or a
-  `--user-ldap` directory serving `coap` or `coaps`. The rules ask it at each read, so an account added or removed
-  while the server runs counts at once (ADR-0132, BL-1683).
+  `AuthenticationSettings.IsLoginRequiredToRead("coap")` is true on the `coap` policy: an account allowed there is
+  held or has been held, or a `--user-ldap` directory serves `coap` or `coaps`. The rules ask it at each read, so an
+  account added while the server runs counts at once (ADR-0132, BL-1683), and removing the last one leaves reads
+  refused until a reset or restore returns the accounts to a state in which there never was one (ADR-0132
+  amendment 5, BL-1863).
 - `coaps` pre-shared keys (ADR-0170 and its amendment 1, BL-1688): `DeferredCoapsProtocolServer` builds the server at
   the first flow and always gives it the live account lookup, so the PSK suites are offered while no account exists
   (every identity then ends in `decrypt_error`) and an account added later logs in. Tests: `CoapsCompositionTests`.
@@ -196,8 +227,8 @@ The ordered start lives here (ADR-0099 decision 2, BL-614); which project runs e
 | Step | Run by |
 | --- | --- |
 | Parse the command line, answer help and version, read `SURL_EXTENSIONS` | the host (`Surl.Console`'s `CommandLineRunner`) |
-| With `--control`: read the token file (37, 2), after every other start file and before the data-directory lock | `SurlServerComposition.ComposeAsync` through `ControlComposition.ReadToken` |
-| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content file system (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication, groups and host keys, the shares and buckets (2, 37) and the content store, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
+| With `--control`: read the token file (37, 2), the last start file read before the data-directory lock. With or without `--control`, these are read after the lock, only when a listen URL needs TLS, each only when given: the server TLS files `--cacert`, `--cert` and `--key`, or under TLS-SRP `--srp-groups`, `--srp-verifiers`, `--cert` and `--key` | `SurlServerComposition.ComposeAsync` through `ControlComposition.ReadToken` |
+| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content file system (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication, groups and host keys, the shares and buckets (2, 37) and the content store, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77, and 37 for an `--srp-groups` or `--srp-verifiers` file) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
 | Open the log streams (`--log-file`, trace file) | the host, which disposes the `ComposedServing` on failure to release the lock |
 | With `--control`: bind the control listener first (45, 6 before any other line), then the start-up warnings (the control one after the `--fault` one), the protocol listeners, and the control status line after the `Listening on` lines | `ComposedServing.ServeAsync` |
 | Start-up warnings and notes, the status lines, the `ServingEngine`, the bound listen URLs, bind failures (45, 6) and `(125)` | `ComposedServing.ServeAsync`, given `SurlServingOutputs`; `ListenerStartReporter` calls `AllListenersBound` once with every bound `ListenUrl`, never after a bind failure; it returns a `SurlServingOutcome` |
@@ -217,7 +248,9 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 - `ReadableByOthersWarning` - `surl: warning: <file> is readable by other users and may hold
   passwords` (ADR-0101 decision 5, BL-684, BL-780), written by `ComposedServing` through
   `WriteForFilesThatMayHoldPasswords` for each `SurlCommandLine.ConfigFiles` file in the order read
-  (never `-`, standard input) and then the `--user-file`, right after the `--fault` warning, from
+  (never `-`, standard input) and then the `--user-file`, after the loosening, `--fault`,
+  `--control`, share and topic `@everyone` and `--mail-catch-all` warnings and before the
+  `--keytab` lines (`ComposedServing.WriteStartUpLines`), from
   info up, when the mode read through `SurlServerCompositionSeams.ReadStartFileUnixMode`
   (`ReadDiskMode` by default: `null` on Windows or when unreadable) grants group or other read.
 - `MailboxComposition` - the mail domains and mailboxes (ADR-0102 decisions 1.1, 1.2, 1.4 and 5,
@@ -274,7 +307,10 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   (`None` without one). `ComposedServing` writes `WriteWarnings`' `@everyone` warning after the share one and
   `WriteStartLines`' `-v` notes after the shares', both read from `Stores.Bus.Configuration`.
 - `KeytabComposition` - the `--keytab` file and its `KerberosAcceptor` (ADR-0057 decision 1),
-  with `RandomKerberosRandomSource`; `WriteStartLines`.
+  with `RandomKerberosRandomSource`; `WriteStartLines`. A start reads the file once, in
+  `AuthenticationComposition.Compose`, and the SOCKS5 GSS-API login is built over that policy's
+  acceptor, so each instance has one replay cache (ADR-0057 amendment 5, BL-1827). Tests:
+  `SocksGssApiLoginCompositionTests`.
 - `SshHostKeyComposition` - the `--hostkey`, `--throwaway-hostkey` and `--hostcert` host keys
   (ADR-0051 decision 4); `WriteStartLines`.
 - `SshAlgorithmComposition` - the SSH algorithm offer and the `--ssh-ciphers`/`--ssh-macs`
@@ -288,7 +324,11 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   that cannot be read is `TlsSrpAccountsException` `(37)`, a user given twice `(2)`. Each
   `--srp-groups` group outside RFC 5054 Appendix A lands in `SrpGroupIndexesOutsideRfc5054`, and
   `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). With `--cert` or `--self-signed` (BL-1098) the certificate and its RSA key go to `ForTlsSrp` for the certificate-signed suites, a non-RSA key being `TlsFileLoadException` (58). No certificate is
-  needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
+  needed then except for what TLS-SRP does not secure (ADR-0122 Amendment 5, BL-1880): `webtransport`,
+  DNS over QUIC (`--dns-transport quic`), and `coaps` with no account; without one each is
+  `(58)`. With one, `QuicCertificate` holds it for those listeners as without TLS-SRP, its key disposed with
+  the composition, and `CoapsDtlsCertificate`'s refusal is asked as ever (it is never reached: TLS-SRP
+  already refuses a non-RSA key, `(58)`, and the loader an RSA key under 2048 bits). `IsTlsUpgradeAvailable` (a certificate, or
   TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`
   probe and its `.surl/lock` (ADR-0031 decision 7). The start takes the same lock, through the same
@@ -311,11 +351,11 @@ the start compositions are also exercised through `CommandLineRunner` in
 
 - The S3 server's open multipart uploads (ADR-0167, BL-1229): when an `s3` server is composed (never with `SURL_EXTENSIONS=0`) `S3UploadStoreRegistration` joins `StoreKind.Uploads` to the order, last. Reset and restore abort every open upload through `S3ProtocolServer.AbortOpenUploadsAsync` (temporary files deleted, slots freed) and publish one `StoreChangedEvent` named `s3`; snapshot holds 0 bytes. A disk-backed content store (`ContentStore.IsControllable` false) refuses with `InvalidOperationException`. Tests: `S3UploadStoreTests`.
 
-- The Azure Storage server's staged blocks (ADR-0167, BL-1230): `AzureStagedUploadStoreRegistration` is the S3 entry's twin. Reset and restore discard every staging (uncommitted blocks and their temporary files, Data Lake appends, remembered committed block lists) through `AzureStorageProtocolServer.DiscardStagedUploadsAsync` and publish one `StoreChangedEvent` named `azure`; snapshot holds 0 bytes; a disk-backed content store refuses. `UploadStoreRegistrations.Combine` joins the S3 and Azure entries into the one `StoreKind.Uploads` registration (events in order: `s3`, then `azure`), because `ComposedStores` finds a store's control by kind. Every extended server is composed whichever listen URLs are given, so both entries exist whenever the extended servers are on. Tests: `AzureStagedUploadStoreTests`.
+- The Azure Storage server's staged blocks (ADR-0167, BL-1230): `AzureStagedUploadStoreRegistration` is the S3 entry's twin. Reset and restore discard every staging (uncommitted blocks and their temporary files, Data Lake appends, remembered committed block lists) through `AzureStorageProtocolServer.DiscardStagedUploadsAsync` and publish one `StoreChangedEvent` named `azure`; snapshot holds 0 bytes; a disk-backed content store refuses. `SameKindStoreRegistrations.Combine` joins the S3 and Azure entries into the one `StoreKind.Uploads` registration (events in order: `s3`, then `azure`), because `ComposedStores` finds a store's control by kind. Every extended server is composed whichever listen URLs are given, so both entries exist whenever the extended servers are on. Tests: `AzureStagedUploadStoreTests`.
 
-- The Google Cloud Storage server's open uploads (ADR-0167, BL-1231): `GcsStagedUploadStoreRegistration` is the S3 and Azure entries' twin. Reset and restore abort every open resumable and XML multipart upload through `GoogleCloudStorageProtocolServer.AbortOpenUploadsAsync` (temporary files deleted, slots freed) and publish one `StoreChangedEvent` named `gcs`; snapshot holds 0 bytes; a disk-backed content store refuses. `UploadStoreRegistrations.Combine` joins it after `s3` and `azure`. Tests: `GcsStagedUploadStoreTests`.
+- The Google Cloud Storage server's open uploads (ADR-0167, BL-1231): `GcsStagedUploadStoreRegistration` is the S3 and Azure entries' twin. Reset and restore abort every open resumable and XML multipart upload through `GoogleCloudStorageProtocolServer.AbortOpenUploadsAsync` (temporary files deleted, slots freed) and publish one `StoreChangedEvent` named `gcs`; snapshot holds 0 bytes; a disk-backed content store refuses. `SameKindStoreRegistrations.Combine` joins it after `s3` and `azure`. Tests: `GcsStagedUploadStoreTests`.
 
-- The OCI registry's open uploads and tokens (ADR-0167, BL-1232): `OciUploadStoreRegistration` is the S3 entry's twin: reset and restore abort every open blob upload session through `OciRegistryProtocolServer.AbortOpenUploadsAsync` and publish one `StoreChangedEvent` named `oci` on `StoreKind.Uploads` (joined after `gcs`); snapshot holds 0 bytes; a disk-backed content store refuses. `OciTokenStoreRegistration` joins `StoreKind.Sessions` (after the MQTT 5 sessions, through `UploadStoreRegistrations.CombineOf`): reset and restore revoke every token (`RevokeTokens`) and publish one event named `oci`; snapshot holds 0 bytes; it never refuses, tokens being memory only. Tests: `OciStoreTests`.
+- The OCI registry's open uploads and tokens (ADR-0167, BL-1232): `OciUploadStoreRegistration` is the S3 entry's twin: reset and restore abort every open blob upload session through `OciRegistryProtocolServer.AbortOpenUploadsAsync` and publish one `StoreChangedEvent` named `oci` on `StoreKind.Uploads` (joined after `gcs`); snapshot holds 0 bytes; a disk-backed content store refuses. `OciTokenStoreRegistration` joins `StoreKind.Sessions` (after the MQTT 5 sessions, through `SameKindStoreRegistrations.Combine`): reset and restore revoke every token (`RevokeTokens`) and publish one event named `oci`; snapshot holds 0 bytes; it never refuses, tokens being memory only. Tests: `OciStoreTests`.
 
 - The MCP server's OAuth state and HTTP sessions (ADR-0167, BL-1233): `McpSessionStoreRegistration` joins `StoreKind.Sessions` after the OCI tokens: reset and restore call `McpProtocolServer.ResetOAuthAndSessions` and publish one event named `mcp`; snapshot holds 0 bytes; it never refuses. Tests: `McpSessionStoreTests`.
 

@@ -241,14 +241,18 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_BuildsTheMqtt5WebSocketServerOverTheBrokerThatAnswersMqtt5()
+    public void Compose_ThisBuild_BuildsTheMqtt5WebSocketServerOverASecondBrokerSharingTheMqtt5BrokersState()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
         var broker = servers.OfType<Mqtt5Broker>().Single();
-        Assert.AreSame(broker, ComposedServerFields.Single<Mqtt5Broker>(servers.OfType<Mqtt5WebSocketServer>().Single()));
+        var webSocketBroker = ComposedServerFields.Single<Mqtt5Broker>(servers.OfType<Mqtt5WebSocketServer>().Single());
+        Assert.AreNotSame(broker, webSocketBroker);
+        Assert.AreSame(
+            ComposedServerFields.Single<Mqtt5BrokerState>(broker),
+            ComposedServerFields.Single<Mqtt5BrokerState>(webSocketBroker));
     }
 
     [TestMethod]

@@ -17,27 +17,52 @@ internal static class CommandLineOptions
 {
     // ADR-0034 decision 5's paragraphs, each checked against the code it describes.
     private const string AllowAnonymousExplanation =
-        "Accepts every request and every login without checking credentials: HTTP serves every request as "
+        "Accepts requests and logins without checking credentials. For example, HTTP serves a request as "
         + "anonymous and sends no challenge, MQTT answers every well-formed CONNECT with CONNACK 0 whatever credentials it "
-        + "carries, SMTP takes mail and IMAP and POP3 open mailboxes with no login, FTP logs every USER and PASS in, and SSH logs every client in, with any credential or none. "
+        + "carries, SMTP takes mail and IMAP and POP3 open mailboxes with no login, FTP logs every USER and PASS in, and SSH logs every client in, with any credential or none; "
+        + "the other servers whose help pages list this option let a client in without an account too. "
+        + "Some checks and refusals stay. --auth still decides which SASL mechanisms and APOP are served. With --keytab, "
+        + "a Kerberos ticket must still check against its keys. SASL external still needs a TLS client certificate, and "
+        + "an LDAP DIGEST-MD5 or NTLM bind, GSS-SPNEGO's NTLM included, still needs the account's password. S3 and "
+        + "Cloud Storage check a signature that is sent and accept only a signed write. Azure Storage checks a signature "
+        + "or bearer token that is sent, refuses a bearer token over plain HTTP without --allow-plaintext-auth, and "
+        + "accepts a write only with one of the two. An OCI registry issues only pull tokens, so nothing can be pushed. "
+        + "MCP refuses its OAuth password logins and an Authorization other than Bearer, gRPC one other than Basic or "
+        + "Bearer, WebTransport NTLM and Negotiate, and NATS an NKey or JWT login. TLS client certificates, TLS-SRP and "
+        + "coaps pre-shared keys are checked as before, and xmpp with a certificate still requires STARTTLS without "
+        + "--allow-plaintext-auth. "
         + "A test uses it to fetch or publish without setting up accounts. It is not the default because anyone "
-        + "who can reach a listener then gets everything surl serves, and can publish and subscribe over MQTT and send and read mail, "
-        + "with no login at all. surl warns on every start while it is on, from the info log level up.";
+        + "who can reach a listener can then, with no login, read what surl serves, send and read mail, and publish "
+        + "and subscribe, held back only by what --share-access and --topic-access grant; uploading files still needs "
+        + "--allow-uploads. surl warns on every start while it is on, from the info log level up.";
 
     private const string AllowPlaintextAuthExplanation =
-        "Accepts passwords and tokens sent over an unencrypted connection: HTTP Basic and Bearer over http:// "
+        "Accepts passwords and tokens sent over an unencrypted connection, which surl refuses unchecked by default. "
+        + "For example, HTTP Basic and Bearer over http:// "
         + "and an MQTT password over mqtt:// are checked instead of refused unchecked (403 Forbidden, CONNACK 5), "
         + "Basic and Bearer are offered in a 401 over http://, SMTP offers PLAIN and LOGIN over smtp:// and IMAP accepts LOGIN and offers PLAIN and LOGIN over imap:// without STARTTLS, "
         + "POP3 offers USER, PLAIN and LOGIN over pop3:// without STLS, "
-        + "and an FTP password over ftp:// without AUTH TLS is checked instead of refused (530). A test uses it to log in without a certificate. "
+        + "and an FTP password over ftp:// without AUTH TLS is checked instead of refused (530); "
+        + "the other servers whose help pages list this option likewise take a password or token sent in clear. "
+        + "It also leaves STARTTLS optional on xmpp, whose listen URL then needs no certificate, and --user-ldap's "
+        + ";plaintext is refused without it. A test uses it to log in without a certificate. "
         + "It is not the default because anyone who can watch the network reads the password as it is sent. "
         + "surl warns on every start while it is on, from the info log level up.";
 
     private const string AuthExplanation =
         "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
-        + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
-        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5, "
-        + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP. For SMB: ntlmv1, "
+        + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. The HTTP, RTSP, WebSocket, DNS over HTTPS and "
+        + "SignalR servers judge logins by these, and so does WebTransport, which serves neither ntlm nor negotiate; "
+        + "gRPC takes only basic and bearer of them, and MCP and Cloud Storage only bearer. It does not decide MCP's "
+        + "OAuth password logins, the tokens MCP issues itself or a Cloud Storage signature. For SASL logins to the SMTP, IMAP, POP3, LDAP, "
+        + "AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5.0 servers, each mechanism by its name in lower case, as curl's "
+        + "login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5, "
+        + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP. The MQTT 5.0 server "
+        + "(mqtt5, mqtt5s and mqtt5+ws) runs only scram-sha-256 and scram-sha-1, as a CONNECT's Authentication "
+        + "Method, and only when --auth names them. Kafka runs only plain, scram-sha-256 and scram-sha-512, and XMPP "
+        + "only scram-sha-256, scram-sha-1 and plain. LDAP also offers GSS-SPNEGO when negotiate is accepted. "
+        + "It does not decide a password sent outside HTTP and SASL: IMAP's LOGIN, POP3's USER and PASS, an LDAP "
+        + "simple bind or an MQTT 5.0 CONNECT's password. For SMB: ntlmv1, "
         + "the only login curl makes in an SMB session setup; accepting ntlm never accepts it. "
         + "external logs in as the TLS client certificate --cacert verifies, so it is "
         + "offered only on a connection that sent one. gssapi logs in with a Kerberos ticket checked against the "
@@ -147,10 +172,10 @@ internal static class CommandLineOptions
         WithArgument<string>("proxy", 'x', OptionArgumentReader.ProxyListenUrlText, (c, _) => c,
             new("<listen URL>", "Add a proxy listener (repeatable)", ["proxy"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("proxy-user", 'U', OptionArgumentReader.Account, (c, v) => c with { ProxyAccounts = [.. c.ProxyAccounts, v] },
-            new("<user:password>", "Add a proxy account (repeatable)", ["auth", "proxy"], IsInShortList: false, Default: "no login asked"))
+            new("<user:password>", "Add a proxy account (repeatable)", ["auth", "proxy", "socks"], IsInShortList: false, Default: "no login asked"))
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("proxy-user-file", null, OptionArgumentReader.Path, (c, v) => c with { ProxyUserFile = v },
-            new("<file>", "Read proxy accounts from a file", ["auth", "proxy"], IsInShortList: false, Default: "none")),
+            new("<file>", "Read proxy accounts from a file", ["auth", "proxy", "socks"], IsInShortList: false, Default: "none")),
         WithArgument<ProxyAllowedOrigin>("proxy-allow-origin", null, OptionArgumentReader.AllowedOrigin, (c, v) => c with { ProxyAllowedOrigins = [.. c.ProxyAllowedOrigins, v] },
             new("<address>", "Let the proxy reach more origins", ["proxy", "security"], IsInShortList: false, Default: "loopback only")),
         WithArgument<IReadOnlyList<string>>("proxy-auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenProxyAuthenticationMethods = v },
@@ -254,10 +279,10 @@ internal static class CommandLineOptions
         WithArgument<string>("srp-groups", null, OptionArgumentReader.Path, (c, v) => c with { SrpGroupFile = v },
             new("<file>", "TLS-SRP groups, GnuTLS tpasswd.conf", ["auth", "tls"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.Account, (c, v) => c with { Accounts = [.. c.Accounts, v] },
-            new("<user:password>", "Add an account (repeatable)", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "gs", "http", "imap", "ldap", "mqtt", "nats", "oci", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: true, Default: "no accounts"))
+            new("<user:password>", "Add an account (repeatable)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "ssh", "stomp", "websocket", "webtransport", "xmpp"], IsInShortList: true, Default: "no accounts"))
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("user-file", null, OptionArgumentReader.Path, (c, v) => c with { UserFile = v },
-            new("<file>", "Read accounts from a file", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "gs", "http", "imap", "ldap", "mqtt", "nats", "oci", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: true, Default: "none")),
+            new("<file>", "Read accounts from a file", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "ssh", "stomp", "websocket", "webtransport", "xmpp"], IsInShortList: true, Default: "none")),
         WithArgument<ConfiguredLdapAccountSource>("user-ldap", null, ConfiguredLdapAccountSourceReader.Reading, (c, v) => c with { UserLdap = v },
             new("<ldap-url>[;...]", "Check logins against LDAP", ["auth"], IsInShortList: false, Default: "none: the accounts alone"))
             with { ArgumentHoldsSecret = true },
@@ -293,15 +318,15 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredTopicAccess>("topic-access", null, ConfiguredTopicAccessReader.Reading, (c, v) => c with { TopicAccess = [.. c.TopicAccess, v] },
             new("<filter>=<member>:<right>,...", "Topic grants (repeatable)", ["messages"], IsInShortList: false, Default: "none: every caller may publish and subscribe")),
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
-            new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap"], IsInShortList: false, Default: "none")),
+            new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap", "socks"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
-            new(null, "Accept any login, or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "gs", "http", "imap", "ldap", "mqtt", "nats", "oci", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "stomp", "testing", "websocket"], IsInShortList: false, Default: "off",
+            new(null, "Accept any login, or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),
         Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
-            new(null, "Accept passwords in clear (warns)", ["amqp1", "auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "security", "smtp", "stomp", "testing", "websocket"], IsInShortList: false, Default: "off",
+            new(null, "Accept passwords in clear (warns)", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "security", "signalr", "smtp", "socketio", "socks", "stomp", "testing", "websocket", "xmpp"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["amqp1", "auth", "http", "imap", "ldap", "pop3", "rtsp", "security", "smb", "smtp", "testing", "websocket"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
+            new("<methods>", "Authentication methods accepted", ["amqp", "amqp1", "auth", "dns", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt5", "pop3", "rtsp", "security", "signalr", "smb", "smtp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
                 AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["ldap", "security", "smb", "testing", "tls"], IsInShortList: false, Default: "off",

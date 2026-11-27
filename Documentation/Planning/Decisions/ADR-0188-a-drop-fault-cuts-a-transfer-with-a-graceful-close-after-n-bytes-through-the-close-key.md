@@ -8,6 +8,8 @@
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md),
   [ADR-0021](ADR-0021-a-lingering-close-for-every-tcp-connection.md) (the lingering close),
   [ADR-0141](ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md) (command-stage drop).
+- **Amended by:** amendment 4 below (2026-11-26, BL-1794; decision 3: the engine's `Accept`-stage drop event carries
+  how the connection was closed) and amendment 5 (2026-11-26, BL-1801; decision 2's HTTP/3 row is built).
 
 ## Context
 
@@ -81,6 +83,9 @@ The same single `FaultAppliedEvent` as a drop (rule ID, `Drop`, stage `Accept`, 
 per exchange. The exchange-log note differs, so a test can tell the two: the reset keeps
 `Exchange <exchange id> dropped after <N> bytes sent by fault rule <rule id>.` and the graceful cut writes
 `Exchange <exchange id> cut after <N> bytes sent by fault rule <rule id>, closing gracefully.`
+
+*Amended by amendment 4 (BL-1794):* on a connection the two events are no longer the same. Each carries `Close`, so the
+event tells them apart too; both notes are unchanged.
 
 ### 4. The stand-in plan
 
@@ -194,3 +199,71 @@ protocol and changes what a test observes, and a reset cannot linger at all. Tha
 **Decision.** The OpenSSL tests assert the measured set and no wider: graceful is 18 or 55, reset is 55 or 56, on
 Linux and macOS; Windows keeps its exact pins. This supersedes the single OpenSSL values of amendment 2. A test author
 asserting against surl's HTTPS cut on Linux or macOS should accept those sets.
+
+## Amendment 4 — a drop's event carries how the connection was closed (2026-11-26, BL-1794)
+
+Decided by Claude under Stewart's delegation. The Surly cookbook's bug report of 2026-11-26 (item 2) found that a
+graceful and a reset `after-bytes` drop published identical `FaultAppliedEvent`s (the same rule ID, `Drop`, stage
+`Accept`), so a test could tell them apart only by reading the exchange log. Decision 3's statement that the graceful cut
+publishes the same event as a drop no longer holds.
+
+**Decision.** `FaultAppliedEvent` gains `Close` (`FaultClose?`). The serving engine sets it on every `Accept`-stage drop
+event it publishes, and it says how the engine ended the exchange, not what the rule asked:
+
+| Event | `Close` |
+| --- | --- |
+| Graceful cut of a connection (`after-bytes` with `close=graceful`) | `Graceful` |
+| Reset cut of a connection (`after-bytes`) | `Reset` |
+| Drop of a connection before any byte; a graceful rule without `AfterBytes` aborts too | `Reset` |
+| Every datagram-flow drop, HTTP/3 included, whatever the rule's `Close` | `Reset` |
+| `Delay`, login, store-write and command-stage events (command stages do not read `FaultRule.Close`) | null |
+
+- `surl-mcp`'s event JSON and the control endpoint's event JSON write it as `close` (`reset` or `graceful`) and omit it
+  when null. `Surl.Api`'s `FindEvents` returns the event with the property.
+- The event is still published once per exchange, and both exchange-log notes of decision 3 are unchanged.
+
+*Amended by amendment 5 (BL-1801):* a graceful cut of an HTTP/3 flow is `Graceful`; the table's datagram row holds for
+every other datagram flow.
+
+**Why.** Surl is a stand-in for tests (ADR-0124): "Observable" asks that what the server did reaches a test on the event
+stream, not only in a log, and "Configuration as data" lets the event grow by a field without repurposing one.
+
+## Amendment 5 — the HTTP/3 graceful cut is built and measured (2026-11-26, BL-1801)
+
+Decided by Claude under Stewart's delegation. Decision 2's HTTP/3 row promised a graceful close the serving engine did
+not make: it silenced every datagram flow, QUIC included, and the event said `Reset` (amendment 4).
+
+**Decision.**
+
+1. A datagram server whose connections have a graceful close of their own implements
+   `IGracefulCutDatagramProtocolServer`. Under an `Accept`-stage drop with `after-bytes` and `close=graceful` the engine
+   hands it an `IGracefullyCutDatagramFlow`, writes the graceful note and publishes `FaultAppliedEvent` with
+   `Close = Graceful` when the count is reached. Today only `Http3ProtocolServer` implements it. The seam is a marker and
+   a flow interface, so a server opts in with no central switch.
+2. **What "after N bytes" means over datagrams.** N counts the bytes of the UDP datagram payloads surl sends (QUIC
+   framing included). No datagram is split, since a cut QUIC packet would not open: datagrams are sent whole while the
+   total stays within N, and the first that would pass it, and every later one, is discarded. The client so receives at
+   most N bytes, then the close. No datagram that closes the connection is counted: not the fault's close, not a close
+   the connection makes of itself, and no repeat of either. A connection that never reaches N ends as usual and no fault
+   is published.
+3. **The close** is `CONNECTION_CLOSE` of type `0x1c` with `NO_ERROR` (0x00), frame type 0, no reason phrase
+   (RFC 9000 sections 19.19 and 20.1): "the QUIC transport's graceful path". Before the handshake completes it goes at
+   the Initial and Handshake levels (section 10.2.3). It is repeated through the closing state as any close is
+   (section 10.2). No `GOAWAY` is sent, as decision 2 invents none for HTTP/2. HTTP/3's `H3_NO_ERROR` application close
+   was not chosen: before the handshake it would turn into `APPLICATION_ERROR`, and it is not the transport's.
+4. `close=reset` over HTTP/3, and TFTP, DNS over QUIC, WebTransport and every other datagram flow, are unchanged: the
+   flow stops being heard and the event says `Reset`.
+
+**Measured** with the pinned static upstream curl 8.21.0 Windows build (ADR-0082; ngtcp2 1.23.0, nghttp3 1.16.0),
+`--http3-only`, a 10 MiB file, `--max-time` set, by `UpstreamCurlFetchesFromSurlOverHttp3Tests` (`Integration`). No Curl
+port output is used. Linux and macOS are not measured.
+
+| Cut over HTTP/3 | curl's exit | Bytes kept |
+|---|---|---|
+| `after-bytes=100000;close=graceful` | 56 at once (`curl: (56) ngtcp2_conn_writev_stream returned error: ERR_DRAINING`), 3 runs | a non-empty prefix, 91 542 to 92 175 bytes |
+| `after-bytes=100000;close=reset` | 28 at `--max-time` (`Operation timed out`), 3 runs | a non-empty prefix, 91 585 to 92 140 bytes |
+| `after-bytes=100;close=graceful` (before the handshake ends) | 7 (`Could not connect to server`), 3 runs | none |
+
+So over HTTP/3 upstream curl does not report the cut-off download as partial file (18), although a `content-length` was
+declared: a closed QUIC connection is a failed receive to it. The graceful cut is still told from the reset one: curl
+learns of it at once, where a silenced flow leaves it waiting for a timeout.

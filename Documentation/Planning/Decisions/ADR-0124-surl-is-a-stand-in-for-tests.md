@@ -35,6 +35,9 @@
 - **Amended by (continued):** [ADR-0171](ADR-0171-how-a-new-surlevent-kind-reaches-surl-api-surl-mcp-and-the-control-endpoint.md) (decision 2: event kinds are an extension point; a new `SurlEvent` record carries its own exchange, scheme, account and members).
 - **Amended (2026-11-21, BL-1518):** decision 4's `after-bytes` counts every byte the exchange sends on all its connections, data connections included; see the amendment before "Alternatives considered".
 - **Amended (2026-11-22, BL-1605):** decision 3's seed into a queue nobody declared is refused `UnknownQueue`, not created; see the second amendment before "Alternatives considered".
+- **Amended by (continued):** [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password) (2026-11-27, BL-1840; decision 3: an account snapshot is not "password hashes only", since some of a named account's derived credentials are its password's bytes).
+- **Amended (2026-11-27, BL-1857):** decision 3's order across stores is the thirteen stores the third amendment
+  before "Alternatives considered" lists; it supersedes "accounts last".
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
@@ -204,15 +207,21 @@ together through `ComposedServing.Stores` (`ComposedStores`, BL-805), then by `S
   - accounts: exactly the accounts `--user`, `--user-file`, `--mailbox` and the groups configured at
     start; accounts added later are removed.
 - **Snapshot** is an opaque, in-memory deep copy of a store's contents and metadata (mail UIDs, flags and
-  `UIDVALIDITY`; object metadata and ETags; retained messages, queue contents and logs; accounts as
-  password hashes only, never a clear password). `ComposedSnapshot` holds one snapshot per store. A
+  `UIDVALIDITY`; object metadata and ETags; retained messages, queue contents and logs; accounts as the
+  account book holds them). `ComposedSnapshot` holds one snapshot per store. A
   snapshot is bounded: one whose stores together exceed `MaxSnapshotBytes` (default 256 MiB) is refused,
-  never truncated. A snapshot carries its instance's identity.
+  never truncated. A snapshot carries its instance's identity. *Corrected by
+  [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password):
+  this decision first read "accounts as password hashes only, never a clear password". A named account's
+  snapshot holds the password's SHA-256 and derived credentials, some of which are the password's bytes; the
+  empty-name Bearer-token account is held as its SHA-256 only.*
 - **Restore** replaces a store's contents with a snapshot's. A snapshot from another instance is refused.
   Every mailbox's `UIDVALIDITY` changes on restore, as on reset, so an IMAP client resynchronises.
 - **Order across stores** for reset and restore of a whole instance: content, mail, bus, then accounts
   (ADR-0100 decision 1's load order, accounts last), one store at a time; the first failure stops it and
-  is reported naming the store.
+  is reported naming the store. *Superseded, "accounts last" included, by the
+  [amendment of 2026-11-27](#amendment-2026-11-27-the-order-across-stores-is-thirteen-stores-bl-1857), which
+  gives the current order.*
 - **Live sessions.** Reset and restore wait for no one: each takes its store's own lock and swaps the
   contents. Open sessions keep their connections and see the new contents on their next command; an
   upload in progress fails at its commit with the store's ordinary write failure; on the bus, live
@@ -637,6 +646,39 @@ test already believes exists, so a missing one is the test's mistake. A test tha
 any client arrives lists it in `Queues`, which is the declaration.
 
 **Pointer.** ADR-0100's `UnknownQueue` row points here where it describes seeds.
+
+## Amendment 2026-11-27: the order across stores is thirteen stores (BL-1857)
+
+Decided by Claude under Stewart's delegation, 2026-11-27, in BL-1857. ADR-0158, ADR-0159, ADR-0167 and ADR-0170
+each added stores to decision 3, and the order stated in decision 3, ADR-0158, ADR-0159 and ADR-0167 no longer
+matched the code. The order the code runs, and the `Surl.Composition` tests pin, stands; this records it. No code,
+store or event changes.
+
+**The order.** A whole-instance reset and snapshot run over the stores the instance holds, one at a time, in
+this order:
+
+| # | Store | The instance holds it |
+| --- | --- | --- |
+| 1 | content | always |
+| 2 | mail | always |
+| 3 | bus | always |
+| 4 | accounts | always |
+| 5 | proxy accounts | when `-U` or `--proxy-user-file` composes them |
+| 6 | TLS-SRP accounts | when TLS-SRP is composed |
+| 7 | Redis keyspace | when a Redis server is composed and a `redis` or `rediss` listen URL is served |
+| 8 | LDAP directory | when an `ldap` or `ldaps` listen URL is served |
+| 9 | AMQP 0-9-1 exchanges | when an AMQP 0-9-1 broker is composed |
+| 10 | Kafka producers | when a Kafka broker is composed |
+| 11 | sessions | when an MQTT 5 broker, an OCI registry server or an MCP server is composed |
+| 12 | DNS zones | when a DNS server is composed and a `dns` listen URL is served |
+| 13 | uploads | when an S3, Azure Storage, Google Cloud Storage or OCI registry server is composed |
+
+The extended servers behind rows 7 and 9 to 13 are composed unless `SURL_EXTENSIONS=0`; for rows 9 to 11 and 13
+that is enough, whichever listen URLs are given.
+
+A restore puts back the stores the snapshot holds, in the order they were taken. The first failure still stops
+the operation and is reported naming the store. This supersedes decision 3's "Order across stores", including
+"accounts last": the accounts are fourth, and every store added since follows them.
 
 ## Alternatives considered
 

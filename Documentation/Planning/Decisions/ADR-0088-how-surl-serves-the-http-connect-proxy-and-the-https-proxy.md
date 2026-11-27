@@ -1,14 +1,16 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11; Amendment 9 (BL-941) 2026-11-12; Amendment 10 (BL-1070) 2026-11-12; Amendment 11 (BL-1670) 2026-11-24
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11; Amendment 6 (BL-1003) 2026-11-11; Amendment 7 (BL-1004) 2026-11-11; Amendment 8 (BL-1040) 2026-11-11; Amendment 9 (BL-941) 2026-11-12; Amendment 10 (BL-556, recorded by BL-1070) 2026-11-12; Amendment 11 (BL-1664, recorded by BL-1670) 2026-11-24
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
   BL-556 (decision 8). Follow-ups filed: BL-594 (`ftp://` forwarding, decision 3) and BL-595 (HTTP/2
   to the HTTPS proxy, decision 6).
-- **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table gains
-  decision 1's row. [ADR-0070](ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md)
+- **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: it adds decision
+  1's library, a protocol server. Decision 3's table lists horizontal libraries only, so it has no
+  proxy row (corrected 2026-11-27 by BL-1897; this line first said the table gained one).
+  [ADR-0070](ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md)
   decision 1: `Surl.Protocol.HttpProxy` is a fourth user of `Surl.HttpMessage`.
   [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) section 1: `--max-request-head` is also
   enforced by `Surl.Protocol.HttpProxy` (decision 7).
@@ -62,6 +64,12 @@ recorder's run; BL-553 measures NTLM's three legs whole.
 | Horizontal library or server | May itself reference | Holds |
 | --- | --- | --- |
 | `Surl.Protocol.HttpProxy.UnitLibrary`, in `Protocols/Http/` | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`, `Surl.Authentication.UnitLibrary` | the HTTP and HTTPS proxy server, decisions 3 to 6 |
+
+**Superseded in part by Amendment 3** ("No reference to `Surl.Authentication`", 2026-11-05;
+note added here 2026-11-27 by BL-1874): it removes the `Surl.Authentication.UnitLibrary`
+reference from the table above, which is kept as first decided. The proxy reaches the
+authentication checks through `IAuthenticationPolicy`. The library's `CLAUDE.md` lists the
+references it has.
 
 - The planning assumption is adopted, with its `.UnitTests` twin beside it. Namespace
   `Surl.Protocol.HttpProxy`. It is a protocol server: it references no other protocol server

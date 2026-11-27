@@ -7,9 +7,10 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>get_events</c> tool (ADR-0124 decision 8): the events a running server kept - exchanges starting and
-/// ending, logins judged, store changes, faults applied and hooks failing - oldest first, found with
-/// <see cref="SurlServer.FindEvents"/> and filtered by kind, scheme, listen URL, account and sequence. An ID that
-/// names no running server, or a <c>listen_url</c> that is not an absolute URL, is an <c>isError</c> result.
+/// ending, logins judged, store changes, faults applied, hooks failing, consumer group changes and cookies
+/// received - oldest first, found with <see cref="SurlServer.FindEvents"/> and filtered by kind, scheme, listen
+/// URL, account, store, name and sequence. An ID that names no running server, or a <c>listen_url</c> that is not
+/// an absolute URL, is an <c>isError</c> result.
 /// </summary>
 public static class GetEventsTool
 {
@@ -19,7 +20,8 @@ public static class GetEventsTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Show the events a Surl server kept, oldest first: exchanges started and ended, logins judged, store changes, "
-        + "faults applied and hooks failed, filtered by kind, scheme, listen URL, account and sequence.";
+        + "faults applied, hooks failed, consumer group changes and cookies received, filtered by kind, scheme, "
+        + "listen URL, account, store, name and sequence.";
 
     /// <summary>How many events one call returns when <c>max_events</c> is not given.</summary>
     internal const int DefaultMaxEvents = 100;

@@ -131,10 +131,25 @@ internal static class WsServerHarness
     }
 
     /// <summary>
+    /// How many timers an exchange has created once its lingering close's timer exists: the head
+    /// timeout's, then the linger's.
+    /// </summary>
+    public const int TimersCreatedWhenLingering = 2;
+
+    /// <summary>
+    /// The same count when a refusal, or the <c>CLOSE</c> <c>1001</c> at a limit, is written first:
+    /// the head timeout's timer, that write deadline's, then the linger's. The write deadline is
+    /// as long as the linger and still live when the half-close completes, so a clock advanced on
+    /// any earlier signal fires it instead, and the linger's timer, created afterwards, never falls
+    /// due (BL-1110, BL-1910).
+    /// </summary>
+    public const int TimersCreatedWhenLingeringAfterAWriteDeadline = 3;
+
+    /// <summary>
     /// Once the server has half-closed and its lingering close is waiting, runs the linger's
     /// one second out and waits for the exchange to end.
     /// </summary>
-    public static async Task EndLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, Task serving, int timersCreatedWhenLingering = 1)
+    public static async Task EndLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, Task serving, int timersCreatedWhenLingering = TimersCreatedWhenLingering)
     {
         await WaitForLingeringCloseAsync(clock, connection, timersCreatedWhenLingering);
         clock.Advance(WebSocketLingeringClose.MaxLingerTime);
@@ -154,12 +169,11 @@ internal static class WsServerHarness
     /// <param name="clock">The exchange's fake clock.</param>
     /// <param name="connection">The connection the server half-closes.</param>
     /// <param name="timersCreatedWhenLingering">
-    /// How many timers the exchange has created by the time its lingering close's timer exists.
-    /// A farewell at a limit first runs a one-second write deadline of the same length as the
-    /// linger, still live when the half-close completes, so one live timer alone does not show the
-    /// linger's timer exists; that exchange creates two.
+    /// How many timers the exchange has created once its lingering close's timer exists:
+    /// <see cref="TimersCreatedWhenLingering"/> or
+    /// <see cref="TimersCreatedWhenLingeringAfterAWriteDeadline"/>.
     /// </param>
-    public static async Task WaitForLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, int timersCreatedWhenLingering = 1)
+    public static async Task WaitForLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, int timersCreatedWhenLingering = TimersCreatedWhenLingering)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while ((!connection.WritesCompleted || clock.CreatedTimerCount < timersCreatedWhenLingering) && DateTime.UtcNow < deadline)
@@ -167,6 +181,8 @@ internal static class WsServerHarness
             await Task.Delay(TimeSpan.FromMilliseconds(1));
         }
 
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.AreEqual(timersCreatedWhenLingering, clock.CreatedTimerCount);
         await WaitForTimersAsync(clock, 1);
     }
 

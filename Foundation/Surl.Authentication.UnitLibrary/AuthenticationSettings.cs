@@ -34,9 +34,20 @@ public sealed record AuthenticationSettings(
     /// <summary>
     /// The LDAP directory that checks a password login the accounts do not hold (ADR-0149, decision 6);
     /// <see langword="null"/> when <c>--user-ldap</c> is not given. Password checks ask it;
-    /// <see cref="HasAccountToLogInTo"/> counts it as an account without contacting it.
+    /// <see cref="IsLoginRequiredToRead"/> counts it for the schemes it serves without contacting it.
     /// </summary>
     public LdapAccountSource? LdapAccountSource { get; init; }
+
+    /// <summary>
+    /// Whether an HTTP session challenges a request without credentials even when
+    /// <see cref="IsLoginRequiredToRead"/> is <see langword="false"/> and the request is not a
+    /// write, as a proxy given an empty <c>--proxy-user-file</c> must (ADR-0132 amendment 4,
+    /// decision 7); <see langword="false"/> by default. The request is forbidden when no accepted
+    /// method can be offered. <see cref="AllowAnonymous"/> and a connection's NTLM or Negotiate
+    /// login come first, so such requests still proceed. It does not change
+    /// <see cref="IsLoginRequiredToRead"/>.
+    /// </summary>
+    public bool RequiresLoginWithoutAccounts { get; init; }
 
     // The scheme of the ForScheme view these settings are; null on settings that are no view.
     private string? ViewScheme { get; init; }
@@ -55,20 +66,22 @@ public sealed record AuthenticationSettings(
     internal string DirectorySchemeFor(string familyScheme) => ViewScheme ?? familyScheme;
 
     /// <summary>
-    /// Whether there is an account to log in to on <paramref name="scheme"/>, which makes a server
-    /// refuse unauthenticated reads (ADR-0032, section 4): one of <see cref="Accounts"/>, or the
-    /// <see cref="LdapAccountSource"/> when it serves the scheme (ADR-0149, amendments 1 and 2).
+    /// Whether a server answering <paramref name="scheme"/> refuses unauthenticated reads (ADR-0032,
+    /// section 4): when <see cref="Accounts"/> holds an account or has held one, so that removing
+    /// the last account opens nothing until a reset or restore returns the accounts to a state in
+    /// which there never was one (ADR-0132, amendment 5), or when the
+    /// <see cref="LdapAccountSource"/> serves the scheme (ADR-0149, amendments 1 and 2).
     /// <see cref="Accounts"/> are not filtered here, so ask the <see cref="ForScheme"/> view of a
     /// scheme about that scheme.
     /// </summary>
     /// <param name="scheme">The scheme the directory is asked about.</param>
-    /// <returns><see langword="true"/> when there is an account to log in to.</returns>
+    /// <returns><see langword="true"/> when a login is required to read.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="scheme"/> is <see langword="null"/>.</exception>
-    public bool HasAccountToLogInTo(string scheme)
+    public bool IsLoginRequiredToRead(string scheme)
     {
         ArgumentNullException.ThrowIfNull(scheme);
 
-        return Accounts.HasAccounts || LdapAccountSource?.Serves(scheme) == true;
+        return Accounts.HasHeldAccount || LdapAccountSource?.Serves(scheme) == true;
     }
 
     /// <summary>

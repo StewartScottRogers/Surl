@@ -11,6 +11,11 @@
 - **Amends:** ADR-0124 decision 2 (the bullet "Stores are not replaceable" gains a registration seam),
   decision 3 (the order across stores grows by three), decision 7 (three requests join the control
   endpoint's table) and decision 8 (three tools join `Surl.Mcp`'s table).
+- **Amended (2026-11-27, BL-1857):** the order across stores that decisions 5 and 8 give is superseded by
+  ADR-0124's amendment of the same date; see Amendment 2.
+- **Amended (2026-11-27, BL-1896):** decision 8's registration seam (`IControllableStore`,
+  `ProtocolServerRegistration.ControlledStore`) is superseded by the one the code has; see Amendment 3, decided
+  by Claude under Stewart's delegation.
 - **Acted on by:** BL-1157, BL-1158, BL-1159, BL-1160, BL-1161, BL-1162, BL-1163, BL-1164, BL-1165,
   BL-1166, BL-1167, BL-1168 and BL-1169.
 
@@ -136,7 +141,10 @@ A snapshot is an opaque, in-memory deep copy, never returned to a host (hosts ho
 - **Directory:** the set of entries, as the immutable entries themselves. A directory entry may hold a
   `userPassword` a test seeded as data; the snapshot is in memory, belongs to its instance and is never
   written, logged or echoed, as with the account book's hashes. Bytes counted: the directory's own entry
-  size.
+  size. *Clarified by
+  [ADR-0132 amendment 3](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-3-2026-11-27-bl-1840-what-a-snapshot-holds-of-each-password):
+  an account snapshot holds more than hashes, password bytes among them; it too is never written, logged or
+  echoed.*
 - **Zones:** the set of zones. Bytes counted: the zones' byte count.
 
 The three snapshots count toward `MaxSnapshotBytes` with the other four: a combined snapshot past it is
@@ -146,7 +154,8 @@ keys as reset does.
 
 **Order across stores.** ADR-0124 decision 3's order becomes content, mail, bus, accounts, **keyspace,
 directory, zones**: the three are independent of every other store and of each other, and are appended so
-the existing order does not change. The first failure still stops it, naming the store.
+the existing order does not change. The first failure still stops it, naming the store. *This order is
+superseded; see Amendment 2.*
 
 ### 6. Is a directory or zones loaded from `--directory` "a store on disk"? No
 
@@ -216,7 +225,8 @@ The seam is two small pieces and no `switch`:
 
 Stores stay not replaceable by a test (ADR-0124 decision 2): the seam is for stores Surl ships, and the
 `SurlProtocolServer` a test supplies has no `ControlledStore`. (BL-1158, then BL-1161, BL-1163, BL-1165 each
-register one.)
+register one.) *The order this decision says Redis, LDAP and DNS follow in is superseded; see Amendment 2.*
+*This decision's seam is superseded; see Amendment 3.*
 
 ### 9. Host spellings
 
@@ -360,3 +370,47 @@ same text and `list_keys` and `list_zones` an empty page (ADR-0164 decision 9, u
 
 BL-1410 (composition: serve-gated stores, refusal) and BL-1405 (`set_key`'s result, and the MCP tests of the
 refusal). Neither half keeps today's behaviour, so no leftover is recorded for them.
+
+## Amendment 2 (2026-11-27, BL-1857): the order across stores
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-1857.
+
+The order decision 5 gives ("content, mail, bus, accounts, keyspace, directory, zones"), and decision 8's
+statement that Redis, LDAP and DNS follow in that order, are superseded. The current order is the one in
+[ADR-0124's amendment of 2026-11-27](ADR-0124-surl-is-a-stand-in-for-tests.md#amendment-2026-11-27-the-order-across-stores-is-thirteen-stores-bl-1857):
+other stores now come before, between and after these three. No code changes.
+
+## Amendment 3 (2026-11-27, BL-1896): how a store joins `ComposedStores`
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-1896. It records the seam
+the code has; no code changes.
+
+Decision 8's seam is superseded. `Surl.Protocol.Abstractions` declares no `IControllableStore` and no
+`ControlledStoreSnapshot`, `ProtocolServerRegistration` has no `ControlledStore` member, and `ComposedStores` has no
+`Order` member. This also replaces the `IControllableStore` text of this ADR's index row.
+
+A store joins `ComposedStores` in `Surl.Composition`, as follows:
+
+1. **The entry** is an internal record, `ComposedStoreRegistration(Store, ResetAsync, TakeSnapshotAsync)`: the
+   `StoreKind`, a reset, and a snapshot that is given the bytes still free under `MaxSnapshotBytes`. A snapshot is
+   a `TakenSnapshot(Store, ByteCount, RestoreAsync)`, which carries its own restore. There is no on-disk flag: a
+   store refuses by throwing `InvalidOperationException`, which `ComposedStores` reports as a
+   `ComposedStoreException` naming the store.
+2. **A further store's entry** is built by a `*StoreRegistration` class, one per store a server holds (such as
+   `RedisKeyspaceStoreRegistration`, `LdapDirectoryStoreRegistration`, `DnsZoneStoreRegistration` and
+   `Amqp0ExchangeStoreRegistration`).
+3. **The list** is made in `SurlServerComposition.Start.cs`: `ComposeStores` passes the entries to `ComposedStores`
+   as `additionalRegistrations`, in order - the Redis keyspace, the LDAP directory,
+   `ControlledBrokerAndSessionStores`, the DNS zones, then `ControlledUploads`. Which entries are present is decided
+   there, from the types of the composed servers and from the schemes served (Amendment 1, A2).
+4. **One entry per `StoreKind`**, since `ComposedStores` finds a store's control by kind.
+   `SameKindStoreRegistrations.Combine` joins several of one kind into one.
+5. **The other stores** join inside `ComposedStores`: content, mail, bus and accounts in its constructor, then the
+   proxy accounts when it is given them, and the TLS-SRP accounts through `JoinTlsSrpAccounts` once server TLS is
+   composed.
+
+So a new store a server holds joins reset, snapshot and restore by a `StoreKind` member (when its kind is new), a
+`*StoreRegistration` class and its place in one of those lists, with no change to how `ComposedStores` walks them.
+A typed seed or read method is still a member of `ComposedStores`, which must then be given the store, so decision
+8's "`ComposedStores` is not edited" holds for the registration alone. Stores stay not replaceable by a test: no
+member lets a server a test supplies name a store.

@@ -64,6 +64,8 @@ internal sealed record ControlEventJson
 
     public string? Target { get; init; }
 
+    public string? Close { get; init; }
+
     public string? HookId { get; init; }
 
     public string? Failure { get; init; }

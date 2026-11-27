@@ -15,9 +15,13 @@ namespace Surl.Authentication;
 /// NT hashes, one for each way an upstream curl build hashes the password (ADR-0039,
 /// <see cref="NtlmPasswordHashes"/>); and for AWS Signature Version 4, each named account's password as UTF-8
 /// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
-/// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for SASL
+/// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for Azure Storage, the
+/// key a named account's password decodes to as base64, when it decodes to at least one byte
+/// (ADR-0100, decision 4.1); and, for SASL
 /// <c>SCRAM-SHA-1</c>, <c>SCRAM-SHA-256</c> and <c>SCRAM-SHA-512</c>, each named account's <see cref="ScramCredentials"/>
-/// under each hash, over a random salt and 4096 iterations (BL-416, BL-700).
+/// under each hash, over a random salt and 4096 iterations (BL-416, BL-700). Some of these are the
+/// password's bytes, so treat the book as holding every named account's password; the empty-name
+/// Bearer-token account is kept as its SHA-256 only (ADR-0132, amendment 3).
 /// <para>
 /// The accounts are a store a test controls while the server runs (ADR-0124, decision 3; ADR-0132):
 /// <see cref="Add"/>, <see cref="Remove"/>, <see cref="Reset"/>, <see cref="TakeSnapshot"/> and
@@ -37,7 +41,7 @@ public sealed class AccountBook
     private readonly ChallengeResponseAccount dummyChallengeResponseAccount = new(null, RandomNumberGenerator.GetBytes(16));
     private readonly byte[] dummyScramSaltKey = RandomNumberGenerator.GetBytes(32);
     private readonly AccountStore store;
-    private readonly Func<DerivedAccount, bool>? isAdmitted;
+    private readonly Func<IReadOnlySet<string>?, bool>? admits;
     private FilteredAccountSet? filtered;
 
     /// <summary>
@@ -86,15 +90,15 @@ public sealed class AccountBook
         dummyDigestAccount = new DigestAccount(null, [store.DummyUserHashes, store.DummyUserHashes]);
     }
 
-    // A view of source's store admitting only the accounts isAdmitted admits: every secret and
-    // value derived from one is shared, never derived again, and a name it leaves out finds the
-    // dummies as an unknown name does (ADR-0102, decision 4.3).
-    private AccountBook(AccountBook source, Func<DerivedAccount, bool> isAdmitted)
+    // A view of source's store admitting only the accounts whose schemes admits admits: every
+    // secret and value derived from one is shared, never derived again, and a name it leaves out
+    // finds the dummies as an unknown name does (ADR-0102, decision 4.3).
+    private AccountBook(AccountBook source, Func<IReadOnlySet<string>?, bool> admits)
     {
         secretComparer = source.secretComparer;
         store = source.store;
         dummyDigestAccount = new DigestAccount(null, [store.DummyUserHashes, store.DummyUserHashes]);
-        this.isAdmitted = isAdmitted;
+        this.admits = admits;
     }
 
     /// <summary>
@@ -104,10 +108,19 @@ public sealed class AccountBook
     public IReadOnlyList<string> UserNames => [.. Current.Accounts.Select(account => account.UserName)];
 
     /// <summary>
-    /// Whether any account is configured. With none, every login is refused and HTTP serves
-    /// anonymous reads (ADR-0032, section 4).
+    /// Whether this book or view holds an account now. With none, every login checked against it is
+    /// refused. <see langword="false"/> does not mean that no login is needed: a scheme that has had
+    /// an account keeps asking for one until a reset or restore returns the accounts to a state in
+    /// which it never had one (ADR-0132, amendment 5;
+    /// <see cref="AuthenticationSettings.IsLoginRequiredToRead"/>).
     /// </summary>
     public bool HasAccounts => Current.PasswordHashes.Count > 0;
+
+    /// <summary>
+    /// Whether this book or view holds an account now or has held one that a removal has since
+    /// taken away; a reset or restore returns the answer with the accounts (ADR-0132, amendment 5).
+    /// </summary>
+    internal bool HasHeldAccount => Current.HeldSchemes.Count > 0;
 
     /// <summary>
     /// The comparer every check of a secret, or of a value computed from one, goes through.
@@ -116,7 +129,7 @@ public sealed class AccountBook
 
     // The set this book judges by: the store's, or, for a scheme view, the store's as the view
     // admits it, built again only when the store's set has changed.
-    private AccountSet Current => isAdmitted is null ? store.Current : FilterCurrent(isAdmitted);
+    private AccountSet Current => admits is null ? store.Current : FilterCurrent(admits);
 
     /// <summary>
     /// The view of these accounts a server answering <paramref name="scheme"/> judges logins by:
@@ -132,11 +145,13 @@ public sealed class AccountBook
     {
         ArgumentNullException.ThrowIfNull(scheme);
 
-        var admitted = isAdmitted;
+        var admitted = admits;
 
         return new AccountBook(
             this,
-            admitted is null ? account => account.MayLogInOn(scheme) : account => admitted(account) && account.MayLogInOn(scheme));
+            admitted is null
+                ? schemes => Account.SchemesAdmit(schemes, scheme)
+                : schemes => admitted(schemes) && Account.SchemesAdmit(schemes, scheme));
     }
 
     /// <summary>
@@ -192,18 +207,26 @@ public sealed class AccountBook
     /// <summary>
     /// Returns the accounts to exactly those configured at start, removing every account added
     /// since and bringing back every one removed, and publishes <see cref="StoreChange.Reset"/>.
+    /// A scheme only an account added since could log in on no longer needs a login to read
+    /// (ADR-0132, amendment 5).
     /// </summary>
     public void Reset() => store.Reset();
 
     /// <summary>
-    /// Copies the accounts as they are now: password hashes and what was derived from each
-    /// password, never a clear password.
+    /// Takes the accounts as they are now: each password's SHA-256 and, for a named account, the
+    /// credentials derived from its password, the password's UTF-8 bytes among them, so the
+    /// snapshot holds secrets: treat it as holding every named account's password. The
+    /// <see cref="Account.Password"/> string is not kept. The empty-name Bearer-token account is
+    /// taken as its SHA-256 only (ADR-0132, amendment 3). A later change to the book leaves the
+    /// snapshot as it was.
     /// </summary>
     /// <returns>The snapshot, which only this book and its views restore.</returns>
     public AccountSnapshot TakeSnapshot() => store.TakeSnapshot();
 
     /// <summary>
     /// Replaces the accounts with <paramref name="snapshot"/>'s and publishes <see cref="StoreChange.Restored"/>.
+    /// Each scheme then needs a login to read as it did when the snapshot was taken (ADR-0132,
+    /// amendment 5).
     /// </summary>
     /// <param name="snapshot">A snapshot taken of this book or one of its views.</param>
     /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
@@ -358,7 +381,7 @@ public sealed class AccountBook
             RandomNumberGenerator.GetBytes(hash.Length),
             RandomNumberGenerator.GetBytes(hash.Length));
 
-    private AccountSet FilterCurrent(Func<DerivedAccount, bool> admits)
+    private AccountSet FilterCurrent(Func<IReadOnlySet<string>?, bool> admitsSchemes)
     {
         var source = store.Current;
         var cached = Volatile.Read(ref filtered);
@@ -367,7 +390,7 @@ public sealed class AccountBook
             return cached.Set;
         }
 
-        var set = source.Where(admits);
+        var set = source.Where(admitsSchemes);
         Volatile.Write(ref filtered, new FilteredAccountSet(source, set));
 
         return set;

@@ -1,7 +1,5 @@
 # Surl.Output.UnitLibrary
 
-Phase 1.
-
 What Surl writes about its exchanges, at the log level the command line picks (ADR-0033),
 and the listener status line. It references `Surl.Protocol.Abstractions.UnitLibrary` only.
 
@@ -25,9 +23,16 @@ and the listener status line. It references `Surl.Protocol.Abstractions.UnitLibr
   one on a Unix domain socket binds no port, so it writes the port asked for and
   ` over unix://<path>` (or `unix://@<name>`) after it (ADR-0094, decision 6).
 
-Not here: which writer the log goes to (stderr, `--log-file` or a trace file), the startup
-warnings and the throwaway-certificate note - `Surl.Console` (`LogStreams`,
-`CommandLineRunner`) owns those. A `-w` style line per exchange is not built yet.
+Not here:
+
+- Which writer the log goes to (stderr, `--log-file` or a trace file): `Surl.Console`'s
+  `LogStreams` picks it.
+- The start-up warnings and the throwaway-certificate note: `Surl.Composition`'s
+  `ComposedServing` writes them to that writer (`WriteStartUpLines`,
+  `WriteThrowawayCertificateLines`).
+- `-w` / `--write-out` output: `Surl.Cli`'s `WriteOutFormat.Expand` expands the format, and
+  `Surl.Console`'s `WriteOutPrinter`, an event stream subscriber, prints it to stdout once
+  per exchange (ADR-0190).
 
 Never write to the console directly: write to injected writers, so the tests need no
 console. Every line is written with one call under the factory's shared lock, so lines of

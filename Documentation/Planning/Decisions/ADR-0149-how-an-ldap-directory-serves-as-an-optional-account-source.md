@@ -431,6 +431,14 @@ Each bound is a constant in `Surl.Authentication`, not an option, except `timeou
   no login" when the server was started with `--user-ldap`, since that is untrue. It writes
   `surl: warning: no local account left; logins are now checked against the directory only` instead.
   `SurlServerAccounts.HasAccounts` is unchanged: it reports the local accounts only.
+  **Changed by
+  [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+  (2026-11-27): the warning quoted here is replaced by that amendment's line,
+  `surl: warning: no local account left; the server still asks for a login wherever it did` (its decision 8;
+  BL-1866 makes `Surl.Api` write it). What the HTTP family asks now is
+  `AuthenticationSettings.IsLoginRequiredToRead`, the name that replaces `HasAccountToLogInTo` here and in
+  amendment 2: `true` when the server's scheme view has held an account to log in to, or the directory serves the
+  scheme.
 - Not changed here: other servers that decide by the account book alone (CoAPS, extended CoAP) are checked in BL-1669.
 
 ## Amendment 2 (BL-1669, 2026-11-25): CoAP counts the directory, and `protocols=` admits TLS twins

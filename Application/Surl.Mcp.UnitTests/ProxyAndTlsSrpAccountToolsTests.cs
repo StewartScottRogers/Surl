@@ -35,16 +35,18 @@ public sealed class ProxyAndTlsSrpAccountToolsTests
     }
 
     [TestMethod]
-    public async Task RemoveProxyAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheProxyNeedsNoLogin()
+    public async Task RemoveProxyAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheProxyLetsNoNewClientThrough()
     {
+        const string Warning = "server s1 has no proxy account left; without --allow-anonymous its proxy now lets no new client through";
         await using var host = await StartProxyHostAsync();
 
         var result = await CallAsync(host.RemoveProxyAccount, """{"server_id": "s1", "user": "alice"}""");
 
         Assert.IsFalse(result.IsError);
         Assert.HasCount(2, result.TextContent);
-        Assert.AreEqual("server s1 has no proxy account left and its proxy now needs no login", result.TextContent[1]);
-        StringAssert.Contains(result.TextContent[0], "\"warning\"");
+        Assert.AreEqual(Warning, result.TextContent[1]);
+        using var structured = JsonDocument.Parse(result.TextContent[0]);
+        Assert.AreEqual(Warning, structured.RootElement.GetProperty("warning").GetString());
     }
 
     [TestMethod]
@@ -86,9 +88,19 @@ public sealed class ProxyAndTlsSrpAccountToolsTests
 
         StoreToolsTests.AssertResult(added, """{"user":"carol"}""");
         Assert.DoesNotContain("pa55-w0rd", added.TextContent[0]);
-        StoreToolsTests.AssertFailure(taken, "user carol cannot be added: it holds ':' or already has a TLS-SRP account");
+        StoreToolsTests.AssertFailure(taken, "user carol already has a TLS-SRP account");
         StoreToolsTests.AssertResult(removed, """{"user":"carol"}""");
         StoreToolsTests.AssertFailure(gone, "server s1 has no TLS-SRP account carol");
+    }
+
+    [TestMethod]
+    public async Task AddTlsSrpAccount_UserNameHoldingAColon_IsAdded()
+    {
+        await using var host = await StartHostAsync("https://127.0.0.1:0", "--tlsuser", "jsmith", "--tlspassword", "abc");
+
+        var added = await CallAsync(host.AddTlsSrpAccount, """{"server_id": "s1", "user": "a:b", "password": "pw"}""");
+
+        StoreToolsTests.AssertResult(added, """{"user":"a:b"}""");
     }
 
     [TestMethod]

@@ -18,17 +18,17 @@ namespace Surl.Console;
 /// </summary>
 /// <param name="createListenerFactory">
 /// Creates the factory that starts the listeners, given the process's TLS settings
-/// (<see langword="null"/> when no listen URL is TLS from the first byte); <c>surl</c> passes
-/// one that creates a <see cref="SocketListenerFactory"/>.
+/// (<see langword="null"/> only when no listen URL needs TLS, as <see cref="ServerTlsComposition"/>
+/// decides); <c>surl</c> passes one that creates a <see cref="SocketListenerFactory"/>.
 /// </param>
 /// <param name="canOpenDataDirectory">
 /// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never
 /// called without <c>--directory</c>. <c>surl</c> passes <see cref="DataDirectoryProbe.CanOpen"/>.
 /// </param>
 /// <param name="takeDataDirectoryLock">
-/// Takes the data directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data
-/// directory as given with <c>--directory</c>; never called without <c>--directory</c>.
-/// <c>surl</c> passes <see cref="DataDirectoryLock.Take"/>.
+/// Takes a directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data directory as
+/// given with <c>--directory</c> and then each writable <c>--share</c> path; never called
+/// without either. <c>surl</c> passes <see cref="DataDirectoryLock.Take"/>.
 /// </param>
 /// <param name="timeProvider">The one clock every exchange runs on.</param>
 /// <param name="dataDirectoryFileSystem">
@@ -43,10 +43,11 @@ namespace Surl.Console;
 /// <c>surl</c> passes.
 /// </param>
 /// <param name="readStartFile">
-/// Reads the bytes of a file surl reads at start, given its path as given, before any listener
-/// binds: the <c>--user-file</c> (ADR-0032, section 2), each <c>--authorized-keys</c> file, the
-/// <c>--keytab</c> file (ADR-0057, decision 1) and each
-/// <c>--hostkey</c> file (ADR-0051, decisions 4 and 6); never called when none is given.
+/// Handed to the composition as <see cref="SurlServerCompositionSeams.ReadStartFile"/>: reads the
+/// bytes of a file, given its path as given, for every file the composition reads at start through
+/// that seam, before any listener binds. It is not called for a file no option names, nor for
+/// <c>mcp+stdio:</c>, and the server TLS files are read only when a listen URL needs TLS. The
+/// <c>-K</c>/<c>--config</c> files are read through <paramref name="configFiles"/> instead.
 /// <see cref="File.ReadAllBytes(string)"/> when <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
 /// <param name="createDataConnectionOpener">

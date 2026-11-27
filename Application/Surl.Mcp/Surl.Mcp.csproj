@@ -17,11 +17,13 @@
   </PropertyGroup>
 
   <!--
-    Packed as one framework-dependent .NET tool package of PackageType McpServer, ID Surly.Surl.Mcp, that
-    `dnx Surl.Mcp` runs on every platform dotnet runs on, with .mcp/server.json for the MCP registry
+    Packed as one framework-dependent .NET tool package of PackageType McpServer, ID Surly.Surl.Mcp, made for
+    `dnx Surly.Surl.Mcp` to run on every platform dotnet runs on, with .mcp/server.json for the MCP registry
     (ADR-0103 decision 7, BL-643). The native binary ships in the release's surl-mcp-<rid> archives instead.
     The version below is the one in .mcp/server.json, and Surl.Mcp.UnitTests holds the two equal; release.yml
-    gives both the version it gives surl (-p:Version, and server.json rewritten before packing).
+    gives both the version it gives surl (-p:Version, and server.json rewritten before packing). On a v* tag,
+    release.yml attaches the package to the GitHub release (BL-1789) and is then written to push it to
+    nuget.org (BL-1795); a dry run pushes nothing.
   -->
   <PropertyGroup>
     <Version>1.0.0</Version>

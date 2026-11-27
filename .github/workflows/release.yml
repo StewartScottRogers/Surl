@@ -11,7 +11,9 @@
 #     them, and attaches all fourteen, with a SHA256SUMS file listing them, to a GitHub release of
 #     that name. A tag with a hyphen
 #     (v0.1.0-preview.1) makes a pre-release. Tags and releases need Stewart's say-so
-#     (CLAUDE.md), so this workflow never creates a tag itself.
+#     (CLAUDE.md), so this workflow never creates a tag itself. Rerunning a tag's release job
+#     once the GitHub release exists leaves that release as it is and goes on to the nuget.org
+#     push (BL-1796).
 #   * Running it by hand (workflow_dispatch), weekly against master (schedule), or on a pull
 #     request that touches what it builds or what it checks, is a dry run: the same packages
 #     and checks, uploaded as workflow artifacts only, publishing nothing.
@@ -484,23 +486,40 @@ jobs:
           sha256sum surl-* "Surly.Surl.Api.$version.nupkg" "Surly.Surl.Mcp.$version.nupkg" > SHA256SUMS
           cat SHA256SUMS
 
+      # A rerun of this job after the release was created finds it here and goes on to the
+      # nuget.org steps: it creates no second release and leaves the existing one, assets
+      # included, as it is. A draft counts as existing, whoever made it; it stays a draft, with a
+      # warning to check its assets and publish it by hand. When gh cannot read the release for
+      # another reason, the step goes on to create it, and fails if that fails.
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if draft=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft); then
+            echo "Release $GITHUB_REF_NAME exists; leaving it and its assets as they are."
+            if [[ "$draft" == true ]]; then
+              echo "::warning::Release $GITHUB_REF_NAME is still a draft. Check its assets and publish it by hand."
+            fi
+            exit 0
+          fi
           flags=(--generate-notes --notes-file notes/pass-rate-notes.md --title "$GITHUB_REF_NAME")
           [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"
 
       # Pushes both packages to nuget.org (Stewart, 2026-11-26; BL-1795). Trusted publishing: the
-      # nuget.org account StewartScottRogers holds a policy for this repository's release.yml, and
-      # NuGet/login trades the job's OIDC token for a key that lasts one hour, so no secret is stored.
-      # --skip-duplicate lets a rerun of a tag's release job succeed once the packages are up.
+      # nuget.org account StewartRogers86 (not the GitHub name StewartScottRogers) created a policy
+      # for this repository's release.yml, and NuGet/login, given that policy creator's nuget.org
+      # name, trades the job's OIDC token for a key that lasts one hour, so no secret is stored.
+      # --skip-duplicate lets a rerun of a tag's release job pass over a package that is already up,
+      # so it pushes only what is missing. "Re-run failed jobs" pushes the packages the run already
+      # packed, the ones it set out to attach to the release. "Re-run all jobs" packs them again,
+      # so a package pushed then may not be byte for byte the one attached to the release. A rerun
+      # uses this workflow as it is at the tag.
       - name: Log in to nuget.org
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: StewartScottRogers
+          user: StewartRogers86
 
       - name: Push the packages to nuget.org
         working-directory: dist

@@ -59,46 +59,48 @@ public static class ExtendedProtocolServers
         environmentVariables.Read(SwitchVariable) != TurnedOffValue;
 
     /// <summary>
-    /// Gets every extended protocol server's entry this build has, in ordinal order of its first
-    /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
-    /// decision 2): today the AMQP 1.0 container for <c>amqp1</c> and <c>amqp1s</c> (BL-514), the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
-    /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
-    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) the STOMP broker for <c>stomp</c> and <c>stomps</c> (BL-533) the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540) and the gRPC server for <c>grpc</c> and <c>grpcs</c> (BL-445).
+    /// Gets every extended protocol server's entry this build has, on the same
+    /// <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124, decision 2). This list is
+    /// the set of extended servers and their schemes; <see cref="Compose"/> builds them in its order.
     /// </summary>
     /// <remarks>
     /// The AMQP 1.0 container answers <c>amqp1</c> and <c>amqp1s</c> with the one message bus the MQTT
     /// and NATS servers share as its nodes (ADR-0107; ADR-0100 decision 3), judging logins by the policy
     /// over the accounts allowed on <c>amqp1</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c>,
-    /// and answering a TLS header on <c>amqp1</c> only when a certificate is configured (ADR-0107
-    /// decision 1). <c>amqp1s</c> is TLS from the first byte through <see cref="TlsSchemes"/>
+    /// and answering a TLS header on <c>amqp1</c> only when a TLS upgrade is available, with a
+    /// certificate or under TLS-SRP (ADR-0107 decision 1; ADR-0122 decision 5). <c>amqp1s</c> is TLS from the first byte through <see cref="TlsSchemes"/>
     /// (ADR-0107 decision 7), so, like <c>mqtts</c>, it needs no second registration.
-    /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
-    /// <see cref="DnsTcpProtocolServer"/>, so the serving engine binds UDP and TCP on the one port of
-    /// each <c>dns</c> listen URL (ADR-0092 decisions 3 and 4); both answer from the one
-    /// <see cref="ComposedProtocolServices.DnsZones"/> and answer AXFR and IXFR only with
-    /// <c>--allow-zone-transfer</c>.
+    /// The DNS server is two entries for <c>dns</c>: a <see cref="DnsDatagramRoutingProtocolServer"/>
+    /// (a <see cref="DnsUdpProtocolServer"/>, or DNS over QUIC) and a
+    /// <see cref="DnsConnectionRoutingProtocolServer"/> (a <see cref="DnsTcpProtocolServer"/> for TCP
+    /// and TLS, or DNS over HTTPS), so by default the serving engine binds UDP and TCP on the one port of
+    /// each <c>dns</c> listen URL, and <c>--dns-transport</c> chooses otherwise (ADR-0092 decisions 3
+    /// to 5); all answer from the one <see cref="ComposedProtocolServices.DnsZones"/> and answer zone
+    /// transfers only with <c>--allow-zone-transfer</c>.
     /// The NATS server answers <c>nats</c> and <c>natss</c> over the one message bus the MQTT server
     /// shares (ADR-0100 decision 3.2), judging logins by the policy over the accounts allowed on
     /// <c>nats</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c> (ADR-0113 decisions 2 and 5).
     /// <c>natss</c> starts in plain text and requires TLS before CONNECT (ADR-0113 decision 6), so it is
-    /// no implicit-TLS scheme; <see cref="ServerTlsComposition"/> requires a certificate for it.
-    /// The OCI registry server answers <c>oci</c> over the one content store, judging its token endpoint logins by the policy over the accounts allowed on <c>oci</c> (ADR-0115 decisions 2 and 4), keeping no state beyond the content store (BL-1028); <c>oci</c> is TLS from the first byte through <see cref="TlsSchemes"/> (ADR-0115 decision 6), so it needs no second registration.
+    /// no implicit-TLS scheme; <see cref="ServerTlsComposition"/> requires a certificate for it unless
+    /// TLS-SRP is served.
+    /// The OCI registry server answers <c>oci</c> over the one content store, judging its token endpoint logins by the policy over the accounts allowed on <c>oci</c> (ADR-0115 decisions 2 and 4), holding its open uploads and tokens in memory, where <see cref="ComposedStores"/> controls them, and given no object metadata index (BL-1028); <c>oci</c> is TLS from the first byte through <see cref="TlsSchemes"/> (ADR-0115 decision 6) unless <c>--oci-plaintext</c> is given, so it needs no second registration.
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
     /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
-    /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
+    /// the serving engine reads from <see cref="ListenUrl.IsImplicitTls"/>, by default what <see cref="TlsSchemes"/> says and
+    /// <see langword="false"/> under <c>--s3-plaintext</c>, so it needs no second registration.
     /// The Socket.IO server answers <c>socketio</c> and <c>socketios</c> as one server, so its
     /// sessions and <c>broadcast</c> span every Socket.IO listen URL of the run; it serves the main
-    /// namespace <c>/</c> only, because a listen URL has no path to name another (ADR-0120 amendment 2),
+    /// namespace <c>/</c> only, because a <c>socketio</c> listen URL takes no path to name another (ADR-0120 amendment 2),
     /// and judges CONNECT logins by the policy over the accounts allowed on <c>socketio</c>.
     /// <c>socketios</c> is TLS from the first byte through <see cref="TlsSchemes"/>.
     /// The WebTransport server answers <c>webtransport</c> over QUIC and HTTP/3 on UDP, accepting a session
-    /// on every path (a listen URL has no path to name one), judging each <c>CONNECT</c> by the policy over the
+    /// on every path (a <c>webtransport</c> listen URL takes no path to name one), judging each <c>CONNECT</c> by the policy over the
     /// accounts allowed on <c>webtransport</c>. It reads the certificate from
     /// <see cref="ComposedProtocolServices.QuicCertificate"/>, which the TLS composition fills because a
-    /// <c>webtransport</c> listen URL needs a certificate (<c>--cert</c> or <c>--self-signed</c>).
+    /// <c>webtransport</c> listen URL needs a certificate (<c>--cert</c> or <c>--self-signed</c>), under TLS-SRP too.
     /// The STOMP broker answers <c>stomp</c> over the one message bus the MQTT server shares, judging logins by the policy over the accounts allowed on <c>stomp</c>, with <c>--idle-timeout</c>; <c>stomps</c> is TLS from the first byte through <see cref="TlsSchemes"/> and an <c>ImplicitTls</c> entry.
-    /// The XMPP server answers <c>xmpp</c> (STARTTLS offered when a certificate is configured, required unless
-    /// <c>--allow-plaintext-auth</c>), serving the listen URL host and every <c>--mail-domain</c>, and <c>xmpps</c>, the same server
+    /// The XMPP server answers <c>xmpp</c> (STARTTLS offered when a TLS upgrade is available, with a certificate or
+    /// under TLS-SRP, and then required unless <c>--allow-plaintext-auth</c>), serving the listen URL host and every <c>--mail-domain</c>, and <c>xmpps</c>, the same server
     /// over a connection TLS from the first byte (XEP-0368, ALPN <c>xmpp-client</c>), judging logins by the policy over the accounts allowed on <c>xmpp</c>.
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
@@ -136,7 +138,7 @@ public static class ExtendedProtocolServers
         new([GrpcProtocolServer.PlainScheme, GrpcProtocolServer.TlsScheme], services => new GrpcProtocolServer(
             services.AuthenticationPolicyFor(GrpcProtocolServer.PlainScheme))),
         new(["kafka", "kafkas"], ComposeKafkaBroker),
-        // The MCP server (ADR-0111, BL-978) at /mcp, since a listen URL carries no path; mcps is TLS from the first byte
+        // The MCP server (ADR-0111, BL-978) at /mcp, since an mcp listen URL takes no path; mcps is TLS from the first byte
         // through TlsSchemes with ALPN http/1.1, so the one registration claims both schemes.
         new([McpProtocolServer.PlainScheme, McpProtocolServer.SecureScheme], services => new McpProtocolServer(
             services.ContentStore, services.AuthenticationPolicyFor(McpProtocolServer.PlainScheme), SurlVersion,
@@ -145,11 +147,11 @@ public static class ExtendedProtocolServers
         new(["mcp+stdio"], _ => new McpStdioListenUrlServer()),
         // The MQTT 5.0 broker (ADR-0093, BL-975) over the one message bus the MQTT server shares, so retained messages
         // persist where the bus persists them; only session state is the broker's. mqtt5s is TLS from the first byte through
-        // TlsSchemes. mqtt5+ws is the same broker behind a WebSocket upgrade. mqtt stays the 3.1.1 server.
-        new(["mqtt5", "mqtt5s"], services => new Mqtt5Broker(
-            new Mqtt5BrokerState(services.MessageBus), services.AuthenticationPolicyFor("mqtt5"),
-            disconnectsAfterRetained: services.Mqtt5DisconnectsAfterRetained)),
-        new(["mqtt5+ws"], services => new Mqtt5WebSocketServer((Mqtt5Broker)services.ComposedServerFor("mqtt5"))),
+        // TlsSchemes. mqtt5+ws is a WebSocket upgrade in front of a second Mqtt5Broker over the same Mqtt5BrokerState,
+        // so its logins are judged over the accounts allowed on mqtt5+ws (ADR-0102 decision 4.3, BL-1911). mqtt stays
+        // the 3.1.1 server.
+        new(["mqtt5", "mqtt5s"], services => ComposeMqtt5Broker(services, "mqtt5")),
+        new(["mqtt5+ws"], services => new Mqtt5WebSocketServer(ComposeMqtt5Broker(services, "mqtt5+ws"))),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),
             services.MessageBus,
@@ -227,6 +229,17 @@ public static class ExtendedProtocolServers
         ], new KafkaBrokerState(producerStates, coordinator));
     }
 
+    // An MQTT 5.0 broker over the instance's one broker state, judging logins by the scheme's view of the accounts; the
+    // one policy judges both the CONNECT password and enhanced authentication (ADR-0093 decision 2, BL-1903).
+    private static Mqtt5Broker ComposeMqtt5Broker(ComposedProtocolServices services, string scheme)
+    {
+        var policy = services.AuthenticationPolicyFor(scheme);
+        return new Mqtt5Broker(
+            services.Mqtt5BrokerState, policy,
+            saslAuthenticationPolicy: policy,
+            disconnectsAfterRetained: services.Mqtt5DisconnectsAfterRetained);
+    }
+
     // The Metadata answerer draws the cluster ID once from the "kafka" server-life source (ADR-0124 decision 6, BL-1001),
     // so a seeded instance announces the same cluster_id every run.
     internal static KafkaMetadataAnswerer ComposeKafkaMetadataAnswerer(ComposedProtocolServices services) =>
@@ -243,15 +256,17 @@ public static class ExtendedProtocolServers
     }
 
     /// <summary>
-    /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether any
-    /// account is allowed on <c>coap</c> or the <c>--user-ldap</c> directory serves it (ADR-0149, amendment 2). CoAP carries no
-    /// password, so a directory only makes the server private: no peer logs in through it. The accounts are asked at each read,
-    /// so one added or removed while the server runs counts at once (ADR-0132).
+    /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether a
+    /// login is required to read: an account allowed on <c>coap</c> is held or has been held, or the <c>--user-ldap</c>
+    /// directory serves it (ADR-0149, amendment 2). CoAP carries no password, so a directory only makes the server private: no
+    /// peer logs in through it. The question is asked at each read, so an account added while the server runs counts at once,
+    /// and removing the last one leaves reads refused until a reset or restore returns the accounts to a state in which there
+    /// never was one (ADR-0132, amendment 5).
     /// </summary>
     internal static CoapAccessRules CoapAccessRulesFor(ComposedProtocolServices services)
     {
         var settings = services.AuthenticationPolicyFor("coap").Settings;
-        return new CoapAccessRules(services.AuthenticationPolicy.Settings.AllowAnonymous, () => settings.HasAccountToLogInTo("coap"));
+        return new CoapAccessRules(services.AuthenticationPolicy.Settings.AllowAnonymous, () => settings.IsLoginRequiredToRead("coap"));
     }
 
     /// <summary>

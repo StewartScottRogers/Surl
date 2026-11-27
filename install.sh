@@ -9,8 +9,9 @@
 #   SURL_INSTALL_DIR  where the binary goes (default: $HOME/.surl/bin)
 #
 # The binary is named `surl` and is installed into a directory of its own; put that
-# directory on PATH to run it by name. No release has been published yet; until one is,
-# this script stops at "no release found". See DOWNLOAD.md.
+# directory on PATH to run it by name. surl-mcp and the NuGet packages are not fetched.
+# When asked for the newest release and GitHub lists none, this script stops at
+# "no release found". See DOWNLOAD.md.
 set -eu
 
 repo="StewartScottRogers/Surl"

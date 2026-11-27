@@ -1,8 +1,10 @@
 # Surl.Tls13.UnitLibrary
 
 The TLS 1.3 handshake for Surl's hand-built QUIC (ADR-0082 decisions 2 and 3), built because
-`SslStream` cannot hand QUIC its per-level secrets. It has no record layer: QUIC carries the
-handshake messages in `CRYPTO` frames.
+`SslStream` cannot hand QUIC its per-level secrets. QUIC does not use the library's record layer:
+it carries the handshake messages in `CRYPTO` frames. The record layer is for TLS 1.3 over TCP
+(ADR-0157), where `Surl.Tls13Stream` drives it and this handshake for a platform whose `SslStream`
+has no TLS 1.3 server.
 
 What it holds now (BL-375):
 
@@ -25,13 +27,24 @@ And the server handshake (BL-376):
   `TlsHandshakeOutput`: the server's Initial bytes (ServerHello or HelloRetryRequest), its
   Handshake bytes (EncryptedExtensions, Certificate, CertificateVerify, Finished), and the
   handshake and application traffic secrets once known. It then checks the client's Finished.
-  `CipherSuite`, `KeyExchangeGroup`, `ApplicationProtocol` and `ClientHello` (for the client's
-  transport parameters) say what was negotiated.
+  `CipherSuite`, `KeyExchangeGroup`, `ApplicationProtocol` and `ClientHello` (over QUIC, for the
+  client's transport parameters) say what was negotiated. Over TCP, `Surl.Tls13Stream` passes it
+  each handshake record's content: at the Initial level until the handshake secrets are out, at
+  the Handshake level after.
 - `TlsServerHandshakeOptions` carries the certificate chain and key (`RSA` signs
-  rsa_pss_rsae_sha256, `ECDsa` the scheme of its P-256/P-384/P-521 curve), the ALPN protocols
-  (`h3`), the encoded `quic_transport_parameters`, and any extensions EncryptedExtensions sends
-  first. Empty ALPN or null transport parameters turn those checks off, which only the RFC 8448
-  test (not QUIC) uses.
+  rsa_pss_rsae_sha256, `ECDsa` the scheme of its P-256/P-384/P-521 curve), the ALPN protocols,
+  the encoded `quic_transport_parameters`, any extensions EncryptedExtensions sends first, and
+  the client-certificate check (below). An empty ALPN list means ALPN is neither checked nor
+  answered; null transport parameters mean the extension is neither required nor sent.
+  - QUIC (`Surl.Quic`'s `QuicServerConnection`) always passes transport parameters, and the ALPN
+    list of its `QuicServerConnectionOptions`: `h3` by default, `doq` for DNS over QUIC. With
+    transport parameters set, a ClientHello with no ALPN extension is refused (RFC 9001
+    section 8.1).
+  - TCP (`ServerTlsSettings.CreateTls13Options` in `Surl.Networking`) leaves the transport
+    parameters null, adds no extensions, and passes the listener's ALPN list
+    (`TlsApplicationProtocols`), which is empty for a listener that offers none. With transport
+    parameters null, a ClientHello with no ALPN extension is served without ALPN (ADR-0010
+    section 4), as the `SslStream` path serves it.
 - Choices, all ADR-0082 decision 3: the client's first supported suite; groups in the order
   X25519MLKEM768, x25519, secp256r1, secp384r1, secp521r1; with no share for one of them, a
   HelloRetryRequest for the first the client's `supported_groups` lists. X25519MLKEM768
@@ -41,7 +54,8 @@ And the server handshake (BL-376):
   `Surl.Cryptography.Curve25519`; the NIST curves are `ECDiffieHellman`, with the
   point checked on the curve by `TlsNistCurve` first, so a bad point is the same alert on every
   platform. Randomness comes from an injected `RandomNumberGenerator`, in share order: the server
-  random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key. No session ticket.
+  random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key (x25519 alone
+  draws only that key after the server random, a NIST curve nothing more). No session ticket.
 
 And the groups a curl offers only when `--curves` names one alone (BL-1008, ADR-0147), served after
 those five in this order:
@@ -53,6 +67,8 @@ those five in this order:
   the server random; the NIST key is the base class library's `ECDiffieHellman`.
 - curveSM2MLKEM768 (`11EE`), draft-yang-tls-hybrid-sm2-mlkem (BL-1030, ADR-0147): laid out like
   SecP256r1MLKEM768 with the curveSM2 point in the NIST curve's place (1249 bytes in, 1153 out).
+  After the server random it draws ML-KEM's 32-byte m and then a 32-byte curveSM2 private key
+  from the injected `RandomNumberGenerator`.
 - x448 (`001E`) through `Surl.Cryptography.Curve448` (BL-1010), RFC 7748 with the all-zero secret
   refused; the 56-byte private key comes from the injected `RandomNumberGenerator` after the
   server random.
@@ -97,19 +113,28 @@ TLS connection over TCP (QUIC has its own packet protection and does not use it)
   A compatibility change_cipher_spec record is not protected: the caller skips it before `Unprotect`.
 - Tests replay the protected records of RFC 8448 section 3 byte for byte (`Rfc8448Records`).
 
-Malformed input throws `TlsAlertException` carrying the RFC 8446 section 6 alert; nothing is sent
-on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 9001 section 4.8):
+Malformed input throws `TlsAlertException` carrying the RFC 8446 section 6 alert. This library
+sends nothing on the wire; its caller reports the alert:
+
+- Over QUIC, `Surl.Quic`'s `QuicServerConnection` sends no alert record: it closes the connection
+  with `CONNECTION_CLOSE`, error `0x0100` plus the alert (RFC 9001 section 4.8).
+- Over TCP, `Surl.Tls13Stream`'s `Tls13ServerStream` writes it as a fatal alert record, in
+  plaintext before the handshake keys are installed and protected after, ignoring a connection
+  already gone; the exception then reaches the stream's caller. The record layer's alerts
+  (`TlsRecordUnprotector`, above) go the same way.
+
+The table holds over both, except where a row says otherwise:
 
 | Input | Alert |
 | --- | --- |
 | a length that overruns, a vector below its minimum (an empty cipher-suite list), trailing bytes | `decode_error` |
 | a `legacy_version` that is not `0x0303` | `protocol_version` |
 | a repeated extension, a group with two key shares, compression other than null, `pre_shared_key` not last | `illegal_parameter` |
-| a message that is not the expected type, or at the wrong level or time; any byte at the 1-RTT level | `unexpected_message` |
+| a message that is not the expected type, or at the wrong level or time; any byte at the 1-RTT level (`Surl.Tls13Stream` never passes that level) | `unexpected_message` |
 | no TLS 1.3 in `supported_versions` | `protocol_version` |
-| no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own | `missing_extension` |
+| no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own (QUIC only: TCP passes none) | `missing_extension` |
 | no shared cipher suite, no offered scheme for the certificate key, no group the server serves | `handshake_failure` |
-| no `h3` (or no ALPN at all) | `no_application_protocol` |
+| when the server's ALPN list is not empty, an ALPN extension offering none of it: over QUIC `h3`, or `doq` for DNS over QUIC; over TCP the listener's list. A hello with no ALPN extension too, over QUIC only: over TCP it is served without ALPN | `no_application_protocol` |
 | a malformed key share, an ML-KEM encapsulation key failing FIPS 203's modulus check, a NIST or curveSM2 point off its curve, an x25519 or x448 low-order point, an ffdhe Y outside 1 < Y < p - 1; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
 | a client Finished that does not verify | `decrypt_error` |
 | an empty client Certificate when one is required | `certificate_required` |
@@ -119,13 +144,30 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 
 After an alert the handshake is over: a later `Receive` throws `InvalidOperationException`.
 
-It references `Surl.Cryptography.Curve25519.UnitLibrary`,
-`Surl.Cryptography.Curve448.UnitLibrary`, `Surl.Cryptography.MlKem.UnitLibrary` and
-`Surl.Cryptography.Sm2.UnitLibrary` (ADR-0082 decision 2, ADR-0147). Bytes in,
-bytes out: never open a socket or a file, and never read a clock.
+It references `Surl.Cryptography.ChaCha20.UnitLibrary`,
+`Surl.Cryptography.Curve25519.UnitLibrary`, `Surl.Cryptography.Curve448.UnitLibrary`,
+`Surl.Cryptography.MlKem.UnitLibrary`, `Surl.Cryptography.Poly1305.UnitLibrary` and
+`Surl.Cryptography.Sm2.UnitLibrary` (ADR-0082 decision 2, ADR-0147, ADR-0157 decision 2).
+Bytes in, bytes out: never open a socket or a file, and never read a clock.
 
-Every expected value in its tests comes from RFC 8448 (sections 3 and 5) or from ClientHellos
-recorded from pinned upstream curl builds (`Fixtures/ClientHello`, BL-363's `-QuicInitial`),
-never from the Curl port (ADR-0003). Handshakes are checked by `UnitTestTlsClient`, a test-side
-TLS 1.3 client written from RFC 8446 that shares no code with the library's key schedule;
-`UnitTestClientAuthentication` writes that client's Certificate, CertificateVerify and Finished.
+The expected values in `Surl.Tls13.UnitTests` come from these, never from the Curl port
+(ADR-0003):
+
+- RFC 8448: sections 2, 3 and 5 (`Rfc8448`) and section 3's records (`Rfc8448Records`).
+- The primes of RFC 7919 appendix A.1 and A.2, copied into `UnitTestFiniteFieldPrimes`.
+- ClientHellos recorded from the QUIC Initial packets of pinned upstream curl builds
+  (`Fixtures/ClientHello`, and its `Curves` folder for each `--curves <group>` offer).
+- Bytes, lengths, limits and alerts written into the tests from the specifications named in this
+  file. One is derived: `TlsRecordProtectionTests`' next server application secret, RFC 8446
+  section 7.2 applied to RFC 8448's secret with HKDF-Expand.
+- Surl's own choices and contract, where no specification fixes the answer: ADR-0082 decision 3
+  and ADR-0147's preferences, the message limit, and the .NET exceptions for caller errors.
+- Values computed as the test runs. `UnitTestTlsClient`, a test-side TLS 1.3 client written from
+  RFC 8446 that shares no code with the library's key schedule, derives the secrets and checks the
+  server's flight; its key exchange uses the base class library and the same `Surl.Cryptography.*`
+  primitives as the library. `UnitTestClientAuthentication` writes that client's Certificate,
+  CertificateVerify and the Finished after them. `Surl.Cryptography.MlKem` and `Curve25519` give
+  the X25519MLKEM768 share that scripted randomness fixes. The base class library's `AesGcm` and
+  `ChaCha20Poly1305` give two expected records, from a key and IV the library's
+  `TlsKeySchedule.ExpandLabel` derives (itself checked against RFC 8448).
+- The tests' own inputs, read back.

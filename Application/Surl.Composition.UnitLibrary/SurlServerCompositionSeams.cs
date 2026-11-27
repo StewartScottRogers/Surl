@@ -11,9 +11,10 @@ namespace Surl.Composition;
 /// replaces.
 /// </summary>
 /// <param name="CreateListenerFactory">
-/// Creates the factory that starts the listeners, given the process's TLS settings
-/// (<see langword="null"/> when no listen URL is TLS from the first byte); <c>surl</c> passes one that
-/// creates a <c>SocketListenerFactory</c>.
+/// Creates the factory that starts the listeners, given this start's TLS settings
+/// (<see langword="null"/> only when no listen URL needs TLS, as
+/// <see cref="ServerTlsComposition.Compose"/> says); <c>surl</c> passes one that creates a
+/// <c>SocketListenerFactory</c>.
 /// </param>
 /// <param name="CanOpenDataDirectory">
 /// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never called
@@ -56,8 +57,14 @@ public sealed record SurlServerCompositionSeams(
 
     /// <summary>
     /// Reads the bytes of a file read at start, given its path as given, before any listener binds:
-    /// the <c>--user-file</c>, each <c>--authorized-keys</c> file, the <c>--keytab</c> file and each
-    /// <c>--hostkey</c> and <c>--hostcert</c> file; <see cref="File.ReadAllBytes(string)"/> when
+    /// each <c>--mailbox-file</c>, the <c>--user-file</c>, each <c>--authorized-keys</c> file, the
+    /// <c>--keytab</c> file (read again after the data-directory lock), the <c>bind-password-file</c>
+    /// and <c>ca-file</c> of <c>--user-ldap</c>, the <c>--proxy-user-file</c>, each
+    /// <c>--hostkey</c> and <c>--hostcert</c> file, with <c>--control</c> the
+    /// <c>--control-token-file</c> and, only when a listen URL needs TLS, the <c>--cacert</c>,
+    /// <c>--cert</c>, <c>--key</c>, <c>--srp-groups</c> and <c>--srp-verifiers</c> files
+    /// (<c>--cacert</c> is not read under TLS-SRP). It does not read the <c>-K</c> files, which the
+    /// host's command-line parse reads. <see cref="File.ReadAllBytes(string)"/> when
     /// <see langword="null"/>, which is what <c>surl</c> passes.
     /// </summary>
     public Func<string, byte[]>? ReadStartFile { get; init; }
@@ -78,7 +85,7 @@ public sealed record SurlServerCompositionSeams(
     public Func<string, UnixFileMode?>? ReadStartFileUnixMode { get; init; }
 
     /// <summary>
-    /// Creates what opens the FTP server's data connections, given the process's TLS settings
+    /// Creates what opens the FTP server's data connections, given this start's TLS settings
     /// (ADR-0052, decision 9); a <c>SocketDataConnectionOpener</c> on the one clock when
     /// <see langword="null"/>, which is what <c>surl</c> passes.
     /// </summary>

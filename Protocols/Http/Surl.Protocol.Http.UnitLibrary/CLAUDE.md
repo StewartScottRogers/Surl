@@ -97,6 +97,8 @@ the exchange before the handshake completes stops the flow at once; after it, th
 answers it. A flow past `--max-connections` or `--max-connections-per-address` is refused
 through its `IDatagramRefusalWriter` with `Surl.Quic`'s `QuicConnectionRefusal`: one Initial holding
 `CONNECTION_CLOSE` `CONNECTION_REFUSED` for a version 1 Initial, no bytes for anything else (BL-740).
+It is an `IGracefulCutDatagramProtocolServer` (BL-1801, ADR-0188 amendment 5): a flow a `close=graceful` drop fault cuts
+is closed by `Surl.Quic` with `CONNECTION_CLOSE` `NO_ERROR`, with no `GOAWAY`.
 With `--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler`
 on every TLS connection, adding `Alt-Svc: h3=":<port>"; ma=86400`. The connection's
 `IHttp3RequestStreamHandler` is `Http3StreamAnswerWriter`: for each request stream it first resets

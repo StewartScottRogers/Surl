@@ -6,6 +6,23 @@ namespace Surl.Quic;
 public sealed partial class QuicServerConnectionTests
 {
     [TestMethod]
+    public void CloseWithNoError_AfterTheHandshake_SendsATransportConnectionCloseNoErrorOnce()
+    {
+        using var key = RSA.Create(2048);
+        using var exchange = UnitTestExchange.Completed(key);
+
+        exchange.Take(exchange.Server.CloseWithNoError());
+        var again = exchange.Server.CloseWithNoError();
+
+        var close = exchange.Client.FramesReceived[QuicPacketType.OneRtt].OfType<QuicConnectionCloseFrame>().Single();
+        Assert.IsFalse(close.IsApplicationError);
+        Assert.AreEqual((ulong)QuicTransportErrorCode.NoError, close.ErrorCode);
+        Assert.AreEqual(0UL, close.FrameType);
+        Assert.IsTrue(exchange.Server.IsClosing);
+        Assert.IsEmpty(again.Datagrams);
+    }
+
+    [TestMethod]
     public void ReceiveDatagram_InTheClosingState_AnswersWithTheSameConnectionClose()
     {
         using var key = RSA.Create(2048);

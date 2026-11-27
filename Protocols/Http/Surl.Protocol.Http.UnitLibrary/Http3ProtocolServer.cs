@@ -22,8 +22,10 @@ namespace Surl.Protocol.Http;
 /// first datagram gets no bytes (<see cref="QuicConnectionRefusal"/>).
 /// Every reply gains a <c>set-cookie</c> field for each configured cookie it is scoped to, and each cookie a request carries
 /// is published as a <see cref="CookieReceivedEvent"/>, whether or not any is set (ADR-0189).
+/// A flow a <c>close=graceful</c> drop fault cuts (<see cref="IGracefullyCutDatagramFlow"/>) ends with the QUIC
+/// connection closed by <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c>, with no <c>GOAWAY</c> (ADR-0188, amendment 5).
 /// </remarks>
-public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter, IExchangeBytesRedactingServer
+public sealed class Http3ProtocolServer : IGracefulCutDatagramProtocolServer, IDatagramRefusalWriter, IExchangeBytesRedactingServer
 {
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;

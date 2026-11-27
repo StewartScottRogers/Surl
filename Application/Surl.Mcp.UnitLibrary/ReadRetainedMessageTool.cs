@@ -17,7 +17,8 @@ public static class ReadRetainedMessageTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Read a topic's retained message on a running Surl server's message bus: its QoS and payload (text when "
-        + "UTF-8 or else base64), or {retained: false} when it has none. Does not drop it.";
+        + "UTF-8 with no control character other than tab, CR and LF, else base64), or {retained: false} when it has "
+        + "none. Does not drop it.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

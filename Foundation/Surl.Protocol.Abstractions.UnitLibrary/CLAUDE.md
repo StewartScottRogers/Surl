@@ -140,7 +140,9 @@ What it holds:
   `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`; a `Renamed`
   change carries its old name in `PreviousName`, ADR-0129; a mail delivery may carry `DeliveredFor`, the envelope addresses that resolved to the copy's owner, ADR-0053 Amendment 1; a `Committed` change names
   `$group/<group id, % and / percent-encoded>/<canonical topic>`, ADR-0145 decision 10),
-  `FaultAppliedEvent`, `HookFailedEvent` (with `HookFailure`) and `ConsumerGroupChangedEvent` (with
+  `FaultAppliedEvent` (its init-only `Close`, written last and only when set, is set only on the engine's
+  `Accept`-stage drop: `FaultClose.Reset` or `Graceful`, a datagram flow's drop `Reset` except the graceful cut below; BL-1794),
+  `HookFailedEvent` (with `HookFailure`) and `ConsumerGroupChangedEvent` (with
   `ConsumerGroupChange`, ADR-0145 decision 10; BL-946); no event carries a password,
   key or token. The fault plan: `IFaultPlan.FindAsync(FaultPoint, CancellationToken)` returning
   `ValueTask<FaultRule?>`, with `FaultPoint`, `FaultRule`, `FaultKind` and `FaultStage`. Both reach
@@ -151,6 +153,12 @@ What it holds:
   `ScriptedFaultPlan` (the first given rule whose stage and set scope attributes equal the
   point's, ordinally; never spends `Times`; records every point asked). `Surl.Core`'s
   `SurlEventStream` and `FaultPlan` implement them (BL-787, BL-792).
+
+- The graceful cut of a datagram flow (ADR-0188, amendment 5; BL-1801): a datagram server whose connections have a
+  graceful close of their own implements the marker `IGracefulCutDatagramProtocolServer` (today only HTTP/3's). Under a
+  `close=graceful` drop with `after-bytes` the engine hands it an `IGracefullyCutDatagramFlow`: once `IsCut`,
+  `SendAsync` discards, and the server closes its connection. Every datagram that closes a connection, and each repeat,
+  goes through `SendClosingDatagramAsync`, which counts and discards nothing. `Surl.Quic`'s `QuicApplicationConnection` does this for any protocol over QUIC.
 
 - Command-stage delay and drop (ADR-0141; BL-901): `IIdleClock` (`Pause`, `Restart`) reaches a
   server as `ExchangeContext.IdleClock`, default `NoIdleClock.Instance` (does nothing); the engine

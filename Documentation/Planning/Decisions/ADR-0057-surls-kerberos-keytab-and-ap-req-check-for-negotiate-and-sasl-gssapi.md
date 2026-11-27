@@ -6,7 +6,10 @@
   in BL-217 (FR-046).
 - **Amended by:** Amendment 1 below (BL-268): decisions 8 and 9 measured against the test KDC
   of [ADR-0065](ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md);
-  both hold. Amendment 2 below (BL-351): decision 2's table gains `ldap`.
+  both hold. Amendment 2 below (BL-351): decision 2's table gains `ldap`. Amendment 3 below
+  (BL-1817): no unused `--keytab` warning when a `socks5` or `socks5h` listen URL is served
+  (decision 1). Amendment 4 below (BL-1858): decision 2's table gains `amqp` for `amqp`,
+  `amqps`, `amqp1` and `amqp1s`.
 - **Amends:** [ADR-0040](ADR-0040-http-negotiate-carrying-ntlm-bare-or-in-spnego.md) decision 3
   (a Kerberos token inside Negotiate is no longer refused once a keytab is configured, decision 8
   below); [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
@@ -534,3 +537,165 @@ holding a ticket for `ldap/ldap.surl.test@SURL.TEST` from the test KDC, ended 67
 `ldap` is the service upstream curl asks for (ADR-0078 decision 1 measured its TGS request for
 `ldap/ldap.surl.test`), and the one `GSS-SPNEGO` already answered (ADR-0072 Amendment 1). With it,
 the same test exits 0 with the entry on stdout.
+
+## Amendment 3 - a `socks5` or `socks5h` listener uses the keytab, so no unused warning (BL-1817, 2026-11-26)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-26, in
+BL-1817. It amends decision 1's sentence about the unused warning: "`--keytab` when `--auth`
+names neither word is accepted, with the warning `surl: warning: --keytab is unused: ...`".
+
+### Context
+
+Decision 1 predates
+[ADR-0121 amendment 2](ADR-0121-how-surl-serves-socks4-socks4a-socks5-and-socks5h.md) (BL-765),
+under which a SOCKS5 listener with a keytab selects GSS-API (method `01`) when the greeting offers
+it, before `00` and `02`, and checks the client's AP-REQ for the service `rcmd`. BL-1066 wired
+`--keytab` to it. Read in the source on 2026-11-26:
+
+- `SurlServerComposition.ComposeSocksGssApiLogin` builds that login from `--keytab` alone; it
+  reads neither `--auth` nor the listen URLs. The one SOCKS server of `socks4`, `socks4a`,
+  `socks5` and `socks5h` is given it.
+- Only a `socks5` or `socks5h` listener uses it. A `socks4` or `socks4a` listener answers a
+  SOCKS5 greeting `05 FF` and closes (`SocksExchange`; ADR-0121 decision 5).
+- A `-x`/`--proxy` listen URL with a SOCKS scheme is listened on with the positional ones and
+  served by the same SOCKS server; only `http` and `https` proxy listen URLs go to the HTTP proxy
+  (`ProxyComposition.RouteProxyListeners`), whose policy is given no Kerberos acceptor.
+- No option turns method `01` off on such a listener: `Socks5Exchange` selects it before it looks
+  at the proxy accounts (`-U`, `--proxy-user-file`) or `--allow-anonymous`, and the proxy
+  accounts' policy, which may refuse the login
+  ([ADR-0165](ADR-0165-how-tls-srp-and-socks5-gss-api-logins-publish-login-judged-events-and-honour-refuse-login.md)
+  decisions 8 and 9), judges it only after the keytab's keys have checked the token.
+- Every other use of the keytab (HTTP Negotiate, SASL `GSSAPI`, LDAP `GSS-SPNEGO`) needs `--auth`
+  to accept `negotiate` or `gssapi`, under `--allow-anonymous` too.
+
+### Decision
+
+From the info level up, the unused warning is written exactly when all of these hold:
+
+1. `--keytab` is given;
+2. `--auth` accepts neither `negotiate` nor `gssapi` (its default accepts neither);
+3. no listen URL served, positional or from `-x`/`--proxy`, has the scheme `socks5` or `socks5h`.
+
+| Listen URL schemes served, positional or `-x`/`--proxy`, with `--auth` accepting neither | Unused warning |
+| --- | --- |
+| At least one `socks5` or `socks5h`, alone or beside any others | withheld |
+| `socks4` or `socks4a`, with no `socks5` or `socks5h` | written |
+| No SOCKS scheme | written |
+
+- The condition is the listen URL's scheme and nothing else. surl does not look for an `rcmd` key
+  in the keytab first: without one the listener still selects `01` when offered and refuses the
+  token, so the keytab has changed what the listener does.
+- The warning's text and level, and the skipped-key warnings of decision 1, are unchanged. No
+  byte on the wire changes, and `--auth gssapi` still needs `--keytab`.
+
+When this amendment was decided, `KeytabComposition.WriteStartLines` tested only conditions 1 and
+2, so it wrote the warning for `surl --keytab k socks5://...` too. BL-1818 makes the code follow
+this amendment.
+
+### Alternatives considered
+
+- **Withholding the warning for any SOCKS scheme.** Rejected: a `socks4` or `socks4a` listener
+  never reads a token, so there the warning is true.
+- **Making SOCKS5 GSS-API depend on `--auth` naming `gssapi`.** Rejected: it would change what
+  ADR-0121 amendment 2 decides, and `--auth` would have to name a word, replacing its default set,
+  to turn on a method that a keytab turns on by itself.
+
+## Amendment 4 - decision 2's table gains `amqp` (BL-1858, 2026-11-27)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in
+BL-1858.
+
+### Context
+
+Both AMQP servers (extended servers,
+[ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)) offer every
+mechanism `ISaslAuthenticationPolicy.GetSaslMechanisms` returns
+([ADR-0112](ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md) decision 2,
+[ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 2), so with
+`--auth gssapi --keytab` they offer `GSSAPI`. Decision 2's table had no AMQP row, and
+`GssapiSaslExchange` answered the service `pop` for every scheme that was not SMTP, IMAP or LDAP:
+an AMQP login needed a ticket for `pop/<host>`. Found by reading the code in BL-1819's review.
+
+The other servers that start a SASL exchange are SMTP, IMAP, POP3 and LDAP, which the table
+covers, and Kafka, XMPP and MQTT 5, which offer only `PLAIN` and SCRAM mechanisms and refuse a
+mechanism they did not offer.
+
+What names the service (read 2026-11-27):
+
+- RFC 4752 section 3.1 takes the service name from the application protocol's SASL profile.
+- OASIS AMQP 1.0 Part 5 (Security) names no SASL service, and the IANA registry
+  "GSSAPI/Kerberos/SASL Service Names" has no `amqp` entry (it has `smtp`, `imap`, `pop` and
+  `ldap`).
+- Apache Qpid Proton C passes `"amqp"` to both `sasl_client_new` and `sasl_server_new`
+  (`c/src/sasl/cyrus_sasl.c`: `static const char amqp_service[] = "amqp";`).
+- Apache Qpid JMS documents `sasl.options.protocol`, "The protocol value used during the GSSAPI
+  SASL process. Default is "amqp"."
+
+### Decision
+
+The AMQP servers keep offering `GSSAPI`, and decision 2's table gains a row:
+
+| Schemes | Service |
+| --- | --- |
+| `amqp`, `amqps`, `amqp1`, `amqp1s` | `amqp` |
+
+- One name for both protocol versions: a client asks for the service by the job (`amqp`), not by
+  the wire version, and `amqp1` is a scheme name of the Curl port's, not a Kerberos service.
+- The rest of decisions 2, 9 and 10 applies unchanged: any host and realm the keytab names, the
+  same RFC 4752 steps, an account named as the client principal.
+- A `pop/<host>` ticket is now refused on an AMQP listener.
+
+### Alternatives considered
+
+- **Offering no `GSSAPI` on AMQP**, as Kafka, XMPP and MQTT 5 do. Rejected: AMQP clients that
+  speak Kerberos exist and name `amqp`, and a stand-in broker should take their logins (root
+  `CLAUDE.md`, "Decisions": nothing is left out).
+- **`amqp1/<host>` for AMQP 1.0.** Rejected: no source read names it.
+
+### Consequences
+
+- A keytab for an AMQP listener holds `amqp/<host>@<REALM>`.
+- A ticket still has to fit the frame that carries it. AMQP 1.0 limits a SASL frame to 512 bytes
+  (ADR-0107 decision 2), which the AP-REQs measured in Amendment 1 (635 bytes or more) exceed, so
+  such a ticket closes an `amqp1` or `amqp1s` connection before it is checked. AMQP 0-9-1 limits a
+  frame before `connection.tune-ok` to 4096 bytes (ADR-0112). Whether surl accepts larger AMQP 1.0
+  SASL frames is a follow-up task's decision, not this one's. That decision is
+  [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md)'s BL-1884 amendment
+  (2026-11-27): surl now reads an AMQP 1.0 SASL frame up to 65536 bytes (or `--max-message`), so
+  such a ticket is checked.
+
+## Amendment 5 - the replay cache is one per started instance (BL-1827, 2026-11-27)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in
+BL-1827. It amends decision 7's "There is one replay cache, shared by every listener" in what "one"
+counts: the started instance, not the process.
+
+### Context
+
+- `Surl.Api` starts several instances in one process, and no state is static (root `CLAUDE.md`,
+  "Surl is a stand-in for tests";
+  [ADR-0099](ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md)
+  decision 8). A cache for the whole process would make one test's login refuse another's.
+- Read in the source on 2026-11-27: a start with `--keytab` read the file twice and built two
+  acceptors with a cache each, one for the authentication policy (HTTP Negotiate, SASL `GSSAPI`,
+  LDAP `GSS-SPNEGO`) and one for the SOCKS5 GSS-API login. An AP-REQ accepted by one was not
+  held by the other.
+
+### Decision
+
+- Each started instance has one replay cache, used by every listener of that instance that checks
+  an AP-REQ, whatever its protocol. Two instances never share one, with the same keytab or not.
+- A start reads the `--keytab` file once, before the data-directory lock, and builds one
+  `KerberosAcceptor` over it. The authentication policy holds it
+  (`AuthenticationSettings.KerberosAcceptor`), and the SOCKS5 GSS-API login is built over that same
+  acceptor with the service `rcmd`.
+- A keytab file changed after that read has no effect until the next start.
+- No byte on the wire changes. The cache's key, lifetime and 65536-entry limit are decision 7's;
+  the limit now counts every listener's authenticators together.
+
+### Alternatives considered
+
+- **Two acceptors over one cache.** Rejected: both would be built from the same keytab, clock and
+  random source, so the second adds nothing.
+- **One static cache for the process.** Rejected: static mutable state, which a stand-in must not
+  have.

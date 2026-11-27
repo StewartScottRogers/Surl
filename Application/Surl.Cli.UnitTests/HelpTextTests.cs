@@ -59,61 +59,95 @@ public sealed class HelpTextTests
 
     private static readonly string[] AllowAnonymousExplanationLines =
     [
-        "        Accepts every request and every login without checking credentials:",
-        "        HTTP serves every request as anonymous and sends no challenge, MQTT",
-        "        answers every well-formed CONNECT with CONNACK 0 whatever credentials",
-        "        it carries, SMTP takes mail and IMAP and POP3 open mailboxes with no",
+        "        Accepts requests and logins without checking credentials. For example,",
+        "        HTTP serves a request as anonymous and sends no challenge, MQTT answers",
+        "        every well-formed CONNECT with CONNACK 0 whatever credentials it",
+        "        carries, SMTP takes mail and IMAP and POP3 open mailboxes with no",
         "        login, FTP logs every USER and PASS in, and SSH logs every client in,",
-        "        with any credential or none. A test uses it to fetch or publish without",
+        "        with any credential or none; the other servers whose help pages list",
+        "        this option let a client in without an account too. Some checks and",
+        "        refusals stay. --auth still decides which SASL mechanisms and APOP are",
+        "        served. With --keytab, a Kerberos ticket must still check against its",
+        "        keys. SASL external still needs a TLS client certificate, and an LDAP",
+        "        DIGEST-MD5 or NTLM bind, GSS-SPNEGO's NTLM included, still needs the",
+        "        account's password. S3 and Cloud Storage check a signature that is sent",
+        "        and accept only a signed write. Azure Storage checks a signature or",
+        "        bearer token that is sent, refuses a bearer token over plain HTTP",
+        "        without --allow-plaintext-auth, and accepts a write only with one of",
+        "        the two. An OCI registry issues only pull tokens, so nothing can be",
+        "        pushed. MCP refuses its OAuth password logins and an Authorization",
+        "        other than Bearer, gRPC one other than Basic or Bearer, WebTransport",
+        "        NTLM and Negotiate, and NATS an NKey or JWT login. TLS client",
+        "        certificates, TLS-SRP and coaps pre-shared keys are checked as before,",
+        "        and xmpp with a certificate still requires STARTTLS without",
+        "        --allow-plaintext-auth. A test uses it to fetch or publish without",
         "        setting up accounts. It is not the default because anyone who can reach",
-        "        a listener then gets everything surl serves, and can publish and",
-        "        subscribe over MQTT and send and read mail, with no login at all. surl",
-        "        warns on every start while it is on, from the info log level up.",
+        "        a listener can then, with no login, read what surl serves, send and",
+        "        read mail, and publish and subscribe, held back only by what",
+        "        --share-access and --topic-access grant; uploading files still needs",
+        "        --allow-uploads. surl warns on every start while it is on, from the",
+        "        info log level up.",
     ];
 
     private static readonly string[] AllowPlaintextAuthExplanationLines =
     [
-        "        Accepts passwords and tokens sent over an unencrypted connection: HTTP",
-        "        Basic and Bearer over http:// and an MQTT password over mqtt:// are",
-        "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), Basic",
-        "        and Bearer are offered in a 401 over http://, SMTP offers PLAIN and",
-        "        LOGIN over smtp:// and IMAP accepts LOGIN and offers PLAIN and LOGIN",
-        "        over imap:// without STARTTLS, POP3 offers USER, PLAIN and LOGIN over",
-        "        pop3:// without STLS, and an FTP password over ftp:// without AUTH TLS",
-        "        is checked instead of refused (530). A test uses it to log in without a",
-        "        certificate. It is not the default because anyone who can watch the",
-        "        network reads the password as it is sent. surl warns on every start",
-        "        while it is on, from the info log level up.",
+        "        Accepts passwords and tokens sent over an unencrypted connection, which",
+        "        surl refuses unchecked by default. For example, HTTP Basic and Bearer",
+        "        over http:// and an MQTT password over mqtt:// are checked instead of",
+        "        refused unchecked (403 Forbidden, CONNACK 5), Basic and Bearer are",
+        "        offered in a 401 over http://, SMTP offers PLAIN and LOGIN over smtp://",
+        "        and IMAP accepts LOGIN and offers PLAIN and LOGIN over imap:// without",
+        "        STARTTLS, POP3 offers USER, PLAIN and LOGIN over pop3:// without STLS,",
+        "        and an FTP password over ftp:// without AUTH TLS is checked instead of",
+        "        refused (530); the other servers whose help pages list this option",
+        "        likewise take a password or token sent in clear. It also leaves",
+        "        STARTTLS optional on xmpp, whose listen URL then needs no certificate,",
+        "        and --user-ldap's ;plaintext is refused without it. A test uses it to",
+        "        log in without a certificate. It is not the default because anyone who",
+        "        can watch the network reads the password as it is sent. surl warns on",
+        "        every start while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AuthExplanationLines =
     [
         "        Sets the authentication methods surl accepts and offers, a",
         "        comma-separated list in any case. For HTTP: negotiate, ntlm, digest,",
-        "        basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL",
-        "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
-        "        names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm,",
-        "        digest-md5, cram-md5, plain, login, oauthbearer, xoauth2 and external,",
-        "        and apop for POP3's APOP. For SMB: ntlmv1, the only login curl makes in",
-        "        an SMB session setup; accepting ntlm never accepts it. external logs in",
-        "        as the TLS client certificate --cacert verifies, so it is offered only",
-        "        on a connection that sent one. gssapi logs in with a Kerberos ticket",
-        "        checked against the --keytab keys, as the account named for the",
-        "        ticket's client principal, such as user@EXAMPLE.COM, and is offered",
-        "        first; a start that gives it without --keytab is refused (exit code 2).",
-        "        surl refuses a word outside the list as an option badly used (exit code",
-        "        2). A test uses it to offer one method alone, such as --auth digest for",
-        "        curl's --digest. ntlm and negotiate are not in the default because an",
-        "        NTLM response is built on MD4 and HMAC-MD5 of the password and is open",
-        "        to relay and offline cracking, and Negotiate carries NTLM; ntlmv1 is",
-        "        not because its responses are DES over the bare MD4 hash of the",
-        "        password, open to offline cracking by anyone who sees one; gssapi is",
-        "        not because it needs --keytab; digest-md5 is not because RFC 6331 made",
-        "        it Historic and curl picks it over every other mechanism; apop is not",
-        "        because its MD5 construction leaks password characters to anyone who",
-        "        can choose the timestamp it signs. surl warns on every start while",
-        "        --auth is given, from the info log level up, naming the methods it",
-        "        accepts.",
+        "        basic, bearer and aws-sigv4. The HTTP, RTSP, WebSocket, DNS over HTTPS",
+        "        and SignalR servers judge logins by these, and so does WebTransport,",
+        "        which serves neither ntlm nor negotiate; gRPC takes only basic and",
+        "        bearer of them, and MCP and Cloud Storage only bearer. It does not",
+        "        decide MCP's OAuth password logins, the tokens MCP issues itself or a",
+        "        Cloud Storage signature. For SASL logins to the SMTP, IMAP, POP3, LDAP,",
+        "        AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5.0 servers, each mechanism",
+        "        by its name in lower case, as curl's login option AUTH=<mech> names it:",
+        "        gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5,",
+        "        cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for",
+        "        POP3's APOP. The MQTT 5.0 server (mqtt5, mqtt5s and mqtt5+ws) runs only",
+        "        scram-sha-256 and scram-sha-1, as a CONNECT's Authentication Method,",
+        "        and only when --auth names them. Kafka runs only plain, scram-sha-256",
+        "        and scram-sha-512, and XMPP only scram-sha-256, scram-sha-1 and plain.",
+        "        LDAP also offers GSS-SPNEGO when negotiate is accepted. It does not",
+        "        decide a password sent outside HTTP and SASL: IMAP's LOGIN, POP3's USER",
+        "        and PASS, an LDAP simple bind or an MQTT 5.0 CONNECT's password. For",
+        "        SMB: ntlmv1, the only login curl makes in an SMB session setup;",
+        "        accepting ntlm never accepts it. external logs in as the TLS client",
+        "        certificate --cacert verifies, so it is offered only on a connection",
+        "        that sent one. gssapi logs in with a Kerberos ticket checked against",
+        "        the --keytab keys, as the account named for the ticket's client",
+        "        principal, such as user@EXAMPLE.COM, and is offered first; a start that",
+        "        gives it without --keytab is refused (exit code 2). surl refuses a word",
+        "        outside the list as an option badly used (exit code 2). A test uses it",
+        "        to offer one method alone, such as --auth digest for curl's --digest.",
+        "        ntlm and negotiate are not in the default because an NTLM response is",
+        "        built on MD4 and HMAC-MD5 of the password and is open to relay and",
+        "        offline cracking, and Negotiate carries NTLM; ntlmv1 is not because its",
+        "        responses are DES over the bare MD4 hash of the password, open to",
+        "        offline cracking by anyone who sees one; gssapi is not because it needs",
+        "        --keytab; digest-md5 is not because RFC 6331 made it Historic and curl",
+        "        picks it over every other mechanism; apop is not because its MD5",
+        "        construction leaks password characters to anyone who can choose the",
+        "        timestamp it signs. surl warns on every start while --auth is given,",
+        "        from the info log level up, naming the methods it accepts.",
     ];
 
     private static readonly string[] AzPlaintextExplanationLines =
@@ -613,9 +647,10 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
-            "        websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, coap, dns, ftp, grpc, gs,",
+            "        http, imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, redis,",
+            "        rtsp, s3, signalr, smb, smtp, socketio, ssh, stomp, websocket,",
+            "        webtransport, xmpp.",
             "");
 
     [TestMethod]
@@ -625,9 +660,10 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
-            "        websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, coap, dns, ftp, grpc, gs,",
+            "        http, imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, redis,",
+            "        rtsp, s3, signalr, smb, smtp, socketio, ssh, stomp, websocket,",
+            "        webtransport, xmpp.",
             "");
 
     [TestMethod]
@@ -640,9 +676,10 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-                "        ldap, mqtt, nats, oci, pop3, rtsp, s3, security, smb, smtp, ssh, stomp,",
-                "        testing, websocket.",
+                "        Categories: amqp, amqp1, auth, azure-storage, coap, dns, ftp, grpc, gs,",
+                "        http, imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, proxy,",
+                "        redis, rtsp, s3, security, signalr, smb, smtp, socketio, socks, ssh,",
+                "        stomp, testing, websocket, webtransport, xmpp.",
                 "",
             ]);
 
@@ -658,8 +695,10 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: amqp1, auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
-                "        security, smtp, stomp, testing, websocket.",
+                "        Categories: amqp, amqp1, auth, azure-storage, ftp, grpc, gs, http,",
+                "        imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, proxy, redis,",
+                "        rtsp, security, signalr, smtp, socketio, socks, stomp, testing,",
+                "        websocket, xmpp.",
                 "",
             ]);
 
@@ -688,10 +727,17 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: amqp1, auth, http, imap, ldap, pop3, rtsp, security, smb,",
-                "        smtp, testing, websocket.",
+                "        Categories: amqp, amqp1, auth, dns, grpc, gs, http, imap, kafka, ldap,",
+                "        mcp, mqtt5, pop3, rtsp, security, signalr, smb, smtp, testing,",
+                "        websocket, webtransport, xmpp.",
                 "",
             ]);
+
+    [TestMethod]
+    [DataRow("amqp", DisplayName = "AMQP 0-9-1")]
+    [DataRow("amqp1", DisplayName = "AMQP 1.0")]
+    public void Answer_AmqpCategory_ListsAuth(string category) =>
+        StringAssert.Contains(HelpText.Answer(category).Output, "--auth <methods>");
 
     [TestMethod]
     [DataRow("--manual", DisplayName = "Long name")]
@@ -921,6 +967,37 @@ public sealed class HelpTextTests
             "telnet: TELNET protocol",
             "     --max-line <bytes>  Longest command line accepted");
 
+    // The SOCKS server reads the proxy accounts and the --keytab, and never --proxy-auth (BL-1915).
+    [TestMethod]
+    public void Answer_Socks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth() =>
+        AssertOutput(
+            HelpText.Answer("socks"),
+            "socks: SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
+            Row(36, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(36, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
+            Row(36, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
+            Row(36, "    --proxy-user-file <file>", "Read proxy accounts from a file"));
+
+    [TestMethod]
+    public void Answer_AiHelpSocks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth()
+    {
+        var optionRows = AiHelpText.Answer("socks").Output.ReplaceLineEndings("\n").Split('\n')
+            .Where(line => line.StartsWith("| `-", StringComparison.Ordinal))
+            .Select(line => line.Split('`')[1]);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "--allow-anonymous",
+                "--allow-plaintext-auth",
+                "--keytab <file>",
+                "-U, --proxy-user <user:password>",
+                "--proxy-user-file <file>",
+            },
+            optionRows.ToArray());
+    }
+
     [TestMethod]
     public void Answer_Tftp_ListsItsOptions() =>
         AssertOutput(
@@ -957,6 +1034,94 @@ public sealed class HelpTextTests
             "     --tlsv1.1                 Accept TLS 1.1 or later",
             "     --tlsv1.2                 Accept TLS 1.2 or later (default)",
             "     --tlsv1.3                 Accept TLS 1.3 or later");
+
+    // The account and authentication options of each server topic (BL-1902).
+
+    private static readonly (string Name, string LeftSide, string Description)[] AccountAndAuthenticationOptions =
+    [
+        ("user", "-u, --user <user:password>", "Add an account (repeatable)"),
+        ("user-file", "--user-file <file>", "Read accounts from a file"),
+        ("allow-anonymous", "--allow-anonymous", "Accept any login, or none (warns)"),
+        ("allow-plaintext-auth", "--allow-plaintext-auth", "Accept passwords in clear (warns)"),
+        ("auth", "--auth <methods>", "Authentication methods accepted"),
+    ];
+
+    private const string AllFive = "user user-file allow-anonymous allow-plaintext-auth auth";
+    private const string AccountsAndBothLoosenings = "user user-file allow-anonymous allow-plaintext-auth";
+    private const string AccountsAnonymousAndAuth = "user user-file allow-anonymous auth";
+    private const string AccountsAndAnonymous = "user user-file allow-anonymous";
+    private const string BothLoosenings = "allow-anonymous allow-plaintext-auth";
+
+    // Every server topic - each help category with schemes, and proxy - with the options its server reads.
+    private static readonly Dictionary<string, string> OptionsEachServerReads = new()
+    {
+        ["amqp"] = AllFive,
+        ["amqp1"] = AllFive,
+        ["azure-storage"] = AccountsAndBothLoosenings,
+        ["coap"] = AccountsAndAnonymous,
+        ["dict"] = "",
+        // DNS over HTTPS alone logs in, and it is always TLS.
+        ["dns"] = AccountsAnonymousAndAuth,
+        ["ftp"] = AccountsAndBothLoosenings,
+        ["gopher"] = "",
+        ["grpc"] = AllFive,
+        // --auth decides whether a bearer token is accepted.
+        ["gs"] = AllFive,
+        ["http"] = AllFive,
+        ["imap"] = AllFive,
+        ["kafka"] = AllFive,
+        ["ldap"] = AllFive,
+        ["mcp"] = AllFive,
+        ["mqtt"] = AccountsAndBothLoosenings,
+        ["mqtt5"] = AllFive,
+        ["nats"] = AccountsAndBothLoosenings,
+        ["oci"] = AccountsAndBothLoosenings,
+        ["pop3"] = AllFive,
+        // The proxy and SOCKS listeners log in the -U accounts, never --user or --auth.
+        ["proxy"] = BothLoosenings,
+        ["redis"] = AccountsAndBothLoosenings,
+        ["rtsp"] = AllFive,
+        ["s3"] = AccountsAndAnonymous,
+        ["signalr"] = AllFive,
+        ["smb"] = AccountsAnonymousAndAuth,
+        ["smtp"] = AllFive,
+        ["socketio"] = AccountsAndBothLoosenings,
+        ["socks"] = BothLoosenings,
+        ["ssh"] = AccountsAndAnonymous,
+        ["stomp"] = AccountsAndBothLoosenings,
+        ["telnet"] = "",
+        ["tftp"] = "",
+        ["websocket"] = AllFive,
+        // WebTransport is HTTP/3, so always TLS.
+        ["webtransport"] = AccountsAnonymousAndAuth,
+        ["xmpp"] = AllFive,
+    };
+
+    [TestMethod]
+    public void Answer_EveryServerTopic_ListsExactlyTheAccountAndAuthenticationOptionsItsServerReads()
+    {
+        foreach (var (topic, expected) in OptionsEachServerReads)
+        {
+            var helpLines = HelpText.Answer(topic).Output.ReplaceLineEndings("\n").Split('\n');
+            var aiHelp = AiHelpText.Answer(topic).Output;
+
+            var inHelp = AccountAndAuthenticationOptions
+                .Where(option => helpLines.Any(line => line.EndsWith(" " + option.Description, StringComparison.Ordinal)))
+                .Select(option => option.Name);
+            var inAiHelp = AccountAndAuthenticationOptions
+                .Where(option => aiHelp.Contains($"| `{option.LeftSide}` |", StringComparison.Ordinal))
+                .Select(option => option.Name);
+
+            Assert.AreEqual(expected, string.Join(' ', inHelp), $"--help {topic}");
+            Assert.AreEqual(expected, string.Join(' ', inAiHelp), $"--aihelp {topic}");
+        }
+    }
+
+    [TestMethod]
+    public void Answer_EveryServerTopic_HasItsAccountAndAuthenticationOptionsPinned() =>
+        CollectionAssert.AreEquivalent(
+            HelpCategories.All.Where(category => category.Schemes.Count > 0 || category.Name == "proxy").Select(category => category.Name).ToArray(),
+            OptionsEachServerReads.Keys.ToArray());
 
     // --help <option>.
 

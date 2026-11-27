@@ -18,7 +18,8 @@ public static class BrowseQueueTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "List the ready messages of a queue on a running Surl server's message bus in delivery order, with their "
-        + "payloads (text when UTF-8 or else base64) and headers, and the queue's ready and in-flight counts. "
+        + "payloads (text when UTF-8 with no control character other than tab, CR and LF, else base64) and headers, "
+        + "and the queue's ready and in-flight counts. "
         + "Consumes, acknowledges and redelivers nothing. Page with after_position and limit.";
 
     /// <summary>The tool's input schema.</summary>

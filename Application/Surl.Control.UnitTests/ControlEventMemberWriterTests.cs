@@ -19,7 +19,7 @@ public sealed class ControlEventMemberWriterTests
         new ExchangeEndedEvent(3, 5, 6),
         new LoginJudgedEvent(4, "smtp", "alice", "PLAIN", IsAccepted: true, IsRefusedByFault: true),
         new StoreChangedEvent(StoreKind.Mail, StoreChange.Renamed, "INBOX", 1, 5) { PreviousName = "Old" , DeliveredFor = ["a@x", "b@x"] },
-        new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Accept, 6, "smtp://127.0.0.1:25"),
+        new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Accept, 6, "smtp://127.0.0.1:25") { Close = FaultClose.Reset },
         new HookFailedEvent("h1", HookFailure.Threw, "x"),
         new ConsumerGroupChangedEvent(7, "kafka", "orders", ConsumerGroupChange.MemberJoined, "c-1", 1, "alice"),
         new CookieReceivedEvent(8, "http", "sid", "abc123"),

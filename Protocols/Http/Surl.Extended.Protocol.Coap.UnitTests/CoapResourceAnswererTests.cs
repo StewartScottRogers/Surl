@@ -11,7 +11,7 @@ namespace Surl.Extended.Protocol.Coap;
 [TestClass]
 public sealed class CoapResourceAnswererTests
 {
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, IsLoginRequiredToRead: () => false);
 
     private static readonly ContentExposureOptions UploadsAndListings = new() { AllowUploads = true, ListDirectories = true };
 
@@ -80,10 +80,10 @@ public sealed class CoapResourceAnswererTests
     [DataRow(false, true, true, "4.01", "4.01")]
     [DataRow(true, true, true, "2.05", "2.04")]
     [DataRow(true, false, false, "2.05", "4.05")]
-    public async Task AnswerAsync_AccessRulesAndTheUploadSwitch_DecideReadsAndWrites(bool allowsAnonymous, bool hasAccounts, bool uploads, string read, string write)
+    public async Task AnswerAsync_AccessRulesAndTheUploadSwitch_DecideReadsAndWrites(bool allowsAnonymous, bool isLoginRequired, bool uploads, string read, string write)
     {
         var store = new CoapTestStore(new ContentExposureOptions { AllowUploads = uploads }).WithFile("f.txt", "x");
-        var rules = new CoapAccessRules(allowsAnonymous, () => hasAccounts);
+        var rules = new CoapAccessRules(allowsAnonymous, () => isLoginRequired);
 
         var got = await AnswerAsync(store, CoapCode.Get, Path("f.txt"), rules);
         var put = await AnswerAsync(store, CoapCode.Put, Path("f.txt"), rules, "y");

@@ -66,6 +66,32 @@ public sealed partial class ServingEngineTests
         var applied = (FaultAppliedEvent)Drain(subscription).Single();
         Assert.AreEqual((rule.Id, FaultKind.Drop, FaultStage.Accept, 1L, "http://127.0.0.1:8080/"),
             (applied.RuleId, applied.Kind, applied.Stage, applied.ExchangeId, applied.Target));
+        Assert.AreEqual(FaultClose.Reset, applied.Close);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_GracefulCloseDropRuleWithoutAfterBytes_AbortsAndPublishesCloseReset()
+    {
+        var factory = new FakeListenerFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Close = FaultClose.Graceful });
+        var server = new FakeConnectionProtocolServer("http");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), stream, plan, server);
+        var connection = new InMemoryConnection([]);
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Http], stop.Token);
+
+        factory.ListenerFor(Http).Connect(connection);
+        await InMemoryConnectionWaits.WaitUntilDisposedAsync(connection);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.IsFalse(server.TryTakeExchange(out _));
+        var applied = (FaultAppliedEvent)Drain(subscription).Single();
+        Assert.AreEqual(FaultClose.Reset, applied.Close);
     }
 
     [TestMethod]
@@ -120,6 +146,7 @@ public sealed partial class ServingEngineTests
         CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 held for 0.5 s by fault rule f1.");
         var applied = (FaultAppliedEvent)Drain(subscription).Single();
         Assert.AreEqual((FaultKind.Delay, FaultStage.Accept), (applied.Kind, applied.Stage));
+        Assert.IsNull(applied.Close);
     }
 
     [TestMethod]
@@ -218,7 +245,9 @@ public sealed partial class ServingEngineTests
         Assert.AreEqual("abcdef", Encoding.ASCII.GetString(connection.WrittenBytes));
         Assert.IsTrue(connection.Aborted);
         CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 dropped after 6 bytes sent by fault rule f1.");
-        Assert.AreEqual(FaultKind.Drop, ((FaultAppliedEvent)Drain(subscription).Single()).Kind);
+        var applied = (FaultAppliedEvent)Drain(subscription).Single();
+        Assert.AreEqual(FaultKind.Drop, applied.Kind);
+        Assert.AreEqual(FaultClose.Reset, applied.Close);
     }
 
     [TestMethod]
@@ -253,7 +282,9 @@ public sealed partial class ServingEngineTests
         CollectionAssert.Contains(
             logs.LogOf(1).Notes.ToList(), "Exchange 1 cut after 6 bytes sent by fault rule f1, closing gracefully.");
         Assert.AreEqual(1, logs.LogOf(1).Notes.Count(note => note.Contains("cut after", StringComparison.Ordinal)));
-        Assert.AreEqual(FaultKind.Drop, ((FaultAppliedEvent)Drain(subscription).Single()).Kind);
+        var applied = (FaultAppliedEvent)Drain(subscription).Single();
+        Assert.AreEqual(FaultKind.Drop, applied.Kind);
+        Assert.AreEqual(FaultClose.Graceful, applied.Close);
     }
 
     [TestMethod]
@@ -278,13 +309,87 @@ public sealed partial class ServingEngineTests
         Assert.AreEqual(
             1, logs.LogOf(1).Notes.Count(note => note == "Exchange 1 cut after 12 bytes sent by fault rule f1, closing gracefully."));
         Assert.AreEqual(1, events.Count);
+        Assert.AreEqual(FaultClose.Graceful, ((FaultAppliedEvent)events.Single()).Close);
     }
 
     [TestMethod]
-    public async Task ServeAsync_GracefulDropRuleOnADatagramFlow_BehavesAsADrop()
+    public async Task ServeAsync_GracefulDropRuleOnADatagramServerWithItsOwnClose_CutsTheFlowAndPublishesGraceful()
     {
         var factory = new FakeListenerFactory();
         var logs = new FakeExchangeLogFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 6, Close = FaultClose.Graceful });
+        var cutAfterEachSend = new List<bool>();
+        var server = new FakeGracefulCutDatagramProtocolServer(
+            async (flow, context) =>
+            {
+                var cut = (IGracefullyCutDatagramFlow)flow;
+                await cut.SendAsync("abcd"u8.ToArray(), context.CancellationToken);
+                cutAfterEachSend.Add(cut.IsCut);
+                await cut.SendAsync("efgh"u8.ToArray(), context.CancellationToken);
+                cutAfterEachSend.Add(cut.IsCut);
+                await cut.SendAsync("i"u8.ToArray(), context.CancellationToken);
+                await cut.SendClosingDatagramAsync("close"u8.ToArray(), context.CancellationToken);
+                await cut.SendClosingDatagramAsync("close"u8.ToArray(), context.CancellationToken);
+            },
+            "tftp");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), logs, stream, plan, server);
+        var flow = new FakeDatagramFlow("rrq"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Tftp69], stop.Token);
+
+        factory.DatagramListenerFor(Tftp69).Open(flow);
+        await flow.WhenDisposed.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        CollectionAssert.AreEqual(
+            new[] { "abcd", "close", "close" }, flow.Sent.Select(sent => Encoding.ASCII.GetString(sent)).ToArray());
+        CollectionAssert.AreEqual(new[] { false, true }, cutAfterEachSend);
+        CollectionAssert.Contains(
+            logs.LogOf(1).Notes.ToList(), "Exchange 1 cut after 6 bytes sent by fault rule f1, closing gracefully.");
+        Assert.AreEqual(FaultClose.Graceful, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ResetDropRuleOnADatagramServerWithItsOwnClose_SilencesTheFlowAndPublishesReset()
+    {
+        var factory = new FakeListenerFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 5 });
+        var server = new FakeGracefulCutDatagramProtocolServer(
+            async (flow, context) =>
+            {
+                Assert.IsNotInstanceOfType<IGracefullyCutDatagramFlow>(flow);
+                await flow.SendAsync("data"u8.ToArray(), context.CancellationToken);
+                await flow.SendAsync("more"u8.ToArray(), context.CancellationToken);
+            },
+            "tftp");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), stream, plan, server);
+        var flow = new FakeDatagramFlow("rrq"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Tftp69], stop.Token);
+
+        factory.DatagramListenerFor(Tftp69).Open(flow);
+        await flow.WhenDisposed.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        CollectionAssert.AreEqual(new[] { "data" }, flow.Sent.Select(sent => Encoding.ASCII.GetString(sent)).ToArray());
+        Assert.AreEqual(FaultClose.Reset, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_GracefulDropRuleOnADatagramServerWithoutItsOwnClose_BehavesAsAResetDrop()
+    {
+        var factory = new FakeListenerFactory();
+        var logs = new FakeExchangeLogFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
         var plan = new FaultPlan();
         plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 5, Close = FaultClose.Graceful });
         var server = new FakeDatagramProtocolServer(
@@ -294,8 +399,7 @@ public sealed partial class ServingEngineTests
                 await flow.SendAsync("more"u8.ToArray(), context.CancellationToken);
             },
             "tftp");
-        var engine = CreateFaultingEngine(
-            factory, new ManualTimeProvider(), logs, DiscardingSurlEventPublisher.Instance, plan, server);
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), logs, stream, plan, server);
         var flow = new FakeDatagramFlow("rrq"u8.ToArray());
         using var stop = new CancellationTokenSource();
         var serving = engine.ServeAsync([Tftp69], stop.Token);
@@ -307,6 +411,7 @@ public sealed partial class ServingEngineTests
 
         CollectionAssert.AreEqual(new[] { "data" }, flow.Sent.Select(sent => Encoding.ASCII.GetString(sent)).ToArray());
         CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 dropped after 5 bytes sent by fault rule f1.");
+        Assert.AreEqual(FaultClose.Reset, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
     }
     [TestMethod]
     public async Task ServeAsync_DropRuleAfterMoreBytesThanTheServerSends_EndsTheExchangeAsUsual()
@@ -451,7 +556,9 @@ public sealed partial class ServingEngineTests
         Assert.IsEmpty(flow.Sent);
         Assert.IsFalse(server.TryTakeFlow(out _));
         CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 dropped before any byte by fault rule f1.");
-        Assert.AreEqual("tftp://127.0.0.1:40000/", ((FaultAppliedEvent)Drain(subscription).Single()).Target);
+        var applied = (FaultAppliedEvent)Drain(subscription).Single();
+        Assert.AreEqual("tftp://127.0.0.1:40000/", applied.Target);
+        Assert.AreEqual(FaultClose.Reset, applied.Close);
     }
 
     [TestMethod]
@@ -558,10 +665,14 @@ public sealed partial class ServingEngineTests
         var time = new ManualTimeProvider();
         var plan = new ScriptedFaultPlan(new FaultRule("c1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 5000 });
         var held = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var idleClock = new TaskCompletionSource<PauseAnnouncingIdleClock>(TaskCreationOptions.RunContinuationsAsynchronously);
         var server = new FakeConnectionProtocolServer(
             async (_, context) =>
             {
-                await CommandStageFaults.FindAndApplyAsync(context, new FaultPoint(FaultStage.Command) { Command = "GET" }, "/a");
+                var announcing = new PauseAnnouncingIdleClock(context.IdleClock);
+                idleClock.SetResult(announcing);
+                await CommandStageFaults.FindAndApplyAsync(
+                    context with { IdleClock = announcing }, new FaultPoint(FaultStage.Command) { Command = "GET" }, "/a");
                 held.SetResult(context.CancellationToken.IsCancellationRequested);
             },
             "http");
@@ -573,7 +684,10 @@ public sealed partial class ServingEngineTests
         var serving = engine.ServeAsync([Http], stop.Token);
 
         factory.ListenerFor(Http).Connect(new InMemoryConnection([]));
-        await time.TimersCreated(2).WaitAsync(Patience.Timeout);
+        // The hold creates the delay timer and only then pauses the idle clock, so the pause shows both
+        // are done; advancing on the delay timer's creation alone can fire the idle timeout first.
+        var announced = await idleClock.Task.WaitAsync(Patience.Timeout);
+        await announced.Paused.WaitAsync(Patience.Timeout);
         time.Advance(TimeSpan.FromSeconds(5));
         var cancelledAfterTheHold = await held.Task.WaitAsync(Patience.Timeout);
         await stop.CancelAsync();

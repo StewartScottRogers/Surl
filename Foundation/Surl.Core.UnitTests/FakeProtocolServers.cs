@@ -78,6 +78,14 @@ internal class FakeDatagramProtocolServer(
 }
 
 /// <summary>
+/// A <see cref="FakeDatagramProtocolServer"/> that says its connections have a graceful close of
+/// their own, as HTTP/3 does.
+/// </summary>
+internal sealed class FakeGracefulCutDatagramProtocolServer(
+    Func<IDatagramFlow, ExchangeContext, Task> serve, params string[] schemes)
+    : FakeDatagramProtocolServer(serve, schemes), IGracefulCutDatagramProtocolServer;
+
+/// <summary>
 /// A <see cref="FakeDatagramProtocolServer"/> that also writes refusals: it records the
 /// refusal it is asked to write and sends <c>refused:&lt;refusal&gt;</c>, unless the test
 /// scripted other behaviour.

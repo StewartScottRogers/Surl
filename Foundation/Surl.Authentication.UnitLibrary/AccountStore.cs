@@ -44,7 +44,7 @@ internal sealed class AccountStore
         }
 
         configured = derived;
-        current = new AccountSet(configured);
+        current = new AccountSet(configured, []);
     }
 
     /// <summary>
@@ -63,7 +63,8 @@ internal sealed class AccountStore
     /// Adds <paramref name="account"/>, deriving its credentials exactly as for an account read at start.
     /// </summary>
     /// <param name="account">The account.</param>
-    /// <exception cref="ArgumentException">An account of that user name exists.</exception>
+    /// <exception cref="ArgumentException">An account of that user name exists; the message names the user, or the
+    /// Bearer-token account when the name is empty.</exception>
     public void Add(Account account)
     {
         var derived = Derive(account);
@@ -71,10 +72,13 @@ internal sealed class AccountStore
         {
             if (current.PasswordHashes.ContainsKey(account.UserName))
             {
-                throw new ArgumentException($"User {account.UserName} already has an account.", nameof(account));
+                var conflict = account.UserName.Length == 0
+                    ? "The Bearer-token account already exists."
+                    : $"User {account.UserName} already has an account.";
+                throw new ArgumentException(conflict, nameof(account));
             }
 
-            Swap([.. current.Accounts, derived], StoreChange.AccountAdded, account.UserName);
+            Swap(new AccountSet([.. current.Accounts, derived], current.HeldSchemes), StoreChange.AccountAdded, account.UserName);
         }
     }
 
@@ -92,7 +96,8 @@ internal sealed class AccountStore
                 return false;
             }
 
-            Swap([.. current.Accounts.Where(account => account.UserName != userName)], StoreChange.AccountRemoved, userName);
+            var remaining = current.Accounts.Where(account => account.UserName != userName).ToList();
+            Swap(new AccountSet(remaining, current.HeldSchemes), StoreChange.AccountRemoved, userName);
 
             return true;
         }
@@ -113,31 +118,39 @@ internal sealed class AccountStore
             var existing = current.Accounts.FirstOrDefault(account => account.UserName == userName)
                 ?? throw new ArgumentException($"User {userName} has no account.", nameof(userName));
             var derived = Derive(new Account(userName, password) { Schemes = existing.Schemes });
-            Volatile.Write(ref current, new AccountSet([.. current.Accounts.Select(account => account.UserName == userName ? derived : account)]));
+            var accounts = current.Accounts.Select(account => account.UserName == userName ? derived : account).ToList();
+            Volatile.Write(ref current, new AccountSet(accounts, current.HeldSchemes));
             events.Publish(new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountRemoved, userName, null, null));
             events.Publish(new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountAdded, userName, null, null));
         }
     }
 
     /// <summary>
-    /// Returns the set to exactly the accounts configured at start.
+    /// Returns the set to exactly the accounts configured at start, remembering the schemes of no
+    /// other account.
     /// </summary>
     public void Reset()
     {
         lock (changeLock)
         {
-            Swap(configured, StoreChange.Reset, string.Empty);
+            Swap(new AccountSet(configured, []), StoreChange.Reset, string.Empty);
         }
     }
 
     /// <summary>
-    /// Copies the set as it is now.
+    /// Copies the set as it is now, with the schemes of the accounts held until now.
     /// </summary>
     /// <returns>The snapshot.</returns>
-    public AccountSnapshot TakeSnapshot() => new(this, Current.Accounts);
+    public AccountSnapshot TakeSnapshot()
+    {
+        var set = Current;
+
+        return new AccountSnapshot(this, set.Accounts, set.HeldSchemes);
+    }
 
     /// <summary>
-    /// Replaces the set with <paramref name="snapshot"/>'s accounts.
+    /// Replaces the set with <paramref name="snapshot"/>'s accounts and the schemes held when it was
+    /// taken.
     /// </summary>
     /// <param name="snapshot">A snapshot taken of this store.</param>
     /// <exception cref="ArgumentException">The snapshot was taken of another account book.</exception>
@@ -150,13 +163,13 @@ internal sealed class AccountStore
 
         lock (changeLock)
         {
-            Swap(snapshot.Accounts, StoreChange.Restored, string.Empty);
+            Swap(new AccountSet(snapshot.Accounts, snapshot.HeldSchemes), StoreChange.Restored, string.Empty);
         }
     }
 
-    private void Swap(IReadOnlyList<DerivedAccount> accounts, StoreChange change, string name)
+    private void Swap(AccountSet set, StoreChange change, string name)
     {
-        Volatile.Write(ref current, new AccountSet(accounts));
+        Volatile.Write(ref current, set);
         events.Publish(new StoreChangedEvent(StoreKind.Accounts, change, name, null, null));
     }
 

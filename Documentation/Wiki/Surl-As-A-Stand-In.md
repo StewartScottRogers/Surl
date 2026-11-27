@@ -142,7 +142,9 @@ control-endpoint routes, below.
 A `SurlFault` is one `--fault` item: `Delay`, `DropConnection`, `RefuseLogin`, `ProtocolError`, `OutOfSpace`,
 narrowed by `Listener`, `Scheme`, `Account`, `Path`, `Command`, `Stage`, `AfterBytes` and `Times`. A `drop` with `after-bytes` takes `close=reset` (the default, an abort) or
 `close=graceful` (a clean close after the N-th byte, so a client sees a short body, not a reset), as in
-`--fault "drop;after-bytes=4000000;close=graceful"`; `close` needs `after-bytes` above 0. Give them
+`--fault "drop;after-bytes=4000000;close=graceful"`; `close` needs `after-bytes` above 0. Over HTTP/3,
+`graceful` closes the QUIC connection with `CONNECTION_CLOSE` `NO_ERROR` (upstream curl 8.21.0 exits 56 at
+once) and `reset` only stops answering (curl waits for its own timeout; ADR-0188 amendment 5). Give them
 at start in `Faults`, or at run time with `server.Faults.Add`, `Remove`, `Clear` and `List`. `surl --aihelp`
 documents the `--fault` grammar; `Surl.Mcp` has `add_fault`, `list_faults` and `remove_fault`, and the
 control endpoint has `POST /v1/faults`. Recipe: `StandInFaultRecipeTests`
@@ -188,13 +190,19 @@ bytes); `--control` without a token file is refused, and a request without the t
 `GET /v1/events`, `GET /v1/events/wait`, `GET /v1/exchanges`, `GET` and `POST /v1/faults`,
 `DELETE /v1/faults/<id>`, `POST /v1/mail?to=<mailbox>`, `PUT` and `DELETE /v1/files/<path>`,
 `POST /v1/messages`, `PUT /v1/keys/<database>/<key>` (`expire_ms` query), `POST /v1/directory` (LDIF body),
-`PUT /v1/zones/<apex>` (zone-file body), `POST /v1/accounts`, `DELETE /v1/accounts/<name>`, `POST /v1/reset`,
-`POST /v1/snapshots` and `POST /v1/snapshots/<id>/restore`. The read-back routes are all `GET`:
+`PUT /v1/zones/<apex>` (zone-file body), `POST /v1/accounts`, `PUT` and `DELETE /v1/accounts/<name>`,
+`PUT` and `DELETE /v1/bearer-token`, `POST /v1/proxy-accounts`, `PUT` and `DELETE /v1/proxy-accounts/<name>`,
+`POST /v1/tls-srp-accounts`, `PUT` and `DELETE /v1/tls-srp-accounts/<name>`, `POST /v1/reset`,
+`POST /v1/snapshots` and `POST /v1/snapshots/<id>/restore`. An account `POST` takes JSON
+`{"user", "password"}` and an account or bearer-token `PUT` takes `{"password"}`. `/v1/bearer-token`
+addresses the account with the empty user name, whose password is a Bearer token (`"user": ""` on
+`POST /v1/accounts` adds it), not the token that guards the control endpoint. The read-back routes are all `GET`:
 `/v1/mail/<owner>`, `/v1/mail/<owner>/<mailbox>` (`after_uid`, `limit`), `/v1/mail/<owner>/<mailbox>/<uid>`,
 `/v1/files/<path>` (the bytes), `/v1/files/<path>/` (a listing; `after_name`, `limit`),
 `/v1/queues/<name>/messages` (`after_position`, `limit`), `/v1/topics/<name>/retained` and
 `/v1/topics/<name>/log` (`from_offset`, `limit`), `/v1/keys/<key>` (`database`) and `/v1/keys` (`pattern`, `after_key`,
-`limit`, `database`) and `/v1/directory` (LDIF, no `userPassword`). `GET /v1/events` and `GET /v1/events/wait` also take `store`
+`limit`, `database`), `/v1/directory` (LDIF, no `userPassword`), `/v1/zones` (the apexes) and
+`/v1/zones/<apex>` (one zone as master-file text). `GET /v1/events` and `GET /v1/events/wait` also take `store`
 and `name`. With curl, as the recipe runs it:
 
 ```
@@ -213,7 +221,9 @@ Recipe: `StandInControlEndpointRecipeTests`. The endpoint has no hooks (decision
 
 `surl-mcp` offers `start_server`, `list_servers`, `stop_server`, `get_exchanges`, `get_events`,
 `wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `set_key`, `add_ldap_entries`,
-`add_dns_zone`, `add_account`, `remove_account`, `list_mailboxes`, `list_messages`, `read_message`,
+`add_dns_zone`, `add_account`, `remove_account`, `set_account_password`, `add_proxy_account`,
+`remove_proxy_account`, `set_proxy_account_password`, `add_tls_srp_account`, `remove_tls_srp_account`,
+`set_tls_srp_account_password`, `list_mailboxes`, `list_messages`, `read_message`,
 `read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log`, `read_key`, `list_keys`, `read_directory`, `read_zone` (the read-back tools; `get_events`
 and `wait_for_event` also take `store` and `name`), `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`

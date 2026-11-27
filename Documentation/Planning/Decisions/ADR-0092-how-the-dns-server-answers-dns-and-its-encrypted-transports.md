@@ -279,6 +279,11 @@ and `tls`. Every `dns://` listen URL serves every transport in the list on its h
     every other transport has no login. With `--user` or `--user-file` given, every DoH request
     is checked through `IHttpAuthenticationSession` with ADR-0032's rules and `--auth` methods,
     so an operator can fence a DoH listener.
+    **Changed by
+    [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+    (2026-11-27): an account added while the server runs fences DoH too, and removing the last
+    account does not open it again: a query without credentials is `401` or `403`. DNS on the
+    other transports still has no login.
   - **No DoH over HTTP/3.** ADR-0086 decision 6 gives `dns` no HTTP/3 route, no client of the port
     asks for one, and RFC 8484 section 5.2 names HTTP/2 as the minimum. A later ADR adds it if a
     client needs it.

@@ -1,7 +1,5 @@
 # Surl.Authentication.UnitLibrary
 
-Phase 1.
-
 The server side of the authentication schemes upstream curl sends, secure by default
 (ADR-0032): the accounts, the policy that judges every login, and each HTTP method's
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
@@ -32,12 +30,17 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 
 ## What is here now (BL-110)
 
-- `Account`, `AccountBook`: the configured accounts. `AccountBook` keeps each password as
-  the SHA-256 of its UTF-8 bytes and checks a password or Bearer token by comparing SHA-256
-  hashes through `ISecretComparer` (`CryptographicSecretComparer`, i.e.
-  `CryptographicOperations.FixedTimeEquals`); an unknown user is compared against a random
-  dummy hash, so it costs the same and answers the same (ADR-0032 section 8). The empty
-  user name is the Bearer token's account and never matches `CheckPassword`.
+- `Account`, `AccountBook`: the configured accounts. `AccountBook` keeps the SHA-256 of
+  each password's UTF-8 bytes and, for a named account, the credentials derived from the
+  password, some of which are the password's bytes (its UTF-8 bytes, and the bytes a base64
+  password decodes to), so treat the book as holding every named account's password; the
+  `Account.Password` string is not kept, and the empty-name account is held as its SHA-256
+  only (ADR-0132 amendment 3). It checks a
+  password or Bearer token by comparing SHA-256 hashes through `ISecretComparer`
+  (`CryptographicSecretComparer`, i.e. `CryptographicOperations.FixedTimeEquals`); an
+  unknown user is compared against a random dummy hash, so it costs the same and answers the
+  same (ADR-0032 section 8). The empty user name is the Bearer token's account and never
+  matches `CheckPassword`.
 - `UserFileParser`: the `--user-file` text (bytes, never the disk) into accounts, after the
   `--user` ones, or the first refused line as a `UserFileLineFailure` whose `Describe()` is
   ADR-0032 section 2's text after the path.
@@ -52,6 +55,14 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   each HTTP method (BL-111, BL-113, BL-120, BL-121, BL-122) implements. The policy offers and
   checks only the methods it is given that `--auth` accepts; an `Authorization` of any other
   method is treated as missing.
+- A request without credentials is challenged when a login is required to read
+  (`AuthenticationSettings.IsLoginRequiredToRead`: an account is held or has been held, or the directory
+  serves the scheme) or the request is a write, and proceeds anonymously otherwise. So removing the last
+  account opens no read (ADR-0132 amendment 5, BL-1863). `AuthenticationSettings.RequiresLoginWithoutAccounts`
+  (`false` by default; BL-1850, ADR-0132 amendment 4) challenges it in either case, a `GET` or `HEAD`
+  with an empty account book included, and forbids it when no accepted method can be offered.
+  `--allow-anonymous` and a connection's NTLM or Negotiate login still come first. A `ForScheme` view
+  keeps the value.
 
 ## Basic and Bearer (BL-111)
 
@@ -428,6 +439,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `pop` there and refused every LDAP ticket. ADR-0078's OpenLDAP build of upstream curl proves it
   on CI's Linux leg (`Surl.Conformance.UnitTests`).
 
+## SASL `GSSAPI` over AMQP (BL-1858)
+
+- `GssapiSaslExchange` checks the ticket for the service `amqp` on `amqp`, `amqps`, `amqp1` and
+  `amqp1s` (ADR-0057 Amendment 4); before BL-1858 it answered `pop` there, so an `amqp/<host>`
+  ticket was refused. Kafka, XMPP and MQTT 5 start SASL exchanges too but never offer `GSSAPI`.
+
 ## SASL `SCRAM-SHA-1` and `SCRAM-SHA-256` (BL-416)
 
 - `ScramSaslExchange` is RFC 5802 and RFC 7677 without channel binding, the mechanism ADR-0084
@@ -481,8 +498,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   account check, SSH public keys - refuses it with the same verdict, note and `RefusalDelay` as no
   such account. With no restricted account left out, the view is the settings themselves.
 - `Surl.Composition` builds one `AuthenticationPolicy`, with its HTTP methods over the view's
-  `Accounts`, per scheme (BL-653); a view with no accounts left serves HTTP anonymous reads as
-  ADR-0032 section 4 serves them with none configured.
+  `Accounts`, per scheme (BL-653). Whether a scheme needs a login to read is judged per view
+  (ADR-0132 amendment 5, BL-1863): a view that has never held an account serves HTTP anonymous reads
+  as ADR-0032 section 4 serves them with none configured; a view that has held one, configured or
+  added while the server ran, keeps challenging such a read after its last account is removed, whether
+  or not accounts for other schemes remain. A reset returns the answer the configured accounts give,
+  and a restore the one that held when the snapshot was taken.
 
 ## Login events and refuse-login (BL-791, ADR-0128)
 
@@ -502,6 +523,12 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   step that accepted, through `RefuseByFaultAsync`, which `BearerTokenSaslExchange` and `ScramSaslExchange`
   override). The tests are `LoginJudgementPolicyTests`, with `SpendingFaultPlan` spending `times`.
 
+- `JudgeKerberosLoginAsync` (SOCKS5 GSS-API, ADR-0165; BL-1225) publishes mechanism `gssapi` and, since
+  BL-1838 (ADR-0165 amendment 1), accepts an accepted token only when an account of exactly the client
+  principal's name exists in the policy's book at that moment, or under `--allow-anonymous`; a principal with
+  no account is refused after the delay without asking the fault plan. Only the proxy policy is asked today,
+  and a proxy given no proxy account has `AnonymousAuthenticationPolicy`, which accepts any ticket. The tests
+  are `KerberosLoginJudgementPolicyTests`.
 - A `PasswordLogin` with `IsToken` (BL-1586; NATS `auth_token`, Socket.IO `token`) is checked by
   `CheckPasswordLoginAsync` with `AccountBook.CheckBearerToken` against the empty-name account's password, after
   the same `--allow-anonymous` and plain-text rules, and noted as `bearer token` (mechanism `password`); an empty
@@ -514,7 +541,16 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   flight reads the set before or after a change, never a half-written one. `Add` (derives every credential as
   at start; a name that exists throws `ArgumentException`), `Remove` (`false` for no such name), `Reset` (the
   accounts the book was built with), `TakeSnapshot` and `Restore` (an `AccountSnapshot` of another book throws
-  `ArgumentException`). A snapshot holds hashes and derived credentials, never `Account.Password`.
+  `ArgumentException`). A snapshot holds each password's SHA-256 and, for a named account, the derived
+  credentials, the password's UTF-8 bytes among them, so a snapshot holds secrets: treat it as holding every
+  named account's password. The `Account.Password` string is not kept. The empty-name account is held as its
+  SHA-256 only (ADR-0132 amendment 3).
+- Each `AccountSet` also keeps `HeldSchemes`: the different `Account.Schemes` values of every account held until
+  then, no name and no credential among them (ADR-0132 amendment 5, BL-1863). `Add`, `Remove` and `SetPassword`
+  carry it on, `Reset` starts it again from the configured accounts, and an `AccountSnapshot` records it for
+  `Restore`. A view filters it as it filters the accounts, and `AuthenticationSettings.IsLoginRequiredToRead`
+  asks whether any is left (the internal `AccountBook.HasHeldAccount`). `HasAccounts` still means an account is
+  held now.
 - `ForScheme` always returns a live view over the same store (filtered again only when the set changes), and
   `AuthenticationSettings.ForScheme` always uses it, so a change reaches every scheme's logins at once. A
   view's changes act on the book it came from. Authorized keys do not change with the accounts.
@@ -544,9 +580,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   bind password, a DN or the URL. The refusal delay counts from the check's start.
 - `CheckPasswordLoginAsync`, HTTP Basic, SASL `PLAIN`/`LOGIN` and SSH `password` consult it.
 - `LdapAccountSource.Serves` admits a scheme `protocols=` names or its TLS twin, as `Account.MayLogInOn` does.
-  `AuthenticationSettings.HasAccountToLogInTo(scheme)` is the one answer to "is there an account to log in to":
-  the book's accounts, or a directory serving the scheme (ADR-0149 amendments 1 and 2). HTTP reads and the
-  CoAP access rules ask it (BL-1669).
+  `AuthenticationSettings.IsLoginRequiredToRead(scheme)` is the one answer to "does a read need a login":
+  an account the book or view holds or has held (ADR-0132 amendment 5), or a directory serving the scheme
+  (ADR-0149 amendments 1 and 2). HTTP reads and the CoAP access rules ask it (BL-1669).
 - The HTTP family (reads and Basic logins) and SSH password logins ask the directory about the scheme of their
   policy's `AuthenticationSettings.ForScheme` view (`ws`, `rtsp`, `sftp`, `scp`, ...), and about `http` or `ssh`
   when the settings are no view (`DirectorySchemeFor`; ADR-0149 amendments 2 and 3). Login events and fault

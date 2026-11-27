@@ -38,7 +38,8 @@ The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decision
   `Mqtt5ConnectJudge` for property values and Authentication Data without a method, the login through
   `IAuthenticationPolicy`, CONNACK with `Mqtt5ConnectAcknowledgementProperties`, then PINGREQ,
   DISCONNECT and the Keep Alive (1.5 times the one in force, then DISCONNECT `0x8D`).
-- `Mqtt5BrokerState` is shared by every connection of one broker: connected client identifiers,
+- `Mqtt5BrokerState` is shared by every connection of the brokers built over it (`Surl.Composition` builds one broker
+  for `mqtt5` and `mqtt5s` and one for `mqtt5+ws` over one state, BL-1911): connected client identifiers,
   assigned `surl-<32 hex>` identifiers, Wills waiting out their delay on the context's
   `TimeProvider`, and the one `Surl.MessageBus` of the run (ADR-0100 decision 3.9), on which
   every Will is published for the client's account. A client PUBLISH goes through the client's own

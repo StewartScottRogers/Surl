@@ -13,6 +13,7 @@ using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.Redis;
 using Surl.Extended.Protocol.S3;
+using Surl.Kerberos;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -22,21 +23,28 @@ using Surl.Protocol.Http;
 namespace Surl.Composition;
 
 /// <summary>
-/// The ordered start (ADR-0099, decision 2): the option refusals, the data directory, the content
-/// store, the listen-URL refusals, authentication and host keys, the lock, the service state and
-/// server TLS, each refusal returned rather than written.
+/// The ordered start (ADR-0099, decision 2), in this order: the option refusals, the data
+/// directory, the content file system, the listen-URL refusals, authentication and host keys (with
+/// the other start files read before the lock), the check that each scheme a <c>protocols=</c> list
+/// names makes a login, the shares and buckets, the message bus configuration, the content store and
+/// its bucket folders, the locks, the service state, the protocol servers (then the AMQP 0-9-1
+/// exchanges kept on disk and the stores a test controls) and server TLS, each refusal returned
+/// rather than written.
 /// </summary>
 public static partial class SurlServerComposition
 {
     /// <summary>
-    /// Runs the ordered start of <paramref name="commandLine"/> up to and including server TLS and
-    /// the service state, opening no file for writing: <c>--auth gssapi</c> without
-    /// <c>--keytab</c> and an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer (2),
-    /// a data directory that cannot be opened (37), a TLS-first listen URL with no certificate (58)
-    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files, the shares and
-    /// buckets (2, or 37 for a share directory that cannot be opened), the data
-    /// directory's lock (124 or 23), the service state (37) and the TLS files (58, 2 or 77), in
-    /// that order.
+    /// Runs the ordered start of <paramref name="commandLine"/> up to and including server TLS,
+    /// opening no log or trace file: <c>--auth gssapi</c> without <c>--keytab</c>, an
+    /// <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer and <c>--dns-transport</c>
+    /// transports that cannot use a <c>dns</c> listen URL's port (2), a data directory that cannot be
+    /// opened (37), a listen URL that requires a certificate and has none (58) or an <c>scp</c> or
+    /// <c>sftp</c> one with no host key (2), the start files read before the lock (37, 2, or 77 for
+    /// the <c>--user-ldap</c> <c>ca-file</c>), a <c>protocols=</c> scheme that makes no login (2),
+    /// the shares and buckets (2, or 37 for a share directory that cannot be opened), the message bus
+    /// configuration (2), a bucket directory that cannot be opened (37), the data directory's and
+    /// writable shares' locks (124 or 23), the service state (37, or 2), the AMQP 0-9-1 exchanges
+    /// (37) and server TLS (58, 2 or 77, or 37 for a TLS-SRP file), in that order.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="seams">What the host hands the composition.</param>
@@ -114,9 +122,11 @@ public static partial class SurlServerComposition
     }
 
     /// <summary>
-    /// Formats the <c>(58)</c> message for a listen URL that is TLS from the first byte with
-    /// neither <c>--cert</c> nor <c>--self-signed</c>, after the <c>surl: </c> prefix, the URL
-    /// written as the status line writes it, with the port as given (ADR-0032, section 10).
+    /// Formats the <c>(58)</c> message for a listen URL that requires a certificate with neither
+    /// <c>--cert</c> nor <c>--self-signed</c>
+    /// (<see cref="ServerTlsComposition.FindListenUrlWithoutCertificate"/>), after the <c>surl: </c>
+    /// prefix, the URL written as the status line writes it, with the port as given (ADR-0032,
+    /// section 10). A <c>coaps</c> URL's message also offers <c>--user</c> for a pre-shared key.
     /// </summary>
     /// <param name="listenUrl">The first such listen URL.</param>
     /// <returns>The message.</returns>
@@ -163,7 +173,7 @@ public static partial class SurlServerComposition
             ? "(2) --auth gssapi needs --keytab"
             : SshAlgorithmComposition.FindRefusal(commandLine);
 
-    // A listen URL TLS from the first byte with no certificate to serve (ADR-0032, section 10),
+    // A listen URL that requires a certificate and has none to serve (ADR-0032, section 10),
     // then an scp or sftp one with no host key to serve (ADR-0051, decision 4): each refused
     // before any listener binds. A scheme no server answers never gets here: every scheme
     // ListenUrlParser accepts is registered, and it refuses every other one with (1).
@@ -300,7 +310,8 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]));
         }
 
-        // The control token file, last of the start files (ADR-0124 decision 7).
+        // The control token file, the last start file read before the data-directory lock (ADR-0124 decision 7).
+        // After the lock, ComposeServing reads the server TLS files.
         var (controlToken, controlExitCode, controlFailureMessage) = ControlComposition.ReadToken(commandLine, readStartFile);
         return controlFailureMessage is not null
             ? (null, new SurlStartFailure(controlExitCode, [controlFailureMessage]))
@@ -399,18 +410,11 @@ public static partial class SurlServerComposition
         public void Dispose() => ReleaseAll(held);
     }
 
-    // A field, not a method group at the call: the compiler caches a method group in one static shared by every use of File.ReadAllBytes, so which use created it would decide this method's branch coverage (BL-1350).
-    private static readonly Func<string, byte[]> ReadKeytabFromDisk = File.ReadAllBytes;
-
-    // The SOCKS5 server's GSS-API login (BL-1066): over its own acceptor on the --keytab, the
-    // service name rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab. The
-    // keytab was already read and accepted by AuthenticationComposition.Compose, so a read that
-    // fails now (the file changed between) leaves SOCKS5 without the method rather than failing a start.
-    internal static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
-    {
-        var (acceptor, _, _, _) = KeytabComposition.Read(commandLine, seams.ReadStartFile ?? ReadKeytabFromDisk, seams.TimeProvider);
-        return acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
-    }
+    // The SOCKS5 server's GSS-API login (BL-1066): over the authentication policy's --keytab acceptor, so the
+    // keytab is read once and the instance has one replay cache (ADR-0057 amendment 5), and the service name
+    // rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab.
+    private static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(KerberosAcceptor? acceptor) =>
+        acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
 
     private static async Task<SurlServerStart> ComposeUnderTheLockAsync(
         SurlCommandLine commandLine,
@@ -478,7 +482,7 @@ public static partial class SurlServerComposition
             KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
-            SocksGssApiLogin = ComposeSocksGssApiLogin(commandLine, seams),
+            SocksGssApiLogin = ComposeSocksGssApiLogin(authentication.Policy.Settings.KerberosAcceptor),
             MailDomains = commandLine.MailDomains,
             IdentifiersForServer = commandLine.RandomSeed is { } seed
                 ? new SeededIdentifierRandom(seed).ForServer
@@ -528,19 +532,19 @@ public static partial class SurlServerComposition
             state.MailStore,
             state.MessageBus,
             authentication.Policy.Settings.Accounts,
-            additionalRegistrations: [.. redis, .. (ldap is null ? new List<ComposedStoreRegistration>() : [LdapDirectoryStoreRegistration.For(ldap)]), .. ControlledBrokerStores(servers, instruments.Events), .. dns, .. ControlledUploads(servers, contentStore, instruments.Events)],
+            additionalRegistrations: [.. redis, .. (ldap is null ? new List<ComposedStoreRegistration>() : [LdapDirectoryStoreRegistration.For(ldap)]), .. ControlledBrokerAndSessionStores(servers, instruments.Events), .. dns, .. ControlledUploads(servers, contentStore, instruments.Events)],
             ldapServer: ldap,
             redisKeyspace: redis.Count > 0 ? services.RedisKeyspace : null,
             dnsZones: dns.Count > 0 ? state.DnsZones : null,
             proxyAccounts: (authentication.ProxyPolicy as Surl.Authentication.AuthenticationPolicy)?.Settings.Accounts,
             events: instruments.Events);
     }
-    // The Redis keyspace joins the order after the accounts when a redis server is composed (ADR-0158 decision 5); with
-    // SURL_EXTENSIONS=0 there is no server and so no store.
+    // The Redis keyspace joins the order after the accounts when a redis server is composed and a redis or rediss
+    // listen URL is served (ADR-0158 decision 5); with SURL_EXTENSIONS=0 there is no server and so no store.
     private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, bool isServed, ComposedProtocolServices services) =>
         isServed && servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
 
-    // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) when a dns server is composed (ADR-0158 decision 5).
+    // The DNS zones join the order after the broker and session stores (BL-1165: the exchanges already follow the directory) and before the uploads, when a dns server is composed and a dns listen URL is served (ADR-0158 decision 5).
     private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, bool isServed, DnsZoneSet zones) =>
         isServed && IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
 
@@ -548,7 +552,8 @@ public static partial class SurlServerComposition
     private static List<ComposedStoreRegistration> ControlledUploads(IProtocolServer[] servers, ContentStore content, SurlEventStream events) =>
         [.. new[]
         {
-            UploadStoreRegistrations.Combine(
+            SameKindStoreRegistrations.Combine(
+                StoreKind.Uploads,
                 S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
                 AzureStagedUploadStoreRegistration.For([.. servers.OfType<AzureStorageProtocolServer>()], content, events),
                 GcsStagedUploadStoreRegistration.For([.. servers.OfType<GoogleCloudStorageProtocolServer>()], content, events),
@@ -563,13 +568,15 @@ public static partial class SurlServerComposition
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
         servers.OfType<DnsDatagramRoutingProtocolServer>().Any();
 
-    // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
-    private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>
+    // The broker and session stores the composed servers hold beside the bus (ADR-0159 decision 3, ADR-0167), each only when
+    // its server is composed: the AMQP 0-9-1 exchanges, the Kafka producers, then the one sessions entry (MQTT 5 sessions,
+    // OCI tokens, MCP OAuth state and sessions, in that order).
+    private static List<ComposedStoreRegistration> ControlledBrokerAndSessionStores(IProtocolServer[] servers, SurlEventStream events) =>
         [.. new[]
         {
             Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
             KafkaBrokerStoreRegistration.For([.. servers.OfType<KafkaBroker>()], events),
-            UploadStoreRegistrations.CombineOf(
+            SameKindStoreRegistrations.Combine(
                 StoreKind.Sessions,
                 Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
                 OciTokenStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], events),

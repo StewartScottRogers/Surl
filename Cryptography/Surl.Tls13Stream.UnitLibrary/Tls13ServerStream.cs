@@ -68,7 +68,11 @@ public sealed class Tls13ServerStream : Stream
     /// <summary>Runs the server side of a TLS 1.3 handshake over <paramref name="transport"/>.</summary>
     /// <param name="transport">The connection; the stream owns it once this returns, and the caller keeps it when this throws.</param>
     /// <param name="options">The certificate, key, ALPN protocols and client-certificate policy.</param>
-    /// <param name="random">The source of the server random and key shares.</param>
+    /// <param name="random">
+    /// The source of the server random and of the chosen key share group's ML-KEM m, private key or
+    /// exponent. A NIST curve key, alone or in a hybrid, does not come from it: the base class
+    /// library generates it. The remarks on <see cref="TlsServerHandshake"/> give the draw order.
+    /// </param>
     /// <param name="alreadyRead">Bytes already read from the transport, starting at a record header - typically the ClientHello record - replayed before anything more is read.</param>
     /// <param name="cancellationToken">Cancels the handshake.</param>
     /// <returns>The stream carrying the connection's application data.</returns>

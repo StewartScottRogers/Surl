@@ -9,7 +9,7 @@ namespace Surl.Cli;
 internal static partial class OptionNames
 {
     // Options of upstream curl's the texts name as curl's, never as surl's.
-    private static readonly string[] CurlOptionsNamedAsCurls = ["--digest", "-k", "-N"];
+    private static readonly string[] CurlOptionsNamedAsCurls = ["--digest", "--socks5-gssapi", "-k", "-N"];
 
     /// <summary>Asserts that every option name <paramref name="text"/> writes is one surl has.</summary>
     /// <param name="text">The help or manual text.</param>

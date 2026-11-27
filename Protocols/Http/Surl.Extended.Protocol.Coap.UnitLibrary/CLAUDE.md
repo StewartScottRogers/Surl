@@ -20,8 +20,10 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
   marker with no payload, a token or option past the datagram, an option number past 65535, or
   an Empty message with a token or bytes after its Message ID.
 - `CoapProtocolServer` (scheme `coap`, `IDatagramProtocolServer`) takes the `ContentStore` and
-  `CoapAccessRules` (`--allow-anonymous`, and a question asked at each read: whether an account exists now) and serves each flow
-  through a `CoapFlowSession` until the engine cancels it.
+  `CoapAccessRules` (`--allow-anonymous`, and a question asked at each read, `IsLoginRequiredToRead`) and serves each
+  flow through a `CoapFlowSession` until the engine cancels it. A read needs a login once `coap` has had an account,
+  after the last one is removed too, until a reset or restore of the accounts returns a state in which it had none
+  (ADR-0132 amendment 5).
 - `CoapFlowSession` is one flow's message layer: a CON format error, Empty CON, response or
   reserved code gets an Empty RST of its Message ID, and the same NON is ignored; a CON request is
   answered piggybacked when its answer is ready within 1 second, else with an Empty ACK and a

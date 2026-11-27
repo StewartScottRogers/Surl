@@ -30,6 +30,8 @@
   decision 3.4 (2026-11-05): with `--topic-access` given, a refused publish or subscribe is
   `0x87`. Decision 10 (2026-11-06, BL-714) records the choices BL-497 made building PUBLISH and
   delivery where decision 4 left a gap.
+- **Amended:** decision 2 by its own text, "As `surl` composes it" (2026-11-27, BL-1903): the
+  composed broker has the SASL policy, and SCRAM is offered only when `--auth` names it.
 - **Amends:** [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
   decision 4's table: Mqtt5 reaches `ISaslAuthenticationPolicy` too, for enhanced authentication
   (decision 2). [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) section 5's "MQTT closes
@@ -110,6 +112,11 @@ What MQTT 5.0 fixes for a server, by chapter:
   `MqttRetainedMessages` is for 3.1.1; never a static. `mqtt5`, `mqtt5s` and `mqtt5+ws` listeners
   of one `surl` run share one broker (BL-501 creates it once), so a client on `mqtt5+ws` receives
   what a client on `mqtt5s` publishes.
+  - **Amendment, 2026-11-27 (BL-1911); decided by Claude under Stewart's delegation.** What the three
+    schemes share is the one `Mqtt5BrokerState`, not one `Mqtt5Broker` object: `Surl.Composition` builds a
+    broker for `mqtt5` and `mqtt5s` and a second one behind `mqtt5+ws` over that state, so each judges logins
+    over its own scheme's view of the accounts ([ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+    decision 4.3). Sessions, takeover, subscriptions and Wills are shared across the three as before.
 
 ### 1. CONNECT and the CONNACK properties (MQTT 5.0 3.1, 3.2)
 
@@ -229,6 +236,17 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
   client-first, which SCRAM refuses (`0x87`). SCRAM's server-final, which the policy issues as a second
   challenge, is answered with the empty response and carried in the CONNACK or AUTH `0x00`.
   Re-authentication that authenticates a different account from the CONNECT's is DISCONNECT `0x87`.
+- **As `surl` composes it** (amended 2026-11-27 by BL-1903; decided by Claude under Stewart's
+  delegation). `Surl.Composition` gives each broker one policy as both its `IAuthenticationPolicy` and
+  its `ISaslAuthenticationPolicy` - `AuthenticationPolicyFor("mqtt5")` for `mqtt5` and `mqtt5s`, and
+  since BL-1911 `AuthenticationPolicyFor("mqtt5+ws")` for `mqtt5+ws` - so all three schemes serve
+  enhanced authentication (until BL-1903 it passed no SASL policy, and every method was `0x8C`). The methods offered are those the policy accepts: `SCRAM-SHA-256` and `SCRAM-SHA-1`
+  when `--auth` names `scram-sha-256` or `scram-sha-1`, and none without it. **Why:** SCRAM is not in
+  the default accepted set (ADR-0125 decision 9), and
+  [ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) adds it per scheme for
+  `kafka` and `xmpp` alone; this decision and BL-1903 leave the default accepted set of every scheme
+  as it was, so a start without `--auth` answers a method as before.
+
 ### 3. Session state (MQTT 5.0 3.1.2.4, 3.1.2.5, 3.1.2.11.2, 4.1)
 
 - **What a session holds** (4.1): its subscriptions with their options and identifiers; QoS 1 and 2

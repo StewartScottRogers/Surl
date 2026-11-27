@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Authentication;
 using Surl.Cli;
@@ -15,21 +16,47 @@ public sealed class CoapsCompositionTests
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(30);
 
     [TestMethod]
-    [DataRow(false, false, false)]
-    [DataRow(true, false, true)]
-    [DataRow(false, true, false)]
-    public void CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAnAccountExists(bool allowAnonymous, bool hasAccount, bool expectedAnonymous)
+    [DataRow(false, false, false, false)]
+    [DataRow(true, false, true, false)]
+    [DataRow(false, true, false, true)]
+    public void CoapAccessRulesFor_Policy_IsAnonymousSwitchAndWhetherAReadNeedsALogin(
+        bool allowAnonymous, bool hasAccount, bool expectedAnonymous, bool expectedLoginRequiredToRead)
     {
         var services = ComposeServices(allowAnonymous, hasAccount ? [new Account("alice", "pw")] : []);
 
         var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
 
         Assert.AreEqual(expectedAnonymous, rules.AllowsAnonymous);
-        Assert.AreEqual(hasAccount, rules.HasAccounts());
+        Assert.AreEqual(expectedLoginRequiredToRead, rules.IsLoginRequiredToRead());
     }
 
     [TestMethod]
-    public void CoapAccessRulesFor_AccountAddedAndRemovedAfterComposing_FollowsTheBook()
+    [DataRow(false, true, DisplayName = "accounts built empty, the one account added")]
+    [DataRow(true, false, DisplayName = "accounts built with the one account")]
+    public void CoapAccessRulesFor_OnlyAccountRemoved_RefusesAnUnauthenticatedReadUntilAResetOfAccountsBuiltEmpty(
+        bool isBuiltWithTheAccount, bool mayReadAfterReset)
+    {
+        var account = new Account("alice", "pw");
+        var services = ComposeServices(false, isBuiltWithTheAccount ? [account] : []);
+        var book = services.AuthenticationPolicy.Settings.Accounts;
+        if (!isBuiltWithTheAccount)
+        {
+            book.Add(account);
+        }
+
+        var rules = ExtendedProtocolServers.CoapAccessRulesFor(services);
+
+        Assert.IsTrue(book.Remove("alice"));
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Reset();
+
+        Assert.AreEqual(mayReadAfterReset, rules.MayRead(peerIsAuthenticated: false));
+    }
+
+    [TestMethod]
+    public void CoapAccessRulesFor_AccountAddedAndRemovedAfterComposing_StaysClosedUntilAReset()
     {
         var services = ComposeServices(false, []);
         var book = services.AuthenticationPolicy.Settings.Accounts;
@@ -45,6 +72,10 @@ public sealed class CoapsCompositionTests
         Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
 
         book.Remove("alice");
+
+        Assert.IsFalse(rules.MayRead(peerIsAuthenticated: false));
+
+        book.Reset();
 
         Assert.IsTrue(rules.MayRead(peerIsAuthenticated: false));
     }
@@ -198,6 +229,44 @@ public sealed class CoapsCompositionTests
 
         Assert.IsNull(composition.QuicCertificate);
         Assert.IsNull(composition.Settings);
+    }
+
+    [TestMethod]
+    public void Compose_CoapsUnderTlsSrpWithSelfSigned_HasTheThrowawayCertificate()
+    {
+        using var composition = ServerTlsComposition.Compose(
+            Parse("--tlsuser", "u", "--tlspassword", "p", "--self-signed", "https://127.0.0.1:0/", "coaps://127.0.0.1:0/"),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.QuicCertificate);
+        Assert.AreEqual(composition.ThrowawayCertificateFingerprint, Convert.ToHexString(SHA256.HashData(composition.QuicCertificate.Chain[0].Span)));
+    }
+
+    [TestMethod]
+    public void Compose_CoapsUnderTlsSrpWithCertAndKey_HasThatCertificate()
+    {
+        using var files = TestCertificateFiles.Create();
+        using var expected = X509Certificate2.CreateFromPemFile(files.CertificateFile, files.KeyFile);
+
+        using var composition = ServerTlsComposition.Compose(
+            Parse(
+                "--tlsuser", "u", "--tlspassword", "p", "--cert", files.CertificateFile, "--key", files.KeyFile,
+                "https://127.0.0.1:0/", "coaps://127.0.0.1:0/"),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.QuicCertificate);
+        CollectionAssert.AreEqual(expected.RawData, composition.QuicCertificate.Chain.Single().ToArray());
+    }
+
+    [TestMethod]
+    public void Compose_CoapsUnderTlsSrpWithAnAccountAndNoCertificate_ServesNoCertificate()
+    {
+        using var composition = ServerTlsComposition.Compose(
+            Parse("--tlsuser", "u", "--tlspassword", "p", "--user", "alice:pw", "https://127.0.0.1:0/", "coaps://127.0.0.1:0/"),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNull(composition.QuicCertificate);
     }
 
     private static SurlCommandLine Parse(params string[] args) =>

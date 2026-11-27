@@ -79,9 +79,10 @@ public static class ListenUrlParser
 
     /// <summary>
     /// Parses <paramref name="argument"/> as a proxy listen URL, the argument of <c>-x</c>/<c>--proxy</c>
-    /// (ADR-0088 decision 7 and Amendment 2): <c>http</c> or <c>https</c> only, by the same rules as
-    /// <see cref="Parse(string)"/>, with upstream curl's proxy default ports (1080 for <c>http</c>, 443 for
-    /// <c>https</c>) and <see cref="ListenUrl.IsProxy"/> set.
+    /// (ADR-0088 decision 7 and Amendment 2, ADR-0121 decision 5): <c>http</c>, <c>https</c>, <c>socks4</c>,
+    /// <c>socks4a</c>, <c>socks5</c> or <c>socks5h</c> only, by the same rules as <see cref="Parse(string)"/>,
+    /// with the default ports of <see cref="ProxyDefaultPorts"/> (443 for <c>https</c>, 1080 for each of the
+    /// other five) and <see cref="ListenUrl.IsProxy"/> set.
     /// </summary>
     /// <param name="argument">The argument of one <c>--proxy</c>.</param>
     /// <returns>

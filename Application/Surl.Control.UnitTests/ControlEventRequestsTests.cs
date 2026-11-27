@@ -45,6 +45,36 @@ public sealed class ControlEventRequestsTests
     }
 
     [TestMethod]
+    public async Task FindEventsAsync_GracefulDropFaultApplied_WritesCloseGraceful()
+    {
+        var log = new ControlEventLog();
+        Add(log, 1, new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Accept, 6, "http://127.0.0.1:8080/") { Close = FaultClose.Graceful });
+
+        var response = await ServeAsync(EndpointOver(log), Request("GET", "/v1/events"), new ManualTimeProvider(), TestContext.CancellationToken);
+
+        Assert.AreEqual(
+            "{\"events\":["
+            + "{\"sequence\":1,\"at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\",\"kind\":\"fault_applied\",\"exchange_id\":6,\"rule_id\":\"f1\",\"fault_kind\":\"drop\",\"stage\":\"accept\",\"target\":\"http://127.0.0.1:8080/\",\"close\":\"graceful\"}"
+            + "],\"has_more\":false,\"dropped_event_count\":0}",
+            Body(response));
+    }
+
+    [TestMethod]
+    public async Task FindEventsAsync_NonDropFaultApplied_WritesNoCloseMember()
+    {
+        var log = new ControlEventLog();
+        Add(log, 1, new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Accept, 6, "http://127.0.0.1:8080/"));
+
+        var response = await ServeAsync(EndpointOver(log), Request("GET", "/v1/events"), new ManualTimeProvider(), TestContext.CancellationToken);
+
+        Assert.AreEqual(
+            "{\"events\":["
+            + "{\"sequence\":1,\"at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\",\"kind\":\"fault_applied\",\"exchange_id\":6,\"rule_id\":\"f1\",\"fault_kind\":\"delay\",\"stage\":\"accept\",\"target\":\"http://127.0.0.1:8080/\"}"
+            + "],\"has_more\":false,\"dropped_event_count\":0}",
+            Body(response));
+    }
+
+    [TestMethod]
     [DataRow("kind=login_judged", "4")]
     [DataRow("scheme=SMTP", "1,2,4,5")]
     [DataRow("listen_url=http%3A%2F%2F127.0.0.1%3A8080", "3")]

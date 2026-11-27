@@ -16,12 +16,16 @@ namespace Surl.Composition;
 /// stream, its fault plan and its <see cref="ComposedStores"/>, the same surface <c>Surl.Api</c> and
 /// <c>Surl.Mcp</c> drive. Each change is published by the store or plan it changes.
 /// </summary>
+/// <remarks>
+/// Removing the last account does not open the server: it still asks for a login wherever it did, and the removal
+/// writes one warning saying so (ADR-0132 amendment 5). <see cref="ComposedStores.HasAccounts"/> being
+/// <see langword="false"/> after it means only that no account is held.
+/// </remarks>
 /// <param name="events">The instance's event stream.</param>
 /// <param name="faults">The instance's fault plan.</param>
 /// <param name="stores">The instance's stores.</param>
 /// <param name="log">The instance log, where removing the last account or proxy account is warned (BL-1477).</param>
-/// <param name="hasDirectory">Whether the server was started with <c>--user-ldap</c>, so removing the last local account still leaves logins checked against the directory (ADR-0149 amendment 1, BL-1671).</param>
-internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores, TextWriter log, bool hasDirectory = false) : IControlTarget
+internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores, TextWriter log) : IControlTarget
 {
     /// <summary>Creates a target whose warnings go nowhere.</summary>
     /// <param name="events">The instance's event stream.</param>
@@ -195,7 +199,8 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         }
         catch (ArgumentException)
         {
-            throw new ControlRefusalException(ControlRefusalKind.Conflict, $"user {user} already has an account");
+            var conflict = user.Length == 0 ? "the Bearer-token account already exists" : $"user {user} already has an account";
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, conflict);
         }
 
         return Task.CompletedTask;
@@ -224,9 +229,7 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         var isRemoved = stores.RemoveAccount(user);
         if (isRemoved && !stores.HasAccounts)
         {
-            log.WriteLine(hasDirectory
-                ? "surl: warning: no local account left; logins are now checked against the directory only"
-                : "surl: warning: no account left; the server now needs no login");
+            log.WriteLine("surl: warning: no local account left; the server still asks for a login wherever it did");
         }
 
         return Task.FromResult(isRemoved);
@@ -243,7 +246,7 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
             var isRemoved = stores.RemoveProxyAccount(user);
             if (isRemoved && !stores.HasProxyAccounts)
             {
-                log.WriteLine("surl: warning: no proxy account left; the proxy now needs no login");
+                log.WriteLine("surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through");
             }
 
             return isRemoved;

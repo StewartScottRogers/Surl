@@ -196,6 +196,68 @@ public sealed class ProxyCompositionTests
     }
 
     [TestMethod]
+    [DataRow(ForwardedRequest)]
+    [DataRow(ConnectRequest)]
+    public async Task Start_TheLastProxyAccountRemoved_ChallengesARequestWithoutCredentials(string request)
+    {
+        var origin = new InMemoryOriginConnector();
+        var client = new FakeConnection(Bytes(request));
+        var commandLine = CommandLine("http://127.0.0.1:3128") with { ProxyAccounts = [new CommandLineAccount("alice", "secret")] };
+
+        await ServeAsync(commandLine, Seams(origin, "http", client), client, RemoveTheOnlyProxyAccount);
+
+        StringAssert.StartsWith(Text(client.WrittenBytes), "HTTP/1.1 407 Proxy Authentication Required\r\n");
+        CollectionAssert.AreEqual(new[] { "Digest" }, ProxyChallengeSchemes(Text(client.WrittenBytes)));
+        Assert.AreEqual(0, origin.Requests.Count);
+    }
+
+    [TestMethod]
+    [DataRow(ForwardedRequest)]
+    [DataRow(ConnectRequest)]
+    public async Task Start_AnEmptyProxyUserFile_ChallengesARequestWithoutCredentials(string request)
+    {
+        var origin = new InMemoryOriginConnector();
+        var client = new FakeConnection(Bytes(request));
+        var commandLine = CommandLine("http://127.0.0.1:3128") with { ProxyUserFile = "proxy-users.txt" };
+        var seams = Seams(origin, "http", client) with { ReadStartFile = _ => [] };
+
+        await ServeAsync(commandLine, seams, client);
+
+        StringAssert.StartsWith(Text(client.WrittenBytes), "HTTP/1.1 407 Proxy Authentication Required\r\n");
+        CollectionAssert.AreEqual(new[] { "Digest" }, ProxyChallengeSchemes(Text(client.WrittenBytes)));
+        Assert.AreEqual(0, origin.Requests.Count);
+    }
+
+    [TestMethod]
+    public async Task Start_NoProxyAccount_ForwardsAGetWithoutCredentials()
+    {
+        var origin = ScriptedNoContentOrigin();
+        var client = new FakeConnection(Bytes(ForwardedRequest));
+
+        await ServeAsync(CommandLine("http://127.0.0.1:3128"), origin, "http", client);
+
+        StringAssert.StartsWith(Text(client.WrittenBytes), "HTTP/1.1 204 No Content\r\n");
+        Assert.AreEqual(1, origin.Requests.Count);
+    }
+
+    [TestMethod]
+    public async Task Start_AllowAnonymousAndTheLastProxyAccountRemoved_ForwardsAGetWithoutCredentials()
+    {
+        var origin = ScriptedNoContentOrigin();
+        var client = new FakeConnection(Bytes(ForwardedRequest));
+        var commandLine = CommandLine("http://127.0.0.1:3128") with
+        {
+            ProxyAccounts = [new CommandLineAccount("alice", "secret")],
+            AllowAnonymous = true,
+        };
+
+        await ServeAsync(commandLine, Seams(origin, "http", client), client, RemoveTheOnlyProxyAccount);
+
+        StringAssert.StartsWith(Text(client.WrittenBytes), "HTTP/1.1 204 No Content\r\n");
+        Assert.AreEqual(1, origin.Requests.Count);
+    }
+
+    [TestMethod]
     public async Task Start_AnUnreadableProxyUserFile_FailsWithCouldNotReadFile()
     {
         var commandLine = CommandLine("http://127.0.0.1:3128") with { ProxyUserFile = "proxy-users.txt" };
@@ -454,14 +516,27 @@ public sealed class ProxyCompositionTests
         SurlCommandLine commandLine, InMemoryOriginConnector origin, string scheme, FakeConnection client) =>
         ServeAsync(commandLine, Seams(origin, scheme, client), client);
 
+    private static InMemoryOriginConnector ScriptedNoContentOrigin() => new InMemoryOriginConnector().ScriptConnection(
+        "origin.test", 80, new InMemoryConnection([Bytes("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")]));
+
+    private static void RemoveTheOnlyProxyAccount(ComposedServing serving)
+    {
+        Assert.IsTrue(serving.Stores.RemoveProxyAccount("alice"));
+        Assert.IsFalse(serving.Stores.HasProxyAccounts);
+    }
+
     private async Task<(IReadOnlyList<ListenUrl> Bound, string Log)> ServeAsync(
-        SurlCommandLine commandLine, SurlServerCompositionSeams seams, FakeConnection client)
+        SurlCommandLine commandLine,
+        SurlServerCompositionSeams seams,
+        FakeConnection client,
+        Action<ComposedServing>? beforeServing = null)
     {
         using var log = new StringWriter();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
         await using var serving = start.Serving ?? throw new AssertFailedException(string.Join(' ', start.Failure!.Lines));
+        beforeServing?.Invoke(serving);
 
         var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
         var boundUrls = await bound.Task.WaitAsync(TestContext.CancellationToken);

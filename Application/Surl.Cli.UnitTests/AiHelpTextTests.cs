@@ -189,9 +189,9 @@ public sealed partial class AiHelpTextTests
     private const string OverviewHostsParagraph =
         "The same servers start in-process from .NET through the `Surly.Surl.Api` package (namespace `Surl.Api`): `SurlServer.StartAsync` takes a "
         + "`SurlServerOptions`, whose properties are these options, and its help is the package README and XML documentation. "
-        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools "
-        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` describe themselves, and it serves these pages as "
-        + "the `surl://aihelp` resources.";
+        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools, "
+        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` among them, describe themselves, and it serves "
+        + "these pages as the `surl://aihelp` resources.";
 
     [TestMethod]
     public void Answer_Stomp_SaysATopicSubscriptionGetsLiveMessagesAndNoRetainedOne()
@@ -246,6 +246,18 @@ public sealed partial class AiHelpTextTests
     public void Answer_XmppTopic_SaysAListenUrlWithoutACertificateExits58UnlessLoosened()
     {
         StringAssert.Contains(AiHelpText.Answer("xmpp").Output, "without `--cert` or `--self-signed` is refused at start and exits 58, unless `--allow-plaintext-auth` or `--allow-anonymous` is given");
+    }
+
+    [TestMethod]
+    public void Answer_TlsTopic_SaysQuicAndDtlsListenersStillNeedACertificateUnderTlsSrp()
+    {
+        var tls = AiHelpText.Answer("tls").Output;
+
+        Assert.Contains("every TLS listen URL on TCP, and every STARTTLS upgrade, serve TLS 1.2 with the unsigned SRP suites and no certificate", tls);
+        Assert.Contains(
+            "TLS-SRP secures TCP listeners only: a `webtransport` listen URL, a DNS over QUIC one (`--dns-transport quic`) and a `coaps` one with no `--user` or `--user-file` account "
+            + "still need `--cert` or `--self-signed`, else surl exits 58, and with one they serve that certificate.",
+            tls);
     }
 
     [TestMethod]
@@ -687,6 +699,79 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Auth_SaysWhichListenersUseTheKeytabAndUnderWhichServices()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "where the service is `HTTP` for http and https, `smtp`, `imap`, `pop` or `ldap`, `amqp` for the schemes `amqp`, `amqps`, `amqp1` and `amqp1s`, and `rcmd` for a `socks5` or `socks5h` listener.");
+        StringAssert.Contains(page, "the SASL `GSSAPI` logins of the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1 and AMQP 1.0 servers use them too, and so does the LDAP server's `GSS-SPNEGO` bind (see the ldap topic).");
+        StringAssert.Contains(page, "A `socks5` or `socks5h` listener's GSS-API login (method `01`, curl's `--socks5-gssapi`) uses the keys whatever `--auth` names (see the socks topic).");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysTheAmqpServersUseTheKeytabForTheServiceAmqpWithinTheirFrameLimits()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "The AMQP servers' service is `amqp`, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before `connection.tune-ok`, and 65536 for an AMQP 1.0 SASL frame (`--max-message` when smaller, never below 512; `--max-message 0` leaves 65536), so a larger one closes the connection unchecked.");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysAuthSetsTheSaslMechanismsOfEveryServerThatReadsItForSaslTheAmqpOnesIncluded()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+        var manual = string.Join(' ', ManualText.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        StringAssert.Contains(page, "and for SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5.0 servers each mechanism by its lower-case name,");
+        StringAssert.Contains(page, "(the MQTT 5.0 server runs only scram-sha-256 and scram-sha-1, and only when `--auth` names them; see the mqtt5 topic)");
+        StringAssert.Contains(page, "external and aws-sigv4, and the Kafka and XMPP servers accept SCRAM too.");
+        StringAssert.Contains(manual, "For SASL logins to the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1, AMQP 1.0, Kafka, XMPP and MQTT 5.0 servers, each mechanism by its name in lower case,");
+        StringAssert.Contains(manual, "The MQTT 5.0 server (mqtt5, mqtt5s and mqtt5+ws) runs only scram-sha-256 and scram-sha-1, as a CONNECT's Authentication Method, and only when --auth names them.");
+        StringAssert.Contains(manual, "external and aws-sigv4, and the Kafka and XMPP servers accept SCRAM too.");
+    }
+
+    [TestMethod]
+    public void Answer_Mqtt5_ListsAuthAndSaysWhenEnhancedAuthenticationLogsIn()
+    {
+        var page = AiHelpText.Answer("mqtt5").Output;
+
+        StringAssert.Contains(page, "an Authentication Method of `SCRAM-SHA-256` or `SCRAM-SHA-1` logs in as an account (`--user`, `--user-file`) when `--auth` names `scram-sha-256` or `scram-sha-1`");
+        StringAssert.Contains(page, "answered CONNACK `0x8C` Bad authentication method.");
+        StringAssert.Contains(page, "--auth <methods>");
+        StringAssert.Contains(HelpText.Answer("mqtt5").Output, "--auth <methods>");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysTheUnusedKeytabWarningIsNotWrittenForASocks5Listener()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "When `--auth` names neither negotiate nor gssapi (its default names neither) and no listen URL, positional or from `--proxy`, is a `socks5` or `socks5h` one, surl writes `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi`.");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysWhichAccountEachKerberosLoginNeeds()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        StringAssert.Contains(page, "An HTTP, SASL or `GSS-SPNEGO` Kerberos login is accepted only when an account of exactly that name exists, unless `--allow-anonymous` is given.");
+        StringAssert.Contains(page, "A SOCKS5 GSS-API login needs a proxy account (`-U`, `--proxy-user-file`; never `--user` or `--user-file`) of exactly that name when the proxy was started with proxy accounts, even an empty `--proxy-user-file`; with none, any ticket the keys accept is accepted; `--allow-anonymous` skips the account match.");
+        StringAssert.Contains(page, "No Kerberos login uses the account's password.");
+    }
+
+    [TestMethod]
+    public void Answer_Socks_SaysTheGssApiLoginIgnoresAuthAndWhichProxyAccountItNeeds()
+    {
+        var page = AiHelpText.Answer("socks").Output;
+
+        StringAssert.Contains(page, "and SOCKS5 then requires a login, RFC 1929 username and password or GSS-API (below), unless `--allow-anonymous`;");
+        StringAssert.Contains(page, "the server asks for no login, except that a SOCKS5 listener with `--keytab` checks the ticket of a client that offers GSS-API.");
+        StringAssert.Contains(page, "An RFC 1929 password travels in clear, so that login is refused unless `--allow-plaintext-auth` is given.");
+        StringAssert.Contains(page, "the service name is `rcmd`, and the keys are used whatever `--auth` names.");
+        StringAssert.Contains(page, "A GSS-API login is the ticket's client principal, such as `user@EXAMPLE.COM`. It needs a proxy account (`-U`, `--proxy-user-file`; never `--user` or `--user-file`) of exactly that name when the proxy was started with proxy accounts, even an empty `--proxy-user-file`; with none, any ticket the keys accept is accepted; `--allow-anonymous` skips the account match.");
+    }
+
+    [TestMethod]
     public void Answer_Ldap_SaysKeytabAnswersANegotiateBindWithKerberosAndNtlmWithoutIt()
     {
         var page = AiHelpText.Answer("ldap").Output;
@@ -837,8 +922,8 @@ public sealed partial class AiHelpTextTests
     public void Answer_EveryPage_NamesOnlyOptionsThatExist()
     {
         // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
-        // the key (ADR-0051, decisions 8 and 11).
-        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-hostname"];
+        // the key (ADR-0051, decisions 8 and 11); the SOCKS and --keytab facts name curl's SOCKS options.
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-gssapi", "socks5-hostname"];
 
         foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {

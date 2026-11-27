@@ -5,7 +5,8 @@ using Surl.TlsSrp;
 namespace Surl.Composition;
 
 // The proxy and TLS-SRP account stores (ADR-0170 decisions 2 and 3): each exists only when its accounts
-// are composed, joins reset, snapshot and restore right after the accounts, and publishes its own changes.
+// are composed, joins reset, snapshot and restore after the accounts (the proxy accounts first, then the
+// TLS-SRP accounts), and publishes its own changes.
 public sealed partial class ComposedStores
 {
     private TlsSrpAccounts? tlsSrpAccounts;

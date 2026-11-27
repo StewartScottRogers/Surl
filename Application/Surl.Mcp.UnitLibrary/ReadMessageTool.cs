@@ -17,7 +17,8 @@ public static class ReadMessageTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Read one mail message of an account's mailbox on a running Surl server by UID: its metadata and exact bytes "
-        + "(message/rfc822), as text when UTF-8 or else base64. Sets no flag and expunges nothing.";
+        + "(message/rfc822; text when UTF-8 with no control character other than tab, CR and LF, else base64). Sets "
+        + "no flag and expunges nothing.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

@@ -14,13 +14,10 @@ public sealed class SurlServerAccounts
 
     private readonly TextWriter log;
 
-    private readonly bool hasDirectory;
-
-    internal SurlServerAccounts(ComposedStores stores, TextWriter log, bool hasDirectory)
+    internal SurlServerAccounts(ComposedStores stores, TextWriter log)
     {
         this.stores = stores;
         this.log = log;
-        this.hasDirectory = hasDirectory;
     }
 
     /// <summary>
@@ -76,14 +73,18 @@ public sealed class SurlServerAccounts
     /// <see cref="Protocol.Abstractions.StoreChange.AccountRemoved"/> when there was one.
     /// </summary>
     /// <remarks>
-    /// Removing the last account leaves the server needing no login, as <c>surl</c> with no <c>--user</c> needs none,
-    /// so the next unauthenticated request is served. That stays allowed; <see cref="HasAccounts"/> turns
-    /// <see langword="false"/> and a line <c>surl: warning: no account left; the server now needs no login</c> goes to
-    /// <see cref="SurlServerOptions.Log"/> (shown at every log level that shows warnings, which is all of them).
-    /// <see cref="Add"/> closes it again. When the server was started with <c>--user-ldap</c> the directory is an
-    /// account source beside the accounts (ADR-0149 amendment, BL-1668), so the server still needs a login on the
-    /// schemes the directory serves: <see cref="HasAccounts"/> still reports only the local accounts, and the line is
-    /// <c>surl: warning: no local account left; logins are now checked against the directory only</c>.
+    /// Removing the last account does not open the server: without <c>--allow-anonymous</c>
+    /// (<see cref="SurlServerOptions.AllowAnonymous"/>) it still asks for a login wherever it did (ADR-0132
+    /// amendment 5). A scheme that has had an account to log in to goes on refusing what needs a login, a read over
+    /// <c>http</c> included. The removal stays allowed; <see cref="HasAccounts"/> turns <see langword="false"/> and a
+    /// line <c>surl: warning: no local account left; the server still asks for a login wherever it did</c> goes to
+    /// <see cref="SurlServerOptions.Log"/> (shown at every log level that shows warnings, which is all of them), with
+    /// and without <c>--user-ldap</c>. <see cref="Add"/> lets that account in. <see cref="SurlServer.ResetAsync"/>
+    /// returns each scheme to what the configured accounts give, so a scheme that had no account at start serves
+    /// anonymous reads again; <see cref="SurlServer.RestoreAsync"/> returns what held when the snapshot was taken.
+    /// With <c>--user-ldap</c> the directory is an account source beside the accounts (ADR-0149 amendment, BL-1668):
+    /// on the schemes it serves, a password login naming a user no account holds, the removed one included, is
+    /// checked against it.
     /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns><see langword="true"/> when an account had that name.</returns>
@@ -94,16 +95,15 @@ public sealed class SurlServerAccounts
         var isRemoved = stores.RemoveAccount(userName);
         if (isRemoved && !HasAccounts)
         {
-            log.WriteLine(hasDirectory
-                ? "surl: warning: no local account left; logins are now checked against the directory only"
-                : "surl: warning: no account left; the server now needs no login");
+            log.WriteLine("surl: warning: no local account left; the server still asks for a login wherever it did");
         }
 
         return isRemoved;
     }
 
     /// <summary>
-    /// Whether an account is left. <see langword="false"/> means the server needs no login.
+    /// Whether an account is held now. <see langword="false"/> means no account is held, not that the server asks
+    /// for no login (ADR-0132 amendment 5).
     /// </summary>
     public bool HasAccounts => stores.HasAccounts;
 }

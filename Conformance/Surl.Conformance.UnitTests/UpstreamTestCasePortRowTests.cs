@@ -45,4 +45,41 @@ public sealed class UpstreamTestCasePortRowTests
         Assert.AreEqual(CurlPortVerdictKind.PortDefect, row.Verdict);
         Assert.AreEqual("test838", row.Name);
     }
+
+    [TestMethod]
+    public void WithoutUpstreamSkips_LibtestNotBuiltRow_IsDroppedOnlyWhenThatReasonIsTolerated()
+    {
+        var row = new UpstreamTestCasePortRow(2402, "http", UpstreamTestCaseResult.Skip(2402, "libtest-not-built:lib2402"), UpstreamTestCaseResult.Pass(2402));
+
+        var tolerating = UpstreamTestCasePortRow.WithoutUpstreamSkips([row], new HashSet<string> { "libtest-not-built" });
+        var notTolerating = UpstreamTestCasePortRow.WithoutUpstreamSkips([row], new HashSet<string> { "debug-build", "libtest" });
+
+        Assert.IsEmpty(tolerating);
+        Assert.AreSame(row, notTolerating.Single());
+    }
+
+    [TestMethod]
+    public void WithoutUpstreamSkips_UpstreamDidNotSkipForAToleratedReason_KeepsTheRowsInOrder()
+    {
+        var tolerated = new HashSet<string> { "debug-build" };
+        UpstreamTestCasePortRow[] rows =
+        [
+            new(3, "http", UpstreamTestCaseResult.Fail(3, "debug-build"), UpstreamTestCaseResult.Pass(3)),
+            new(1, "http", UpstreamTestCaseResult.Skip(1, "debug-build"), UpstreamTestCaseResult.Pass(1)),
+            new(2, "http", UpstreamTestCaseResult.Pass(2), UpstreamTestCaseResult.Skip(2, "debug-build")),
+            new(4, "http", new UpstreamTestCaseResult(4, UpstreamTestCaseOutcome.Skip, null), UpstreamTestCaseResult.Pass(4)),
+        ];
+
+        var kept = UpstreamTestCasePortRow.WithoutUpstreamSkips(rows, tolerated);
+
+        CollectionAssert.AreEqual(new[] { 3, 2, 4 }, kept.Select(row => row.Number).ToArray());
+    }
+
+    [TestMethod]
+    public void WithoutUpstreamSkips_NullArguments_ThrowArgumentNullException()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCasePortRow.WithoutUpstreamSkips(null!, new HashSet<string>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCasePortRow.WithoutUpstreamSkips([], null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseResult.Pass(1).IsSkippedForAny(null!));
+    }
 }

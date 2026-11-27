@@ -29,6 +29,11 @@
     <Compile Include="..\Surl.Http3.UnitTests\UnitTestTls13Client.cs" Link="UnitTestTls13Client.cs" />
   </ItemGroup>
 
+  <!-- The flow a close=graceful drop fault cuts, as Surl.Quic.UnitTests stands it in (ADR-0188, amendment 5). -->
+  <ItemGroup>
+    <Compile Include="..\Surl.Quic.UnitTests\UnitTestGracefullyCutDatagramFlow.cs" Link="UnitTestGracefullyCutDatagramFlow.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Surl.Protocol.Http.UnitLibrary\Surl.Protocol.Http.UnitLibrary.csproj" />
   </ItemGroup>

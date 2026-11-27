@@ -73,7 +73,7 @@ internal sealed class QuicDatagramFlowLoop(
         Task<ReadOnlyMemory<byte>> receiving, DateTimeOffset? deadline, Task changed, CancellationToken cancellationToken)
     {
         using var timer = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var timing = Task.Delay(DelayUntil(deadline), timeProvider, timer.Token);
+        var timing = WaitUntilAsync(deadline, timer.Token);
         var servingOrNever = isApplicationEnded ? neverServing : serving ?? neverServing;
         var woken = await Task.WhenAny(receiving, timing, changed, servingOrNever);
         await timer.CancelAsync();
@@ -94,6 +94,17 @@ internal sealed class QuicDatagramFlowLoop(
         }
 
         return receiving;
+    }
+
+    /// <summary>
+    /// A task that completes once the clock reaches <paramref name="deadline"/>, completed already when it
+    /// has, and never when there is none. The clock is read again once the timer is armed: one that moved
+    /// between the first read and the arming leaves the timer due after the deadline.
+    /// </summary>
+    private Task WaitUntilAsync(DateTimeOffset? deadline, CancellationToken cancellationToken)
+    {
+        var timing = Task.Delay(DelayUntil(deadline), timeProvider, cancellationToken);
+        return DelayUntil(deadline) == TimeSpan.Zero ? Task.CompletedTask : timing;
     }
 
     /// <summary>How long until <paramref name="deadline"/>: none past it, and forever when there is none.</summary>

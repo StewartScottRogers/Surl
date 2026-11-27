@@ -349,6 +349,10 @@ ADR-0026 decision 3):
   needs one, `OPTIONS` included** - the tool's only request, and so the only way curl's `--digest`
   can log in. `--allow-anonymous` serves every request as anonymous. A write always needs a login
   and `--allow-uploads`.
+  **Changed by
+  [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+  (2026-11-27): after the last account is removed, `rtsp` that has had an account to log in to
+  still needs a login for every request, reads included (`401` or `403`).
 - **`Basic` and `Bearer` are refused with `403 Forbidden` unchecked** without
   `--allow-plaintext-auth`, and with it checked (ADR-0032 section 4 step 2). Measured: curl sends
   `Basic` on the first request when given `-u`, and `-w %{response_code}` shows the `403`.

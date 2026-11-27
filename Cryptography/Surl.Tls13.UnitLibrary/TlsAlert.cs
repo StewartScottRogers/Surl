@@ -1,9 +1,12 @@
 namespace Surl.Tls13;
 
 /// <summary>
-/// The TLS alert descriptions of RFC 8446 section 6. Surl's TLS 1.3 sends no alert on the wire
-/// (QUIC has no record layer, ADR-0082 decision 2): an alert is reported to the caller, which
-/// closes the QUIC connection with error <c>0x0100</c> plus the alert number (RFC 9001 section 4.8).
+/// The TLS alert descriptions of RFC 8446 section 6. This library's handshake and record
+/// protection write no alert to a transport: they throw a <see cref="TlsAlertException"/> carrying
+/// one, for the caller to report. QUIC reports it as a connection error, <c>0x0100</c> plus the
+/// alert number (RFC 9001 section 4.8, ADR-0082 decision 2). <c>Surl.Tls13Stream</c> sends it over
+/// TCP in an alert record, fatal for a failed handshake or a faulty record, and also sends
+/// <c>close_notify</c> to end its side of a connection (ADR-0157 decision 2).
 /// </summary>
 public enum TlsAlert : byte
 {

@@ -5,8 +5,9 @@ using Surl.HttpServing;
 namespace Surl.Control;
 
 /// <summary>
-/// Answers the <c>GET</c> requests that read back the mail store, the content store and the message bus
-/// (ADR-0164 decision 7) by calling the <see cref="IControlTarget"/>. A read changes nothing and publishes nothing.
+/// Answers the <c>GET</c> requests that read back the mail store, the content store, the message bus, the Redis
+/// keyspace, the LDAP directory and the DNS zones (ADR-0164 decisions 7 and 9) by calling the
+/// <see cref="IControlTarget"/>. A read changes nothing and publishes nothing.
 /// </summary>
 /// <param name="target">What the endpoint drives.</param>
 /// <param name="answers">Writes the answers.</param>

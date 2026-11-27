@@ -1,15 +1,18 @@
 # Download
 
-No release of Surl has been published yet. Surl is in Phase 1: `surl` builds and
-publishes, and serves the files of a directory over plain HTTP; no other scheme yet.
+Surl's releases are at https://github.com/StewartScottRogers/Surl/releases. The latest on
+2026-11-26 is [v0.1.11](https://github.com/StewartScottRogers/Surl/releases/tag/v0.1.11).
+`surl` answers `http`, `https` and the other schemes the README lists under
+[What this is](README.md#what-this-is), and the
+[extended protocols](README.md#extended-protocols).
 
-## When there is a release
+## What a release holds
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`, which publishes the native
-ahead-of-time `surl` and `surl-mcp` binaries for six platforms and attaches them, with a
-`SHA256SUMS` file, to a GitHub release at https://github.com/StewartScottRogers/Surl/releases:
+ahead-of-time `surl` and `surl-mcp` binaries for six platforms and attaches their archives,
+with a `SHA256SUMS` file, to a GitHub release:
 
-| Platform | `surl` package | `surl-mcp` package |
+| Platform | `surl` archive | `surl-mcp` archive |
 | --- | --- | --- |
 | Windows x64 | `surl-win-x64.zip` | `surl-mcp-win-x64.zip` |
 | Windows Arm64 | `surl-win-arm64.zip` | `surl-mcp-win-arm64.zip` |
@@ -20,10 +23,31 @@ ahead-of-time `surl` and `surl-mcp` binaries for six platforms and attaches them
 
 `surl-mcp` is Surl's MCP server: an MCP client - an AI agent's host - starts it as a stdio
 server, and its tools let the agent start, list and stop Surl protocol servers and see what
-their clients sent. Each package holds the one executable, `LICENSE.txt` and `README.md`.
+their clients sent. Each archive holds the one executable, `LICENSE.txt` and `README.md`.
 
-The installers in this repository fetch the package for the machine they run on, check it
-against `SHA256SUMS`, and put `surl` in a directory of its own (they do not fetch `surl-mcp`):
+From `v0.1.10`, the first release after BL-1789, a release also carries the two NuGet
+packages. `<version>` is the tag without its `v`:
+
+| NuGet package file | Holds |
+| --- | --- |
+| `Surly.Surl.Api.<version>.nupkg` | `Surl.Api`, which starts and stops Surl servers inside a .NET test suite |
+| `Surly.Surl.Mcp.<version>.nupkg` | `surl-mcp` as a framework-dependent .NET tool package of type `McpServer` |
+
+`SHA256SUMS` in such a release lists both `.nupkg` files as well as the twelve archives.
+
+## NuGet packages on nuget.org
+
+From `v0.1.11`, the first release after BL-1795, the release job is written to push both
+packages to nuget.org after it creates the GitHub release. **No version of either package is
+on nuget.org yet** (checked 2026-11-26): the `v0.1.11` release run created the GitHub
+release, then failed at its nuget.org login, so it pushed nothing. Download the `.nupkg`
+files from the GitHub release.
+
+## Installers
+
+The installers in this repository fetch the `surl` archive for the machine they run on from
+the newest release, pre-releases included, check it against the release's `SHA256SUMS`, and
+put `surl` in a directory of its own (they do not fetch `surl-mcp` or the NuGet packages):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.sh | sh    # Linux, macOS
@@ -33,8 +57,8 @@ curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/inst
 irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1 | iex          # Windows
 ```
 
-Neither works until the repository exists on GitHub and has a release. Tags and releases
-are Stewart's call (`CLAUDE.md`).
+To install another release, set `SURL_VERSION` for `install.sh`, or run `install.ps1` with
+`-Version`, naming the tag. Tags and releases are Stewart's call (`CLAUDE.md`).
 
 ## Build it yourself
 

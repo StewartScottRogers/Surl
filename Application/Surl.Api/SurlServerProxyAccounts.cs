@@ -45,10 +45,12 @@ public sealed class SurlServerProxyAccounts
 
     /// <summary>Removes a proxy account, one given at start included.</summary>
     /// <remarks>
-    /// Removing the last proxy account leaves the proxy needing no login. That stays allowed;
-    /// <see cref="HasAccounts"/> turns <see langword="false"/> and a line
-    /// <c>surl: warning: no proxy account left; the proxy now needs no login</c> goes to
-    /// <see cref="SurlServerOptions.Log"/>. <see cref="Add"/> closes it again.
+    /// Removing the last proxy account does not open the proxy: without <c>--allow-anonymous</c>
+    /// (<see cref="SurlServerOptions.AllowAnonymous"/>) it then lets no new client through (ADR-0132 amendment 4).
+    /// The removal stays allowed; <see cref="HasAccounts"/> turns <see langword="false"/> and a line
+    /// <c>surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through</c>
+    /// goes to <see cref="SurlServerOptions.Log"/>. <see cref="Add"/> lets that account in. A tunnel or relay
+    /// already set up stays up.
     /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns><see langword="true"/> when a proxy account had that name.</returns>
@@ -60,7 +62,8 @@ public sealed class SurlServerProxyAccounts
         var isRemoved = stores.RemoveProxyAccount(userName);
         if (isRemoved && !HasAccounts)
         {
-            log.WriteLine("surl: warning: no proxy account left; the proxy now needs no login");
+            log.WriteLine(
+                "surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through");
         }
 
         return isRemoved;
@@ -93,7 +96,8 @@ public sealed class SurlServerProxyAccounts
     }
 
     /// <summary>
-    /// Whether a proxy account is left. <see langword="false"/> means the proxy needs no login.
+    /// Whether a proxy account is left. <see langword="false"/> means that without <c>--allow-anonymous</c>
+    /// (<see cref="SurlServerOptions.AllowAnonymous"/>) the proxy lets no new client through.
     /// </summary>
     public bool HasAccounts => stores.HasProxyAccounts;
 }

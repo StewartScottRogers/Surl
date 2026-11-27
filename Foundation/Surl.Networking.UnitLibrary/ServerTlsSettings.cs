@@ -7,11 +7,16 @@ using Surl.TlsSrp;
 namespace Surl.Networking;
 
 /// <summary>
-/// The process's server-side TLS settings (ADR-0010, sections 3 and 5; ADR-0122 decision 5): either
-/// the certificate every listener serves through <see cref="System.Net.Security.SslStream"/>, its
-/// intermediates, and the trust anchors that verify a client certificate; or, made by
-/// <see cref="ForTlsSrp"/>, the SRP accounts every listener serves TLS-SRP with instead, through
-/// <see cref="TlsSrpServer"/>. Every handshake Surl runs over TCP uses one instance.
+/// Server-side TLS settings (ADR-0010, sections 3 and 5; ADR-0122 decision 5; ADR-0157):
+/// either the certificate every listener given them serves, its intermediates, and the trust anchors that verify
+/// a client certificate, served through <see cref="System.Net.Security.SslStream"/> or, for the
+/// TLS 1.3 handshakes <see cref="ServerTlsHandshake"/> gives it where <c>SslStream</c> has no TLS 1.3
+/// server, through <see cref="Surl.Tls13Stream.Tls13ServerStream"/>; or, made by
+/// <see cref="ForTlsSrp"/>, the SRP accounts every such listener serves TLS-SRP with instead, through
+/// <see cref="TlsSrpServer"/> and its <see cref="TlsSrpStream"/>. Every server handshake over a
+/// stream connection (TCP, Unix domain socket or FTP data) from a listener or data-connection opener
+/// given these settings runs under them. <c>Surl.Composition</c> makes at most one for each server
+/// start, so a process running several servers can hold several.
 /// </summary>
 /// <remarks>
 /// The certificate is exported to PKCS#12 in memory and re-imported for serving (ADR-0010,
@@ -74,8 +79,11 @@ public sealed class ServerTlsSettings : IDisposable
 
     /// <summary>
     /// Creates the settings for serving TLS-SRP on every listener (ADR-0122 decisions 2 and 5): no
-    /// certificate unless one is given, the three unsigned SRP suites (and, with a certificate, the
-    /// RSA-signed ones), TLS 1.2 only, no client certificate.
+    /// certificate unless one is given, the three unsigned SRP suites, TLS 1.2 only, no client
+    /// certificate. A certificate adds the three suites its key signs - the RSA-signed
+    /// <c>TLS_SRP_SHA_RSA_*</c> suites for an RSA key, the DSS-signed <c>TLS_SRP_SHA_DSS_*</c> suites
+    /// for a DSA key - served only when the key can make a signature scheme the ClientHello's
+    /// <c>signature_algorithms</c> names, or the ClientHello sends no such extension.
     /// </summary>
     /// <param name="accounts">The SRP accounts a client may log in as.</param>
     /// <param name="random">
@@ -98,8 +106,10 @@ public sealed class ServerTlsSettings : IDisposable
     }
 
     /// <summary>
-    /// The SRP accounts every handshake serves TLS-SRP with, or <see langword="null"/> when the
-    /// settings serve a certificate through <see cref="System.Net.Security.SslStream"/>.
+    /// The SRP accounts every handshake serves TLS-SRP with, through <see cref="TlsSrpServer"/> and
+    /// its <see cref="TlsSrpStream"/>, or <see langword="null"/> when the settings serve a certificate,
+    /// through <see cref="System.Net.Security.SslStream"/> or, where
+    /// <see cref="ServerTlsHandshake"/> chooses it, <see cref="Surl.Tls13Stream.Tls13ServerStream"/>.
     /// </summary>
     public TlsSrpAccounts? TlsSrpAccounts { get; }
 

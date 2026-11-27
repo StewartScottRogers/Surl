@@ -128,7 +128,10 @@ public interface IControlTarget
     /// <param name="user">The account name.</param>
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">Cancels the addition.</param>
-    /// <returns>The addition; refused <see cref="ControlRefusalKind.Conflict"/> when no proxy account is configured.</returns>
+    /// <returns>
+    /// The addition; refused <see cref="ControlRefusalKind.Conflict"/> when a proxy account has that name, which is
+    /// kept, or when no proxy account is configured.
+    /// </returns>
     Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken);
 
     /// <summary>Removes a proxy account.</summary>
@@ -141,7 +144,10 @@ public interface IControlTarget
     /// <param name="user">The account name.</param>
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">Cancels the addition.</param>
-    /// <returns>The addition; refused <see cref="ControlRefusalKind.Conflict"/> when TLS-SRP is not configured.</returns>
+    /// <returns>
+    /// The addition; refused <see cref="ControlRefusalKind.Conflict"/> when a TLS-SRP account has that name, which is
+    /// kept, or when TLS-SRP is not configured.
+    /// </returns>
     Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken);
 
     /// <summary>Removes a TLS-SRP account.</summary>

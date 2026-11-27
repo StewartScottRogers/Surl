@@ -8,8 +8,9 @@ using Surl.HttpServing;
 namespace Surl.Control;
 
 /// <summary>
-/// Answers the requests that change the instance (ADR-0124 decision 7) - fault rules, seeding, reset, snapshots and
-/// restores - by calling the <see cref="IControlTarget"/>, which publishes each change on the event stream.
+/// Answers the requests that change the instance (ADR-0124 decision 7) - adding and removing fault rules, seeding,
+/// deleting files, account changes (ADR-0132, ADR-0170), reset, snapshots and restores - and the fault rule listing,
+/// by calling the <see cref="IControlTarget"/>. The target, not this class, publishes changes on the event stream.
 /// </summary>
 /// <param name="target">What the endpoint drives.</param>
 /// <param name="snapshots">The snapshots the endpoint keeps.</param>
@@ -152,7 +153,10 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
     /// <summary><c>POST /v1/accounts</c>: adds the JSON body's account.</summary>
     /// <param name="request">The request.</param>
-    /// <returns><c>204</c>.</returns>
+    /// <returns>
+    /// <c>204</c>; <c>409</c> when an account has that name, or the name is empty and the Bearer-token account exists.
+    /// The existing account is kept.
+    /// </returns>
     public Task<HttpAnswer> AddAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddAccountAsync, allowEmptyUser: true);
 
     /// <summary><c>DELETE /v1/accounts/{user}</c>.</summary>
@@ -163,7 +167,9 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
     /// <summary><c>POST /v1/proxy-accounts</c>: adds the JSON body's proxy account (ADR-0170 decision 4).</summary>
     /// <param name="request">The request.</param>
-    /// <returns><c>204</c>; <c>409</c> when no proxy account is configured.</returns>
+    /// <returns>
+    /// <c>204</c>; <c>409</c> when a proxy account has that name, which is kept, or when no proxy account is configured.
+    /// </returns>
     public Task<HttpAnswer> AddProxyAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddProxyAccountAsync);
 
     /// <summary><c>DELETE /v1/proxy-accounts/{user}</c>.</summary>
@@ -174,7 +180,9 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
 
     /// <summary><c>POST /v1/tls-srp-accounts</c>: adds the JSON body's TLS-SRP account (ADR-0170 decision 4).</summary>
     /// <param name="request">The request.</param>
-    /// <returns><c>204</c>; <c>409</c> when TLS-SRP is not configured.</returns>
+    /// <returns>
+    /// <c>204</c>; <c>409</c> when a TLS-SRP account has that name, which is kept, or when TLS-SRP is not configured.
+    /// </returns>
     public Task<HttpAnswer> AddTlsSrpAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddTlsSrpAccountAsync);
 
     /// <summary><c>DELETE /v1/tls-srp-accounts/{user}</c>.</summary>

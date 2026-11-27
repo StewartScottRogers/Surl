@@ -25,11 +25,17 @@ internal sealed record TlsServerNegotiation(
         [TlsCipherSuite.Aes128GcmSha256, TlsCipherSuite.Aes256GcmSha384, TlsCipherSuite.ChaCha20Poly1305Sha256];
 
     /// <summary>Chooses the parameters for <paramref name="hello"/>, or throws the alert that ends the handshake.</summary>
+    /// <remarks>
+    /// When the server's ALPN list is not empty, a ClientHello with no ALPN extension is refused over
+    /// QUIC (<see cref="TlsServerHandshakeOptions.QuicTransportParameters"/> set, RFC 9001 section 8.1)
+    /// and served without ALPN over TCP (null, ADR-0010 section 4).
+    /// </remarks>
     /// <exception cref="TlsAlertException">
     /// TLS 1.3 is not offered (<see cref="TlsAlert.ProtocolVersion"/>); supported_groups,
     /// signature_algorithms or a required quic_transport_parameters is absent
     /// (<see cref="TlsAlert.MissingExtension"/>); no cipher suite or signature scheme is shared
-    /// (<see cref="TlsAlert.HandshakeFailure"/>); or no ALPN protocol is shared
+    /// (<see cref="TlsAlert.HandshakeFailure"/>); or the server's ALPN list is not empty and the
+    /// client offers none of it, or over QUIC no ALPN at all
     /// (<see cref="TlsAlert.NoApplicationProtocol"/>).
     /// </exception>
     public static TlsServerNegotiation Choose(ClientHello hello, TlsServerHandshakeOptions options, TlsSignatureScheme keyScheme)
@@ -43,7 +49,7 @@ internal sealed record TlsServerNegotiation(
         return new TlsServerNegotiation(
             ChooseCipherSuite(hello),
             ChooseSignatureScheme(hello, keyScheme),
-            ChooseApplicationProtocol(hello, options.ApplicationProtocols));
+            ChooseApplicationProtocol(hello, options));
     }
 
     /// <summary>The first group in <see cref="GroupPreference"/> the client sent a key share for, or null when there is none.</summary>
@@ -103,9 +109,11 @@ internal sealed record TlsServerNegotiation(
         return keyScheme;
     }
 
-    private static string? ChooseApplicationProtocol(ClientHello hello, IReadOnlyList<string> serverProtocols)
+    private static string? ChooseApplicationProtocol(ClientHello hello, TlsServerHandshakeOptions options)
     {
-        if (serverProtocols.Count == 0)
+        var serverProtocols = options.ApplicationProtocols;
+        var servedWithoutAlpn = hello.ApplicationProtocols is null && options.QuicTransportParameters is null;
+        if (serverProtocols.Count == 0 || servedWithoutAlpn)
         {
             return null;
         }

@@ -1,12 +1,13 @@
 # Surl.Networking.UnitLibrary
 
-Phase 1.
-
 The production transports behind the seams in `Surl.Protocol.Abstractions`: accepting TCP
-connections and UDP datagrams on the addresses a listen URL names; server-side TLS through
-`SslStream` (certificates and keys, client-certificate verification for upstream curl's
-`--cert`, ALPN); and the proxy servers upstream curl's proxy options talk to - HTTP
-`CONNECT`, HTTPS proxy, SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h.
+and Unix domain socket connections and UDP datagrams on the addresses a listen URL names;
+server-side TLS on those connections (certificates and keys, client-certificate
+verification for upstream curl's `--cert`, ALPN) through `SslStream`, or through
+`Surl.TlsSrp` or `Surl.Tls13Stream` in the cases below; FTP data connections; and a
+proxy's connections to origins. No proxy protocol server is here: the HTTP `CONNECT` and
+HTTPS proxy is `Surl.Protocol.HttpProxy`, and the SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h
+proxy is `Surl.Protocol.Socks`.
 
 This is the only project that constructs `Socket`, `TcpListener`, `UdpClient` or
 `SslStream`. Keep that code as thin as it can be, so that everything above it stays
@@ -89,13 +90,14 @@ protocol server.
   to `TcpConnectionListener.StartAsync` (or `UnixSocketConnectionListener.StartAsync` when the
   listen URL's `UnixSocket` is set) and `UdpDatagramListener.StartAsync`; it is what the
   composition root hands the serving engine. It holds only the optional `ServerTlsSettings`
-  it passes to every connection listener. Both one-line members are excluded from coverage
-  and exercised by `SocketListenerFactoryTests` (Integration). Its `StartSharedPortListenersAsync`
+  it passes to every connection listener and a `TimeProvider`. Both one-line members are
+  excluded from coverage and exercised by `SocketListenerFactoryTests` (Integration). Its `StartSharedPortListenersAsync`
   (an `https` listen URL with `--http3`) binds through `SharedPortListenerPair`, so a port-0 pair
   whose UDP port is taken is retried; it too is excluded and exercised by
   `SharedPortListenerPairIntegrationTests`.
-- Server-side TLS (ADR-0010). `ServerTlsSettings` (public, one per process) holds the
-  certificate every listener serves - re-imported through PKCS#12 by
+- Server-side TLS (ADR-0010). `ServerTlsSettings` (public; `Surl.Composition` makes at most
+  one for each server start, so a process running several servers can hold several) holds the
+  certificate every listener given it serves - re-imported through PKCS#12 by
   `ServerCertificateImport` so Schannel can serve it, so its key must be exportable - its
   intermediates, and the `--cacert` trust anchors; with anchors, every handshake requires a
   client certificate that `ClientCertificateVerifier` chains to exactly those anchors, with
@@ -111,8 +113,12 @@ protocol server.
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN.
-- TLS-SRP (ADR-0122 decision 5; BL-567). `ServerTlsSettings.ForTlsSrp(accounts, random)` makes
-  settings with no certificate whose `TlsSrpAccounts` is set; `ServerTlsHandshake` then runs
+- TLS-SRP (ADR-0122 decision 5; BL-567). `ServerTlsSettings.ForTlsSrp(accounts, random, certificate)`
+  makes settings whose `TlsSrpAccounts` is set. `certificate`, a `TlsSrpServerCertificate`, is
+  optional (`null` by default): it signs the SRP key exchange, so without it only the unsigned
+  suites are served and with it the certificate-signed ones too (ADR-0122 decision 2).
+  `ServerTlsComposition.ComposeTlsSrp` in `Surl.Composition` passes one when `--cert` or
+  `--self-signed` gives a certificate. Under these settings `ServerTlsHandshake` runs
   `Surl.TlsSrp`'s `TlsSrpServer` over the transport instead of `SslStream`, on every listener and
   every `UpgradeToTlsAsync`. The session is TLS 1.2, the agreed SRP suite (IANA numbers, as
   `TlsCipherSuite` has them), ALPN `http/1.1` or none, SNI, no client certificate, and
@@ -140,12 +146,18 @@ protocol server.
   `StreamConnectionWatchTests` (a scripted stream: bytes then FIN, bytes then reset) cover it.
 - TLS minimums (ADR-0006, section 4; BL-048). `ServerTlsSettings.AcceptedVersions` is a
   `TlsVersionRange` (public): a lowest and a highest of TLS 1.0, 1.1, 1.2, 1.3, TLS 1.2 to
-  1.3 by default, whose `AcceptedProtocols` every handshake enables; a lowest above the
-  highest is `ArgumentException`. Every handshake refuses renegotiation
-  (`AllowRenegotiation = false`) and never sets `CipherSuitesPolicy`, so cipher suites are
-  the operating system's. The head timeout is the caller's: `Surl.Core` passes
-  `UpgradeToTlsAsync` a token cancelled at `ExchangeLimits.HeadTimeout` and writes the log
-  note. `Foundation/Surl.Networking.UnitTests/Fixtures` holds the upstream curl recordings showing its
+  1.3 by default; a lowest above the highest is `ArgumentException`.
+  For `SslStream` only (`ServerTlsSettings.CreateAuthenticationOptions`): the handshake enables
+  the range's `AcceptedProtocols`, refuses renegotiation (`AllowRenegotiation = false`) and never
+  sets `CipherSuitesPolicy`, so its cipher suites are the operating system's. TLS-SRP ignores
+  `AcceptedVersions`: it is TLS 1.2 only, with `Surl.TlsSrp`'s SRP suites, and `TlsSrpStream`
+  answers a renegotiation attempt (a handshake record after the handshake) with a
+  `no_renegotiation` warning. The hand-built `Tls13ServerStream` is TLS 1.3, which has no
+  renegotiation, with `Surl.Tls13`'s cipher suites; it serves only when the range includes
+  TLS 1.3, and the range's `Lowest` decides which ClientHellos it takes (the TLS 1.3 bullet
+  below). The head timeout is the caller's: `Surl.Core` passes `UpgradeToTlsAsync` a token
+  cancelled at `ExchangeLimits.HeadTimeout` and writes the log note.
+  `Foundation/Surl.Networking.UnitTests/Fixtures` holds the upstream curl recordings showing its
   defaults complete with renegotiation off.
 - Reading the TLS option files (ADR-0010, sections 3 and 5), at startup before any listener
   binds. `ServerCertificateFileLoader.Load` reads `--cert` as `ServerCertificateFormat`
@@ -156,10 +168,11 @@ protocol server.
   `ClientTrustAnchorFileLoader.Load` reads `--cacert` (PEM blocks or one DER certificate).
   Every failure is `TlsFileLoadException` carrying a `TlsFileLoadFailure` -
   `ServerCertificateUnusable`, `CaCertificateNotFound`, `CaCertificateUnreadable` - which
-  `Surl.Console` maps to `CertificateProblem` (58), `FailedInit` (2) and
-  `CaCertificateBadFile` (77). Parsing the `--cert-type`/`--key-type` words and refusing
-  `--key` with `P12` is the command line's job; the loader takes the enums. Tests write
-  generated certificates and keys under `Path.GetTempPath()` (`TemporaryTlsFiles`).
+  `Surl.Composition`'s `ServerTlsComposition.DescribeTlsFileFailure` maps to
+  `CertificateProblem` (58), `FailedInit` (2) and `CaCertificateBadFile` (77). Parsing the
+  `--cert-type`/`--key-type` words and refusing `--key` with `P12` is the command line's job;
+  the loader takes the enums. Tests write generated certificates and keys under
+  `Path.GetTempPath()` (`TemporaryTlsFiles`).
 - The TLS tests run real `SslStream` handshakes over `InMemoryDuplexStream` (test project)
   with certificates made by `CertificateRequest`, so they are fast tests on every platform;
   `TcpConnectionListenerTlsTests` (Integration) repeats one over a loopback socket.
@@ -211,15 +224,32 @@ protocol server.
   `HandshakeFailed`); messages name host, port and reason, never bytes the caller sent. A failed
   or cancelled handshake drops the transport. Tests: `TlsClientConnectorTests`, over in-memory
   pipes with one loopback-socket case.
-- TLS 1.3 where `SslStream` cannot serve it (ADR-0157 decisions 1 to 3; BL-1147). When
-  `ITls13Support` (`PlatformTls13Support`: macOS only) says `SslStream` has no TLS 1.3 server, the
-  settings serve a certificate and `AcceptedVersions` includes
-  TLS 1.3, `ServerTlsHandshake` reads the first record (`ClientHelloPeek`). A ClientHello whose
-  `supported_versions` lists TLS 1.3 and nothing from SSL 3.0 to TLS 1.2 goes to
-  `Surl.Tls13Stream`'s `Tls13ServerStream` (the bytes read replayed through its `alreadyRead`;
-  `TlsSession` filled from the stream, its client certificate the verified leaf; with `--cacert` the stream requests a client
-  certificate and `ClientCertificateVerifier.IsChainTrusted` verifies it, the chain's intermediates as extra store only,
-  BL-1470); anything else goes to `SslStream` with the bytes replayed by
-  `ReplayedPrefixStream`, whose zero-length read returns at once while bytes remain (SslStream starts
-  with one). Where the predicate is false nothing is read ahead. This is why the project references
-  `Surl.Tls13Stream.UnitLibrary`; tests use `ClientHelloBytes` and fake `ITls13Support`.
+- TLS 1.3 where `SslStream` cannot serve it (ADR-0157 decisions 1 to 3 and amendment 1;
+  BL-1147). `ServerTlsHandshake` looks for TLS-SRP first: settings with `TlsSrpAccounts` go to
+  `TlsSrpServer` and none of this applies. Otherwise, when `ITls13Support`
+  (`PlatformTls13Support`: macOS only) says `SslStream` has no TLS 1.3 server, the settings serve
+  a certificate and `AcceptedVersions` includes TLS 1.3, it reads the first record
+  (`ClientHelloPeek`) and chooses by it:
+  - A parsed ClientHello whose `supported_versions` lists TLS 1.3 and nothing from SSL 3.0 to
+    TLS 1.2 goes to `Surl.Tls13Stream`'s `Tls13ServerStream`.
+  - On a listener limited to TLS 1.3 (`AcceptedVersions.Lowest` is TLS 1.3), every parsed
+    ClientHello that lists TLS 1.3 goes to `Tls13ServerStream`, whatever else it lists. A parsed
+    one that does not (one with no `supported_versions` included) gets a fatal
+    `protocol_version` alert and the handshake is `TlsHandshakeException`.
+  - Everything else goes to `SslStream` with the bytes read replayed by `ReplayedPrefixStream`,
+    whose zero-length read returns at once while bytes remain (SslStream starts with one).
+    Whether or not the listener is limited to TLS 1.3, that includes whatever `ClientHelloPeek`
+    cannot parse, with no alert from this project first: another record type, a record over 16384
+    bytes, a record cut short, or a fragment `Surl.Tls13`'s `ClientHello.Read` refuses (such as
+    a ClientHello split across records, a `legacy_version` other than `0x0303`, or compression
+    other than null).
+
+  `Tls13ServerStream` gets the bytes read through its `alreadyRead`; `TlsSession` is filled from
+  the stream, its client certificate the verified leaf; with `--cacert` the stream requests a
+  client certificate and `ClientCertificateVerifier.IsChainTrusted` verifies it, the chain's
+  intermediates as extra store only (BL-1470). Without TLS-SRP, where any of the three
+  conditions for reading the first record is false, the handshake is `SslStream`'s and nothing is
+  read ahead. On such a connection `CompleteWritesAsync` sends close_notify through
+  `Tls13ServerStream.ShutdownAsync` before FIN (BL-1887; `StreamConnectionTls13Tests`). This is
+  why the project references `Surl.Tls13Stream.UnitLibrary`; tests use
+  `ClientHelloBytes` and fake `ITls13Support`.

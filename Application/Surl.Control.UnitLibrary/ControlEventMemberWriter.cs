@@ -57,6 +57,7 @@ internal sealed class ControlEventMemberWriter(ControlEventJson head) : ISurlEve
         ["Kind"] = (json, value) => json with { FaultKind = value },
         ["Stage"] = (json, value) => json with { Stage = value },
         ["Failure"] = (json, value) => json with { Failure = value },
+        ["Close"] = (json, value) => json with { Close = value },
     };
 
     private ControlEventJson written = head;

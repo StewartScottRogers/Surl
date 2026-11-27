@@ -18,9 +18,10 @@ namespace Surl.Conformance;
 /// closes. A failed handshake has already sent its alert and only closes.
 /// </summary>
 /// <remarks>
-/// It listens on its own sockets rather than behind the serving engine, because
-/// <c>Surl.Networking</c>'s TLS-SRP listener (ADR-0122 decision 5) is not built yet; a test may
-/// open sockets, as <see cref="ClientBytesRelay"/> does.
+/// It listens on its own sockets and runs <see cref="TlsSrpServer"/> itself rather than behind the
+/// serving engine; a test may open sockets, as <see cref="ClientBytesRelay"/> does. It does not use
+/// <c>Surl.Networking</c>'s TLS-SRP serving (ADR-0122 decision 5), which a listener given
+/// <c>ServerTlsSettings.ForTlsSrp</c> runs.
 /// </remarks>
 internal sealed class UpstreamTestCaseTlsSrpServerHalf : IAsyncDisposable
 {

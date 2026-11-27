@@ -40,7 +40,7 @@ public sealed class GssapiSaslMechanismTests
         [layer, 0x00, 0x00, 0x00, .. Encoding.UTF8.GetBytes(authzid)];
 
     private static KerberosKeytab ServiceKeytab() => new(
-        from service in new[] { "smtp", "imap", "pop", "ldap" }
+        from service in new[] { "smtp", "imap", "pop", "ldap", "amqp" }
         select new KerberosKeytabEntry(
             new KerberosPrincipalName(ApRequestBuilder.Realm, [service, ServiceHost]),
             3,
@@ -84,6 +84,10 @@ public sealed class GssapiSaslMechanismTests
     [DataRow("pop3s", "pop", DisplayName = "pop3s")]
     [DataRow("ldap", "ldap", DisplayName = "ldap")]
     [DataRow("LDAPS", "ldap", DisplayName = "ldaps, any case")]
+    [DataRow("amqp", "amqp", DisplayName = "amqp")]
+    [DataRow("AMQPS", "amqp", DisplayName = "amqps, any case")]
+    [DataRow("amqp1", "amqp", DisplayName = "amqp1")]
+    [DataRow("amqp1s", "amqp", DisplayName = "amqp1s")]
     public async Task Login_MutualAuthentication_IsAcceptedAsTheTicketsPrincipal(string scheme, string service)
     {
         var ticket = Ticket(service);
@@ -104,6 +108,21 @@ public sealed class GssapiSaslMechanismTests
             new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, Principal, new CheckedLogin("GSSAPI", Principal, true)),
             steps[2]);
         Assert.IsTrue(steps.All(step => step.RefusalNote is null), "an accepted login carries no refusal note");
+    }
+
+    [TestMethod]
+    [DataRow("amqp", DisplayName = "amqp")]
+    [DataRow("amqp1", DisplayName = "amqp1")]
+    public async Task Login_AmqpSchemeWithAPopTicket_IsRefusedAfterTheDelay(string scheme)
+    {
+        var pending = Start(Policy(), scheme, Ticket("pop").Build()).BeginAsync(CancellationToken.None);
+
+        Assert.IsFalse(pending.IsCompleted, "a refused ticket waits the refusal delay");
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+        var refusal = await pending;
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, refusal.Outcome);
+        Assert.AreEqual(new CheckedLogin("GSSAPI", null, false), refusal.CheckedLogin);
+        StringAssert.StartsWith(refusal.RefusalNote, "Kerberos: ", StringComparison.Ordinal);
     }
 
     [TestMethod]

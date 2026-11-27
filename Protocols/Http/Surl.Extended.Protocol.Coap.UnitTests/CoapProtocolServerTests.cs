@@ -14,19 +14,19 @@ public sealed class CoapProtocolServerTests
 {
     private static readonly TimeSpan PatienceLimit = TimeSpan.FromSeconds(10);
 
-    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, HasAccounts: () => false);
+    private static readonly CoapAccessRules Anonymous = new(AllowsAnonymous: true, IsLoginRequiredToRead: () => false);
 
     [TestMethod]
     public async Task ServeAsync_AccountAddedWhileTheServerRuns_GetIs205BeforeAnd401After()
     {
-        var hasAccounts = false;
+        var isLoginRequired = false;
         var store = new CoapTestStore().WithFile("hello.txt", "hi");
         var server = new CoapProtocolServer(
-            store.Store, new CoapAccessRules(AllowsAnonymous: false, () => hasAccounts), new UnitTestCoapRandomSource());
+            store.Store, new CoapAccessRules(AllowsAnonymous: false, () => isLoginRequired), new UnitTestCoapRandomSource());
         byte[] get = [0x40, 0x01, 0x00, 0x01, 0xB9, .. "hello.txt"u8];
 
         var before = await ServeAsync(server, null, 1, get);
-        hasAccounts = true;
+        isLoginRequired = true;
         var after = await ServeAsync(server, null, 1, get);
 
         Assert.AreEqual((byte)0x45, before.Single()[1]);

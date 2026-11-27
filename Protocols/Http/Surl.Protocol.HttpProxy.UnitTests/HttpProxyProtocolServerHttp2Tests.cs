@@ -8,7 +8,7 @@ using static Surl.Protocol.HttpProxy.ProxyTestKit;
 namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
-/// The HTTPS proxy over HTTP/2 (ADR-0088 decision 6 and Amendment 5): a connection whose TLS
+/// The HTTPS proxy over HTTP/2 (ADR-0088 decision 6 and Amendment 9): a connection whose TLS
 /// handshake agreed ALPN <c>h2</c> is served by <c>Surl.Http2</c>'s connection, each stream by
 /// <see cref="Http2ProxyStreamHandler"/>. The bytes are the ones pinned upstream curl 8.21.0
 /// (the static build with HTTP/2) sent with <c>--proxy-http2</c> to the recorder playing an

@@ -172,6 +172,13 @@ public sealed class GetEventsToolTests
     }
 
     [TestMethod]
+    [DataRow("consumer group changes")]
+    [DataRow("cookies received")]
+    [DataRow("store, name")]
+    public void Description_NamesEveryKindOfEventAndFilter(string phrase) =>
+        StringAssert.Contains(GetEventsTool.Description, phrase);
+
+    [TestMethod]
     public void Create_NullServers_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => GetEventsTool.Create(null!));
 

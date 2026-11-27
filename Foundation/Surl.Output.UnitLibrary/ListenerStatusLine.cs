@@ -4,7 +4,9 @@ namespace Surl.Output;
 
 /// <summary>
 /// Writes the listener status line, <c>Listening on &lt;scheme&gt;://&lt;host&gt;:&lt;bound port&gt;/</c>,
-/// one per bound listen URL (ADR-0007, section 7).
+/// one per bound listen URL (ADR-0007, section 7). For a listen URL on a Unix domain socket the
+/// line carries the port asked for and ends with <c> over </c> and the socket's
+/// <see cref="UnixSocketAddress.UnixUrl"/> (ADR-0094, decision 6).
 /// </summary>
 /// <remarks>
 /// Every line ends with <see cref="Environment.NewLine"/> (ADR-0007, section 5). Each line
@@ -63,8 +65,8 @@ public sealed class ListenerStatusLine(TextWriter writer)
     /// <summary>
     /// Writes the status line for a bound listen URL, ending with <see cref="Environment.NewLine"/>.
     /// </summary>
-    /// <param name="listenUrl">The listen URL, with <see cref="ListenUrl.BoundPort"/> set.</param>
-    /// <exception cref="ArgumentException"><paramref name="listenUrl"/> has no bound port yet.</exception>
+    /// <param name="listenUrl">The listen URL, with <see cref="ListenUrl.BoundPort"/> set, or one on a Unix domain socket.</param>
+    /// <exception cref="ArgumentException"><paramref name="listenUrl"/> is on TCP and has no bound port yet.</exception>
     public void Write(ListenUrl listenUrl)
     {
         var line = Format(listenUrl) + Environment.NewLine;

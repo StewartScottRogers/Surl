@@ -16,9 +16,14 @@ public sealed class TlsServerHandshakeOptions
     public required AsymmetricAlgorithm CertificateKey { get; init; }
 
     /// <summary>
-    /// The ALPN protocols the server agrees, in its order of preference; for HTTP/3, just <c>h3</c>.
-    /// A ClientHello offering none of them ends with <see cref="TlsAlert.NoApplicationProtocol"/>
-    /// (RFC 9001 section 8.1). Empty means ALPN is not negotiated.
+    /// The ALPN protocols the server agrees, in its order of preference. Over QUIC the list is
+    /// <c>h3</c> for HTTP/3 or <c>doq</c> for DNS over QUIC; over TCP it is the listener's list,
+    /// such as <c>h2</c> then <c>http/1.1</c> for <c>https</c>. Empty means ALPN is neither checked
+    /// nor answered. When the list is not empty, the first of its protocols that the ClientHello
+    /// offers is agreed, and a ClientHello whose ALPN extension offers none of them ends with
+    /// <see cref="TlsAlert.NoApplicationProtocol"/>. A ClientHello with no ALPN extension then ends
+    /// with the same alert over QUIC (<see cref="QuicTransportParameters"/> set, RFC 9001
+    /// section 8.1) and is served without ALPN over TCP (null, ADR-0010 section 4).
     /// </summary>
     public IReadOnlyList<string> ApplicationProtocols { get; init; } = [];
 

@@ -74,7 +74,12 @@ measures it by name.
   `ComposedStores`, whose `ComposedStoreException` is the `InvalidOperationException` a refused
   reset or snapshot throws. `Files.DeleteAsync` (BL-954) is `ComposedStores.DeleteFileAsync` over `ContentStore.DeleteFileForTheTest`: no fault plan, publishes `Deleted`; no file there is `Absent`. Tests bring clients in
   on one listener of several with `FakeListenerFactory.Accept(scheme, connection)`.
-- Proxy and TLS-SRP accounts (BL-1280, ADR-0170 decision 4): `SurlServer.ProxyAccounts` and `TlsSrpAccounts` (`SurlServerProxyAccounts`, `SurlServerTlsSrpAccounts`) each have `Add` and `Remove` over `ComposedStores`; they throw `InvalidOperationException` when the server holds none (no proxy account, no TLS-SRP). `BoundUrls` lists a proxy listen URL from `AdditionalArguments` after the given ones.
+- Removing the last server account does not open the server (ADR-0132 amendment 5, BL-1866): without
+  `--allow-anonymous` it still asks for a login wherever it did, until `ResetAsync` or `RestoreAsync` returns what
+  held at start or at the snapshot. `Accounts.Remove` then writes
+  `surl: warning: no local account left; the server still asks for a login wherever it did` to `Log`, the same line
+  with `--user-ldap`. `Accounts.HasAccounts` `false` means no account is held.
+- Proxy and TLS-SRP accounts (BL-1280, ADR-0170 decision 4): `SurlServer.ProxyAccounts` and `TlsSrpAccounts` (`SurlServerProxyAccounts`, `SurlServerTlsSrpAccounts`) each have `Add` and `Remove` over `ComposedStores`; they throw `InvalidOperationException` when the server holds none (no proxy account, no TLS-SRP). Removing the last proxy account does not open the proxy (ADR-0132 amendment 4): without `--allow-anonymous` it then lets no new client through, and `Remove` writes `surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through` to `Log` (BL-1852). `BoundUrls` lists a proxy listen URL from `AdditionalArguments` after the given ones.
 - Hooks (BL-811, ADR-0124 decision 5): `SurlServer.OnEvent` makes an `EventCallbackHook`
   (`h1`, `h2` ...): its own `SurlEventStream` subscription at the default capacity without bytes, a
   pump task that keeps `ExchangeFacts` for each exchange open since it subscribed, so
@@ -118,8 +123,9 @@ measures it by name.
   point (a refusal is a `HookFailedEvent`). Any custom scope in `AdditionalArguments` is refused (`surl`'s reader).
 - Control endpoint (BL-1176, ADR-0124 decision 7): `ControlListenUrl` and `ControlTokenFile` are composed as `--control` and `--control-token-file` (so every refusal is `surl`'s, a `SurlServerStartException`); `SurlServer.ControlUrl` is `ComposedServing.ControlListenUrl` once bound, null without them. The token file is read through `ReadStartFile`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
-  give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
-  `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.
+  give the files it reads in memory (`ApiTestSeams.StartFiles`), the `--user-file`, `--hostkey`,
+  `--cert`, `--key` and `--cacert` files among them; `SurlServerCompositionSeams.ReadStartFile`
+  lists them all.
 
 ## What it references
 

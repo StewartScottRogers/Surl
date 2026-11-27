@@ -18,16 +18,36 @@ standard output, and they serve no session.
 - `Program` - the composition root. `Main` registers Ctrl+C (SIGINT) and SIGTERM to cancel a token and calls
   `RunAsync(input, output, error, arguments, readEnvironmentVariable, cancellationToken)` with the process's
   standard streams; tests call the overload that also takes a `SurlMcpHostSeams`, with in-memory streams.
-  `RunAsync` reads the command line, makes the root (when there is one) its full path and the process's current
-  directory - `PathConfinement` takes a relative path from the current directory, so the root must be it - then
-  registers each tool with one explicit `McpServerRegistry.AddTool` line (`start_server`, `list_servers`,
-  `stop_server`, `get_exchanges`, ADR-0103 decision 3's order, then `get_events`, `wait_for_event`, `seed_mail`,
-  `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `add_proxy_account`, `remove_proxy_account`, `add_tls_srp_account`, `remove_tls_srp_account`, `set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`,
-  `list_faults` and `remove_fault`, ADR-0124 decision 8's), adds the `surl://aihelp` resources with one
-  `AddResources(new AiHelpResourceProvider())` line (decision 6), and serves one session through `McpStreamSession`, with
-  `serverInfo` `{"name": "surl-mcp", "title": "Surl", "version": <the assembly's informational version>}` and
-  decision 6's `instructions`. When the input ends or the token is cancelled, disposing `RunningSurlServers`
-  stops every server it started, and it exits 0. Nothing is found by scanning or reflection.
+  `RunAsync` reads the command line and, when it asks for a session, makes the root (when there is one) its full
+  path and the process's current directory - `PathConfinement` takes a relative path from the current directory,
+  so the root must be it. It then registers each tool with one explicit `McpServerRegistry.AddTool` line, in this
+  order, which is the order `tools/list` gives them: `start_server`, `list_servers`, `stop_server`,
+  `get_exchanges`, `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `list_mailboxes`,
+  `list_messages`, `read_message`, `read_file`, `list_files`, `browse_queue`, `read_retained_message`,
+  `read_log`, `read_key`, `list_keys`, `read_directory`, `read_zone`, `publish_message`, `add_account`,
+  `set_key`, `add_ldap_entries`, `add_dns_zone`, `remove_account`, `add_proxy_account`, `remove_proxy_account`,
+  `add_tls_srp_account`, `remove_tls_srp_account`, `set_account_password`, `set_proxy_account_password`,
+  `set_tls_srp_account_password`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`,
+  `list_faults` and `remove_fault`. The decisions behind them:
+
+  | Tools | Decided in |
+  | --- | --- |
+  | `start_server`, `list_servers`, `stop_server`, `get_exchanges` | ADR-0103 decision 3 |
+  | `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `publish_message`, `add_account`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`, `list_faults`, `remove_fault` | ADR-0124 decision 8 |
+  | `set_key`, `add_ldap_entries`, `add_dns_zone` | ADR-0158 decision 9 |
+  | `delete_file`, `remove_account` | ADR-0161 decision 1 |
+  | `list_mailboxes`, `list_messages`, `read_message`, `read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log` | ADR-0164 decision 6 |
+  | `read_key`, `list_keys`, `read_directory`, `read_zone` | ADR-0164 decision 9 |
+  | `add_proxy_account`, `remove_proxy_account`, `add_tls_srp_account`, `remove_tls_srp_account` | ADR-0170 decision 4 |
+  | `set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password` | ADR-0132 amendment 1 |
+
+  After the tools it adds the `surl://aihelp` resources with one `AddResources(new AiHelpResourceProvider())`
+  line (ADR-0103 decision 6) and serves one session through `McpStreamSession`, with `serverInfo`
+  `{"name": "surl-mcp", "title": "Surl", "version": <SurlMcpHelpText.Version>}` - the assembly's informational
+  version up to any `+` - and `Program.Instructions` as the `instructions`, which name every registered tool,
+  grouped by job; a `ProgramTests` test fails, naming the tool, when `tools/list` gives one the text leaves out.
+  When the input ends or the token is cancelled, disposing `RunningSurlServers` stops every server it started,
+  and it exits 0. Nothing registers a tool or resource by scanning or reflection.
 - `SurlMcpCommandLine` - `--root <dir>` (else `SURL_MCP_ROOT`; empty is unset), `--allow-non-loopback`,
   `--max-servers <n>` (1 to 64), `--log-level <level>` (surl's five words, any case), `--help`, `--version`. A
   later option overrides an earlier one; `--help` or `--version` answers at once. Any other word, a missing

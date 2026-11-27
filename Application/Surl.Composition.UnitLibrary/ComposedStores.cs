@@ -11,23 +11,28 @@ namespace Surl.Composition;
 
 /// <summary>
 /// The stores of one composed instance, as a test controls them (ADR-0124, decision 3): the content
-/// store with its object metadata index, the mail store, the message bus and the account book. Seed
-/// each through the path a protocol writes by; reset, snapshot and restore one store or all of them
-/// together. <c>Surl.Api</c>, <c>Surl.Mcp</c> and the loopback control endpoint all drive this
-/// surface, so they behave alike.
+/// store with its object metadata index, the mail store, the message bus and the account book, plus
+/// each further store the instance composes or serves. Seed through the path a protocol writes by;
+/// reset, snapshot and restore one store or all of them together. <c>Surl.Api</c>, <c>Surl.Mcp</c>
+/// and the loopback control endpoint all drive this surface, so they behave alike.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Reset and restore of the whole instance run one store at a time in the fixed order of
-/// <see cref="StoreOrder"/> - content, mail, bus, then accounts (ADR-0100 decision 1's load order,
-/// accounts last) - and the first store that refuses stops it with a
-/// <see cref="ComposedStoreException"/> naming that store; the stores before it are already reset
-/// or restored. A snapshot is taken in the same order.
+/// Reset and snapshot of the whole instance run over every registered store, one at a time, in the
+/// order of <see cref="RegisteredStoreOrder"/>: content, mail, bus and accounts
+/// (<see cref="StoreOrder"/>), then, each only when composed or served, proxy accounts, TLS-SRP
+/// accounts, the Redis keyspace, the LDAP directory, AMQP 0-9-1 exchanges, Kafka producers,
+/// sessions, DNS zones and uploads. A restore puts back the stores the snapshot holds, in the order
+/// they were taken. The first store that refuses stops the operation with a
+/// <see cref="ComposedStoreException"/> naming that store; in a reset or restore the stores before
+/// it are already reset or restored.
 /// </para>
 /// <para>
-/// With <c>--directory</c>, the content store, the mail store and the message bus are on disk and
-/// refuse reset, snapshot and restore, so a test fixture never empties a real directory; seeding
-/// them is ordinary writing and is allowed. Accounts are always in memory and always controllable.
+/// With <c>--directory</c>, the content store, the mail store, the message bus, the AMQP 0-9-1
+/// exchanges and the uploads refuse reset, snapshot and restore, so a test fixture never empties a
+/// real directory; seeding the first three is ordinary writing and is allowed. A <c>--share</c> on
+/// disk makes the content store and the uploads refuse too. Accounts are always in memory and always
+/// controllable.
 /// </para>
 /// <para>
 /// Public because more than one host calls it, but not a supported programming interface: it may
@@ -90,14 +95,15 @@ public sealed partial class ComposedStores
     }
 
     /// <summary>
-    /// The order a whole instance is reset, snapshotted and restored in: content, mail, bus, then
-    /// accounts (ADR-0124, decision 3).
+    /// The four stores every instance holds, in the order they begin <see cref="RegisteredStoreOrder"/>:
+    /// content, mail, bus, then accounts (ADR-0124, decision 3). Other stores can follow them, so a
+    /// whole-instance reset, snapshot or restore may cover more than these.
     /// </summary>
     public static IReadOnlyList<StoreKind> StoreOrder { get; } = [StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts];
 
     /// <summary>
-    /// The order this instance's registrations run in: <see cref="StoreOrder"/>, then any store
-    /// registered after the four.
+    /// The order a whole instance is reset, snapshotted and restored in: <see cref="StoreOrder"/>, then
+    /// any store registered after the four.
     /// </summary>
     public IReadOnlyList<StoreKind> RegisteredStoreOrder => [.. controls.Select(control => control.Store)];
 
@@ -678,17 +684,28 @@ public sealed partial class ComposedStores
         return removed;
     }
 
-    /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
+    /// <summary>
+    /// Whether any account is held; <see langword="false"/> means no account is held. It does not say whether a login
+    /// is asked for: removing the last account leaves the server asking for a login wherever it did (ADR-0132
+    /// amendment 5).
+    /// </summary>
     public bool HasAccounts => accounts.HasAccounts;
 
-    /// <summary>Whether any proxy account is left, so a proxy login is required; false too when no proxy account store is composed.</summary>
+    /// <summary>
+    /// Whether any proxy account is held; <see langword="false"/> too when no proxy account store is composed. A proxy
+    /// composed with proxy accounts still asks for a login when this turns <see langword="false"/>, so without
+    /// <c>--allow-anonymous</c> it then lets no new client through (ADR-0132 amendment 4).
+    /// </summary>
     public bool HasProxyAccounts => proxyAccounts?.HasAccounts ?? false;
 
     /// <summary>
-    /// Returns every store to its configured state, one at a time in <see cref="StoreOrder"/>.
-    /// Each publishes one <see cref="StoreChange.Reset"/>.
+    /// Returns every registered store to its configured state, one at a time in
+    /// <see cref="RegisteredStoreOrder"/>. Each publishes one <see cref="StoreChange.Reset"/>, except
+    /// <see cref="StoreKind.Sessions"/> and <see cref="StoreKind.Uploads"/>, which publish one for each
+    /// kind of server whose state they hold.
     /// </summary>
-    /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store's index lock, or for the uploads of the
+    /// S3, Azure Storage or Google Cloud Storage servers.</param>
     /// <returns>A task that completes once every store is reset.</returns>
     /// <exception cref="ComposedStoreException">A store refused, such as one on disk; it names the
     /// store, and the stores before it are reset.</exception>
@@ -701,19 +718,22 @@ public sealed partial class ComposedStores
     }
 
     /// <summary>
-    /// Returns one store to its configured state, publishing one <see cref="StoreChange.Reset"/>.
+    /// Returns one store to its configured state, publishing <see cref="StoreChange.Reset"/> as the
+    /// whole-instance reset does for that store.
     /// </summary>
     /// <param name="store">The store.</param>
-    /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store's index lock, or, for
+    /// <see cref="StoreKind.Uploads"/>, for the uploads of the S3, Azure Storage or Google Cloud Storage
+    /// servers.</param>
     /// <returns>A task that completes once the store is reset.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="store"/> names no store.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="store"/> names no store this instance holds.</exception>
     /// <exception cref="ComposedStoreException">The store refused, such as one on disk.</exception>
     public Task ResetAsync(StoreKind store, CancellationToken cancellationToken) =>
         ResetAsync(ControlOf(store), cancellationToken);
 
     /// <summary>
-    /// Takes a snapshot of every store, in <see cref="StoreOrder"/>. Changes nothing and publishes
-    /// nothing.
+    /// Takes a snapshot of every registered store, in <see cref="RegisteredStoreOrder"/>. Changes
+    /// nothing and publishes nothing.
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
     /// <returns>The snapshot, which only this instance restores.</returns>
@@ -728,7 +748,7 @@ public sealed partial class ComposedStores
     /// <param name="store">The store.</param>
     /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
     /// <returns>The snapshot, holding that store alone, which only this instance restores.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="store"/> names no store.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="store"/> names no store this instance holds.</exception>
     /// <exception cref="ComposedStoreException">The store refused, or the snapshot would pass
     /// <see cref="MaxSnapshotBytes"/>.</exception>
     public Task<ComposedSnapshot> TakeSnapshotAsync(StoreKind store, CancellationToken cancellationToken) =>
@@ -736,11 +756,14 @@ public sealed partial class ComposedStores
 
     /// <summary>
     /// Replaces the contents of each store <paramref name="snapshot"/> holds with the snapshot's,
-    /// one at a time in <see cref="StoreOrder"/>. Each publishes one <see cref="StoreChange.Restored"/>;
-    /// every mailbox gets a new <c>UIDVALIDITY</c>.
+    /// one at a time in the order they were taken, that of <see cref="RegisteredStoreOrder"/>. Each
+    /// publishes one <see cref="StoreChange.Restored"/>, except <see cref="StoreKind.Sessions"/> and
+    /// <see cref="StoreKind.Uploads"/>, which publish one for each kind of server whose state they
+    /// hold; a restored mail store gives every mailbox a new <c>UIDVALIDITY</c>.
     /// </summary>
     /// <param name="snapshot">A snapshot this instance took.</param>
-    /// <param name="cancellationToken">Cancels the wait for the content store's index lock.</param>
+    /// <param name="cancellationToken">Cancels a wait for the content store's index lock, or for the uploads of the
+    /// S3, Azure Storage or Google Cloud Storage servers.</param>
     /// <returns>A task that completes once every store the snapshot holds is restored.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="snapshot"/> was taken by another instance.</exception>

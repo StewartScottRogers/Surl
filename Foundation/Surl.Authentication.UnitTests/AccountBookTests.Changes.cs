@@ -154,8 +154,23 @@ public sealed partial class AccountBookTests
     {
         var book = new AccountBook([Alice]);
 
-        Assert.ThrowsExactly<ArgumentException>(() => book.Add(new Account("alice", "other")));
+        var thrown = Assert.ThrowsExactly<ArgumentException>(() => book.Add(new Account("alice", "other")));
+
+        Assert.AreEqual("User alice already has an account. (Parameter 'account')", thrown.Message);
         Assert.IsTrue(book.CheckPassword("alice", "secret"u8));
+    }
+
+    [TestMethod]
+    public void Add_ASecondBearerTokenAccount_NamesItAndKeepsTheFirst()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var book = new AccountBook([new Account(string.Empty, "first")], events);
+
+        var thrown = Assert.ThrowsExactly<ArgumentException>(() => book.Add(new Account(string.Empty, "second")));
+
+        Assert.AreEqual("The Bearer-token account already exists. (Parameter 'account')", thrown.Message);
+        Assert.IsTrue(book.CheckBearerToken("first"u8));
+        Assert.IsEmpty(events.Events);
     }
 
     [TestMethod]

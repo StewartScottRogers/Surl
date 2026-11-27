@@ -190,7 +190,10 @@ A test makes one listener, account or path misbehave on purpose with a `SurlFaul
 scheme's error shape) or `OutOfSpace`, narrowed with `Listener`, `Scheme`, `Account`, `Path`,
 `Command`, `Stage`, `AfterBytes`, `Close` and `Times`. `Close` (`FaultClose`, default `Reset`) says how a
 drop ends the connection: `Reset` aborts it, `Graceful` closes it so the peer sees an ordinary end of
-stream (ADR-0188 decision 4); it is written after `after-bytes` only when it is not `Reset`. Give rules at start in `Faults`, or change them while
+stream (ADR-0188 decision 4); it is written after `after-bytes` only when it is not `Reset`. Over HTTP/3
+(`--http3`), `Reset` only stops answering and `Graceful` closes the QUIC connection with `CONNECTION_CLOSE`
+`NO_ERROR`, which pinned upstream curl reports at once as exit 56 (ADR-0188 amendment 5); every other datagram
+protocol only stops answering. Give rules at start in `Faults`, or change them while
 the server runs:
 
 ```csharp
@@ -303,15 +306,22 @@ await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue 
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
 ```
 
-`Accounts.Remove` of the last account leaves the server needing no login, as `surl` with no `--user` needs none:
-it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
-goes to `Log`; `Accounts.Add` closes it again. When the server was started with `--user-ldap`, the directory is an
-account source (ADR-0149 amendment 1), so a login is still needed: the line is instead
-`surl: warning: no local account left; logins are now checked against the directory only`.
+`Accounts.Remove` of the last account does not open the server: without `--allow-anonymous` (`AllowAnonymous`) it
+still asks for a login wherever it did, so on a scheme that has had an account to log in to, an `http` `GET` without
+credentials gets `401` or `403` (ADR-0132 amendment 5). The removal stays allowed, `Accounts.HasAccounts` turns
+`false`, which means no account is held, and
+`surl: warning: no local account left; the server still asks for a login wherever it did` goes to `Log`;
+`Accounts.Add` lets that account in. `ResetAsync` returns what the configured accounts give, so a server started with
+no account serves anonymous reads again, and `RestoreAsync` returns what held when the snapshot was taken. When the
+server was started with `--user-ldap`, the directory is an account source (ADR-0149 amendment 1) and the line is the
+same: on the schemes the directory serves, a password login naming a user no account holds, the removed one included,
+is checked against it.
 
-`ProxyAccounts.Remove` of the last proxy account leaves the proxy needing no login: it stays allowed,
-`ProxyAccounts.HasAccounts` turns `false` and `surl: warning: no proxy account left; the proxy now needs no login`
-goes to `Log`; `ProxyAccounts.Add` closes it again.
+`ProxyAccounts.Remove` of the last proxy account does not open the proxy: without `--allow-anonymous`
+(`AllowAnonymous`) it then lets no new client through, so a `GET` without credentials gets the `407` (ADR-0132
+amendment 4). The removal stays allowed, `ProxyAccounts.HasAccounts` turns `false` and
+`surl: warning: no proxy account left; without --allow-anonymous the proxy now lets no new client through` goes to
+`Log`; `ProxyAccounts.Add` lets that account in. A tunnel or relay already set up stays up.
 
 A retained seed (`Messages.PublishAsync(topic, payload, retain: true)`, `surl-mcp`'s `publish_message` and the
 control endpoint alike) is kept on any topic, including one outside every `--topic ...;retain` filter: the filter
@@ -352,18 +362,43 @@ await server.RestoreAsync(clean);           // back to the snapshot
 await server.ResetAsync();                  // or back to how the server started
 ```
 
-`ResetAsync` returns files, mail, messages and accounts, and the keyspace, directory and zones (ADR-0158),
-to the server's start: the `Files` given at start and no others, the configured mailboxes holding nothing, no
-retained or queued messages, exactly the accounts given at start, empty Redis databases, and the directory
-and zones as `--directory` loaded them (empty without it). It also clears the broker state the message bus
-carries (ADR-0159): the AMQP 0-9-1 broker's declared exchanges and bindings and the MQTT 5 broker's sessions
-kept with no connection. A snapshot is an in-memory copy (at most
-256 MiB, accounts as password hashes only) that only the server that took it restores; another
+`ResetAsync`, `SnapshotAsync` and `RestoreAsync` take every store the server holds, in this order: files,
+mail, messages and accounts, then, each only when composed or served, proxy accounts, TLS-SRP accounts, the
+Redis keyspace, the LDAP directory, AMQP 0-9-1 exchanges, Kafka producers, sessions, DNS zones and uploads
+(`StoreKind` names each; ADR-0158, ADR-0159, ADR-0167, ADR-0170).
+
+| State | `ResetAsync` leaves | A snapshot copies | `RestoreAsync` leaves |
+| --- | --- | --- | --- |
+| Files | the `Files` given at start and no others | yes | the snapshot's |
+| Mail | the configured mailboxes holding nothing | yes, with UIDs and flags | the snapshot's |
+| Messages | no retained or queued messages | retained messages, topic logs, committed offsets and queues, except a queue exclusive to a connection | the snapshot's |
+| Accounts, proxy accounts, TLS-SRP accounts | exactly those given at start | yes | the snapshot's |
+| Redis keyspace, LDAP directory, DNS zones | empty databases, an empty directory, no zone | yes | the snapshot's |
+| AMQP 0-9-1 exchanges and bindings | none a client declared | yes | the snapshot's |
+| Kafka producer state | none | yes | the snapshot's |
+| Kafka consumer groups | dropped | no | dropped |
+| MQTT 5 sessions kept with no connection | none | yes, without queued deliveries | the snapshot's, except where a client connected under the same identifier keeps its own |
+| MQTT 5 pending Wills, queued deliveries and unacknowledged publishes | discarded | no | discarded |
+| OCI registry tokens | revoked | no | revoked |
+| MCP OAuth clients, codes and tokens, and MCP HTTP sessions | deleted and ended | no | deleted and ended |
+| Uploads open or staged (S3, Azure Storage, Google Cloud Storage, OCI), and Azure Storage's remembered committed block lists | discarded | no | discarded, even one begun before the snapshot |
+
+A snapshot is an in-memory copy (at most 256 MiB) that only the server that took it restores; another
 server's throws `ArgumentException`. Every mailbox gets a new `UIDVALIDITY` on reset and restore,
 so an IMAP client resynchronises; open connections stay open and see the new contents on their
-next command. Each seed, reset and restore is a `StoreChanged` event the queries above find. With
-`DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
-`InvalidOperationException` so a fixture never empties a real directory; seeding them still works.
+next command. Each seed publishes `StoreChanged` events the queries above find, and each store publishes one
+on reset and on restore, except `StoreKind.Uploads` and `StoreKind.Sessions`, under which each server
+publishes its own: uploads named `s3`, `azure`, `gcs` and `oci`; sessions with an empty name (MQTT 5),
+`oci` and `mcp`. With `DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
+`InvalidOperationException` at the files, the first store, so a fixture never empties a real directory; a
+share on disk makes them throw there too. Seeding files, mail and messages on disk still works.
+
+**A snapshot holds secrets.** Each account and proxy account is held with the SHA-256 of its
+password and, when it is named, the credentials derived from the password, some of which are the
+password's bytes (its UTF-8 bytes, and the bytes a base64 password decodes to), so treat a
+snapshot as holding every named account's password. The empty-name Bearer-token account is held
+as the SHA-256 of its token only. A TLS-SRP account is held as its user name, salt, group and
+verifier, never its password (ADR-0132 amendment 3, ADR-0170).
 
 ## Read back what a client left
 

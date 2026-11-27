@@ -201,6 +201,10 @@ judges a `GET` (ADR-0032 sections 4 and 6), because it is one:
 - **Anonymous upgrade is a read.** With no account configured it needs no login, like an HTTP
   `GET`; once any account is configured every upgrade needs one; `--allow-anonymous` serves every
   upgrade as anonymous. Nothing an upgrade does writes to the content store.
+  **Changed by
+  [ADR-0132 amendment 5](ADR-0132-how-the-account-book-changes-while-the-server-runs.md#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)**
+  (2026-11-27): after the last account is removed, `ws` or `wss` that has had an account to log in
+  to answers an upgrade without credentials `401` or `403`; it is not accepted.
 - A plain-text secret (Basic, Bearer) on `ws://` without `--allow-plaintext-auth` is `403`
   unchecked; on `wss://` it is checked.
 - The `401` carries ADR-0032 section 4's challenges, one `WWW-Authenticate` field per value the

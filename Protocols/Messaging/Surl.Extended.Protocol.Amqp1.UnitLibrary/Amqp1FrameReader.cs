@@ -22,8 +22,9 @@ public sealed class Amqp1FrameReader(IConnection connection)
 
     /// <summary>Reads the next frame.</summary>
     /// <param name="maxFrameSize">
-    /// The largest frame allowed, header included: 512 before <c>open</c> and in SASL, the
-    /// <c>max-frame-size</c> the container offered after it (ADR-0107 decision 7).
+    /// The largest frame allowed, header included: 512 for <c>open</c>,
+    /// <see cref="Amqp1FrameLimits.LargestSaslFrameSizeRead"/> in SASL, the <c>max-frame-size</c>
+    /// the container offered after <c>open</c> (ADR-0107 decision 7 and its BL-1884 amendment).
     /// </param>
     /// <param name="cancellationToken">Cuts the read off.</param>
     /// <returns>The frame, or the named reason there is none.</returns>

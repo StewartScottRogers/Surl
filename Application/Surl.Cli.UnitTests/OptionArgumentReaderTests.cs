@@ -82,6 +82,21 @@ public sealed class OptionArgumentReaderTests
     }
 
     [TestMethod]
+    public void ProxyListenUrlText_AllowedValues_NameEveryProxySchemeAndItsDefaultPort()
+    {
+        var allowedValues = OptionArgumentReader.ProxyListenUrlText.Type.AllowedValues;
+
+        // Only the clause listing the schemes counts, so a scheme named by the port clause alone is missing.
+        var namedSchemes = allowedValues.Split(';')[0].Split([' ', ','], StringSplitOptions.RemoveEmptyEntries);
+        foreach (var scheme in ProxyDefaultPorts.Schemes)
+        {
+            Assert.Contains(scheme, namedSchemes);
+        }
+
+        Assert.EndsWith("; default port 443 for https and 1080 for the others", allowedValues);
+    }
+
+    [TestMethod]
     [DataRow("proxyuser:proxy-secret", "proxyuser", "proxy-secret", DisplayName = "Proxy account")]
     [DataRow("proxyuser:a:b", "proxyuser", "a:b", DisplayName = "Split at the first colon")]
     public void ReadAccount_ProxyUserArgument_ReadsTheProxyAccount(string argument, string userName, string password)

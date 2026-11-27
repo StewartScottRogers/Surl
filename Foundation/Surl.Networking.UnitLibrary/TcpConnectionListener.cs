@@ -76,7 +76,7 @@ public sealed class TcpConnectionListener : IConnectionListener
     /// (ADR-0010), with the ALPN protocol IDs the listen URL's scheme offers.
     /// </summary>
     /// <param name="listenUrl">What to listen on.</param>
-    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for connections that cannot be secured.</param>
+    /// <param name="tlsSettings">The TLS settings for accepted connections, or <see langword="null"/> for connections that cannot be secured.</param>
     /// <param name="cancellationToken">Cuts the host-name resolution off.</param>
     /// <param name="timeProvider">Times each accepted connection's peek waits and closes; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     /// <returns>The listener, once every address is bound; its listen URL carries the bound port.</returns>

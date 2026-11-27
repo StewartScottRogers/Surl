@@ -79,7 +79,7 @@ public sealed class AzureStagedUploadStoreTests
     [TestMethod]
     public void Combine_NoRegistrations_IsNull()
     {
-        Assert.IsNull(UploadStoreRegistrations.Combine(null, null));
+        Assert.IsNull(SameKindStoreRegistrations.Combine(StoreKind.Uploads, null, null));
     }
 
     [TestMethod]
@@ -87,7 +87,7 @@ public sealed class AzureStagedUploadStoreTests
     {
         var only = new ComposedStoreRegistration(StoreKind.Uploads, _ => Task.CompletedTask, (_, _) => Task.FromResult(new TakenSnapshot(StoreKind.Uploads, 0, _ => Task.CompletedTask)));
 
-        Assert.AreSame(only, UploadStoreRegistrations.Combine(null, only));
+        Assert.AreSame(only, SameKindStoreRegistrations.Combine(StoreKind.Uploads, null, only));
     }
 
     [TestMethod]

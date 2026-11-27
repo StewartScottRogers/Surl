@@ -65,7 +65,7 @@ and the closing and draining states (BL-608), which the flow loop holds a served
   goes when it allows). On the client's `CONNECTION_CLOSE`, `IsDraining` is true for as long and
   nothing is sent. `NextDeadline` is the state's end; `HandleTimeout` there discards the state, and
   `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` holds a served flow
-  open through the state (BL-867, ADR-0082 amendment 5): it ends the application's side as soon as
+  open through the state (BL-867, ADR-0082 amendment 6): it ends the application's side as soon as
   `IsClosed` turns true, keeps answering the client's datagrams and acting on `NextDeadline`, and
   returns once the state ends; server stop ends it at once.
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
@@ -134,6 +134,12 @@ and the closing and draining states (BL-608), which the flow loop holds a served
   An exception the application throws closes the connection with code 0 and is thrown from
   `ServeAsync`. The ALPN IDs agreed and the transport parameters sent are the caller's
   `QuicServerConnectionOptions`; the defaults stay ADR-0082 decision 4's `h3` values, byte for byte.
+- The graceful cut (BL-1801, ADR-0188 amendment 5): when a flow that is an `IGracefullyCutDatagramFlow` turns `IsCut`
+  on a datagram `QuicApplicationConnection` sends, and the connection is open, it calls
+  `QuicServerConnection.CloseWithNoError` (`CONNECTION_CLOSE` type `0x1c`, `NO_ERROR`, frame type 0; at Initial and
+  Handshake before the handshake completes). Every datagram sent in the closing state - that close, a close the
+  connection makes of itself, and each repeat - goes through `SendClosingDatagramAsync`, so none is counted or
+  discarded. The application's side ends as for any close.
 - `QuicConnectionRefusal.Write` (BL-740, ADR-0082 decision 7, "Too many connections") writes the
   one datagram refusing a flow past a connection limit: an Initial packet, protected with the Initial
   keys of the client's Destination Connection ID, to the client's Source Connection ID from a random

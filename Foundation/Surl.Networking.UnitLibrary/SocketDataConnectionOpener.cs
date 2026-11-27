@@ -27,7 +27,8 @@ public sealed class SocketDataConnectionOpener : IDataConnectionOpener
     /// Creates the opener.
     /// </summary>
     /// <param name="tlsSettings">
-    /// The process's TLS settings, the ones the control listener uses, or <see langword="null"/>
+    /// The TLS settings data connections are secured with when upgraded (<c>Surl.Composition</c>
+    /// passes the ones it gives the listener factory), or <see langword="null"/>
     /// for data connections that cannot be secured.
     /// </param>
     /// <param name="timeProvider">Times the timeouts and the lingering close; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
@@ -39,7 +40,7 @@ public sealed class SocketDataConnectionOpener : IDataConnectionOpener
     /// <summary>
     /// Creates the opener over the given socket calls.
     /// </summary>
-    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/>.</param>
+    /// <param name="tlsSettings">The data connections' TLS settings, or <see langword="null"/> for none.</param>
     /// <param name="timeProvider">Times the timeouts and the lingering close.</param>
     /// <param name="sockets">Binds, accepts and connects the sockets.</param>
     internal SocketDataConnectionOpener(ServerTlsSettings? tlsSettings, TimeProvider timeProvider, IDataConnectionSockets sockets)

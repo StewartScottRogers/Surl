@@ -18,13 +18,23 @@ internal static class Program
     /// <summary>The <c>serverInfo</c> title (ADR-0103 decision 6).</summary>
     public const string ServerTitle = "Surl";
 
-    /// <summary>The <c>initialize</c> result's <c>instructions</c> (ADR-0103 decision 6).</summary>
+    /// <summary>
+    /// The <c>initialize</c> result's <c>instructions</c> (ADR-0103 decision 6): they name every registered tool,
+    /// grouped by job.
+    /// </summary>
     public const string Instructions =
-        "These tools start, list and stop Surl protocol servers and show what their clients sent; get_events and "
-        + "wait_for_event show and wait for each server's events (exchanges, logins, store changes, faults); seed_mail, "
-        + "put_file, publish_message and add_account seed a server's stores, reset_server, snapshot_server and "
-        + "restore_server control them, and add_fault, list_faults and remove_fault make it misbehave on purpose. The servers "
-        + "listen on loopback addresses unless whoever started surl-mcp allowed others. "
+        "These tools run Surl protocol servers: start_server, list_servers and stop_server. "
+        + "To watch what clients do, get_exchanges shows what each client sent and what the server sent back, and "
+        + "get_events and wait_for_event show and wait for each server's events (exchanges, logins, store changes, "
+        + "faults). Seed a server's stores with seed_mail, put_file, publish_message, set_key, add_ldap_entries and "
+        + "add_dns_zone, and delete a file with delete_file. Read back what the stores hold, what a client left there "
+        + "included, with list_mailboxes, list_messages, read_message, read_file, list_files, browse_queue, "
+        + "read_retained_message, read_log, read_key, list_keys, read_directory and read_zone. Manage who may log in "
+        + "with add_account, remove_account and set_account_password; for proxy accounts add_proxy_account, "
+        + "remove_proxy_account and set_proxy_account_password; for TLS-SRP accounts add_tls_srp_account, "
+        + "remove_tls_srp_account and set_tls_srp_account_password. reset_server, snapshot_server and restore_server "
+        + "control a server's stores between tests, and add_fault, list_faults and remove_fault make it misbehave on "
+        + "purpose. The servers listen on loopback addresses unless whoever started surl-mcp allowed others. "
         + "The surl://aihelp resources explain the listen URLs and options start_server takes.";
 
     /// <summary>Runs <c>surl-mcp</c> on the process's standard streams until its input ends or a signal stops it.</summary>

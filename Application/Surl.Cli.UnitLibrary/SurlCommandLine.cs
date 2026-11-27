@@ -219,8 +219,9 @@ public sealed record SurlCommandLine
 
     /// <summary>
     /// The proxy listen URLs from every <c>-x</c>/<c>--proxy</c>, in command-line order, each read by
-    /// <see cref="ListenUrlParser.ParseProxy"/> and so <c>http</c> or <c>https</c> with
-    /// <see cref="ListenUrl.IsProxy"/> set (ADR-0088 decision 7). None by default.
+    /// <see cref="ListenUrlParser.ParseProxy"/> and so <c>http</c>, <c>https</c>, <c>socks4</c>,
+    /// <c>socks4a</c>, <c>socks5</c> or <c>socks5h</c> (<see cref="ProxyDefaultPorts"/>), with
+    /// <see cref="ListenUrl.IsProxy"/> set (ADR-0088 decision 7, ADR-0121 decision 5). None by default.
     /// </summary>
     public IReadOnlyList<ListenUrl> ProxyListenUrls { get; init; } = [];
 

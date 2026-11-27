@@ -18,8 +18,9 @@ public static class ReadKeyTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Read one key from a running Surl server's Redis keyspace, the one the redis server serves: its type, size, "
-        + "expiry and, for a string, its exact value as text when UTF-8 or else base64, at most 16 MiB. Give the key as "
-        + "text or base64 and optionally a database (0 to 15). Reading changes nothing.";
+        + "expiry and, for a string, its exact value (text when UTF-8 with no control character other than tab, CR "
+        + "and LF, else base64), at most 16 MiB. Give the key as text or base64 and optionally a database (0 to 15). "
+        + "Reading changes nothing.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

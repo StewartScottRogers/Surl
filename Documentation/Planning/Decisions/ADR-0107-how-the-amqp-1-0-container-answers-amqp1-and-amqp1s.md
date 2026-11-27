@@ -10,6 +10,8 @@
   line and the composition (decisions 1 and 7). BL-706 lets the bus carry the native form decision 6
   needs; BL-707 decides transactions, durable topic subscriptions and source filters (decision 5,
   "Not served yet").
+- **Amended by:** the BL-513 amendment below (decisions 5 and 6) and the BL-1884 amendment below
+  (decisions 2 and 7: SASL frames over 512 bytes are read).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -91,9 +93,10 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
 
 ### 2. SASL (Part 5 section 5.3; RFC 4616; RFC 4505)
 
-- **Frames.** SASL frames are type `0x01`, channel ignored, at most **512 bytes**
-  (MIN-MAX-FRAME-SIZE, Part 5 section 5.3.1); a larger frame, an AMQP frame, or a SASL frame out of
-  order closes the connection with no bytes: the SASL layer has no error frame.
+- **Frames.** SASL frames are type `0x01`, channel ignored, at most **65536 bytes**, or
+  `--max-message` when smaller, never below 512 (the BL-1884 amendment below, which replaces the
+  512 bytes first decided here); a larger frame, an AMQP frame, or a SASL frame out of order closes
+  the connection with no bytes: the SASL layer has no error frame.
 - **`sasl-mechanisms`** lists the mechanisms `ISaslAuthenticationPolicy.GetSaslMechanisms` returns for
   the connection's scheme and TLS session, in the policy's order, followed by **`ANONYMOUS` under
   `--allow-anonymous` only**. The policy withholds `PLAIN` and the other plain-text mechanisms on a
@@ -358,7 +361,7 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
 
 | ADR-0006 limit or bound | How the container applies it | Answer when hit |
 | --- | --- | --- |
-| `--max-message` (1 MiB) | the `max-frame-size` the container offers is the smaller of 65536 and it; a frame's size field above the offered size (512 before `open` and in SASL) | `close` with `amqp:connection:framing-error` after `open`; before it, no bytes |
+| `--max-message` (1 MiB) | the `max-frame-size` the container offers is the smaller of 65536 and it; a frame's size field above the offered size (512 for `open` itself; in SASL the offered size, per the BL-1884 amendment) | `close` with `amqp:connection:framing-error` after `open`; before it, no bytes |
 | `--max-filesize` (100 MiB) | one message, as joined; all partial deliveries of a connection | detach with `amqp:link:message-size-exceeded`; close with `amqp:resource-limit-exceeded` |
 | `--head-timeout` (30 s) | from accept to the client's `open` read, the headers, a TLS handshake and SASL included | close with no bytes |
 | `--idle-timeout` (120 s) | no frame for that long (decision 3) | `close` with `amqp:resource-limit-exceeded` |
@@ -458,3 +461,69 @@ reading; none adds an option.
   no expiry rather than ending the connection.
 - **A correlation-id of any other type** than `binary`, `string`, `uuid` or `ulong` gives no bus
   correlation data.
+
+## Amendment: SASL frames over 512 bytes are read (BL-1884, 2026-11-27)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in
+BL-1884. Replaces the 512-byte SASL limit of decision 2 and of decision 7's `--max-message` row.
+
+### Context
+
+- Part 5 section 5.3.1 says "The maximum size of a SASL frame is defined by MIN-MAX-FRAME-SIZE" and
+  "There is no mechanism within the SASL negotiation to negotiate a different size."
+  MIN-MAX-FRAME-SIZE is 512.
+- The SASL `GSSAPI` AP-REQs [ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)
+  amendment 1 measured are 635 bytes or more. Under the 512-byte limit a `sasl-init` carrying one
+  closed the connection before the ticket was checked, although the AMQP servers offer `GSSAPI`
+  (ADR-0057 amendment 4).
+- Widely used AMQP 1.0 peers read more than 512 bytes in SASL (their sources, read 2026-11-27; none
+  was run):
+
+  | Source | What it does |
+  | --- | --- |
+  | Apache Qpid Proton C, `478e670` | `c/src/core/dispatcher.c`, `pn_dispatcher_sasl_input` reads a SASL frame up to `transport->local_max_frame`, which `transport.c` starts at `PN_DEFAULT_MAX_FRAME_SIZE`, 32 KiB (`engine-internal.h`) |
+  | Apache Qpid ProtonJ2, `a6cef0f` | `ProtonEngineSaslDriver.DEFAULT_MAX_SASL_FRAME_SIZE` is 4096, settable, never below 512 |
+  | RabbitMQ, `c3c4ac5` | `deps/rabbit/include/rabbit_amqp_reader.hrl`: `INITIAL_MAX_FRAME_SIZE` 8192, "Allow for potentially large sets of tokens during the SASL exchange" |
+  | OASIS AMQP Claims-based Security 1.0, CSD01 (a committee draft), section 4.2.1 | an implementation of its mechanism "MUST support a maximum SASL frame size of 8192" |
+
+- The Curl port was not read for this (ADR-0083).
+
+### Decision
+
+- **The largest SASL frame the container reads is the `max-frame-size` it would offer in its
+  `open`:** 65536 bytes, or `--max-message` when that is smaller, never below 512; `--max-message 0`
+  (no limit) leaves 65536 (`Amqp1FrameLimits.LargestSaslFrameSizeRead`). It covers `sasl-init` and
+  `sasl-response`, on `amqp1` and `amqp1s`. 65536 is at least what each peer above reads by
+  default, so a frame one of them accepts by default surl accepts too.
+- A larger SASL frame is refused from its header, its body unread, and closes the connection with no
+  bytes, as before.
+- **No option, and no warning.** This relaxes no login rule: every mechanism is offered and judged
+  as before, and `GSSAPI` is offered only when the run asked for it (`--auth gssapi` with
+  `--keytab`). What grows is what one connection that has not logged in can make surl hold, from
+  512 bytes to at most 65536, still inside `--max-message`, `--head-timeout` and the connection
+  limits. A limit that made the requested `GSSAPI` login fail until a second option was given would
+  protect nothing.
+- **The exchange log still withholds the password.** `Amqp1SaslInitBytesRedactor` (ADR-0182) follows
+  SASL frames up to 65536 bytes, so a `PLAIN` password in a frame over 512 bytes is masked; at the
+  old bound it would have been logged as received.
+- Unchanged: the client's `open` is still read up to 512 bytes (Part 2 section 2.4.1), and the SASL
+  frames the container writes are as before.
+
+### Alternatives considered
+
+- **Keeping 512, as the specification says.** Rejected: no Kerberos login could succeed, and a
+  stand-in broker should take the logins the brokers it stands in for take.
+- **8192** (RabbitMQ, the claims-based security draft) **or 32 KiB** (Proton C). Rejected: each is
+  another constant that refuses tickets some peer above would read; a Kerberos ticket grows with the
+  authorisation data a directory puts in it. The container already reads 65536-byte frames after
+  `open`, so one bound serves both.
+- **A larger limit only while `GSSAPI` is offered.** Rejected: two limits to test and explain, for
+  no protection beyond what `--max-message` already gives.
+
+### Consequences
+
+- An AMQP 1.0 client's `GSSAPI` ticket reaches `GssapiSaslExchange`.
+- surl accepts a SASL frame the specification forbids a client to send. No conforming client sees a
+  difference: its frames are 512 bytes at most.
+- A `--max-message` smaller than the `sasl-init` frame still keeps such a ticket out, as it
+  bounds the frames surl reads.

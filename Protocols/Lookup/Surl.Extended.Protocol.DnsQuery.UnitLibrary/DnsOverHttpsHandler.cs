@@ -89,6 +89,10 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
             return Empty(request, HttpStatus.NotFound);
         }
 
+        // A POST only asks a question, so no request is judged as a write. The dns policy's session therefore
+        // challenges a request without credentials only when a login is required to read: once the scheme has had
+        // an account, a removal of the last while the server runs included (ADR-0132, amendment 5), or when the
+        // --user-ldap directory serves it.
         if (authentication is not null && await authentication.JudgeAsync(new HttpAuthenticationRequest(request.Method, request.Target, IsWrite: false, request.Fields), cancellationToken) is { Outcome: not HttpAuthenticationOutcome.Proceed } verdict)
         {
             return Unauthenticated(request, verdict);
@@ -130,7 +134,6 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
         }
     }
 
-    // A POST only asks a question, so no request is a write: with no account configured the session proceeds.
     // The session's refusal: 401 with its challenges, one WWW-Authenticate field each, or 403.
     private HttpAnswer Unauthenticated(HttpRequest request, HttpAuthenticationVerdict verdict) =>
         verdict.Outcome == HttpAuthenticationOutcome.Challenge

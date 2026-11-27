@@ -17,6 +17,9 @@ internal sealed class SilencedAfterBytesDatagramFlow(IDatagramFlow flow, long af
     private long sentByteCount;
     private bool silenced;
 
+    /// <summary>Whether a send has passed the count, so every datagram sent from then on is discarded.</summary>
+    public bool IsSilenced => silenced;
+
     /// <inheritdoc/>
     public EndPoint LocalEndPoint => flow.LocalEndPoint;
 

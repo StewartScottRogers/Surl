@@ -10,8 +10,8 @@ namespace Surl.Mcp;
 /// The <c>set_key</c> tool (ADR-0158 decision 9): sets a string key in a running server's Redis keyspace, as
 /// <c>SET</c> would, through <c>Surl.Api</c>'s <c>SurlServer.Keys</c>. Result <c>{"key" or "key_base64", "database",
 /// "event_name", "byte_count"}</c> (ADR-0158 amendment 1): the key as <c>read_key</c> and <c>list_keys</c> spell it
-/// (<c>key_base64</c> for a non-UTF-8 key), <c>event_name</c> the keyspace event's name
-/// (<c>&lt;database&gt;/&lt;key&gt;</c>); the value is never echoed.
+/// (<c>key_base64</c> for a key that is not UTF-8 or that holds a control character other than tab, CR and LF),
+/// <c>event_name</c> the keyspace event's name (<c>&lt;database&gt;/&lt;key&gt;</c>); the value is never echoed.
 /// </summary>
 public static class SetKeyTool
 {
@@ -21,9 +21,10 @@ public static class SetKeyTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Set a string key in a running Surl server's Redis keyspace, as a SET would, so the redis server answers GET "
-        + "with it. Give the key and the value as UTF-8 text or base64, at most 16 MiB each; optionally a database (0 to 15) "
+        + "with it. Give the key and the value as UTF-8 text or base64, at most 16 MiB together; optionally a database (0 to 15) "
         + "and an expiry in milliseconds. The value is never shown back. "
-        + "Answers the key as read_key and list_keys spell it (key, or key_base64 for a non-UTF-8 key), the database, "
+        + "Answers the key as read_key and list_keys spell it (key, or key_base64 for a key that is not UTF-8 or that "
+        + "holds a control character other than tab, CR and LF), the database, "
         + "event_name (<database>/<key>, the name a wait_for_event on the store watches) and byte_count. "
         + "A server with no redis listen URL refuses it.";
 

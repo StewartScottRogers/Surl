@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using Surl.Protocol.Abstractions;
+using Surl.Tls13Stream;
 using Surl.TlsSrp;
 
 namespace Surl.Networking;
@@ -13,7 +14,8 @@ namespace Surl.Networking;
 /// transport failures into <see cref="IOException"/>; the transport is the caller's, so
 /// this runs without a socket in the fast tests. With a <see cref="ServerTlsHandshake"/> it
 /// can be upgraded to TLS (ADR-0010, section 1), after which it reads and writes through the
-/// <see cref="SslStream"/> and so still carries plaintext.
+/// secured stream the handshake returns - a <see cref="TlsSrpStream"/>, a
+/// <see cref="Tls13ServerStream"/> or an <see cref="SslStream"/> - and so still carries plaintext.
 /// </summary>
 /// <remarks>Not safe for concurrent reads, or concurrent writes; one read and one write may run at once.</remarks>
 internal sealed class StreamConnection : IConnection
@@ -60,7 +62,7 @@ internal sealed class StreamConnection : IConnection
     /// <param name="localEndPoint">The local endpoint the connection was accepted on.</param>
     /// <param name="remoteEndPoint">The client's endpoint.</param>
     /// <param name="transportControl">Half-closes and resets the transport under <paramref name="stream"/>.</param>
-    /// <param name="tlsHandshake">The listener's TLS handshake, or <see langword="null"/> when the process has no TLS settings.</param>
+    /// <param name="tlsHandshake">The TLS handshake an upgrade runs, or <see langword="null"/> for a connection that cannot be secured.</param>
     /// <param name="timeProvider">Times the graceful and lingering close; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     public StreamConnection(
         Stream stream,
@@ -340,11 +342,13 @@ internal sealed class StreamConnection : IConnection
         await transportStream.DisposeAsync();
     }
 
-    // The TLS close_notify, from whichever secured stream the handshake returned (ADR-0122 decision 5).
+    // The TLS close_notify, from whichever secured stream the handshake returned (ADR-0122
+    // decision 5, ADR-0157); an unsecured connection has none to send.
     private Task SendCloseNotifyAsync(CancellationToken cancellationToken) => securedStream switch
     {
         SslStream sslStream => sslStream.ShutdownAsync(),
         TlsSrpStream tlsSrpStream => tlsSrpStream.ShutdownAsync(cancellationToken),
+        Tls13ServerStream tls13Stream => tls13Stream.ShutdownAsync(cancellationToken),
         _ => Task.CompletedTask,
     };
 

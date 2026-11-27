@@ -8,6 +8,10 @@
   decision 2: the `http/2` and `http/3` row of its table ("Phase 6's HTTP/2 and HTTP/3 servers,
   once built | verbatim reply") becomes decisions 1 to 7 below. Its `http/2` and `http/3` rows in
   `UpstreamTestCaseServers.All` say built once BL-1118 and BL-1119 land.
+- **Amended:** 2026-11-27 in BL-1856, by
+  [ADR-0080](ADR-0080-how-surl-plays-the-server-half-of-upstream-curls-test-cases.md)'s amendment of
+  that date, decision 4's `%HTTP2TLSPORT` row: it serves the certificate a case's `https`
+  `<server>` line names, and `test-localhost` when the case names none.
 
 ## Context
 

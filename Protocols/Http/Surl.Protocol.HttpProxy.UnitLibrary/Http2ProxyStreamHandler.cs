@@ -9,7 +9,7 @@ namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
 /// Answers each stream of an HTTP/2 connection to the HTTPS proxy (ADR-0088 decision 6 as
-/// Amendment 5 amends it), what curl's <c>--proxy-http2</c> opens: a <c>CONNECT</c> stream
+/// Amendment 9 amends it), what curl's <c>--proxy-http2</c> opens: a <c>CONNECT</c> stream
 /// (RFC 9113 section 8.5) is tunnelled, and an <c>http</c> request is forwarded to its origin
 /// over HTTP/1.1 and its response relayed back on the stream.
 /// </summary>

@@ -95,9 +95,10 @@ public sealed class ComposedServing : IAsyncDisposable
     public FaultPlan Faults => instruments.Faults;
 
     /// <summary>
-    /// The instance's stores - content, mail, message bus and accounts - as a test seeds, resets,
-    /// snapshots and restores them, one at a time or all together (ADR-0124, decision 3). Every
-    /// change they make is published on <see cref="Events"/>.
+    /// The instance's stores, every one in <see cref="ComposedStores.RegisteredStoreOrder"/>, as a
+    /// test controls them: reset, snapshot and restore, one at a time or all together, and seeding
+    /// for those <see cref="ComposedStores"/> has a seed or add method for (ADR-0124, decision 3).
+    /// Every change they make is published on <see cref="Events"/>.
     /// </summary>
     public ComposedStores Stores { get; }
 
@@ -205,7 +206,7 @@ public sealed class ComposedServing : IAsyncDisposable
         IListenerFactory listenerFactory, ControlToken controlToken, SurlServingOutputs outputs, CancellationToken cancellationToken)
     {
         using var stopControl = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores, outputs.Log, commandLine.UserLdap is not null), controlToken);
+        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores, outputs.Log), controlToken);
         var feed = endpoint.FeedEventsAsync(stopControl.Token);
         var bound = new TaskCompletionSource<ListenUrl>(TaskCreationOptions.RunContinuationsAsynchronously);
         var controlReporter = new ListenerStartReporter(

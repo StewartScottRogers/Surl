@@ -46,7 +46,11 @@ public enum StoreKind
     Exchanges,
 
     /// <summary>
-    /// The MQTT 5 brokers' sessions kept with no connection, with their subscriptions (ADR-0159).
+    /// The MQTT 5 brokers' sessions kept with no connection, with their subscriptions, and their pending Wills
+    /// (ADR-0159); the OCI registries' tokens; and the MCP servers' OAuth clients, authorization codes and tokens
+    /// and their HTTP sessions (ADR-0167). A snapshot copies those MQTT 5 sessions without their queued deliveries,
+    /// and no pending Will. It copies none of the OCI or MCP state: reset and restore revoke every OCI token, delete
+    /// every MCP OAuth client, code and token, and end every MCP HTTP session (ADR-0167).
     /// </summary>
     Sessions,
 
@@ -56,7 +60,8 @@ public enum StoreKind
     Producers,
 
     /// <summary>
-    /// The extended servers' in-progress upload registrations, such as OCI blob uploads and MCP upload tokens (ADR-0167).
+    /// The object servers' in-progress uploads, such as S3 multipart uploads and OCI blob upload sessions. A snapshot
+    /// copies none of them; reset and restore discard them, or refuse when the content store is on disk (ADR-0167).
     /// </summary>
     Uploads,
 
