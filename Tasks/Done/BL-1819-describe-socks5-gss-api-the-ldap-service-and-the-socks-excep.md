@@ -56,7 +56,7 @@ Found while working BL-1809. Both texts are in `Application/Surl.Cli.UnitLibrary
 - Pipeline: plan, tests and edits were done in the session; one `code-reviewer` run checked every new sentence
   against the code, and its two must-fix and two smaller text findings are fixed. No byte on the wire changes,
   so no conformance stage ran and upstream curl was not measured.
-- Follow-up: BL-1849 (found by the review: the AMQP servers offer SASL `GSSAPI` under the service `pop`).
+- Follow-up: BL-1858 (found by the review: the AMQP servers offer SASL `GSSAPI` under the service `pop`).
 - Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast
   tests 30187 passed, 0 failed, 3 skipped.
 

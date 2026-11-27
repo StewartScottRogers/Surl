@@ -1,5 +1,5 @@
 ---
-id: BL-1849
+id: BL-1858
 title: Decide which Kerberos service an AMQP SASL GSSAPI login answers, or stop the AMQP servers offering GSSAPI
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1849 — Decide which Kerberos service an AMQP SASL GSSAPI login answers, or stop the AMQP servers offering GSSAPI
+# BL-1858 — Decide which Kerberos service an AMQP SASL GSSAPI login answers, or stop the AMQP servers offering GSSAPI
 
 ## Goal
 
