@@ -49,3 +49,4 @@ No store, event or fault changes: this task changes the text sent at `initialize
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-26: Backlog -> Doing.
