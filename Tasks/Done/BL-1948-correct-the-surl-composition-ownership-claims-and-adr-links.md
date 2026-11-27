@@ -54,7 +54,7 @@ No store, event or fault is involved: documentation only.
   re-wrapped only.
 - 2026-11-27: Verified: build 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests all passed. The four
   ADR links point at existing files; a search of the library finds no `Surl.Console`.
-- 2026-11-27: Two other inaccurate remarks on `SmtpProtocolServer`, outside this task, filed as BL-1953.
+- 2026-11-27: Two other inaccurate remarks on `SmtpProtocolServer`, outside this task, filed as BL-1957.
 
 ## Log
 

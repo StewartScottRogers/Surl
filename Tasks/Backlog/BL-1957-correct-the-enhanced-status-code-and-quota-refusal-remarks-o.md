@@ -1,5 +1,5 @@
 ---
-id: BL-1953
+id: BL-1957
 title: Correct the enhanced status code and quota refusal remarks on SmtpProtocolServer
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1953 — Correct the enhanced status code and quota refusal remarks on SmtpProtocolServer
+# BL-1957 — Correct the enhanced status code and quota refusal remarks on SmtpProtocolServer
 
 ## Goal
 
