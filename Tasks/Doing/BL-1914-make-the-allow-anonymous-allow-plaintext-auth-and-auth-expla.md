@@ -35,3 +35,4 @@ The explanations of `--allow-anonymous`, `--allow-plaintext-auth` and `--auth` s
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
