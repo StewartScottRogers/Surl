@@ -6,8 +6,8 @@ using static Surl.Protocol.Ldap.UnitTestSaslAuthenticationPolicy;
 namespace Surl.Protocol.Ldap;
 
 /// <summary>
-/// ADR-0072 decision 5 in the server: <c>StartTLS</c> with and without a certificate, the bytes
-/// pipelined after it, its refusals, the root DSE before and after the upgrade, a bind the
+/// ADR-0072 decision 5 in the server: <c>StartTLS</c> with and without a TLS upgrade available, the
+/// bytes pipelined after it, its refusals, the root DSE before and after the upgrade, a bind the
 /// plain-text rule refused allowed over TLS, and <c>ldaps</c>.
 /// </summary>
 [TestClass]

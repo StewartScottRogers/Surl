@@ -44,8 +44,9 @@ what `LdapMessageFrameReader` read past the request), other extended operations,
 unbind; once a bind installs an `ISaslSecurityLayer` every message both ways is one
 4-byte-length buffer the layer protects. It sends the Notice of Disconnection for what it
 cannot read (`LdapDiagnostics`) and for a limit, and notes each decision (`LdapLogText`). `ldaps` is the
-same exchange inside the engine's implicit TLS: `Surl.Console` registers the server a second
-time behind `ImplicitTlsSchemeServer` (BL-310). Its tests replay request bytes recorded from the
+same exchange inside the engine's implicit TLS: `Surl.Composition`'s
+`ProtocolServerRegistrations.Original` registers the server a second time behind
+`ImplicitTlsSchemeServer` (`ProtocolServerRegistration.ImplicitTls`; BL-310). Its tests replay request bytes recorded from the
 pinned Windows build (`Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`), the SASL policy and
 security layer faked.
 
@@ -64,8 +65,9 @@ through `Surl.Content`'s `IContentFileSystem`; a missing file is an empty direct
 directory is never written. `LdifReader` reads RFC 2849 LDIF content records into
 `LdifRecord`s; a file it or `LdapDirectory` refuses, or one that cannot be read, ends in the
 public `LdapDirectoryLoadException` carrying the file path and `line <n>: <what>` (the texts in
-`LdifFaultText`) or the read failure's message, which `Surl.Console` turns into
-`CouldNotReadFile` (37) before any listener binds (BL-310).
+`LdifFaultText`) or the read failure's message, which `Surl.Composition`'s
+`SurlServerComposition.LoadLdapServerAsync` turns into `(37) Could not read <file>: <message>`,
+and its start into `CouldNotReadFile` (37), before any listener binds (BL-310).
 
 What this library does not hold: the SASL mechanisms, the NTLM and `DIGEST-MD5` security layers
 and the password check live in `Surl.Authentication`, reached only through the
