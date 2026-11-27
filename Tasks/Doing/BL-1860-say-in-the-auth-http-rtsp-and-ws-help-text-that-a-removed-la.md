@@ -37,3 +37,4 @@ account, so removing the last one while the server runs opens nothing.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
