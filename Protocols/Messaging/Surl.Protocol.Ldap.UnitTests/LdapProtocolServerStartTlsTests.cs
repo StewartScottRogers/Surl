@@ -18,7 +18,7 @@ public sealed class LdapProtocolServerStartTlsTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public async Task ServeAsync_StartTlsWithACertificate_AnswersSuccessThenUpgrades()
+    public async Task ServeAsync_StartTlsWithTlsUpgradeAvailable_AnswersSuccessThenUpgrades()
     {
         var policy = new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted);
         var log = new RecordingExchangeLog();
@@ -52,7 +52,7 @@ public sealed class LdapProtocolServerStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StartTlsWithoutACertificate_IsProtocolErrorWithNoNameAndNoUpgrade()
+    public async Task ServeAsync_StartTlsWithTlsUpgradeUnavailable_IsProtocolErrorWithNoNameAndNoUpgrade()
     {
         var connection = new InMemoryConnection([StartTls(1)]);
 
@@ -63,7 +63,7 @@ public sealed class LdapProtocolServerStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_OtherExtendedOperationWithACertificate_IsProtocolErrorWithNoName()
+    public async Task ServeAsync_OtherExtendedOperationWithTlsUpgradeAvailable_IsProtocolErrorWithNoName()
     {
         var whoAmI = Message(1, writer =>
         {
@@ -80,8 +80,8 @@ public sealed class LdapProtocolServerStartTlsTests
     }
 
     [TestMethod]
-    [DataRow(true, DisplayName = "With a certificate")]
-    [DataRow(false, DisplayName = "Without a certificate")]
+    [DataRow(true, DisplayName = "With a TLS upgrade available")]
+    [DataRow(false, DisplayName = "With a TLS upgrade unavailable")]
     public async Task ServeAsync_StartTlsOnATlsConnection_IsOperationsError(bool isTlsUpgradeAvailable)
     {
         var log = new RecordingExchangeLog();
