@@ -1,5 +1,5 @@
 ---
-id: BL-1808
+id: BL-1811
 title: Complete the library and user lists in the product overview and the README repository layout
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1808 — Complete the library and user lists in the product overview and the README repository layout
+# BL-1811 — Complete the library and user lists in the product overview and the README repository layout
 
 ## Goal
 
