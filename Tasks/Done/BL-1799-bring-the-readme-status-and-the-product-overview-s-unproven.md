@@ -8,7 +8,7 @@ depends-on: []
 touches: [README.md, Documentation/Product/Product-Overview.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1799 — Bring the README status and the product overview's unproven list up to date with the pinned upstream curl builds and registered MCP tools
 
@@ -29,14 +29,20 @@ Compare `UpstreamCurlBuilds.json`, `.github/workflows/release.yml` and the Roadm
 
 ## Acceptance criteria
 
-- [ ] Neither file says a platform lacks a pinned upstream curl build that
+- [x] Neither file says a platform lacks a pinned upstream curl build that
       `UpstreamCurlBuilds.json` pins.
-- [ ] Neither file calls a task open that is in `Done` or its archive.
-- [ ] The README's `surl-mcp` tool list names every tool `Surl.Mcp` registers.
+- [x] Neither file calls a task open that is in `Done` or its archive.
+- [x] The README's `surl-mcp` tool list names every tool `Surl.Mcp` registers.
 
 ## Notes
+
+- Delivered by `align-and-document`: both files updated. The README `surl-mcp` list is a table of the 40 tools `Application/Surl.Mcp/Program.cs` registers (lines 141-180).
+- Checked: `UpstreamCurlBuilds.json` pins all six platforms; `release.yml` runs conformance on every runtime identifier but `win-x64`; every `BL-` ID either file cites is in `Done` or its archives.
+- `dotnet build` clean (0 warnings); fast tests: 30,128 passed in 83 assemblies. No `.cs` or project file changed, so no format run.
+- Out of scope, filed: BL-1800 (protocol server count, `Protocols/Proxy/` row) and BL-1801 (`Surl.Mcp/CLAUDE.md` tool list). If the shift renumbers them, find them by title.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. README status, Phase 6 and MCP tool text and the product overview proof text match the pinned builds, pass rates and 40 registered tools
