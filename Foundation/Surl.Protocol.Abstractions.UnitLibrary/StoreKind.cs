@@ -56,7 +56,8 @@ public enum StoreKind
     Producers,
 
     /// <summary>
-    /// The extended servers' in-progress upload registrations, such as OCI blob uploads and MCP upload tokens (ADR-0167).
+    /// The object servers' in-progress uploads, such as S3 multipart uploads and OCI blob upload sessions. A snapshot
+    /// copies none of them; reset and restore discard them, or refuse when the content store is on disk (ADR-0167).
     /// </summary>
     Uploads,
 
