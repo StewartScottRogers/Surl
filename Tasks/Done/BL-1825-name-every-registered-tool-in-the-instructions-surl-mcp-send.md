@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1825 — Name every registered tool in the instructions surl-mcp sends at initialize
 
@@ -35,18 +35,29 @@ No store, event or fault changes: this task changes the text sent at `initialize
 
 ## Acceptance criteria
 
-- [ ] A test in `Application/Surl.Mcp.UnitTests/ProgramTests.cs` reads the names `tools/list` returns and fails,
+- [x] A test in `Application/Surl.Mcp.UnitTests/ProgramTests.cs` reads the names `tools/list` returns and fails,
       naming the tool, unless `Program.Instructions` contains each as a whole word (`read_key` is not satisfied
       by `read_keys`).
-- [ ] That test passes, as does the rest of `Surl.Mcp.UnitTests`, with no `TestCategory=Integration`.
-- [ ] `Program.Instructions` still says that servers listen on loopback addresses unless whoever started
+- [x] That test passes, as does the rest of `Surl.Mcp.UnitTests`, with no `TestCategory=Integration`.
+- [x] `Program.Instructions` still says that servers listen on loopback addresses unless whoever started
       `surl-mcp` allowed others, and that the `surl://aihelp` resources explain `start_server`'s listen URLs and
       options.
-- [ ] `dotnet build Application/Surl.Mcp.UnitTests -warnaserror` is clean.
+- [x] `dotnet build Application/Surl.Mcp.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- Test: `ProgramTests.RunAsync_ToolsList_EveryListedToolIsNamedAsAWholeWordInTheInstructions`, matching
+  `\b<name>\b` (an underscore is a word character, so `read_keys` does not name `read_key`). Run before the text
+  changed, it failed naming 27 tools.
+- The text groups the tools as run, watch, seed and delete, read back, accounts, reset and restore, faults. It says
+  `reset_server`, `snapshot_server` and `restore_server` "control a server's stores", as before, rather than
+  listing which stores each covers; each tool's own description says that.
+- `Application/Surl.Mcp/CLAUDE.md` now states that the instructions name every tool and that a test holds it.
+- Verified: solution build with `-warnaserror` clean, `dotnet format --verify-no-changes` clean, all fast tests
+  passed (`Surl.Mcp.UnitTests` 442 of 442).
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. surl-mcp's initialize instructions name all 40 registered tools, and a ProgramTests test fails, naming the tool, when one is left out
