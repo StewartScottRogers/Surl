@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary/CLAUDE.md, Application/Surl.Composition.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-26
-completed:
+completed: 2026-11-26
 ---
 # BL-1820 — Correct stale statements in the Surl.Cli and Surl.Composition CLAUDE.md files
 
@@ -27,14 +27,22 @@ Found while working BL-1809. Docs only; no `.cs` file changes.
 
 ## Acceptance criteria
 
-- [ ] The "Unix domain sockets" bullet names only the refusals `UnixSocketCombination.cs` makes, with no mention of an `ftp`/`ftps` refusal.
-- [ ] The Cli file states the option rows, conflict check and composition for the proxy, item, share and bucket options as they are now, with no "No option row uses them yet" or other future wording about BL-1004, BL-653, BL-654, BL-663, BL-666, BL-988 or BL-989.
-- [ ] The control endpoint bullet in the Cli file names the `Surl.Composition` types that read the token file and serve the endpoint, in place of "are BL-816's".
-- [ ] The Composition file's opening paragraph says `Surl.Console` and `Surl.Api` reference the library and that `Surl.Mcp` reaches it through `Surl.Api`.
+- [x] The "Unix domain sockets" bullet names only the refusals `UnixSocketCombination.cs` makes, with no mention of an `ftp`/`ftps` refusal.
+- [x] The Cli file states the option rows, conflict check and composition for the proxy, item, share and bucket options as they are now, with no "No option row uses them yet" or other future wording about BL-1004, BL-653, BL-654, BL-663, BL-666, BL-988 or BL-989.
+- [x] The control endpoint bullet in the Cli file names the `Surl.Composition` types that read the token file and serve the endpoint, in place of "are BL-816's".
+- [x] The Composition file's opening paragraph says `Surl.Console` and `Surl.Api` reference the library and that `Surl.Mcp` reaches it through `Surl.Api`.
 
 ## Notes
+
+- `align-and-document` edited the two files; each new statement was checked against `UnixSocketCombination.cs`,
+  `CommandLineOptions.cs`, `CommandLineParser.cs` and the `Surl.Composition` types it names.
+- The "Unix domain sockets" bullet also gains the `--proxy` refusal (`RefuseProxy`, which runs first).
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: all 83 test assemblies reported, none failed. Only
+  Markdown changed.
+- Other stale statements in the same two files, outside these criteria, are filed as BL-1822.
 
 ## Log
 
 - 2026-11-26: Created.
 - 2026-11-26: Backlog -> Doing.
+- 2026-11-26: Doing -> Done. The Surl.Cli and Surl.Composition CLAUDE.md files describe the proxy, item, share, bucket, control endpoint and Unix socket work and the library's referrers as the code has them
