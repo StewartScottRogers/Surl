@@ -1,10 +1,14 @@
 # Surl.Protocol.HttpProxy.UnitLibrary
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
-ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4. Built by BL-552, BL-554 (the
-HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the upstream cases' server half
-(BL-556) is built too. `surl` composes the proxy for its `--proxy` listen URLs (`Surl.Composition`'s
-`ProxyComposition`, BL-1003).
+ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4 (what decisions 3 to 6 settle,
+`ftp://` forwarding included), 9 (the HTTPS proxy offers and serves `h2`), 10 (how the upstream
+cases' proxy half reaches the origin) and 11 (a proxy on port 0 refuses its own bound end point:
+the `IOriginConnector`'s rule refuses it, and this library answers `403`). Its Amendments 5 to 8
+decide the proxy's command line and composition, in `Surl.Cli` and `Surl.Composition`. Built by
+BL-552, BL-554 (the HTTPS proxy), BL-553 (`Proxy-Authorization`), BL-594 (`ftp://` forwarding) and
+BL-940 (HTTP/2); the upstream cases' server half (BL-556) is built too. `surl` composes the proxy
+for its `--proxy` listen URLs (`Surl.Composition`'s `ProxyComposition`, BL-1003).
 
 **The upstream test cases' proxy half** (ADR-0080 decision 2; BL-556) is a test seam the shipped `surl` never
 composes: `Surl.Conformance.UnitTests` composes `HttpProxyUpstreamTestCaseServer` with one case's
