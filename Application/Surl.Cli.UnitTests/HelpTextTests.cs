@@ -616,9 +616,10 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
-            "        websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, coap, dns, ftp, grpc, gs,",
+            "        http, imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, redis,",
+            "        rtsp, s3, signalr, smb, smtp, socketio, ssh, stomp, websocket,",
+            "        webtransport, xmpp.",
             "");
 
     [TestMethod]
@@ -628,9 +629,10 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
-            "        websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, coap, dns, ftp, grpc, gs,",
+            "        http, imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, redis,",
+            "        rtsp, s3, signalr, smb, smtp, socketio, ssh, stomp, websocket,",
+            "        webtransport, xmpp.",
             "");
 
     [TestMethod]
@@ -643,9 +645,10 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-                "        ldap, mqtt, nats, oci, pop3, rtsp, s3, security, smb, smtp, ssh, stomp,",
-                "        testing, websocket.",
+                "        Categories: amqp, amqp1, auth, azure-storage, coap, dns, ftp, grpc, gs,",
+                "        http, imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, proxy,",
+                "        redis, rtsp, s3, security, signalr, smb, smtp, socketio, socks, ssh,",
+                "        stomp, testing, websocket, webtransport, xmpp.",
                 "",
             ]);
 
@@ -661,8 +664,10 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: amqp1, auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
-                "        security, smtp, stomp, testing, websocket.",
+                "        Categories: amqp, amqp1, auth, azure-storage, ftp, grpc, gs, http,",
+                "        imap, kafka, ldap, mcp, mqtt, mqtt5, nats, oci, pop3, proxy, redis,",
+                "        rtsp, security, signalr, smtp, socketio, socks, stomp, testing,",
+                "        websocket, xmpp.",
                 "",
             ]);
 
@@ -691,8 +696,9 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: amqp, amqp1, auth, http, imap, ldap, mqtt5, pop3, rtsp,",
-                "        security, smb, smtp, testing, websocket.",
+                "        Categories: amqp, amqp1, auth, dns, grpc, gs, http, imap, kafka, ldap,",
+                "        mcp, mqtt5, pop3, rtsp, security, signalr, smb, smtp, testing,",
+                "        websocket, webtransport, xmpp.",
                 "",
             ]);
 
@@ -966,6 +972,94 @@ public sealed class HelpTextTests
             "     --tlsv1.1                 Accept TLS 1.1 or later",
             "     --tlsv1.2                 Accept TLS 1.2 or later (default)",
             "     --tlsv1.3                 Accept TLS 1.3 or later");
+
+    // The account and authentication options of each server topic (BL-1902).
+
+    private static readonly (string Name, string LeftSide, string Description)[] AccountAndAuthenticationOptions =
+    [
+        ("user", "-u, --user <user:password>", "Add an account (repeatable)"),
+        ("user-file", "--user-file <file>", "Read accounts from a file"),
+        ("allow-anonymous", "--allow-anonymous", "Accept any login, or none (warns)"),
+        ("allow-plaintext-auth", "--allow-plaintext-auth", "Accept passwords in clear (warns)"),
+        ("auth", "--auth <methods>", "Authentication methods accepted"),
+    ];
+
+    private const string AllFive = "user user-file allow-anonymous allow-plaintext-auth auth";
+    private const string AccountsAndBothLoosenings = "user user-file allow-anonymous allow-plaintext-auth";
+    private const string AccountsAnonymousAndAuth = "user user-file allow-anonymous auth";
+    private const string AccountsAndAnonymous = "user user-file allow-anonymous";
+    private const string BothLoosenings = "allow-anonymous allow-plaintext-auth";
+
+    // Every server topic - each help category with schemes, and proxy - with the options its server reads.
+    private static readonly Dictionary<string, string> OptionsEachServerReads = new()
+    {
+        ["amqp"] = AllFive,
+        ["amqp1"] = AllFive,
+        ["azure-storage"] = AccountsAndBothLoosenings,
+        ["coap"] = AccountsAndAnonymous,
+        ["dict"] = "",
+        // DNS over HTTPS alone logs in, and it is always TLS.
+        ["dns"] = AccountsAnonymousAndAuth,
+        ["ftp"] = AccountsAndBothLoosenings,
+        ["gopher"] = "",
+        ["grpc"] = AllFive,
+        // --auth decides whether a bearer token is accepted.
+        ["gs"] = AllFive,
+        ["http"] = AllFive,
+        ["imap"] = AllFive,
+        ["kafka"] = AllFive,
+        ["ldap"] = AllFive,
+        ["mcp"] = AllFive,
+        ["mqtt"] = AccountsAndBothLoosenings,
+        ["mqtt5"] = AllFive,
+        ["nats"] = AccountsAndBothLoosenings,
+        ["oci"] = AccountsAndBothLoosenings,
+        ["pop3"] = AllFive,
+        // The proxy and SOCKS listeners log in the -U accounts by --proxy-auth, never --user or --auth.
+        ["proxy"] = BothLoosenings,
+        ["redis"] = AccountsAndBothLoosenings,
+        ["rtsp"] = AllFive,
+        ["s3"] = AccountsAndAnonymous,
+        ["signalr"] = AllFive,
+        ["smb"] = AccountsAnonymousAndAuth,
+        ["smtp"] = AllFive,
+        ["socketio"] = AccountsAndBothLoosenings,
+        ["socks"] = BothLoosenings,
+        ["ssh"] = AccountsAndAnonymous,
+        ["stomp"] = AccountsAndBothLoosenings,
+        ["telnet"] = "",
+        ["tftp"] = "",
+        ["websocket"] = AllFive,
+        // WebTransport is HTTP/3, so always TLS.
+        ["webtransport"] = AccountsAnonymousAndAuth,
+        ["xmpp"] = AllFive,
+    };
+
+    [TestMethod]
+    public void Answer_EveryServerTopic_ListsExactlyTheAccountAndAuthenticationOptionsItsServerReads()
+    {
+        foreach (var (topic, expected) in OptionsEachServerReads)
+        {
+            var helpLines = HelpText.Answer(topic).Output.ReplaceLineEndings("\n").Split('\n');
+            var aiHelp = AiHelpText.Answer(topic).Output;
+
+            var inHelp = AccountAndAuthenticationOptions
+                .Where(option => helpLines.Any(line => line.EndsWith(" " + option.Description, StringComparison.Ordinal)))
+                .Select(option => option.Name);
+            var inAiHelp = AccountAndAuthenticationOptions
+                .Where(option => aiHelp.Contains($"| `{option.LeftSide}` |", StringComparison.Ordinal))
+                .Select(option => option.Name);
+
+            Assert.AreEqual(expected, string.Join(' ', inHelp), $"--help {topic}");
+            Assert.AreEqual(expected, string.Join(' ', inAiHelp), $"--aihelp {topic}");
+        }
+    }
+
+    [TestMethod]
+    public void Answer_EveryServerTopic_HasItsAccountAndAuthenticationOptionsPinned() =>
+        CollectionAssert.AreEquivalent(
+            HelpCategories.All.Where(category => category.Schemes.Count > 0 || category.Name == "proxy").Select(category => category.Name).ToArray(),
+            OptionsEachServerReads.Keys.ToArray());
 
     // --help <option>.
 
