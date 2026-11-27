@@ -119,10 +119,11 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 
 After an alert the handshake is over: a later `Receive` throws `InvalidOperationException`.
 
-It references `Surl.Cryptography.Curve25519.UnitLibrary`,
-`Surl.Cryptography.Curve448.UnitLibrary`, `Surl.Cryptography.MlKem.UnitLibrary` and
-`Surl.Cryptography.Sm2.UnitLibrary` (ADR-0082 decision 2, ADR-0147). Bytes in,
-bytes out: never open a socket or a file, and never read a clock.
+It references `Surl.Cryptography.ChaCha20.UnitLibrary`,
+`Surl.Cryptography.Curve25519.UnitLibrary`, `Surl.Cryptography.Curve448.UnitLibrary`,
+`Surl.Cryptography.MlKem.UnitLibrary`, `Surl.Cryptography.Poly1305.UnitLibrary` and
+`Surl.Cryptography.Sm2.UnitLibrary` (ADR-0082 decision 2, ADR-0147, ADR-0157 decision 2).
+Bytes in, bytes out: never open a socket or a file, and never read a clock.
 
 Every expected value in its tests comes from RFC 8448 (sections 3 and 5) or from ClientHellos
 recorded from pinned upstream curl builds (`Fixtures/ClientHello`, BL-363's `-QuicInitial`),
