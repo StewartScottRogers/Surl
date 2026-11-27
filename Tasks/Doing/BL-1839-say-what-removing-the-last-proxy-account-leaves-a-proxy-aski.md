@@ -35,3 +35,4 @@ An ADR states what a proxy asks for after its last proxy account is removed whil
 ## Log
 
 - 2026-11-26: Created.
+- 2026-11-27: Backlog -> Doing.
