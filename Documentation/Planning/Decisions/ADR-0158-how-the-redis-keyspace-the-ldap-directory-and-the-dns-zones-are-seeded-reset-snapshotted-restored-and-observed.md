@@ -11,6 +11,8 @@
 - **Amends:** ADR-0124 decision 2 (the bullet "Stores are not replaceable" gains a registration seam),
   decision 3 (the order across stores grows by three), decision 7 (three requests join the control
   endpoint's table) and decision 8 (three tools join `Surl.Mcp`'s table).
+- **Amended (2026-11-27, BL-1857):** the order across stores that decisions 5 and 8 give is superseded by
+  ADR-0124's amendment of the same date; see Amendment 2.
 - **Acted on by:** BL-1157, BL-1158, BL-1159, BL-1160, BL-1161, BL-1162, BL-1163, BL-1164, BL-1165,
   BL-1166, BL-1167, BL-1168 and BL-1169.
 
@@ -149,7 +151,8 @@ keys as reset does.
 
 **Order across stores.** ADR-0124 decision 3's order becomes content, mail, bus, accounts, **keyspace,
 directory, zones**: the three are independent of every other store and of each other, and are appended so
-the existing order does not change. The first failure still stops it, naming the store.
+the existing order does not change. The first failure still stops it, naming the store. *This order is
+superseded; see Amendment 2.*
 
 ### 6. Is a directory or zones loaded from `--directory` "a store on disk"? No
 
@@ -219,7 +222,7 @@ The seam is two small pieces and no `switch`:
 
 Stores stay not replaceable by a test (ADR-0124 decision 2): the seam is for stores Surl ships, and the
 `SurlProtocolServer` a test supplies has no `ControlledStore`. (BL-1158, then BL-1161, BL-1163, BL-1165 each
-register one.)
+register one.) *The order this decision says Redis, LDAP and DNS follow in is superseded; see Amendment 2.*
 
 ### 9. Host spellings
 
@@ -363,3 +366,12 @@ same text and `list_keys` and `list_zones` an empty page (ADR-0164 decision 9, u
 
 BL-1410 (composition: serve-gated stores, refusal) and BL-1405 (`set_key`'s result, and the MCP tests of the
 refusal). Neither half keeps today's behaviour, so no leftover is recorded for them.
+
+## Amendment 2 (2026-11-27, BL-1857): the order across stores
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-1857.
+
+The order decision 5 gives ("content, mail, bus, accounts, keyspace, directory, zones"), and decision 8's
+statement that Redis, LDAP and DNS follow in that order, are superseded. The current order is the one in
+[ADR-0124's amendment of 2026-11-27](ADR-0124-surl-is-a-stand-in-for-tests.md#amendment-2026-11-27-the-order-across-stores-is-thirteen-stores-bl-1857):
+other stores now come before, between and after these three. No code changes.

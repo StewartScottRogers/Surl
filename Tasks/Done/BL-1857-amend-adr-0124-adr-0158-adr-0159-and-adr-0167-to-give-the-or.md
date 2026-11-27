@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md, Documentation/Planning/Decisions/ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md, Documentation/Planning/Decisions/ADR-0159-which-broker-held-state-a-reset-snapshot-and-restore-of-the-message-bus-cover.md, Documentation/Planning/Decisions/ADR-0167-what-a-reset-snapshot-and-restore-do-with-in-progress-object-uploads-and-the-oci-and-mcp-servers-tokens.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1857 — Amend ADR-0124, ADR-0158, ADR-0159 and ADR-0167 to give the order across stores that the code runs
 
@@ -53,20 +53,31 @@ not this task's.
 
 ## Acceptance criteria
 
-- [ ] ADR-0124 has a dated amendment, "Decided by Claude under Stewart's delegation", named in its header, that
+- [x] ADR-0124 has a dated amendment, "Decided by Claude under Stewart's delegation", named in its header, that
       lists the thirteen stores in the order above, says which exist only when composed or served, and says it
       supersedes "accounts last" in decision 3.
-- [ ] ADR-0158 carries a dated amendment, named in its header, saying its decision 5 and decision 8 order is
+- [x] ADR-0158 carries a dated amendment, named in its header, saying its decision 5 and decision 8 order is
       superseded and pointing to the ADR-0124 amendment.
-- [ ] ADR-0159 carries a dated amendment, named in its header, saying the broker registrations follow the accounts,
+- [x] ADR-0159 carries a dated amendment, named in its header, saying the broker registrations follow the accounts,
       in the order AMQP 0-9-1 exchanges, Kafka producers, sessions, and that content comes before the bus.
-- [ ] ADR-0167 carries a dated amendment, named in its header, giving the order within the sessions and uploads
+- [x] ADR-0167 carries a dated amendment, named in its header, giving the order within the sessions and uploads
       entries, saying both follow the accounts and that the uploads entry is last.
-- [ ] No original decision sentence is rewritten, and only the four ADR files change.
+- [x] No original decision sentence is rewritten, and only the four ADR files change.
 
 ## Notes
+
+- Order checked against `ComposedStores`, `ComposedStores.AccountStores.cs` and `SurlServerComposition.Start.cs`
+  on 2026-11-27: it matches the Context.
+- Each superseded passage gained an appended italic pointer to its amendment, as ADR-0124's snapshot bullet
+  already does ("Corrected by"), so no old order reads as current. The original sentences are unchanged.
+- Apart from the board files (this task and the follow-up BL-1894), only the four ADR files changed. No `.cs` or
+  project file changed, so the docs pipeline needs no `verify` run. The factory's commit gate was still run:
+  `dotnet build` clean (0 warnings, 0 errors) and the fast tests exit 0.
+- Edited directly rather than through `align-and-document`: four small text edits whose content the task gives.
+- Filed BL-1894 for the `IControllableStore` seam the records name and no code declares.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0124, 0158, 0159 and 0167 now give by amendment the thirteen-store reset, snapshot and restore order the code runs
