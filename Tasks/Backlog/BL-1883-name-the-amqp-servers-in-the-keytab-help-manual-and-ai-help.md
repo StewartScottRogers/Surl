@@ -1,5 +1,5 @@
 ---
-id: BL-1877
+id: BL-1883
 title: Name the AMQP servers in the --keytab help, manual and AI help text
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1877 — Name the AMQP servers in the --keytab help, manual and AI help text
+# BL-1883 — Name the AMQP servers in the --keytab help, manual and AI help text
 
 ## Goal
 
@@ -20,7 +20,7 @@ The --keytab manual section and AI help say that the AMQP 0-9-1 and AMQP 1.0 ser
 
 - Found by BL-1858: ADR-0057 amendment 4 makes `amqp`, `amqps`, `amqp1` and `amqp1s` answer the Kerberos service `amqp`.
 - `ManualText.cs` (the `--keytab` paragraph) and `AiHelpProse.cs` name only the SMTP, IMAP, POP3 and LDAP servers SASL `GSSAPI` logins; check the `--auth` `gssapi` texts and `CommandLineOptions.cs` too.
-- Until BL-1878 is Done, an AMQP 1.0 ticket over 512 bytes does not reach the check; say only what is true when this runs.
+- Until BL-1884 is Done, an AMQP 1.0 ticket over 512 bytes does not reach the check; say only what is true when this runs.
 
 ## Acceptance criteria
 

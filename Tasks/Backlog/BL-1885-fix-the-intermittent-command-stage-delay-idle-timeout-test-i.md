@@ -1,5 +1,5 @@
 ---
-id: BL-1879
+id: BL-1885
 title: Fix the intermittent command-stage delay idle-timeout test in Surl.Core.UnitTests
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1879 — Fix the intermittent command-stage delay idle-timeout test in Surl.Core.UnitTests
+# BL-1885 — Fix the intermittent command-stage delay idle-timeout test in Surl.Core.UnitTests
 
 ## Goal
 

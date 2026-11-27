@@ -51,8 +51,8 @@ service principal an ADR names, or does not offer `GSSAPI`.
   never offer `GSSAPI`.
 - Pipeline: planned, tested, implemented and reviewed in this run without subagent stages (one method changed).
   No upstream curl conformance step: upstream curl has no AMQP, and no AMQP projects changed.
-- Limit, filed as BL-1878: AMQP 1.0 closes a SASL frame over 512 bytes, so a large ticket never reaches the check.
-- Filed also BL-1877 (`--keytab` help text names AMQP) and BL-1879 (a `Surl.Core.UnitTests` delay test failed
+- Limit, filed as BL-1884: AMQP 1.0 closes a SASL frame over 512 bytes, so a large ticket never reaches the check.
+- Filed also BL-1883 (`--keytab` help text names AMQP) and BL-1885 (a `Surl.Core.UnitTests` delay test failed
   once under load, passed on rerun and in the final full run).
 - Verify: build 0 warnings, format clean, fast tests 30218 passed, 0 failed, 3 skipped.
 

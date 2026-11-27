@@ -1,5 +1,5 @@
 ---
-id: BL-1878
+id: BL-1884
 title: Decide whether the AMQP 1.0 container accepts SASL frames over 512 bytes so a Kerberos ticket reaches GSSAPI
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1878 — Decide whether the AMQP 1.0 container accepts SASL frames over 512 bytes so a Kerberos ticket reaches GSSAPI
+# BL-1884 — Decide whether the AMQP 1.0 container accepts SASL frames over 512 bytes so a Kerberos ticket reaches GSSAPI
 
 ## Goal
 
