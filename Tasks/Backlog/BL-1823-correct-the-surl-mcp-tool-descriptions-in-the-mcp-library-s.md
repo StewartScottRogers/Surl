@@ -1,5 +1,5 @@
 ---
-id: BL-1810
+id: BL-1823
 title: Correct the surl-mcp tool descriptions in the MCP library's CLAUDE.md and the host README
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1810 — Correct the surl-mcp tool descriptions in the MCP library's CLAUDE.md and the host README
+# BL-1823 — Correct the surl-mcp tool descriptions in the MCP library's CLAUDE.md and the host README
 
 ## Goal
 

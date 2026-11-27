@@ -1,5 +1,5 @@
 ---
-id: BL-1809
+id: BL-1822
 title: Complete the surl-mcp tool and control route lists in the stand-in wiki and glossary
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1809 — Complete the surl-mcp tool and control route lists in the stand-in wiki and glossary
+# BL-1822 — Complete the surl-mcp tool and control route lists in the stand-in wiki and glossary
 
 ## Goal
 

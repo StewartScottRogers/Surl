@@ -1,5 +1,5 @@
 ---
-id: BL-1811
+id: BL-1824
 title: Say in the --aihelp overview that the surl-mcp tools it names are only some of them
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1811 — Say in the --aihelp overview that the surl-mcp tools it names are only some of them
+# BL-1824 — Say in the --aihelp overview that the surl-mcp tools it names are only some of them
 
 ## Goal
 

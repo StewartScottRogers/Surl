@@ -1,5 +1,5 @@
 ---
-id: BL-1812
+id: BL-1825
 title: Name every registered tool in the instructions surl-mcp sends at initialize
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-26
 completed:
 ---
-# BL-1812 — Name every registered tool in the instructions surl-mcp sends at initialize
+# BL-1825 — Name every registered tool in the instructions surl-mcp sends at initialize
 
 ## Goal
 
