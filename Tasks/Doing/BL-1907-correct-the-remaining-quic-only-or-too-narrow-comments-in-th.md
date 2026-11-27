@@ -47,3 +47,4 @@ drives this handshake, for TLS 1.3 over TCP (ADR-0157). BL-1895 covers `TlsAlert
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
