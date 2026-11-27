@@ -17,13 +17,17 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
-- `Pop3ProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`-ERR surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the
-  `pop3` scheme's one `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server
-  delivers into,
-  `isTlsUpgradeAvailable`, which `Surl.Composition` sets when a certificate is configured (`--cert`
-  or `--self-signed`) or TLS-SRP is served (ADR-0122 decision 5), and an optional
+- `Pop3ProtocolServer`: `IConnectionProtocolServer`, `IConnectionRefusalWriter` and
+  `IExchangeBytesRedactingServer`. `WriteRefusalAsync` answers a refused plaintext `pop3`
+  connection (one past a connection limit) `-ERR surl Too many connections, closing`; a refused
+  `pop3s` connection is closed with no reply (ADR-0006, section 5). `CreateRedactor` returns a
+  `LineBytesRedactor` over `Pop3LineRedactionRule`, which masks the `PASS` argument, an `AUTH`
+  initial response and the answers to `+ ` continuations in the exchange log (ADR-0182,
+  ADR-0183). Its constructor takes the `IAuthenticationPolicy`, the
+  `IMailAuthenticationPolicy` (`Surl.Composition` passes the `pop3` scheme's one
+  `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
+  `isTlsUpgradeAvailable`, which `Surl.Composition` sets when a certificate is configured
+  (`--cert` or `--self-signed`) or TLS-SRP is served (ADR-0122 decision 5), and an optional
   `RandomNumberGenerator` for the `APOP` timestamp.
 - `Pop3Session`: one connection, in the AUTHORIZATION state until a login and the TRANSACTION
   state after it. It greets `+OK surl ready`, followed by an `APOP` timestamp only when the
@@ -51,10 +55,12 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   path. An `Error` rule is answered `-ERR <reply>` in place of the command, the maildrop is
   untouched, a note is logged and one `FaultAppliedEvent` (target: the verb) is published. A
   rule with no reply answers `-ERR Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). When the client half-closed or reset during a `Delay` hold, nothing is sent and the session ends, a reset aborting the connection (ADR-0141 amendment 3, BL-1546).
-- `STLS` (decision 8): `+OK Begin TLS negotiation`, then `CrlfLineReader.DiscardBuffered`, then
-  `IConnection.UpgradeToTlsAsync`, and the session starts over with the `USER` forgotten;
-  `-ERR STLS not available` only when no upgrade is available (`isTlsUpgradeAvailable` false:
-  neither a certificate nor TLS-SRP), `-ERR Already using TLS` on a TLS connection.
+- `STLS` (decision 8) is refused with the first of these that applies: `-ERR Already logged in`
+  after a login, `-ERR Invalid arguments` with an argument, `-ERR Already using TLS` on a TLS
+  connection, `-ERR STLS not available` when no upgrade is available (`isTlsUpgradeAvailable`
+  false: neither a certificate nor TLS-SRP). Otherwise: `+OK Begin TLS negotiation`, then
+  `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`, and the session starts
+  over with the `USER` forgotten.
 - Limits (decision 9): `-ERR Command line too long, closing` past `--max-line` and
   `-ERR Timeout waiting for a command, closing` past `--head-timeout`, each written within
   `LimitReplyWriteDeadline`, then a close; the idle timeout and maximum duration close the

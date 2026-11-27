@@ -23,9 +23,10 @@ namespace Surl.Protocol.Pop3;
 /// connection the server can upgrade.
 /// </para>
 /// <para>
-/// <b>TLS.</b> <c>STLS</c> is answered <c>+OK Begin TLS negotiation</c>, every byte pipelined
-/// after it is thrown away unrun, and the connection is upgraded; the session starts over in the
-/// AUTHORIZATION state. <c>pop3s</c> is implicit TLS that the engine completes before
+/// <b>TLS.</b> An <c>STLS</c> that is accepted - before a login, with no argument, on a plaintext
+/// connection the server can upgrade - is answered <c>+OK Begin TLS negotiation</c>, every byte
+/// pipelined after it is thrown away unrun, and the connection is upgraded; the session starts
+/// over in the AUTHORIZATION state. <c>pop3s</c> is implicit TLS that the engine completes before
 /// <see cref="ServeAsync"/>: the server tells the two apart by <see cref="IConnection.TlsSession"/>,
 /// never by the scheme, and <c>Surl.Composition</c> registers <c>pop3s</c> as an
 /// <c>ImplicitTlsSchemeServer</c> over the <c>pop3</c> server (ADR-0056, decision 8).
@@ -56,8 +57,9 @@ namespace Surl.Protocol.Pop3;
 /// answered <c>-ERR Command line too long, closing</c>, one not complete within
 /// <see cref="ExchangeLimits.HeadTimeout"/> <c>-ERR Timeout waiting for a command, closing</c>;
 /// each then closes the connection, the reply written within
-/// <see cref="LimitReplyWriteDeadline"/>. A connection past a connection limit is answered by
-/// <see cref="WriteRefusalAsync"/>.
+/// <see cref="LimitReplyWriteDeadline"/>. A refused plaintext <c>pop3</c> connection, one past a
+/// connection limit, is answered by <see cref="WriteRefusalAsync"/>; a refused <c>pop3s</c>
+/// connection is closed with no reply, before any TLS handshake (ADR-0006, section 5).
 /// </para>
 /// </remarks>
 public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
@@ -89,9 +91,12 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// Whether a plaintext connection can be upgraded with <c>STLS</c>. <c>Surl.Composition</c>
     /// passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>: <see langword="true"/> when a
     /// server certificate is configured (<c>--cert</c> or <c>--self-signed</c>) or TLS-SRP is served
-    /// (ADR-0122, decision 5), so <c>CAPA</c> advertises it and <c>STLS</c> is answered <c>+OK</c>
-    /// and upgraded; when <see langword="false"/>, <c>STLS</c> is answered
-    /// <c>-ERR STLS not available</c> (ADR-0056, decision 8).
+    /// (ADR-0122, decision 5). Before a login, on a plaintext connection, <see langword="true"/>
+    /// makes <c>CAPA</c> advertise <c>STLS</c>, and an <c>STLS</c> with no argument is answered
+    /// <c>+OK Begin TLS negotiation</c> and upgraded; <see langword="false"/> makes that command
+    /// answer <c>-ERR STLS not available</c>. Whichever the value, <c>STLS</c> is first refused
+    /// <c>-ERR Already logged in</c> after a login, else <c>-ERR Invalid arguments</c> with an
+    /// argument, else <c>-ERR Already using TLS</c> on a TLS connection (ADR-0056, decision 8).
     /// </param>
     /// <param name="timestampRandom">
     /// The source of the 8 random bytes in each greeting's <c>APOP</c> timestamp (ADR-0056,
@@ -155,7 +160,8 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <summary>
     /// Answers a connection past a connection limit: <c>-ERR surl Too many connections,
     /// closing</c> in place of the greeting, for either <see cref="ConnectionRefusal"/>, then
-    /// completes writes (ADR-0056, decision 9).
+    /// completes writes (ADR-0056, decision 9). The serving engine writes no refusal on a
+    /// <c>pop3s</c> listen URL: that connection is closed with no reply (ADR-0006, section 5).
     /// </summary>
     /// <param name="connection">The connection past the limit.</param>
     /// <param name="refusal">Which limit it is past; both are answered alike.</param>
