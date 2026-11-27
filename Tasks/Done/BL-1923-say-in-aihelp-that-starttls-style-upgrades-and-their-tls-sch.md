@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1923 — Say in --aihelp that STARTTLS-style upgrades and their TLS schemes work under TLS-SRP with no certificate
 
@@ -38,15 +38,27 @@ No store, event or fault is involved: help text only.
 
 ## Acceptance criteria
 
-- [ ] In each of the `amqp1`, `ftp`, `imap`, `ldap`, `pop3` and `smtp` paragraphs named above, the upgrade is said to be offered with `--cert`, `--self-signed` or TLS-SRP, and the refusal answer is said to apply only with none of them.
-- [ ] The `xmpp` paragraph says STARTTLS is offered with a certificate or under TLS-SRP, and that the 58 refusal of an `xmpp` listen URL does not happen under TLS-SRP.
-- [ ] No sentence in those seven topics says their TLS-from-the-first-byte scheme needs `--cert` or `--self-signed` without excepting TLS-SRP.
-- [ ] A named test in `Surl.Cli.UnitTests` pins the TLS-SRP wording of each of the seven topics, and the pinned `xmpp` test matches the new text.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] In each of the `amqp1`, `ftp`, `imap`, `ldap`, `pop3` and `smtp` paragraphs named above, the upgrade is said to be offered with `--cert`, `--self-signed` or TLS-SRP, and the refusal answer is said to apply only with none of them.
+- [x] The `xmpp` paragraph says STARTTLS is offered with a certificate or under TLS-SRP, and that the 58 refusal of an `xmpp` listen URL does not happen under TLS-SRP.
+- [x] No sentence in those seven topics says their TLS-from-the-first-byte scheme needs `--cert` or `--self-signed` without excepting TLS-SRP.
+- [x] A named test in `Surl.Cli.UnitTests` pins the TLS-SRP wording of each of the seven topics, and the pinned `xmpp` test matches the new text.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Changed `AiHelpProse.cs` only. Tests: `AiHelpTextTests.Answer_TopicOfAServerThatUpgradesToTls_SaysTlsSrpServesItsUpgradeAndTlsSchemeWithoutACertificate`
+  (one row per topic) and the updated `Answer_XmppTopic_...`.
+- `amqp1` had no stated refusal answer; read from `Amqp1SecurityNegotiation`: with no upgrade a TLS header is answered
+  with the SASL protocol header and closed. The paragraph now says that.
+- `xmpps` ALPN: `TlsSrpNegotiation` agrees only `http/1.1`, so under TLS-SRP a client offering ALPN without it
+  (`xmpp-client` alone) is refused `no_application_protocol`. The paragraph says so rather than promising
+  `xmpp-client` there. Help text only, so no ADR.
+- No `--aihelp` example changed: no example depends on these sentences.
+- Follow-up filed: BL-1926 (the other TLS topics' `--aihelp` paragraphs, ALPN included), BL-1927 (`--manual`).
+- Gates: `dotnet build -warnaserror` clean; fast tests green (`Surl.Cli.UnitTests` 2014 passed); format check clean.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The amqp1, ftp, imap, ldap, pop3, smtp and xmpp --aihelp topics say their TLS upgrade and TLS scheme work under TLS-SRP with no certificate

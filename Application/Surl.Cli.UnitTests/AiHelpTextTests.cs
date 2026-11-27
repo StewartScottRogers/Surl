@@ -245,7 +245,49 @@ public sealed partial class AiHelpTextTests
     [TestMethod]
     public void Answer_XmppTopic_SaysAListenUrlWithoutACertificateExits58UnlessLoosened()
     {
-        StringAssert.Contains(AiHelpText.Answer("xmpp").Output, "without `--cert` or `--self-signed` is refused at start and exits 58, unless `--allow-plaintext-auth` or `--allow-anonymous` is given");
+        StringAssert.Contains(
+            AiHelpText.Answer("xmpp").Output,
+            "With none of them `xmpp` never offers TLS, so an `xmpp` listen URL is then refused at start and exits 58, unless `--allow-plaintext-auth` or `--allow-anonymous` is given. "
+            + "Under TLS-SRP that refusal does not happen, with or without a certificate.");
+    }
+
+    [TestMethod]
+    [DataRow(
+        "amqp1",
+        "so an `amqp1s` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).",
+        "which is answered, and the connection upgraded, with `--cert`, `--self-signed` or TLS-SRP; with none of them it is answered with the SASL protocol header and the connection is closed.")]
+    [DataRow(
+        "ftp",
+        "With `--cert`, `--self-signed` or TLS-SRP, `ftp://` offers `AUTH TLS` (`curl --ssl-reqd`), and its data connections are then TLS after `PROT P`; with none of them `AUTH` is answered 534, and `curl --ssl-reqd` exits 64.",
+        "so an `ftps` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).")]
+    [DataRow(
+        "imap",
+        "With `--cert`, `--self-signed` or TLS-SRP, `imap://` offers STARTTLS (`curl --ssl-reqd`); with none of them STARTTLS is answered `BAD STARTTLS not available`.",
+        "so an `imaps` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).")]
+    [DataRow(
+        "ldap",
+        "With `--cert`, `--self-signed` or TLS-SRP, `ldap://` offers StartTLS; with none of them it is refused `protocolError`.",
+        "so an `ldaps` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).")]
+    [DataRow(
+        "pop3",
+        "With `--cert`, `--self-signed` or TLS-SRP, `pop3://` offers STLS (`curl --ssl-reqd`); with none of them STLS is answered `-ERR STLS not available`.",
+        "so a `pop3s` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).")]
+    [DataRow(
+        "smtp",
+        "With `--cert`, `--self-signed` or TLS-SRP, `smtp://` offers STARTTLS (`curl --ssl-reqd`); with none of them STARTTLS is answered 454.",
+        "so an `smtps` listen URL needs `--cert`, `--self-signed` or TLS-SRP (see the tls topic).")]
+    [DataRow(
+        "xmpp",
+        "With `--cert`, `--self-signed` or TLS-SRP an `xmpp` stream offers STARTTLS, and requires it before a login unless `--allow-plaintext-auth` is given (see the tls topic).",
+        "`xmpps` needs `--cert`, `--self-signed` or TLS-SRP, and offers the ALPN protocol `xmpp-client`, except under TLS-SRP, which agrees only `http/1.1`: "
+        + "a client that offers ALPN without it is refused with the alert `no_application_protocol`.")]
+    public void Answer_TopicOfAServerThatUpgradesToTls_SaysTlsSrpServesItsUpgradeAndTlsSchemeWithoutACertificate(
+        string topic, string firstSentences, string secondSentences)
+    {
+        var page = AiHelpText.Answer(topic).Output;
+
+        Assert.Contains(firstSentences, page);
+        Assert.Contains(secondSentences, page);
     }
 
     [TestMethod]
