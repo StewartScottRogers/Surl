@@ -79,3 +79,4 @@ delegation", and an "Amended by" line in its header, as the earlier amendments o
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
