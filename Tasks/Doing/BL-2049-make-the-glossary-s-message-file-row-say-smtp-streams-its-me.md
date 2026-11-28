@@ -35,3 +35,4 @@ after the delivery writes the file". `SmtpSession.ReceiveMessageAsync`
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
