@@ -18,7 +18,9 @@ The BER codec (BL-289, ADR-0072 decision 9), internal and with no transport of i
 message limit, `LdapMessageDecoder.Decode` (with `LdapFilterDecoder` and
 `LdapBerFieldReader`) returns an `LdapDecodeResult` - the `LdapDecodeOutcome`, the message
 ID when it could be read, and the `LdapMessage` when it decoded - and
-`LdapMessageEncoder` writes the responses. All of it uses the BCL's `System.Formats.Asn1`.
+`LdapMessageEncoder` writes the responses. The decoder, its two helpers and the encoder use
+the BCL's `System.Formats.Asn1`; `LdapMessageFrameReader` does not, reading the tag and
+length octets itself.
 
 Beside it is the directory (BL-306, ADR-0072 decision 1), internal too: `LdapDirectory`
 holds `LdapEntry`s in their source's order, enforces the bounds (refusing a list it cannot
@@ -49,18 +51,28 @@ yet TLS while a TLS upgrade is available - a certificate is configured or TLS-SR
 `supportedExtension`), compares, writes (refused), `StartTLS` (the upgrade, after discarding
 what `LdapMessageFrameReader` read past the request), other extended operations, abandon and
 unbind; once a bind installs an `ISaslSecurityLayer` every message both ways is one
-4-byte-length buffer the layer protects. It sends the Notice of Disconnection for what it
-cannot read (`LdapDiagnostics`) and for a limit, and notes each decision (`LdapLogText`). `ldaps` is the
-same exchange inside the engine's implicit TLS: `Surl.Composition`'s
+4-byte-length buffer the layer protects. It sends the Notice of Disconnection for a message
+whose tag or length it refuses or that does not decode (`LdapDiagnostics`), for an unknown
+operation that is not a write, for a message past `--max-message` outside a security layer,
+and for the idle timeout or maximum duration. It sends none, closing with no reply, when
+the first message is not whole within the head timeout, when a security-layer buffer is
+past the layer's maximum or `--max-message` or fails its check, and at shutdown. It notes
+each decision (`LdapLogText`). `ldaps` is the same exchange inside the engine's implicit
+TLS: `Surl.Composition`'s
 `ProtocolServerRegistrations.Original` registers the server a second time behind
 `ImplicitTlsSchemeServer` (`ProtocolServerRegistration.ImplicitTls`; BL-310). Its tests replay request bytes recorded from the
-pinned Windows build (`Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`), the SASL policy and
-security layer faked.
+pinned Windows build where a recording holds the case; others - abandon, unknown operations,
+malformed messages, compare, writes and some SASL, Sicily and `StartTLS` cases among them -
+are built by hand (`Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`).
+The SASL policy and security layer are faked.
 
-The chosen-error fault (ADR-0124 decision 4, ADR-0139; `LdapSession.Faults.cs`): the exchange's
-`IFaultPlan` is asked at each `search` (the base DN as its path) and `compare` (the entry DN) once the
-bind check lets it read, and at each write (no path), with the account the last bind proved
-(`LdapBindAnswer.Account`), before the directory. A matching `error` rule's `<resultCode> <text>` is the
+The chosen-error fault (ADR-0124 decision 4, ADR-0139; `LdapSession.Faults.cs`): a request that
+has a response and carries a critical control is refused (`unavailableCriticalExtension`) first
+and reaches no fault rule. Otherwise the exchange's `IFaultPlan` is asked at each `search` (the
+base DN as its path) and `compare` (the entry DN) once the bind check lets it read - the root
+DSE's search needs no bind check - and at each write (no path, bound or not), with the account
+the last bind proved (`LdapBindAnswer.Account`), before the directory. A matching `error`
+rule's `<resultCode> <text>` is the
 operation's response, with no entry and an empty `matchedDN`, and publishes one `FaultAppliedEvent`. A
 `delay` or `drop` rule there is applied through `CommandStageFaults` (ADR-0141, BL-920): a delay holds the
 response its `ms` with the idle clock paused, a drop aborts the connection with no response and ends the
