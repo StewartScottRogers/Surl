@@ -39,3 +39,4 @@ An account without the `sub` right on a subscription queue's topic filter cannot
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
