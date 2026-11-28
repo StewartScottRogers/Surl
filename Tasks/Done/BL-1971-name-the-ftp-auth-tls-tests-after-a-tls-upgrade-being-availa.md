@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests/FtpTlsTests.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1971 — Name the FTP AUTH TLS tests after a TLS upgrade being available, not a certificate
 
@@ -30,13 +30,21 @@ or fault is involved.
 
 ## Acceptance criteria
 
-- [ ] No test method name or `DisplayName` in `FtpTlsTests.cs` says "Certificate" or "certificate"; each renamed test says TLS upgrade available or unavailable.
-- [ ] The diff changes only those names.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] No test method name or `DisplayName` in `FtpTlsTests.cs` says "Certificate" or "certificate"; each renamed test says TLS upgrade available or unavailable.
+- [x] The diff changes only those names.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Renamed three methods: `Auth_WithTlsUpgradeAvailable_Answers234AndUpgradesWithNoNote`,
+  `Auth_WithTlsUpgradeUnavailable_Answers534AndPassStaysRefusedAsPlainText`,
+  `Feat_WithTlsUpgradeAvailable_AlsoListsAuthTlsPbszAndProt`. No `DisplayName` mentioned a certificate.
+- Verified 2026-11-27: build with `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast
+  tests 0 failed (FTP 564 passed). Integration tests not run: names only.
+- Made in the session rather than through `align-and-document`: three renames in one file.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The three FtpTlsTests names that said certificate now say TLS upgrade available or unavailable
