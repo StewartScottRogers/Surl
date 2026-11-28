@@ -115,9 +115,14 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     internal MailUpstreamTestCaseReplies? UpstreamTestCaseReplies { get; init; }
 
     /// <summary>
-    /// Creates the redactor that writes the password of <c>LOGIN</c> and every <c>AUTHENTICATE</c>
-    /// secret as <c>****</c> in the exchange log, leaving literals such as an <c>APPEND</c> message
-    /// unchanged (ADR-0183, decision 5 as amended by BL-1430).
+    /// Creates the redactor that writes the password of <c>LOGIN</c>, sent as an atom, a quoted
+    /// string or a literal, and every <c>AUTHENTICATE</c> secret as <c>****</c> in the exchange log.
+    /// Other literals, an <c>APPEND</c> message included, are logged unchanged apart from the 64 KiB
+    /// case (ADR-0183, decision 5 as amended by BL-1430): a run of more than
+    /// <see cref="LineBytesRedactor.DefaultMaxHeldBytes"/> (64 KiB) bytes with no CR LF is written
+    /// as <c>****</c> whatever it holds, and the rest of that line is dropped up to its CR LF
+    /// (ADR-0182, decision 6). <c>ImapLineRedactionRule</c> says what more is withheld from lines the
+    /// server may refuse.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A line redactor for the connection, used by that exchange alone.</returns>
