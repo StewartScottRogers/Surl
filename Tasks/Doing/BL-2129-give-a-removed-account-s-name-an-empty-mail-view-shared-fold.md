@@ -47,3 +47,4 @@ Stand-in (root `CLAUDE.md`): a test revokes an account mid-run, sees its team ac
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
