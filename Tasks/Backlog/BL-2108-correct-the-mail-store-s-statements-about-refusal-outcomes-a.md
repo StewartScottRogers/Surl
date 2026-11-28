@@ -1,5 +1,5 @@
 ---
-id: BL-2105
+id: BL-2108
 title: Correct the mail store's statements about refusal outcomes and published change events
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2105 — Correct the mail store's statements about refusal outcomes and published change events
+# BL-2108 — Correct the mail store's statements about refusal outcomes and published change events
 
 ## Goal
 

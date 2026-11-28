@@ -47,7 +47,7 @@ mailbox change that never consults the fault plan.
   synchronous twin does.
 - Verify: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
   30812 passed, 0 failed, 3 skipped. The only file changed besides task files is `MailboxStore.cs`, XML comments.
-- Follow-up filed: BL-2105 (incomplete `<returns>` lists and the project `CLAUDE.md`'s event statement).
+- Follow-up filed: BL-2108 (incomplete `<returns>` lists and the project `CLAUDE.md`'s event statement).
 
 ## Log
 
