@@ -2,14 +2,15 @@
 # runs with no .NET runtime before anything is released (ADR-0085). Beside it, each leg publishes
 # the native-AOT `surl-mcp`, Surl's MCP server on standard input and output, proves it answers an
 # MCP `initialize`, and packages it as its own archive, `surl-mcp-<rid>` (ADR-0103 decision 7).
-# The pack job also packs Surl.Api and Surl.Mcp as NuGet packages and keeps them as the
-# nuget-packages artifact on every run, a tag included. On a tag the GitHub release carries both
-# `.nupkg` files beside the archives (BL-1789), and the release job pushes both to nuget.org
+# The pack job also packs Surl.Api, Surl.Mcp and the surl command line (Surl.Console, as the .NET
+# tool Surly.Surl.Console, ADR-0191) as NuGet packages and keeps them as the nuget-packages
+# artifact on every run, a tag included. On a tag the GitHub release carries the three `.nupkg`
+# files beside the archives (BL-1789, BL-1984), and the release job pushes all three to nuget.org
 # (BL-1795, replacing BL-643's "never pushed"). A dry run pushes nothing.
 #
-#   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve archives and both NuGet packages, proves
-#     them, and attaches all fourteen, with a SHA256SUMS file listing them, to a GitHub release of
-#     that name. A tag with a hyphen
+#   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve archives and the three NuGet packages,
+#     proves them, and attaches all fifteen files, with a SHA256SUMS file listing them, to a GitHub
+#     release of that name. A tag with a hyphen
 #     (v0.1.0-preview.1) makes a pre-release. Tags and releases need Stewart's say-so
 #     (CLAUDE.md), so this workflow never creates a tag itself. Rerunning a tag's release job
 #     once the GitHub release exists leaves that release as it is and goes on to the nuget.org
@@ -317,13 +318,15 @@ jobs:
           SURL_EXECUTABLE: ${{ github.workspace }}/published/${{ matrix.executable || 'surl' }}
         run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --filter "FullyQualifiedName~Surl.Conformance"
 
-  # Packs Surl.Api (ADR-0099 decision 10) and Surl.Mcp (ADR-0103 decision 7) as NuGet packages with
-  # the version surl gets, and keeps them as the nuget-packages artifact - on a tag as on a dry run.
-  # On a tag the release job attaches both to the GitHub release (BL-1789) and pushes both to
-  # nuget.org through trusted publishing (Stewart, 2026-11-26; BL-1795); no step holds a stored key.
+  # Packs Surl.Api (ADR-0099 decision 10), Surl.Mcp (ADR-0103 decision 7) and Surl.Console
+  # (ADR-0191) as NuGet packages with the version surl gets, and keeps them as the nuget-packages
+  # artifact - on a tag as on a dry run. On a tag the release job attaches all three to the GitHub
+  # release (BL-1789, BL-1984) and pushes them to nuget.org through trusted publishing (Stewart,
+  # 2026-11-26; BL-1795); no step holds a stored key.
   # Surl.Api's project references are bundled into its lib folder, so it has no package dependency;
   # Surl.Mcp is one framework-dependent .NET tool package of type McpServer, whose .mcp/server.json
-  # is stamped with the same version first.
+  # is stamped with the same version first; Surl.Console is one framework-dependent .NET tool
+  # package, Surly.Surl.Console, whose command is surl, installed from nupkg and run here.
   pack:
     name: Pack the NuGet packages
     runs-on: ubuntu-latest
@@ -359,6 +362,14 @@ jobs:
       - name: Pack Surl.Mcp
         run: dotnet pack Application/Surl.Mcp -c Release -p:Version="$VERSION" -o nupkg
 
+      # The last three switches are the publish step's: they leave the libraries' symbol and XML
+      # documentation files out of the package.
+      - name: Pack Surl.Console
+        run: >-
+          dotnet pack Application/Surl.Console -c Release -p:Version="$VERSION"
+          -p:PublishDocumentationFile=false -p:PublishReferencesDocumentationFiles=false
+          -p:AllowedReferenceRelatedFileExtensions=.none -o nupkg
+
       - name: Check the packages
         shell: pwsh
         run: |
@@ -387,7 +398,29 @@ jobs:
           $server = (Read-Entry $mcp '.mcp/server.json') | ConvertFrom-Json
           if ($server.version -ne $env:VERSION) { throw "Surl.Mcp's server.json is version $($server.version), not $env:VERSION." }
           $mcp.Dispose()
+          $console = Read-Package 'Surly.Surl.Console'
+          $names = @($console.Entries.FullName)
+          foreach ($required in 'README.md', 'LICENSE.txt', 'tools/net10.0/any/surl.dll', 'tools/net10.0/any/surl.runtimeconfig.json') {
+            if ($names -notcontains $required) { throw "Surl.Console's package holds no $required." }
+          }
+          [xml] $settings = (Read-Entry $console 'tools/net10.0/any/DotnetToolSettings.xml').TrimStart([char] 0xFEFF)
+          $command = $settings.DotNetCliTool.Commands.Command.Name
+          if ($command -ne 'surl') { throw "Surl.Console's package names the command '$command', not surl." }
+          $console.Dispose()
           Get-ChildItem nupkg | Format-Table Name, Length
+
+      # Proves the tool package installs and starts: the installed surl exits 0 and its first line
+      # names the version it was packed with.
+      - name: Install Surly.Surl.Console from nupkg and run surl --version
+        shell: bash
+        run: |
+          dotnet tool install --tool-path "$RUNNER_TEMP/surl-tool" --source "$PWD/nupkg" Surly.Surl.Console --version "$VERSION"
+          output=$("$RUNNER_TEMP/surl-tool/surl" --version)
+          echo "$output"
+          if [[ "$output" != "surl $VERSION ("* ]]; then
+            echo "::error::surl --version does not begin 'surl $VERSION ('."
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -483,7 +516,7 @@ jobs:
         working-directory: dist
         run: |
           version="${GITHUB_REF_NAME#v}"
-          sha256sum surl-* "Surly.Surl.Api.$version.nupkg" "Surly.Surl.Mcp.$version.nupkg" > SHA256SUMS
+          sha256sum surl-* "Surly.Surl.Api.$version.nupkg" "Surly.Surl.Mcp.$version.nupkg" "Surly.Surl.Console.$version.nupkg" > SHA256SUMS
           cat SHA256SUMS
 
       # A rerun of this job after the release was created finds it here and goes on to the
@@ -506,7 +539,7 @@ jobs:
           [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"
 
-      # Pushes both packages to nuget.org (Stewart, 2026-11-26; BL-1795). Trusted publishing: the
+      # Pushes the three packages to nuget.org (Stewart, 2026-11-26; BL-1795, BL-1984). Trusted publishing: the
       # nuget.org account StewartRogers86 (not the GitHub name StewartScottRogers) created a policy
       # for this repository's release.yml, and NuGet/login, given that policy creator's nuget.org
       # name, trades the job's OIDC token for a key that lasts one hour, so no secret is stored.
@@ -527,6 +560,6 @@ jobs:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          for id in Surly.Surl.Api Surly.Surl.Mcp; do
+          for id in Surly.Surl.Api Surly.Surl.Mcp Surly.Surl.Console; do
             dotnet nuget push "$id.$version.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
           done
