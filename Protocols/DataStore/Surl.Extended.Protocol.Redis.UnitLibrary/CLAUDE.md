@@ -115,8 +115,13 @@ Seed, reset, snapshot and restore (BL-1160, ADR-0158 decisions 3 to 5): `RedisKe
 built by a composition as `new RedisKeyspace(timeProvider, events)`, then handed to
 `RedisServer(policy, keyspace, messageBus)`. `SeedKey` writes one string key as `SET` does (expiry
 on the keyspace's clock, 1 ms to 365 days; key and value at most 16 MiB; refused while the keyspace
-is full) and never asks the fault plan, publishing `Seeded`; `Reset` empties every database
-(`Reset`, 0 bytes); `TakeSnapshot(maxBytes)` deep-copies the live keys with absolute expiry deadlines into an opaque
+is full) and never asks the fault plan, publishing `Seeded`; `Reset` returns to the configured
+state - all 16 databases empty but for the keys seeded with `keepOnReset: true`, each with its seeded
+value and its expiry measured again from the reset - and publishes one `Reset` (0 bytes) and nothing
+else. `RedisKeptSeeds` holds those keys apart from the databases (BL-2028): a later kept seed of the
+same database and key replaces the earlier one, nothing else changes them (no command, unkept seed,
+snapshot or restore), and a kept seed is refused once they reach the keyspace's key or byte bound
+(ADR-0158 amendment 4); `TakeSnapshot(maxBytes)` deep-copies the live keys with absolute expiry deadlines into an opaque
 `RedisKeyspaceSnapshot` (over the bound it throws `InvalidOperationException`, never truncating) and
 `Restore` puts it back and publishes `Restored` with the restored bytes, refusing another keyspace's
 snapshot with `ArgumentException`. `RedisStoredValue.Copy()` is what keeps a snapshot and the
