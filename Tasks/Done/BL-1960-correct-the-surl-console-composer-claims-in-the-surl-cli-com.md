@@ -50,7 +50,7 @@ Found while working BL-1949 (2026-11-27). Comment text only; no behaviour change
 - `Surl.Cli.UnitLibrary/CLAUDE.md`'s `Surl.Console` sentences were checked in passing and left as they are.
 - Verify: 0 C# files rewritten, build 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests all passed.
   Integration tests not run: no behaviour changed.
-- Filed BL-1988: ADR-0007 section 4 rule 3 still says `Surl.Console` refuses an unregistered scheme.
+- Filed BL-1993: ADR-0007 section 4 rule 3 still says `Surl.Console` refuses an unregistered scheme.
 
 ## Log
 

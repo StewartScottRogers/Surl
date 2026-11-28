@@ -1,5 +1,5 @@
 ---
-id: BL-1988
+id: BL-1993
 title: Add a dated amendment note to ADR-0007 for the registered-schemes rule Surl.Console no longer applies
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1988 — Add a dated amendment note to ADR-0007 for the registered-schemes rule Surl.Console no longer applies
+# BL-1993 — Add a dated amendment note to ADR-0007 for the registered-schemes rule Surl.Console no longer applies
 
 ## Goal
 
