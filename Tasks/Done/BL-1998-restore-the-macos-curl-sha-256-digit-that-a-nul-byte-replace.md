@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md, Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md, Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1998 — Restore the macOS curl SHA-256 digit that a NUL byte replaced in ADR-0053, ADR-0055 and ADR-0056
 
@@ -37,13 +37,18 @@ Documentation only; no behaviour, store, event or fault changes.
 
 ## Acceptance criteria
 
-- [ ] For each of the three files, `([IO.File]::ReadAllBytes((Resolve-Path <file>))) -contains 0` in PowerShell returns `False`.
-- [ ] In each of the three files the macOS SHA-256 equals the macOS entry's `sha256` in `UpstreamCurlBuilds.json`.
-- [ ] `git diff --text --numstat` against the starting commit shows one line added and one removed in each of the three files.
+- [x] For each of the three files, `([IO.File]::ReadAllBytes((Resolve-Path <file>))) -contains 0` in PowerShell returns `False`.
+- [x] In each of the three files the macOS SHA-256 equals the macOS entry's `sha256` in `UpstreamCurlBuilds.json`.
+- [x] `git diff --text --numstat` against the starting commit shows one line added and one removed in each of the three files.
 
 ## Notes
+
+- 2026-11-27: The missing character was `0`, taken from the `osx-arm64` `sha256` in `UpstreamCurlBuilds.json`. In each
+  file exactly that one byte changed (`0x00` to `0x30`), written with PowerShell; lengths and line endings are
+  unchanged. Checked against starting commit `4f2ce9508`. `dotnet build` was clean and the fast tests passed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0053, ADR-0055 and ADR-0056 give the full macOS curl SHA-256 and hold no NUL byte
