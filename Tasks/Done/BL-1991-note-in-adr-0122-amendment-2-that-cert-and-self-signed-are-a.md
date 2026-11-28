@@ -42,7 +42,8 @@ Recorded text is never rewritten; the note is added in italics, dated, naming th
 - [x] The diff to ADR-0122 only adds lines.
 
 ## Notes
-n- 2026-11-27: `align-and-document` added the italic note under the bullet (7 lines added, 0 removed). Checked against
+
+- 2026-11-27: `align-and-document` added the italic note under the bullet (7 lines added, 0 removed). Checked against
   `TlsSrpCombination.cs`. No `.cs` or project file changed, so no `/verify`; `dotnet build` is clean and the fast
   tests pass.
 
