@@ -8,7 +8,7 @@ depends-on: [BL-2053]
 touches: [Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary/GopherProtocolServer.cs, Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary/CLAUDE.md, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/DictCommandResponder.cs, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/CLAUDE.md, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2069 — Correct the DICT, Gopher and TELNET statements about fault rules and the fault point
 
@@ -42,16 +42,26 @@ as one task. It adds no store, event or fault, so the stand-in questions do not 
 
 ## Acceptance criteria
 
-- [ ] `GopherProtocolServer`'s class remarks say that before the content store is asked, a `delay` rule holds the selector, a `drop` rule aborts the connection and a fitting `error` rule is answered with an error menu carrying its text.
-- [ ] `DictCommandResponder.AnswerAsync`'s `<returns>` says `false` after `QUIT`, after a `drop` rule, and when a definition cannot be read while it is sent; its remarks say what a `delay`, a `drop` and a fitting `error` rule each do.
-- [ ] The TELNET library's `CLAUDE.md` says the fault point carries the exchange ID, the listen URL and the scheme only, with no account, command or path.
-- [ ] The DICT and Gopher libraries' `CLAUDE.md` say that only a reply that does not fit, or a rule of a kind other than `error`, `delay` or `drop`, is noted and not applied, and that a `delay` hold ends early when the client closes or resets the connection.
-- [ ] The diff to the two `.cs` files changes comment lines only.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] `GopherProtocolServer`'s class remarks say that before the content store is asked, a `delay` rule holds the selector, a `drop` rule aborts the connection and a fitting `error` rule is answered with an error menu carrying its text.
+- [x] `DictCommandResponder.AnswerAsync`'s `<returns>` says `false` after `QUIT`, after a `drop` rule, and when a definition cannot be read while it is sent; its remarks say what a `delay`, a `drop` and a fitting `error` rule each do.
+- [x] The TELNET library's `CLAUDE.md` says the fault point carries the exchange ID, the listen URL and the scheme only, with no account, command or path.
+- [x] The DICT and Gopher libraries' `CLAUDE.md` say that only a reply that does not fit, or a rule of a kind other than `error`, `delay` or `drop`, is noted and not applied, and that a `delay` hold ends early when the client closes or resets the connection.
+- [x] The diff to the two `.cs` files changes comment lines only.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- 2026-11-28: Delivered by `align-and-document`. Every claim in Context held against the source, ADR-0138 and ADR-0141.
+- `AnswerAsync`'s `<returns>` also says "or its bytes cannot be written": the `catch` in `AnswerDefineAsync` takes an
+  `IOException` from writing to the connection during the copy as well as one from reading the file. Its log note still
+  says "could not be read" in both cases; changing it is a code change, filed as BL-2083.
+- Verify: build with `-warnaserror` 0 warnings, 0 errors; `dotnet format --verify-no-changes` clean; fast tests 30721
+  passed, 0 failed, 3 skipped. Integration tests not run: the change is comments and notes only.
+- Follow-ups outside this task: BL-2082 (further DICT and TELNET statements) and BL-2083. The `CommandStageFaults`
+  summary's missing early end of a `delay` hold is already covered by BL-2070.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The DICT, Gopher and TELNET comments and notes state which fault rules apply, when a DICT answer ends the connection and what the TELNET fault point carries.

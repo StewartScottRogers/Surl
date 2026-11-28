@@ -27,6 +27,8 @@ Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured w
 through `DictCommandFaults` once per recognized command, at the `Command` stage, with the command in
 capitals and the word (`DEFINE`, `MATCH`) or database (`SHOW INFO`) as the path; a matching `error`
 rule's status line answers the command and the connection stays open, publishing `FaultAppliedEvent`.
-A reply that does not fit, or a rule of another kind, is noted and not applied. A `delay` rule holds the answer for its
-`ms` on `ExchangeContext.TimeProvider` with the idle clock paused, and a `drop` rule aborts the connection with nothing
-written for the command, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (BL-914).
+A `delay` rule holds the answer for its `ms` on `ExchangeContext.TimeProvider` with the idle clock paused (the hold ends
+early if the client closes or resets the connection), and a `drop` rule aborts the connection with nothing written for
+the command, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-914). Only
+an `error` rule whose reply does not fit, or a rule of a kind other than `error`, `delay` or `drop`, is noted and not
+applied.

@@ -18,9 +18,12 @@ namespace Surl.Protocol.Gopher;
 /// percent-encoded (<c>%2e%2e</c>), is refused there.
 /// </para>
 /// <para>
-/// Before the content store is asked, the exchange's fault plan is (<see cref="GopherSelectorFaults"/>):
-/// a chosen-error rule for the selector's path is answered with an error menu carrying the rule's
-/// text (ADR-0124 decision 4, ADR-0138).
+/// Before the content store is asked, the exchange's fault plan is (<see cref="GopherSelectorFaults"/>;
+/// ADR-0124 decision 4, ADR-0138, ADR-0141). A <c>delay</c> rule holds the selector for its
+/// <c>ms</c>, or until the client closes or resets the connection, and the selector is then
+/// answered as usual. A <c>drop</c> rule aborts the connection, with nothing written. An
+/// <c>error</c> rule whose reply fits (<see cref="GopherSelectorFaults.Fits"/>) is answered with
+/// an error menu carrying the rule's text, in place of the selector's content.
 /// </para>
 /// <para>
 /// A file is sent as its bytes exactly, with no <c>.</c> line after them and no line-ending

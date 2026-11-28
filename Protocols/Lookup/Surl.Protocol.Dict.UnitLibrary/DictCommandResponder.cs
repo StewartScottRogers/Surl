@@ -92,10 +92,19 @@ internal sealed class DictCommandResponder
     /// Answers one command line.
     /// </summary>
     /// <param name="line">The line, without its line ending.</param>
-    /// <returns><see langword="true"/> when the connection stays open for the next command; <see langword="false"/> after <c>QUIT</c>.</returns>
+    /// <returns>
+    /// <see langword="true"/> when the connection stays open for the next command;
+    /// <see langword="false"/> after <c>QUIT</c> is answered <c>221 bye</c>, after a <c>drop</c>
+    /// rule, and when a definition cannot be read, or its bytes cannot be written, while it is
+    /// sent (the connection is then aborted).
+    /// </returns>
     /// <remarks>
-    /// A recognized command first asks the fault plan: a chosen-error rule's status line answers
-    /// it in place of its own reply, and the connection stays open (ADR-0138).
+    /// A recognized command first asks the fault plan (<see cref="DictCommandFaults"/>; ADR-0138,
+    /// ADR-0141). A <c>delay</c> rule holds the command for its <c>ms</c>, or until the client
+    /// closes or resets the connection, and the command is then answered as usual. A <c>drop</c>
+    /// rule aborts the connection, with nothing written for the command. The status line of an
+    /// <c>error</c> rule whose reply fits (<see cref="DictCommandFaults.Fits"/>) answers the command
+    /// in place of its own reply, <c>QUIT</c>'s included, and the connection stays open.
     /// </remarks>
     public async Task<bool> AnswerAsync(string line)
     {
