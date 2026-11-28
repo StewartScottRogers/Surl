@@ -10,6 +10,10 @@
 - **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379); a map hides its source name's default topic from that scheme, see the
   BL-1703 amendment at the end; the AMQP 0-9-1 server applies maps, see the BL-1704 amendment; so
   does the MQTT 3.1.1 server, see the BL-1705 amendment.
+- **Amended by:**
+  [ADR-0185 Amendment 1](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)
+  (2026-11-28, BL-2123), which amends decision 1.6: being listed as a shared-folder member is to admit no one while
+  the server has removed the account of that name. That rule is not yet built (BL-2129).
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and
@@ -216,6 +220,14 @@ ADR-0053's every other reply, the 100-recipient bound, `--allow-uploads` not gat
 decision 5), the bounds and persistence of ADR-0050 decisions 6 and 7.
 
 #### 1.6 Shared folders
+
+*Amended by
+[ADR-0185 Amendment 1](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)
+(2026-11-28, BL-2123), **not yet built** (BL-2129): from the removal of an account until an account of that name that
+may log in on a mail scheme is added again, a view given for the name is to hold no shared folder, even one that lists
+the name as a member (that amendment's decision 6 says what a reset and a restore do to a removal). As the code is on
+2026-11-28, `MailboxStore.ViewFor` selects shared folders by member name alone, so a removed member's view still holds
+them.*
 
 - **The store.** Shared folders are mailboxes of one **reserved owner** named `:shared`, which no
   account name can equal (`--user` and `--user-file` split at the first `:`, ADR-0032 section 1, and

@@ -94,10 +94,12 @@ only `Surl.Authentication`.
 
    The endpoint's body is JSON `{"password": "<text>"}`, and the `user` in the path names the account.
 3. **What a password change does.** It derives everything decision 3 derives from the new password, keeps the
-   account's other members (its scheme restriction, mailbox and groups) and swaps the set whole (decision 1).
-   It publishes `AccountRemoved` then `AccountAdded` for the user, exactly as the control endpoint's replace did, so
-   ADR-0185 decision 2's retire-and-reach-again of the mail owner is unchanged and no event holds a password
-   (decision 6). Open sessions run on (decision 8). A name with no account is refused and nothing is published.
+   account's scheme restriction and swaps the set whole (decision 1). It publishes `AccountRemoved` then
+   `AccountAdded` for the user, as the control endpoint's replace did, and no event holds a password (decision 6).
+   It is no removal to the mail store: `ComposedStores.SetAccountPassword` changes only the account book, so the
+   account's mail owner and shared folders stay as they are
+   ([ADR-0185](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md)
+   decision 2). Open sessions run on (decision 8). A name with no account is refused and nothing is published.
    Reset returns to the configured password (decision 4).
 
 ### The answers
@@ -120,9 +122,9 @@ existing tools already say so.
   `/v1/proxy-accounts` and `/v1/tls-srp-accounts`. Decision 8's tool table gains the three `set_*_password` tools
   (`server_id`, `user`, `password`; result `{"user"}`). The `409 conflict` error code's list gains "an account
   added twice".
-- **ADR-0185 decision 2**: the sentence "`ComposedControlTarget`'s replace-by-remove-then-add (a password change)"
-  now reads "a password change (`SetPassword`, which publishes `AccountRemoved` then `AccountAdded`)". The retire
-  and reach-again behaviour is unchanged.
+- **ADR-0185 decision 2**: its sentence naming "`ComposedControlTarget`'s replace-by-remove-then-add" as the
+  password change is replaced. The decision says a password change retires nothing and leaves the mail owner as it
+  is.
 - **`IControlTarget`'s member documents** ("or replaces the password of one with the same name") change with the
   alignment work below.
 
@@ -469,9 +471,13 @@ reset, lets it back in.
    decisions 3 and 4 say.
 7. **How the instance then differs from one started with no account.** Its reads stay closed on the schemes that had
    an account (decision 1). A `coaps` listener started on pre-shared keys alone, with no certificate (which a start
-   given neither `--user` nor `--user-file` refuses), completes no handshake. The mail store has retired the removed
-   account ([ADR-0185](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md)).
-   Upload permission comes from `--allow-uploads` alone and never from whether accounts exist.
+   given neither `--user` nor `--user-file` refuses), completes no handshake. The mail store has retired the mail
+   owner it reached under a removed account's name, keeping its mail
+   ([ADR-0185](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md)
+   decision 2). It retires nothing for a `--mailbox` account, whose address stays an owner and a recipient, nor under
+   `--allow-anonymous`, nor for the Bearer token's empty name, nor for an account added while the server ran that may
+   log in on no mail scheme (ADR-0185 decision 6). What a view of a removed name holds is ADR-0185 decision 2 and its
+   Amendment 1. Upload permission comes from `--allow-uploads` alone and never from whether accounts exist.
 8. **The warning.** Written on the condition that writes one today, a removal that leaves the book with no account,
    and never by a reset, a restore or a password change. A scheme losing its last account while others remain writes
    none, since nothing opens.
