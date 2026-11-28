@@ -50,11 +50,11 @@ Noticed while working BL-2130 on 2026-11-28; check each against the code before 
   win-x64 curl 8.21.0, `-sS -u user:secret -T <16 bytes>` answered `403` with `Content-Length: 0`: no output,
   exit 0. The sentence now says so.
 - No new ADR: no decision changed.
-- Filed BL-2135 (an upload to a hidden share's bare name appears to reveal it) and BL-2136 (stale statements
+- Filed BL-2137 (an upload to a hidden share's bare name appears to reveal it) and BL-2136 (stale statements
   outside the listed places, the decisions index's backwards range among them).
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
-- 2026-11-28: Doing -> Done. ADR-0132 and ADR-0102 now state what the code does in each listed place; follow-ups filed as BL-2135 and BL-2136
+- 2026-11-28: Doing -> Done. ADR-0132 and ADR-0102 now state what the code does in each listed place; follow-ups filed as BL-2137 and BL-2136

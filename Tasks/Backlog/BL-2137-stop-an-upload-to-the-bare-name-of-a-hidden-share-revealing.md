@@ -1,5 +1,5 @@
 ---
-id: BL-2135
+id: BL-2137
 title: Stop an upload to the bare name of a hidden share revealing that the share exists
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2135 — Stop an upload to the bare name of a hidden share revealing that the share exists
+# BL-2137 — Stop an upload to the bare name of a hidden share revealing that the share exists
 
 ## Goal
 
