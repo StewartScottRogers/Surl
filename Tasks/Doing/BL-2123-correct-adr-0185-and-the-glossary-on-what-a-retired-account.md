@@ -45,3 +45,4 @@ intended. If it is a defect, record that in the ADR as intent and file a code ta
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
