@@ -246,7 +246,7 @@ internal static class CommandLineOptions
         WithArgument<long>("max-message", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxMessageBytes = v } },
             new("<bytes>", "Largest framed message accepted", ["amqp1", "ldap", "limits", "mqtt", "nats", "smb", "ssh", "stomp", "websocket"], IsInShortList: false, Default: "1M")),
         WithArgument<long>("max-filesize", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxUploadBytes = v } },
-            new("<bytes>", "Largest upload accepted", ["ftp", "http", "imap", "limits", "mqtt", "nats", "oci", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "tftp"], IsInShortList: false, Default: "100M")),
+            new("<bytes>", "Largest upload accepted", ["amqp1", "ftp", "http", "imap", "limits", "mqtt", "nats", "oci", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "tftp"], IsInShortList: false, Default: "100M")),
         Flag("tlsv1.0", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls },
             new(null, "Accept TLS 1.0 or later", ["security", "tls"], IsInShortList: false, Default: null)),
         Flag("tlsv1.1", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls11 },

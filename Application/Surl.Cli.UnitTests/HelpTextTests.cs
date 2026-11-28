@@ -742,6 +742,15 @@ public sealed class HelpTextTests
     public void Answer_AmqpCategory_ListsAuth(string category) =>
         StringAssert.Contains(HelpText.Answer(category).Output, "--auth <methods>");
 
+    // The AMQP 1.0 container reads --max-filesize as its links' max-message-size and as the bound on the
+    // bytes held in transactions (BL-2046).
+    [TestMethod]
+    public void Answer_Amqp1_ListsMaxFilesizeOnItsHelpAndAiHelpPages()
+    {
+        StringAssert.Contains(HelpText.Answer("amqp1").Output, "--max-filesize <bytes>");
+        StringAssert.Contains(AiHelpText.Answer("amqp1").Output, "| `--max-filesize <bytes>` |");
+    }
+
     [TestMethod]
     [DataRow("--manual", DisplayName = "Long name")]
     [DataRow("-M", DisplayName = "Short name")]
