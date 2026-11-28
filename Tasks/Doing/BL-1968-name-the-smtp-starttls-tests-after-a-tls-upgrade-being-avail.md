@@ -43,3 +43,4 @@ unavailable". Names and comments only; no store, event or fault is involved.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
