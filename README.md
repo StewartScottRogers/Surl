@@ -40,8 +40,8 @@ Where it stands:
   decision records.
 - **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS before anything
   merges to `master`.
-- **Releases.** `v0.1.0` was tagged on 2026-11-16. The latest release on 2026-11-26 is
-  `v0.1.11`, with binaries for six platforms and both NuGet packages (see
+- **Releases.** `v0.1.0` was tagged on 2026-11-16. The latest release on 2026-11-27 is
+  `v0.1.12`, with binaries for six platforms and both NuGet packages (see
   [Download](#download)).
 
 ### What is built
@@ -539,14 +539,16 @@ Every property is a spelling of a `surl` option, and a start `surl` would refuse
 `SurlServerStartException`. With `RecordExchanges` set, `server.Exchanges` holds each exchange's
 bytes, its listen URL and its scheme. The [package's README](Application/Surl.Api/README.md) covers
 the rest: queries and waits, fault rules, hooks, seeding, reset and snapshots, and a test's own
-protocol server. Each GitHub release from `v0.1.10` carries the NuGet package `Surly.Surl.Api`
-as a `.nupkg` file; it is not on nuget.org yet (2026-11-26, see [Download](#download)).
+protocol server. The NuGet package `Surly.Surl.Api` is on nuget.org from 0.1.12
+(`dotnet add package Surly.Surl.Api`), and each GitHub release from `v0.1.10` carries it as a
+`.nupkg` file too (see [Download](#download)).
 
 **From an AI agent: `Surl.Mcp`.** `surl-mcp` is an MCP server on standard input and output. An MCP
 client starts it as a stdio server, for example with the `surl-mcp` binary from a release
 archive, which needs no .NET runtime. It is also packed as the NuGet package `Surly.Surl.Mcp`,
-a .NET tool of type `McpServer` that each GitHub release from `v0.1.10` carries. The package is
-not on nuget.org yet (2026-11-26), so `dnx Surly.Surl.Mcp` cannot fetch it from there. It
+a .NET tool of type `McpServer` that is on nuget.org from 0.1.12: install it with
+`dotnet tool install -g Surly.Surl.Mcp` and start `surl-mcp`, or run it with
+`dnx Surly.Surl.Mcp`. Each GitHub release from `v0.1.10` carries it as a `.nupkg` file too. It
 registers these tools:
 
 | To | Tools |
@@ -646,8 +648,15 @@ irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1
 
 A release also holds `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
 server, and `SHA256SUMS`. From `v0.1.10` it holds the NuGet packages `Surly.Surl.Api` and
-`Surly.Surl.Mcp` as `.nupkg` files too. From `v0.1.11` the release workflow is written to push
-both to nuget.org, but no version of either is there yet (2026-11-26).
+`Surly.Surl.Mcp` as `.nupkg` files too. Both packages are on nuget.org from 0.1.12:
+
+```
+dotnet add package Surly.Surl.Api
+dotnet tool install -g Surly.Surl.Mcp    # or run it with: dnx Surly.Surl.Mcp
+```
+
+The `surl` command line is not a .NET tool: get it from a GitHub release or build it from
+source.
 
 ## Build and test
 

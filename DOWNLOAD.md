@@ -1,7 +1,7 @@
 # Download
 
 Surl's releases are at https://github.com/StewartScottRogers/Surl/releases. The latest on
-2026-11-26 is [v0.1.11](https://github.com/StewartScottRogers/Surl/releases/tag/v0.1.11).
+2026-11-27 is [v0.1.12](https://github.com/StewartScottRogers/Surl/releases/tag/v0.1.12).
 `surl` answers `http`, `https` and the other schemes the README lists under
 [What this is](README.md#what-this-is), and the
 [extended protocols](README.md#extended-protocols).
@@ -37,11 +37,18 @@ packages. `<version>` is the tag without its `v`:
 
 ## NuGet packages on nuget.org
 
-From `v0.1.11`, the first release after BL-1795, the release job is written to push both
-packages to nuget.org after it creates the GitHub release. **No version of either package is
-on nuget.org yet** (checked 2026-11-26): the `v0.1.11` release run created the GitHub
-release, then failed at its nuget.org login, so it pushed nothing. Download the `.nupkg`
-files from the GitHub release.
+`Surly.Surl.Api` and `Surly.Surl.Mcp` are on nuget.org from 0.1.12: the release job pushes
+both there after it creates the GitHub release. Both need .NET 10:
+
+```
+dotnet add package Surly.Surl.Api         # adds Surl.Api to a test project
+dotnet tool install -g Surly.Surl.Mcp     # installs the surl-mcp command
+dnx Surly.Surl.Mcp                        # or runs surl-mcp without that install
+```
+
+For `v0.1.10` and `v0.1.11`, download the `.nupkg` files from the GitHub release. The `surl`
+command line is not a .NET tool: it comes from a GitHub release's `surl` archive, or from
+[your own build](#build-it-yourself).
 
 ## Installers
 

@@ -1072,9 +1072,11 @@ ADR-0147):
   `surl` and `surl-mcp` (`Surl.Mcp`, ADR-0103). `Surl.Api` and `Surl.Mcp` are also packed as
   the NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` (a .NET tool of type `McpServer`).
   `release.yml` attaches the binary archives and `SHA256SUMS` to a tag's GitHub release, and
-  from `v0.1.10` (the first release after BL-1789) both `.nupkg` files. From `v0.1.11` (the
-  first after BL-1795) the release job is written to push both packages to nuget.org; no
-  version of either is there yet (2026-11-26; see [Download](../../DOWNLOAD.md)).
+  from `v0.1.10` (the first release after BL-1789) both `.nupkg` files. The release job also
+  pushes both packages to nuget.org (BL-1795), where they are from 0.1.12 (2026-11-27):
+  `dotnet add package Surly.Surl.Api`, and `dotnet tool install -g Surly.Surl.Mcp` (or
+  `dnx Surly.Surl.Mcp`). The `surl` command line is not a .NET tool: it comes from the GitHub
+  release or a source build (see [Download](../../DOWNLOAD.md)).
 - **Platforms:** Windows, Linux and macOS, on x64 and Arm64.
 - **Licensing:** MIT (`LICENSE.txt`). Upstream test data copied in for `Surl.Conformance`
   keeps curl's own notice beside it.
