@@ -1,5 +1,5 @@
 ---
-id: BL-2090
+id: BL-2099
 title: Say in the snapshot_server description every store a snapshot copies and what it leaves out
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2090 — Say in the snapshot_server description every store a snapshot copies and what it leaves out
+# BL-2099 — Say in the snapshot_server description every store a snapshot copies and what it leaves out
 
 ## Goal
 

@@ -42,7 +42,7 @@ messages and accounts only. Confirm from `ComposedStores`' registered store orde
 - The class XML comments of both tools say the same in brief. No ADR: no behaviour or design changed.
 - New tests: `ResetServerToolTests`, `RestoreServerToolTests`. Build clean, `dotnet format` clean, fast tests green
   (`Surl.Mcp.UnitTests` 542 passed).
-- Filed BL-2090: `snapshot_server`'s description names four stores only.
+- Filed BL-2099: `snapshot_server`'s description names four stores only.
 
 ## Log
 
