@@ -33,3 +33,4 @@ Stand-in: comment only; no store, seed, reset, event or fault changes.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
