@@ -43,3 +43,4 @@ Stand-in: text only; the directory store, its seed, reset, events and faults are
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
