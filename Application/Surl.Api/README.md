@@ -376,7 +376,7 @@ Redis keyspace, the LDAP directory, AMQP 0-9-1 exchanges, Kafka producers, sessi
 | --- | --- | --- | --- |
 | Files | the `Files` given at start and no others | yes | the snapshot's |
 | Mail | the configured mailboxes holding nothing | yes, with UIDs and flags | the snapshot's |
-| Messages | no retained or queued messages | retained messages, topic logs, committed offsets and queues, except a queue exclusive to a connection | the snapshot's |
+| Messages | no retained or queued messages | retained messages, topic logs, committed offsets and queues, except a queue exclusive to a connection | the snapshot's; a queue exclusive to a connection is kept, but its messages are dropped |
 | Accounts, proxy accounts, TLS-SRP accounts | exactly those given at start | yes | the snapshot's |
 | Redis keyspace, LDAP directory, DNS zones | the [start-time seeds](#start-time-seeds) and nothing else; with none, empty databases, an empty directory, no zone | yes | the snapshot's |
 | AMQP 0-9-1 exchanges and bindings | none a client declared | yes | the snapshot's |

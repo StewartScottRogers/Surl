@@ -280,8 +280,9 @@ public sealed class SurlServer : IAsyncDisposable
     /// runs goes, even if it began before the snapshot was taken: every open or staged object upload (S3, Azure
     /// Storage, Google Cloud Storage, OCI) is discarded, with the Azure Storage server's remembered committed block
     /// lists; every OCI registry token is revoked; every MCP server OAuth client, code and token is deleted and every
-    /// MCP HTTP session ended; every Kafka consumer group is dropped; and the MQTT 5 brokers' pending Wills, queued
-    /// deliveries and unacknowledged publishes are discarded.
+    /// MCP HTTP session ended; every Kafka consumer group is dropped; the MQTT 5 brokers' pending Wills, queued
+    /// deliveries and unacknowledged publishes are discarded; and the messages of queues exclusive to a connection are
+    /// dropped, while the queues themselves are kept.
     /// </para>
     /// <para>
     /// Each store publishes one <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Restored"/>, except

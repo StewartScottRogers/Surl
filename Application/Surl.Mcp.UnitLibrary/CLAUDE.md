@@ -97,10 +97,10 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       `snapshot_id` -> `{server_id, snapshot_id}`. It replaces files, mail, messages, accounts, proxy accounts,
       TLS-SRP accounts, Redis keys, the LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer state, MQTT 5
       sessions kept with no connection and DNS zones with the snapshot's, and clears what a snapshot does not copy:
-      Kafka consumer groups; MQTT 5 pending Wills, queued deliveries and unacknowledged publishes; every open or staged
-      object upload (S3, Azure Storage, Google Cloud Storage, OCI) and Azure Storage's remembered committed block
-      lists; every OCI registry token; all MCP server OAuth state (clients, codes and tokens); and every MCP HTTP
-      session. An ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
+      the messages of queues exclusive to a connection (the queues are kept; BL-2106); Kafka consumer groups; MQTT 5
+      pending Wills, queued deliveries and unacknowledged publishes; every open or staged object upload (S3, Azure
+      Storage, Google Cloud Storage, OCI) and Azure Storage's remembered committed block lists; every OCI registry
+      token; all MCP server OAuth state (clients, codes and tokens); and every MCP HTTP session. An ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`. An optional `close` (`reset` or `graceful`, any case; BL-1616, ADR-0188 decision 4)
       is appended as the item key `close`; any other value is `isError` `option --fault: key close must be reset or graceful`, and the rest of the refusals are the reader's.
