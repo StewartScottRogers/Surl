@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitTests/Pop3StlsTests.cs, Protocols/Mail/Surl.Protocol.Pop3.UnitTests/RecordedFixtureTests.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1970 — Name the POP3 STLS tests after a TLS upgrade being available, not a certificate
 
@@ -31,14 +31,21 @@ comments only; no store, event or fault is involved.
 
 ## Acceptance criteria
 
-- [ ] No test method name in `Pop3StlsTests.cs` says "Certificate"; the renamed test says TLS upgrade unavailable.
-- [ ] The comment above `ServeAsync_RecordedStlsNotOffered_WritesTheRecordedReplies` says the server has no TLS upgrade available, not no certificate.
-- [ ] The diff changes only that name and that comment.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] No test method name in `Pop3StlsTests.cs` says "Certificate"; the renamed test says TLS upgrade unavailable.
+- [x] The comment above `ServeAsync_RecordedStlsNotOffered_WritesTheRecordedReplies` says the server has no TLS upgrade available, not no certificate.
+- [x] The diff changes only that name and that comment.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Renamed to `ServeAsync_StlsWithTlsUpgradeUnavailable_IsNotAvailableAndNotAdvertised`; rewrapped the two-line
+  comment. No other `.cs` or `.md` file outside this task named the old test.
+- The two edits were made in the session rather than delegated to `align-and-document`: too small to be worth a
+  subagent. Verified 2026-11-27: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 0 failed
+  (POP3: 247 passed). No integration tests run: no behaviour changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The POP3 STLS test name and recorded-fixture comment say the TLS upgrade is unavailable, not that there is no certificate.
