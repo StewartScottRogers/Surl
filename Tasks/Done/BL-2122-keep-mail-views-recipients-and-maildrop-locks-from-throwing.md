@@ -56,7 +56,7 @@ Stand-in (root `CLAUDE.md`): a test resets the store between scenarios while cli
 - Tests: `MailboxStoreDroppedOwnerTests` (11 failed before the fix). `Surl.MailStore.UnitTests` 474 pass; the whole
   fast run has no failure; `dotnet format --verify-no-changes` exits 0; `Measure-CodeQuality.ps1 -Library
   Surl.MailStore.UnitLibrary` reports 0 failing members.
-- Follow-up filed: BL-2127 (`LookUpRecipient` and `ViewFor` read the accounts without the store's lock).
+- Follow-up filed: BL-2131 (`LookUpRecipient` and `ViewFor` read the accounts without the store's lock).
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-2127
+id: BL-2131
 title: Read the mail store's accounts under its lock in LookUpRecipient and ViewFor
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2127 — Read the mail store's accounts under its lock in LookUpRecipient and ViewFor
+# BL-2131 — Read the mail store's accounts under its lock in LookUpRecipient and ViewFor
 
 ## Goal
 
