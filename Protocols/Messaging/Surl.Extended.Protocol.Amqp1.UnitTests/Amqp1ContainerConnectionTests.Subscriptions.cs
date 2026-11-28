@@ -514,11 +514,95 @@ public sealed partial class Amqp1ContainerConnectionTests
 
         var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
 
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 1, stale), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "with another description")]
+    [DataRow(true, DisplayName = "exclusive to the other connection")]
+    public async Task ServeAsync_StaleSubscriptionRedeclaredBeforeItIsReplaced_IsRefusedResourceLockedAndStays(bool exclusive)
+    {
+        var clock = new UnitTestActingOnceTimeProvider();
+        var bus = new MessageBus.MessageBus(clock);
+        var other = bus.Connect("alice");
+        other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), DurableDescription("/topic/weather", "weather"));
+        var redeclared = DurableDescription("/topic/sport", "sport");
+
+        // The container reads the bus's clock while it judges access: after it inspected the queue, before it deletes it.
+        clock.Act = () =>
+        {
+            other.DeleteQueue(DurableQueue);
+            other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: !exclusive, Exclusive: exclusive), redeclared);
+        };
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, redeclared), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SubscriptionAnotherLinkConsumesBetweenTheInspectAndTheConsume_IsRefusedResourceLockedAndStays()
+    {
+        var planned = DurableDescription("/topic/news", "news");
+
+        var (written, other) = await ServeDurableAttachRacedByAsync(other =>
+        {
+            other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), planned);
+            other.BindQueue(DurableQueue, "news");
+            other.ConsumeSubscriptionQueue(DurableQueue, planned, "news", _ => { }, maxUnacknowledged: 0, exclusive: true);
+        });
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 1, planned), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "with the flags the attach asks")]
+    [DataRow(false, DisplayName = "with other flags")]
+    public async Task ServeAsync_SubscriptionDeclaredWithAnotherDescriptionBetweenTheInspectAndTheDeclare_IsRefusedResourceLockedAndStays(bool durable)
+    {
+        var another = DurableDescription("/topic/weather", "weather");
+
+        var (written, other) = await ServeDurableAttachRacedByAsync(
+            other => other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: durable), another));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, another), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SubscriptionAnotherConnectionDeclaresExclusiveBetweenTheInspectAndTheDeclare_IsRefusedResourceLockedAndStays()
+    {
+        var planned = DurableDescription("/topic/news", "news");
+
+        var (written, other) = await ServeDurableAttachRacedByAsync(
+            other => other.DeclareQueue(DurableQueue, new BusQueueFlags(Exclusive: true), planned));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, planned), other.InspectQueue(DurableQueue));
+    }
+
+    // A durable attach on /topic/news while no queue of its name exists, with another connection acting
+    // after the container inspected the name and before it declares the queue.
+    private async Task<(List<(Amqp1Performative? Performative, byte[] Payload)> Written, BusConnection Other)> ServeDurableAttachRacedByAsync(Action<BusConnection> act)
+    {
+        var clock = new UnitTestActingOnceTimeProvider();
+        var bus = new MessageBus.MessageBus(clock);
+        var other = bus.Connect("alice");
+
+        // The container reads the bus's clock while it judges access.
+        clock.Act = () => act(other);
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
+        return (written, other);
+    }
+
+    private static void AssertRefusedSubscriptionInUse(List<(Amqp1Performative? Performative, byte[] Payload)> written) =>
         Assert.AreEqual(
             new Amqp1Detach(0) { Closed = true, Error = new(Amqp1ErrorCondition.ResourceLocked) { Description = "subscription in use" } },
             written[3].Performative);
-        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 1, stale), other.InspectQueue(DurableQueue));
-    }
 
     /// <summary>Calls <see cref="Act"/>, once, the next time the clock is read after it is set.</summary>
     private sealed class UnitTestActingOnceTimeProvider : TimeProvider

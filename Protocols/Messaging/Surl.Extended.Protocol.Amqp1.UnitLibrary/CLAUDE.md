@@ -267,7 +267,13 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
 - Another link or connection holding the queue is `amqp:resource-locked` (a shared one is held only by a
   different description), another description replaces it, the same resumes it. A queue to be replaced
   that gains a consumer between the inspect and the delete is kept, and the attach is
-  `amqp:resource-locked` too (BL-2026). A queue exclusive to
+  `amqp:resource-locked` too (BL-2026). So is every attach that loses its queue's name to another link
+  or connection after the inspect (BL-2083): a bus answer of `QueueInUse`, `ExclusiveConsumeRefused`
+  (another link consumes first), `QueueDescriptionDiffers` (a queue declared under the name with
+  another description) or `QueueLocked` (another connection declared it exclusive), at the delete,
+  declare, bind or consume, is `subscription in use`, and that queue stays. So is `QueueFlagsDiffer`
+  from a declare when the queue then carries another description (`ConsumeRefusal`); a queue carrying
+  this subscription's own description with other flags is `amqp:not-found`. A queue exclusive to
   another connection shows no filter to judge: an attach with a source is `amqp:resource-locked`, one
   with none `amqp:not-found`. Filters
   run as a message leaves the queue, as a link able to send claims it; a message they refuse, or the

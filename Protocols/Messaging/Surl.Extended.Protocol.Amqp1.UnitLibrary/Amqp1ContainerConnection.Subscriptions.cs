@@ -78,7 +78,7 @@ public sealed partial class Amqp1ContainerConnection
 
         if (outcome != MessageBusOutcome.Succeeded)
         {
-            return SubscriptionQueueRefusal(outcome);
+            return ConsumeRefusal(planned, outcome);
         }
 
         link.StartConsumer();
@@ -89,6 +89,14 @@ public sealed partial class Amqp1ContainerConnection
 
         return null;
     }
+
+    // The bus answers a declare for other flags before it compares descriptions: with another
+    // description the queue under the name is one declared since the inspect, so it is in use too.
+    private Amqp1Error ConsumeRefusal(Amqp1SubscriptionQueue planned, MessageBusOutcome outcome) =>
+        outcome == MessageBusOutcome.QueueFlagsDiffer
+        && busConnection.InspectQueue(planned.QueueName).SubscriptionDescription != planned.Description
+            ? SubscriptionInUse()
+            : SubscriptionQueueRefusal(outcome);
 
     // ADR-0146 Amendment 3: with no-local the queue takes no topic publish of any AMQP 1.0 connection
     // whose open carried this connection's container-id, attached or not.
@@ -194,11 +202,15 @@ public sealed partial class Amqp1ContainerConnection
     // Null when the bus carried the step out; otherwise the error its outcome is.
     private static Amqp1Error? RefusalUnless(MessageBusOutcome outcome) => outcome == MessageBusOutcome.Succeeded ? null : SubscriptionQueueRefusal(outcome);
 
+    // Another link or connection that takes the name after the container inspected it shows as a
+    // consumer (QueueInUse, ExclusiveConsumeRefused), another queue (QueueDescriptionDiffers) or an
+    // exclusive one (QueueLocked).
     private static Amqp1Error SubscriptionQueueRefusal(MessageBusOutcome outcome) => outcome switch
     {
         MessageBusOutcome.AccessDenied => NodeRefusal(Amqp1NodeOutcome.Unauthorized),
         MessageBusOutcome.TooManySubscriptions or MessageBusOutcome.TooManyQueues => NodeRefusal(Amqp1NodeOutcome.ResourceLimitExceeded),
-        MessageBusOutcome.QueueInUse => SubscriptionInUse(),
+        MessageBusOutcome.QueueInUse or MessageBusOutcome.ExclusiveConsumeRefused
+            or MessageBusOutcome.QueueDescriptionDiffers or MessageBusOutcome.QueueLocked => SubscriptionInUse(),
         _ => NodeRefusal(Amqp1NodeOutcome.NotFound),
     };
 
