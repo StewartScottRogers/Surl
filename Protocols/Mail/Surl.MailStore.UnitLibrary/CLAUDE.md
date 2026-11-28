@@ -24,7 +24,7 @@ catch-all, else `NoSuchAccount` (accepted and discarded). Domains compare in the
 ADR-0050 decision 5 says (`LocalPartLookup`). Each `--mailbox` is an owner and a login named by its
 normalised address. An alias or catch-all that does not resolve throws `MailRouteException` at
 construction. A `MailRecipient` may name several owners (`OwnerNames`), each once. With no domain,
-or under `--allow-anonymous`, resolution is ADR-0050's unchanged. The index format is unchanged.
+or under `--allow-anonymous`, resolution is ADR-0050's unchanged. The index has no field for mail domains.
 
 Quotas, configured folders and shared folders (BL-675, ADR-0102 decisions 1.4 and 1.6), all
 from `MailDomainConfiguration`'s `MailboxSettings` and `SharedFolders`, all ignored under
@@ -49,6 +49,12 @@ Persistence (BL-191, ADR-0050 decision 7): `MailboxStore.LoadAsync` reads the st
 `messages/`, named by its file number in 16 lower-case hex digits - and refuses a malformed
 store with `MailStoreLoadException` (the file at fault and the reason; the composition root
 answers it with `CouldNotReadFile`, 37). `MailStoreIndex` is the index's byte format.
+Folder uses (BL-1976, ADR-0192): the index keeps each mailbox's RFC 6154 use as one byte under the
+header `SURL-MAIL-INDEX-2`, written only when some mailbox holds a use; a store with none writes
+`SURL-MAIL-INDEX-1` with no use byte, and both are read. At start a configured use is given to its
+folder, loaded or new, replacing the folder's use and leaving any other mailbox of the owner that
+held it with none (a change, written by the next save; loading itself writes nothing); a folder
+configured with no use keeps the loaded one unless another folder is configured with that use.
 `SaveChangesAsync` writes the index, then deletes the files of messages no longer held; an
 index write that throws leaves the change in memory and the next save writes it. A store made
 by the constructor has no files and holds every message's bytes in memory. The servers call
@@ -117,6 +123,6 @@ every pending message whatever the outcome. If a later copy's file cannot be kep
 file numbers are not reused). One batch is one change. Every `Delivered` event carries `DeliveredFor`: the copy's list, in the
 order given; the single-message overloads publish the addresses a `MailRecipient` records through
 `MailRecipient.ForAddresses`, else null (as before). `MailboxStore.DeliveredToEnabled` (init-only, default false; `LoadAsync`'s `deliveredToEnabled` sets it) is only
-carried here: the composition root sets it and the SMTP server reads it. The index format is unchanged.
+carried here: the composition root sets it and the SMTP server reads it. Neither `DeliveredFor` nor `DeliveredToEnabled` is written to the index.
 
 Seeded `DeliveredFor` (BL-1515, ADR-0053 Amendment 1): `Seed` publishes each seeded copy's `Seeded` event with `DeliveredFor` holding the one `recipientPath` address with its angle brackets removed (an alias target's copies all name the alias address that was seeded). The bytes stored are unchanged; seeding never writes a `Delivered-To` header.

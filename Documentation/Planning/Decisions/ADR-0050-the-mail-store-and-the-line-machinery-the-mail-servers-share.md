@@ -9,6 +9,9 @@
   folders are mailboxes of the reserved owner `:shared`, and a recipient is resolved through
   aliases, mailboxes, accounts and catch-alls, a recipient outside every configured domain being
   refused `550 5.7.1` as relaying. With no `--mail-domain`, both decisions stand as written.
+  Decision 7's index format by
+  [ADR-0192](ADR-0192-the-mail-store-index-keeps-folder-uses-and-a-configured-use-wins-at-start.md)
+  (2026-11-27): it keeps folder uses.
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table of
   horizontal libraries gains the two rows of decision 1 below. Everything else in ADR-0002
   stands.
@@ -256,6 +259,9 @@ only the index is rewritten whole.
   Then end of file. An empty store is the header, the two numbers and an owner count of 0.
   Ordinal order makes the bytes a function of the store's contents, so a test can pin them.
   An owner with no mailboxes is not written.
+  [ADR-0192](ADR-0192-the-mail-store-index-keeps-folder-uses-and-a-configured-use-wins-at-start.md) amends this
+  table: an index in which a mailbox holds a folder use has the header `SURL-MAIL-INDEX-2` and a use byte in
+  every mailbox.
 - **Loaded** once at start, after the data-directory lock and before any listener binds (ADR-0031
   decision 7's order); `Surl.Console` does it (BL-207). A missing index is an empty store, and
   any message files beside it are ignored. Leftover `.index-<guid>` and `.pending-<guid>` files,

@@ -9,8 +9,9 @@ namespace Surl.MailStore;
 /// <param name="Folders">The mailboxes created for the owner at start when missing; <c>INBOX</c>
 /// in any case is skipped.</param>
 /// <param name="FolderUses">Folder name to RFC 6154 use (see <see cref="MailFolderUse"/>); each
-/// folder is created with its use, whether or not <paramref name="Folders"/> names it. Default
-/// empty (ADR-0055, Amendment 1, decision 6).</param>
+/// folder is created with its use when missing, whether or not <paramref name="Folders"/> names it,
+/// and a folder a loaded store already holds is given it (ADR-0192, decision 2). Default empty
+/// (ADR-0055, Amendment 1, decision 6).</param>
 public sealed record MailboxSettings(
     string Address,
     long? QuotaBytes,

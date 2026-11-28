@@ -55,6 +55,48 @@ public sealed class MailStoreIndexTests
     }
 
     [TestMethod]
+    public async Task SaveChangesAsync_AMailboxWithAUse_WritesTheSecondHeaderAndAUseBytePerMailbox()
+    {
+        var fileSystem = NewFileSystem();
+        var store = await LoadAsync(fileSystem, ["al"]);
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.CreateMailbox(store.ViewFor("al"), "Sent", use: "sent"));
+
+        await store.SaveChangesAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(
+            "5355524C2D4D41494C2D494E4445582D320A" // SURL-MAIL-INDEX-2 LF
+            + "0000000000000000" // next message file number
+            + "6ABB7001" // last UIDVALIDITY given
+            + "00000001" // owner count
+            + "0002" + "616C" + "00000002" // owner "al", two mailboxes
+            + "0005" + "494E424F58" + "6ABB7000" + "00000001" + "00" + "00000000" // INBOX, no use, no messages
+            + "0004" + "53656E74" + "6ABB7001" + "00000001" + "06" + "00000000", // Sent, \Sent, no messages
+            Convert.ToHexString(ReadFile(fileSystem, IndexPath)));
+    }
+
+    [TestMethod]
+    public void EncodeThenDecode_EveryUse_IsWrittenAsItsByteAndReadBack()
+    {
+        string[] uses = [@"\All", @"\Archive", @"\Drafts", @"\Flagged", @"\Junk", @"\Sent", @"\Trash"];
+        var owner = new OwnerMailboxes("al");
+        for (var code = 1; code <= uses.Length; code++)
+        {
+            owner.Mailboxes.Add($"m{code}", new StoredMailbox($"m{code}", (uint)code, 1) { Use = uses[code - 1] });
+        }
+
+        var bytes = MailStoreIndex.Encode(0, 7, [owner]);
+        var decoded = MailStoreIndex.Decode(bytes, 1, 1, 7);
+
+        CollectionAssert.AreEqual(
+            UnitTestIndexBytes.IndexWithFolderUses(
+                0,
+                7,
+                UnitTestIndexBytes.Owner("al", [.. Enumerable.Range(1, 7).Select(code => UnitTestIndexBytes.MailboxWithUse($"m{code}", (uint)code, 1, (byte)code))])),
+            bytes);
+        CollectionAssert.AreEqual(uses, decoded.Owners.Single().Mailboxes.Values.OrderBy(mailbox => mailbox.Name, StringComparer.Ordinal).Select(mailbox => mailbox.Use).ToArray());
+    }
+
+    [TestMethod]
     public async Task SaveChangesAsync_OwnerWithNoMailboxes_IsNotWritten()
     {
         var fileSystem = NewFileSystem();

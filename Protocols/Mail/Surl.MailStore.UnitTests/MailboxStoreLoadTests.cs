@@ -18,7 +18,11 @@ public sealed class MailboxStoreLoadTests
 
     public static IEnumerable<object[]> MalformedIndexes =>
     [
-        ["wrong header", Join("SURL-MAIL-INDEX-2\n"u8.ToArray(), Valid()[Header.Length..])],
+        ["wrong header", Join("SURL-MAIL-INDEX-3\n"u8.ToArray(), Valid()[Header.Length..])],
+        ["use byte above 7", IndexWithFolderUses(0, LastUidValidity, Owner("al", MailboxWithUse("Sent", 100, 1, 8)))],
+        ["use on INBOX", IndexWithFolderUses(0, LastUidValidity, Owner("al", MailboxWithUse("inbox", 100, 1, 6)))],
+        ["use repeated within an owner", IndexWithFolderUses(0, LastUidValidity, Owner("al", MailboxWithUse("Out", 99, 1, 6), MailboxWithUse("Sent", 100, 1, 6)))],
+        ["use byte missing under the second header", Join(HeaderWithFolderUses, Index(0, LastUidValidity, Owner("al", Mailbox("Sent", 100, 1)))[Header.Length..])],
         ["truncated", Valid()[..^1]],
         ["truncated header", Header[..5]],
         ["trailing bytes", Join(Valid(), [0])],
