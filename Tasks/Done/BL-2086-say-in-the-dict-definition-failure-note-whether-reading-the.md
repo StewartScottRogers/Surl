@@ -8,7 +8,7 @@ depends-on: [BL-2085]
 touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2086 — Say in the DICT definition failure note whether reading the file or writing to the connection failed
 
@@ -44,14 +44,25 @@ what a test or a person reads in the exchange log when a transfer fails.
 
 ## Acceptance criteria
 
-- [ ] A new test in `Surl.Protocol.Dict.UnitTests` makes the connection throw `IOException` while the definition's bytes are copied, and asserts the write-failure note above, that the connection is aborted and that no later command is answered.
-- [ ] `ServeAsync_DefinitionUnreadableOnceAnnounced_AbortsTheConnectionAndNotesIt` passes for both its data rows with its expected note unchanged.
-- [ ] `dotnet build Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary -warnaserror` is clean.
-- [ ] The fast tests of `Surl.Protocol.Dict.UnitTests` pass with no `TestCategory=Integration` test needed, and the library keeps 100% line and branch coverage.
+- [x] A new test in `Surl.Protocol.Dict.UnitTests` makes the connection throw `IOException` while the definition's bytes are copied, and asserts the write-failure note above, that the connection is aborted and that no later command is answered.
+- [x] `ServeAsync_DefinitionUnreadableOnceAnnounced_AbortsTheConnectionAndNotesIt` passes for both its data rows with its expected note unchanged.
+- [x] `dotnet build Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary -warnaserror` is clean.
+- [x] The fast tests of `Surl.Protocol.Dict.UnitTests` pass with no `TestCategory=Integration` test needed, and the library keeps 100% line and branch coverage.
 
 ## Notes
+
+- `ContentStore.CopyFileBytesAsync` passes exceptions through unwrapped, so `DictTextWriteStream.HasFailedWrite`
+  records that `IConnection.WriteAsync` threw `IOException` during the copy, and `DictCommandResponder` words the note
+  from it. This follows `Surl.HttpServing`'s `ConnectionWriteStream.HasFailedWrite`. No ADR: the task fixes the
+  wording, and nothing sent to the client, no option and no exit code changes, so no conformance stage ran.
+- A `drop after-bytes` fault whose cut lands in the copy now gets the write-failure note.
+- A write that fails in `EndTextAsync` or later still gets no DICT note, as the Context keeps it.
+- Gates, 2026-11-28: solution build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30552 passed,
+  3 skipped, 0 failed (Dict 166 of 166); `Measure-CodeQuality.ps1 -Library Surl.Protocol.Dict.UnitLibrary` over the
+  Dict tests' coverage report: 0 failing members. Review: nothing under Must fix.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The DICT definition failure note now says whether reading the file or writing to the connection failed.
