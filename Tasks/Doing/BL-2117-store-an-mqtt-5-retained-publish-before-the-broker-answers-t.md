@@ -64,3 +64,4 @@ not hold. A test must drive time from the injected `TimeProvider`, not a sleep.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
