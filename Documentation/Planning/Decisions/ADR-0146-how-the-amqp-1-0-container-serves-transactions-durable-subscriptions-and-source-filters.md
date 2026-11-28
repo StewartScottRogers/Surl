@@ -149,6 +149,16 @@ but its flags and bindings.
    that declared it detaches, when that link's session ends, and when the connection ends. There is
    no transaction time-out: `amqp:transaction:timeout` is never sent, and the 100-transaction and
    `--max-filesize` bounds keep what a transaction holds finite.
+
+   *Amended 2026-11-28 (BL-2064), pointing at
+   [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) and
+   [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 7:* under
+   `--max-filesize 0`, which is no limit, what a transaction holds has no byte bound, so the two
+   bounds named above do not keep it finite then. The 100-transaction limit
+   (`MaxOpenTransactions`) bounds only how many transactions are open at once on a connection:
+   under 0 nothing caps the number of messages one of them holds or their bytes. The bus judges its
+   own bounds on those messages only at the commit (decision 1.6), after they have been held.
+
 8. **Pre-settled control messages.** A `declare` or `discharge` the client sends pre-settled is
    still applied; per Part 2 section 2.6.12 nothing answers it, so the client never learns the id
    or the result, which is its choice.

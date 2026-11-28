@@ -36,6 +36,8 @@
   topic" bullet: a non-durable shared topic subscription is a bus queue
   ([ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
   Amendment 4), not a live subscription, and its links are sent queue deliveries.
+- **Amended (2026-11-28, BL-2064):** a note after BL-2044's `--max-filesize` note under decision 7's
+  table: under `--max-filesize 0` the messages held in open transactions have no byte bound.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -595,6 +597,14 @@ held in open transactions count against `--max-filesize` too, in a check of thei
   and, unlike ADR-0006, does not read 0 as no limit: under `--max-filesize 0` every posting of one
   byte or more in an open transaction that would otherwise be held is refused as the first bullet
   says.
+
+*Amended 2026-11-28 (BL-2064), pointing at
+[ADR-0006](ADR-0006-hardening-for-internet-facing-use.md):* BL-2063 changed `Hold`, so the third
+bullet of the BL-2044 note above no longer describes the code. The held-bytes check now reads a
+`MaxUploadBytes` of 0 as no limit, as ADR-0006 does: under `--max-filesize 0` it applies no bound,
+so no posting is refused for its size and the messages held in a connection's open transactions have
+no byte bound. What is still capped is how many transactions are open at once
+(`MaxOpenTransactions`, 100). The first bullet's refusal applies only under a limit above 0.
 
 - No new option is added: ADR-0006's options and the bus's bounds cover every store a peer can fill;
   64, 256, 100 and 1000 are named constants of the library.
