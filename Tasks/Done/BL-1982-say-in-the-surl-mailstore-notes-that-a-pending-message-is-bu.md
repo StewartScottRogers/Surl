@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1982 — Say in the Surl.MailStore notes that a pending message is buffered in memory without a data directory
 
@@ -30,13 +30,18 @@ No store, event or fault changes: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The paragraph says the pending file is used by a store with files.
-- [ ] The paragraph says a store without files buffers the pending message in memory.
-- [ ] Only that `CLAUDE.md` changes.
+- [x] The paragraph says the pending file is used by a store with files.
+- [x] The paragraph says a store without files buffers the pending message in memory.
+- [x] Only that `CLAUDE.md` changes.
 
 ## Notes
+
+- Checked against `PendingMessage.cs`: the constructor buffers into a `MemoryStream` when `files` is null, and
+  `TryKeep` returns that buffer's bytes. The only change outside the task board is the one `CLAUDE.md`.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: no failures.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Surl.MailStore notes say a pending message goes to a pending file in a store with files and to memory in a store without
