@@ -8,7 +8,7 @@ depends-on: [BL-2090]
 touches: [Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2103 — Name Surl.Composition as the project that loads the mail store and LDAP directory and registers the servers in Requirements.md
 
@@ -41,15 +41,21 @@ Stand-in: nothing to add; documentation only, with no store, event, seed, reset 
 
 ## Acceptance criteria
 
-- [ ] FR-043, FR-048 and FR-049 say their implicit-TLS scheme is registered through `ImplicitTlsSchemeServer` in `Surl.Composition`.
-- [ ] FR-047 says the mail store is loaded by `SurlServerComposition.LoadMailStoreAsync` in `Surl.Composition`, and FR-049 says the LDAP server and its directory are loaded by `SurlServerComposition.LoadLdapServerAsync` there.
-- [ ] FR-050 and FR-051 say their servers are registered in `Surl.Composition`.
-- [ ] A search of `Documentation/Product/Requirements.md` for `CommandLineRunner.Load` finds nothing, and every remaining `Surl.Console` mention is true of the code (any further stale one found by that search is corrected too).
-- [ ] The diff changes no file but `Documentation/Product/Requirements.md` (and this task's own).
+- [x] FR-043, FR-048 and FR-049 say their implicit-TLS scheme is registered through `ImplicitTlsSchemeServer` in `Surl.Composition`.
+- [x] FR-047 says the mail store is loaded by `SurlServerComposition.LoadMailStoreAsync` in `Surl.Composition`, and FR-049 says the LDAP server and its directory are loaded by `SurlServerComposition.LoadLdapServerAsync` there.
+- [x] FR-050 and FR-051 say their servers are registered in `Surl.Composition`.
+- [x] A search of `Documentation/Product/Requirements.md` for `CommandLineRunner.Load` finds nothing, and every remaining `Surl.Console` mention is true of the code (any further stale one found by that search is corrected too).
+- [x] The diff changes no file but `Documentation/Product/Requirements.md` (and this task's own).
 
 ## Notes
+
+- 2026-11-28: Changed the "satisfied by" text of FR-043 and FR-047 to FR-051 only. FR-050 and FR-051 also name `ProtocolServerRegistrations.Original`; each name checked against `Application/Surl.Composition.UnitLibrary`.
+- 2026-11-28: A search for `CommandLineRunner` in Requirements.md finds nothing. The remaining `Surl.Console` mentions (NFR-002, NFR-003, NFR-006) name it correctly.
+- 2026-11-28: `dotnet build` 0 warnings; fast tests passed.
+- 2026-11-28: Other stale statements found and left out of scope are filed as BL-2106. ADRs that place composition in `Surl.Console` were seen in search hits but not checked one by one (BL-2101 covers ADR-0050).
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. Requirements.md names Surl.Composition and its types for server registration and mail store and LDAP loading
