@@ -1,5 +1,5 @@
 ---
-id: BL-2095
+id: BL-2100
 title: Correct the LDAP decoder's remaining statements about compare, message IDs and decode results
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2095 — Correct the LDAP decoder's remaining statements about compare, message IDs and decode results
+# BL-2100 — Correct the LDAP decoder's remaining statements about compare, message IDs and decode results
 
 ## Goal
 

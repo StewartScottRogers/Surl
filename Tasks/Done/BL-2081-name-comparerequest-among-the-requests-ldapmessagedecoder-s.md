@@ -34,7 +34,7 @@ The XML doc remarks of `LdapMessageDecoder` list every request it decodes, `Comp
   Notice of Disconnection (`messageID` 0, `protocolError`) and closes (ADR-0072 decision 3).
   Documentation only, so no new ADR.
 - 2026-11-28: Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes`
-  exit 0, fast tests exit 0. The remaining misaligned statements elsewhere in the library are BL-2095.
+  exit 0, fast tests exit 0. The remaining misaligned statements elsewhere in the library are BL-2100.
 
 ## Log
 
