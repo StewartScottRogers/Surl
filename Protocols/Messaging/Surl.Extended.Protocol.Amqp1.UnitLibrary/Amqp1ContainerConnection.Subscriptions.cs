@@ -4,19 +4,20 @@ namespace Surl.Extended.Protocol.Amqp1;
 
 /// <summary>
 /// Durable and shared topic subscriptions (Part 3 sections 3.5.3, 3.5.5 and 3.5.6; Part 2 section 2.6.6;
-/// ADR-0146 decision 3): a bus queue bound to the topic filter that keeps what is published while no
-/// link is attached, filtered at delivery.
+/// ADR-0146 decision 3 and Amendment 4): a bus queue bound to the topic filter, filtered at delivery. A
+/// kept one holds what is published while no link is attached; a non-durable shared one goes with its
+/// last link.
 /// </summary>
 public sealed partial class Amqp1ContainerConnection
 {
     // The kept subscription a client receiver's attach with no source names, if one of its name exists.
-    private Amqp1KeptSubscription? FindKeptSubscription(Amqp1Attach attach)
+    private Amqp1SubscriptionQueue? FindKeptSubscription(Amqp1Attach attach)
     {
-        foreach (var queueName in Amqp1KeptSubscription.QueueNamesFor(clientContainerId, attach.Name))
+        foreach (var queueName in Amqp1SubscriptionQueue.QueueNamesFor(clientContainerId, attach.Name))
         {
             var inspected = busConnection.InspectQueue(queueName);
             if (inspected.Outcome == MessageBusOutcome.Succeeded
-                && Amqp1KeptSubscription.FromDescription(queueName, inspected.SubscriptionDescription) is { } found)
+                && Amqp1SubscriptionQueue.FromDescription(queueName, inspected.SubscriptionDescription) is { } found)
             {
                 return found;
             }
@@ -27,18 +28,18 @@ public sealed partial class Amqp1ContainerConnection
 
     // Judges access, then finds, resumes, replaces or makes the subscription's queue and consumes from it;
     // null when the link may go on, or the error that refuses the attach.
-    private Amqp1Error? OpenKeptSubscription(Amqp1Session session, Amqp1Link link, Amqp1KeptSubscription kept)
+    private Amqp1Error? OpenSubscriptionQueue(Amqp1Session session, Amqp1Link link, Amqp1SubscriptionQueue planned)
     {
-        var found = busConnection.InspectQueue(kept.QueueName);
-        var existing = Amqp1KeptSubscription.FromDescription(kept.QueueName, found.SubscriptionDescription);
-        var refusal = Judge(kept.TopicFilter)
+        var found = busConnection.InspectQueue(planned.QueueName);
+        var existing = Amqp1SubscriptionQueue.FromDescription(planned.QueueName, found.SubscriptionDescription);
+        var refusal = Judge(planned.TopicFilter)
             ?? JudgeFound(existing)
-            ?? (link.IsSubscriptionLookup ? null : MakeQueueAndConsume(session, link, kept, found));
+            ?? (link.IsSubscriptionLookup ? null : MakeQueueAndConsume(session, link, planned, found));
 
         // A lookup makes no queue: the one a closed detach of it may delete is the one judged here.
         if (link.IsSubscriptionLookup)
         {
-            link.Kept = existing;
+            link.SubscriptionQueue = existing;
         }
 
         return refusal;
@@ -56,64 +57,97 @@ public sealed partial class Amqp1ContainerConnection
 
     // The subscription already under this name may be on another filter: replacing it, or being told
     // of it, needs the right on that filter too.
-    private Amqp1Error? JudgeFound(Amqp1KeptSubscription? existing) =>
+    private Amqp1Error? JudgeFound(Amqp1SubscriptionQueue? existing) =>
         existing is null ? null : Judge(existing.TopicFilter);
 
-    private Amqp1Error? MakeQueueAndConsume(Amqp1Session session, Amqp1Link link, Amqp1KeptSubscription kept, BusQueueInspectResult found)
+    private Amqp1Error? MakeQueueAndConsume(Amqp1Session session, Amqp1Link link, Amqp1SubscriptionQueue planned, BusQueueInspectResult found)
     {
-        var refusal = ClearStaleQueue(kept, found) ?? DeclareAndBind(kept, link.Filters.NoLocal);
-        if (refusal is not null)
+        if (ClearStaleQueue(planned, found) is { } stale)
         {
-            return refusal;
+            return stale;
         }
 
-        var consumed = busConnection.ConsumeSubscriptionQueue(
-            kept.QueueName, kept.Description, kept.TopicFilter, OfferKeptDelivery(link), MaxWaitingDeliveries, exclusive: !kept.IsShared);
-        if (RefusalUnless(consumed.Outcome) is { } consumeRefusal)
+        var outcome = DeclareBindAndConsume(link, planned);
+
+        // ADR-0146 Amendment 4 item 5: the last other link of a non-durable shared subscription may end
+        // between those calls, taking the queue with it; once more makes it again.
+        if (outcome == MessageBusOutcome.UnknownQueue && !planned.IsKept)
         {
-            return consumeRefusal;
+            outcome = DeclareBindAndConsume(link, planned);
         }
 
-        link.Consumer = consumed.Consumer;
+        if (outcome != MessageBusOutcome.Succeeded)
+        {
+            return SubscriptionQueueRefusal(outcome);
+        }
+
         link.Consumer!.Start();
-        if (kept.EndsWithSession)
+        if (planned.EndsWithSession)
         {
-            session.SessionSubscriptions[kept.QueueName] = kept.Description;
+            session.SessionSubscriptions[planned.QueueName] = planned.Description;
         }
 
         return null;
     }
 
+    // ADR-0146 Amendment 3: with no-local the queue takes no topic publish of any AMQP 1.0 connection
+    // whose open carried this connection's container-id, attached or not.
+    private MessageBusOutcome DeclareBindAndConsume(Amqp1Link link, Amqp1SubscriptionQueue planned)
+    {
+        var excludedPublisherName = link.Filters.NoLocal ? busConnection.PublisherName : null;
+        var declared = busConnection.DeclareQueue(planned.QueueName, planned.QueueFlags, planned.Description, excludedPublisherName).Outcome;
+        if (declared != MessageBusOutcome.Succeeded)
+        {
+            return declared;
+        }
+
+        var outcome = BindAndConsume(link, planned);
+
+        // ADR-0146 Amendment 4 item 5: an attach refused after the declare leaves no non-durable queue
+        // behind. An unknown queue is already gone.
+        if (outcome is not (MessageBusOutcome.Succeeded or MessageBusOutcome.UnknownQueue) && !planned.IsKept)
+        {
+            busConnection.DeleteQueueIfDescribed(planned.QueueName, planned.Description, ifUnused: true);
+        }
+
+        return outcome;
+    }
+
+    private MessageBusOutcome BindAndConsume(Amqp1Link link, Amqp1SubscriptionQueue planned)
+    {
+        var bound = busConnection.BindQueue(planned.QueueName, planned.TopicFilter);
+        if (bound != MessageBusOutcome.Succeeded)
+        {
+            return bound;
+        }
+
+        var consumed = busConnection.ConsumeSubscriptionQueue(
+            planned.QueueName, planned.Description, planned.TopicFilter, OfferSubscriptionQueueDelivery(link), MaxWaitingDeliveries, exclusive: !planned.IsShared);
+        link.Consumer = consumed.Consumer;
+        return consumed.Outcome;
+    }
+
     // ADR-0146 decision 3.3: a queue another link holds is locked; one with another description is a
     // different subscription, replaced - only while it still is the one judged and no link holds it.
-    private Amqp1Error? ClearStaleQueue(Amqp1KeptSubscription kept, BusQueueInspectResult found)
+    private Amqp1Error? ClearStaleQueue(Amqp1SubscriptionQueue planned, BusQueueInspectResult found)
     {
         if (found.Outcome == MessageBusOutcome.UnknownQueue)
         {
             return null;
         }
 
-        var differs = found.SubscriptionDescription != kept.Description;
-        if (found.Outcome != MessageBusOutcome.Succeeded || (found.ConsumerCount > 0 && (differs || !kept.IsShared)))
+        var differs = found.SubscriptionDescription != planned.Description;
+        if (found.Outcome != MessageBusOutcome.Succeeded || (found.ConsumerCount > 0 && (differs || !planned.IsShared)))
         {
             return SubscriptionInUse();
         }
 
-        return differs ? RefusalUnless(busConnection.DeleteQueueIfDescribed(kept.QueueName, found.SubscriptionDescription, ifUnused: true)) : null;
-    }
-
-    // ADR-0146 Amendment 3: with no-local the queue takes no topic publish of any AMQP 1.0 connection
-    // whose open carried this connection's container-id, attached or not.
-    private Amqp1Error? DeclareAndBind(Amqp1KeptSubscription kept, bool noLocal)
-    {
-        var flags = kept.IsPersistent ? new BusQueueFlags(Durable: true) : new BusQueueFlags(Exclusive: true);
-        var declared = busConnection.DeclareQueue(kept.QueueName, flags, kept.Description, noLocal ? busConnection.PublisherName : null);
-        return RefusalUnless(declared.Outcome) ?? RefusalUnless(busConnection.BindQueue(kept.QueueName, kept.TopicFilter));
+        return differs ? RefusalUnless(busConnection.DeleteQueueIfDescribed(planned.QueueName, found.SubscriptionDescription, ifUnused: true)) : null;
     }
 
     // ADR-0146 decision 3.2: filters apply as a message leaves the queue, one they refuse is acknowledged
     // (the queue is the subscription's alone), and so is one the client cannot name.
-    private Action<BusQueueDelivery> OfferKeptDelivery(Amqp1Link link) => delivery =>
+    private Action<BusQueueDelivery> OfferSubscriptionQueueDelivery(Amqp1Link link) => delivery =>
     {
         if (!link.Filters.Accepts(delivery.Message, queueName: null)
             || bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, delivery.Message.Topic).Name is not { } address)
@@ -128,10 +162,11 @@ public sealed partial class Amqp1ContainerConnection
 
     // Part 2 section 2.6.6: a detach with closed true destroys the terminus. A shared subscription goes
     // with its last link only: the delete is refused while another consumer takes from it. It is refused
-    // too once the queue carries another description than the link was judged on.
+    // too once the queue carries another description than the link was judged on. A non-durable shared
+    // one asks for no delete: the bus removes it with its last consumer (ADR-0146 Amendment 4 item 5).
     private void DestroyKeptSubscription(Amqp1Session session, Amqp1Link link)
     {
-        if (link.Kept is not { } kept)
+        if (link.SubscriptionQueue is not { IsKept: true } kept)
         {
             return;
         }
@@ -155,9 +190,9 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // Null when the bus carried the step out; otherwise the error its outcome is.
-    private static Amqp1Error? RefusalUnless(MessageBusOutcome outcome) => outcome == MessageBusOutcome.Succeeded ? null : KeptRefusal(outcome);
+    private static Amqp1Error? RefusalUnless(MessageBusOutcome outcome) => outcome == MessageBusOutcome.Succeeded ? null : SubscriptionQueueRefusal(outcome);
 
-    private static Amqp1Error KeptRefusal(MessageBusOutcome outcome) => outcome switch
+    private static Amqp1Error SubscriptionQueueRefusal(MessageBusOutcome outcome) => outcome switch
     {
         MessageBusOutcome.AccessDenied => NodeRefusal(Amqp1NodeOutcome.Unauthorized),
         MessageBusOutcome.TooManySubscriptions or MessageBusOutcome.TooManyQueues => NodeRefusal(Amqp1NodeOutcome.ResourceLimitExceeded),

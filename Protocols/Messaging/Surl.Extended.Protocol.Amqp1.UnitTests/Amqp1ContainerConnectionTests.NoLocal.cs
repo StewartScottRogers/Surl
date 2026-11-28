@@ -97,10 +97,10 @@ public sealed partial class Amqp1ContainerConnectionTests
     public async Task ServeAsync_LookupOfASharedSubscriptionKeptWithNoLocal_IsNotEchoedIt()
     {
         var bus = Bus();
-        var queueName = Amqp1KeptSubscription.QueueNameFor("client", "durable", isShared: true, isGlobal: false);
-        var asked = new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never", IsShared = true };
+        var queueName = Amqp1SubscriptionQueue.QueueNameFor("client", "durable", isShared: true, isGlobal: false);
+        var asked = new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "never", IsShared = true };
         var owner = bus.Connect("alice");
-        owner.DeclareQueue(queueName, new BusQueueFlags(Durable: true), Amqp1KeptSubscription.Plan("client", "durable", asked, "news", NoLocal()).Description);
+        owner.DeclareQueue(queueName, new BusQueueFlags(Durable: true), Amqp1SubscriptionQueue.Plan("client", "durable", asked, "news", NoLocal()).Description);
         owner.BindQueue(queueName, "news");
 
         var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news") with { Source = null }));
@@ -153,9 +153,9 @@ public sealed partial class Amqp1ContainerConnectionTests
     public async Task ServeAsync_ReattachOfASubscriptionKeptExcludingNobody_ExcludesItsContainerIdFromThen()
     {
         var bus = Bus();
-        var asked = new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never" };
+        var asked = new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "never" };
         var owner = bus.Connect("alice");
-        owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), Amqp1KeptSubscription.Plan("client", "durable", asked, "news", NoLocal()).Description);
+        owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), Amqp1SubscriptionQueue.Plan("client", "durable", asked, "news", NoLocal()).Description);
         owner.BindQueue(DurableQueue, "news");
 
         await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(NoLocalAttach(0, "never")), BusFrame(SenderAttach(1, "/topic/news")), Publication(1, 0, "own"));

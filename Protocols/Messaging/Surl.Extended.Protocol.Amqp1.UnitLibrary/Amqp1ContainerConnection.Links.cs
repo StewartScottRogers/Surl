@@ -51,7 +51,7 @@ public sealed partial class Amqp1ContainerConnection
         await WriteAsync(session.OutgoingChannel, AnsweringAttach(attach, link.ContainerHandle, refusal is null ? nodeTerminus : null));
         if (refusal is not null)
         {
-            link.Kept = null;
+            link.SubscriptionQueue = null;
             // Part 2 section 2.6.3: a null terminus, then at once a closing detach with the error.
             link.IsDetachedByContainer = true;
             link.EndSource();
@@ -101,19 +101,20 @@ public sealed partial class Amqp1ContainerConnection
 
         link.NodeAddress = nodeAddress;
         link.Filters = filters;
-        link.Kept = PlanKeptSubscription(attach, terminus, nodeAddress, filters);
-        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.Kept), null);
+        link.SubscriptionQueue = PlanSubscriptionQueue(attach, terminus, nodeAddress, filters);
+        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.SubscriptionQueue), null);
     }
 
-    // ADR-0146 decision 2.1 and Amendment 3: no-local is for a topic link, but not for a shared
-    // subscription the container keeps; shared asked with no durability is a live link, and applies it.
+    // ADR-0146 decision 2.1, Amendment 3 and Amendment 4 item 7: no-local is for a topic link, but not for
+    // a shared subscription, kept or not.
     private static bool AppliesNoLocal(Amqp1NodeRequest request, Amqp1Terminus terminus) =>
-        request.IsTopic && !(terminus.IsShared && Amqp1KeptSubscription.IsAskedFor(terminus));
+        request.IsTopic && !terminus.IsShared;
 
-    // ADR-0146 decision 3.1: only a client receiver's topic source asking durability keeps a subscription.
-    private Amqp1KeptSubscription? PlanKeptSubscription(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1SourceFilters filters) =>
-        attach.IsReceiver && Amqp1NodeAddress.IsTopic(nodeAddress) && Amqp1KeptSubscription.IsAskedFor(terminus)
-            ? Amqp1KeptSubscription.Plan(clientContainerId, attach.Name, terminus, nodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], filters.Applied)
+    // ADR-0146 decision 3.1 and Amendment 4 item 1: only a client receiver's topic source asking
+    // durability or sharing holds its subscription in a queue.
+    private Amqp1SubscriptionQueue? PlanSubscriptionQueue(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1SourceFilters filters) =>
+        attach.IsReceiver && Amqp1NodeAddress.IsTopic(nodeAddress) && Amqp1SubscriptionQueue.IsAskedFor(terminus)
+            ? Amqp1SubscriptionQueue.Plan(clientContainerId, attach.Name, terminus, nodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], filters.Applied)
             : null;
 
     // ADR-0146 decision 3.3: a client receiver's attach with no source asks for the kept subscription of
@@ -163,11 +164,11 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // A dynamic node is answered with the address the directory gave it; any other echoes the client's.
-    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters, Amqp1KeptSubscription? kept)
+    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters, Amqp1SubscriptionQueue? subscriptionQueue)
     {
         var answeredAddress = terminus.IsDynamic ? nodeAddress : terminus.Address!;
         return attach.IsReceiver
-            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters, kept)
+            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters, subscriptionQueue)
             : Amqp1Terminus.Target(answeredAddress, terminus.IsDynamic);
     }
 
@@ -200,8 +201,8 @@ public sealed partial class Amqp1ContainerConnection
                 MaxMessageSize = (ulong)context.Limits.MaxUploadBytes,
             };
 
-    // A client receiver's link becomes the topic's live subscription or the queue's consumer; null
-    // when it may, or the error that refuses the attach.
+    // A client receiver's link becomes the topic's live subscription, a consumer of its subscription
+    // queue or the queue's consumer; null when it may, or the error that refuses the attach.
     private Amqp1Error? OpenNode(Amqp1Session session, Amqp1Link link)
     {
         if (link.ContainerReceives)
@@ -209,9 +210,9 @@ public sealed partial class Amqp1ContainerConnection
             return null;
         }
 
-        if (link.Kept is { } kept)
+        if (link.SubscriptionQueue is { } planned)
         {
-            return OpenKeptSubscription(session, link, kept);
+            return OpenSubscriptionQueue(session, link, planned);
         }
 
         var outcome = Amqp1NodeAddress.IsTopic(link.NodeAddress) ? Subscribe(link) : Consume(link);

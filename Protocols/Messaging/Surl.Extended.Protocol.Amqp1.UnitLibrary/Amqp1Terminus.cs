@@ -89,24 +89,25 @@ internal sealed record Amqp1Terminus(string? Address, bool IsDynamic, bool IsCoo
 
     /// <summary>
     /// The container's source as <see cref="Source(string, bool, bool, Amqp1Map?)"/> writes it, with the
-    /// <c>durable</c>, <c>expiry-policy</c>, <c>timeout</c> and <c>capabilities</c> of a kept subscription
-    /// when <paramref name="kept"/> is given (ADR-0146 decision 3).
+    /// <c>expiry-policy</c>, <c>timeout</c> and <c>capabilities</c> of a subscription held in a queue when
+    /// <paramref name="subscriptionQueue"/> is given, and <c>durable</c> when that one is kept (ADR-0146
+    /// decision 3 and Amendment 4).
     /// </summary>
-    public static Amqp1Described Source(string address, bool isDynamic, bool isTopic, Amqp1Map? appliedFilters, Amqp1KeptSubscription? kept) => new(
+    public static Amqp1Described Source(string address, bool isDynamic, bool isTopic, Amqp1Map? appliedFilters, Amqp1SubscriptionQueue? subscriptionQueue) => new(
         Amqp1Descriptor.Source,
         Amqp1Fields.WithoutTrailingNulls(
         [
             address,
-            kept is null ? null : 1u,
-            kept?.ExpiryPolicy,
-            kept is { TimeoutSeconds: > 0 } ? kept.TimeoutSeconds : null,
+            subscriptionQueue is { IsKept: true } ? 1u : null,
+            subscriptionQueue?.ExpiryPolicy,
+            subscriptionQueue is { TimeoutSeconds: > 0 } ? subscriptionQueue.TimeoutSeconds : null,
             DynamicField(isDynamic),
             null,
             isTopic ? DistributionModeCopy : DistributionModeMove,
             appliedFilters,
             null,
             null,
-            kept is null ? null : Amqp1Fields.SymbolsField(kept.Capabilities),
+            subscriptionQueue is null ? null : Amqp1Fields.SymbolsField(subscriptionQueue.Capabilities),
         ]));
 
     /// <summary>The container's target as a receiver: the address, and <c>dynamic</c> when asked.</summary>

@@ -11,7 +11,7 @@ namespace Surl.Extended.Protocol.Amqp1.UnitTests;
 /// </summary>
 public sealed partial class Amqp1ContainerConnectionTests
 {
-    private static readonly string DurableQueue = Amqp1KeptSubscription.QueueNameFor("client", "durable", isShared: false, isGlobal: false);
+    private static readonly string DurableQueue = Amqp1SubscriptionQueue.QueueNameFor("client", "durable", isShared: false, isGlobal: false);
 
     [TestMethod]
     public async Task ServeAsync_DurableAttach_IsAnsweredConfigurationAndNeverAndKeepsWhatIsPublishedWhileDetached()
@@ -157,7 +157,7 @@ public sealed partial class Amqp1ContainerConnectionTests
     {
         var bus = Bus();
         await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "connection-close")), BusFrame(new Amqp1Detach(0)));
-        var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "connection-close" }, "news", null);
+        var plan = Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "connection-close" }, "news", null);
         var other = bus.Connect("bob");
         other.DeclareQueue(DurableQueue, new BusQueueFlags(Exclusive: true), plan.Description);
 
@@ -208,7 +208,7 @@ public sealed partial class Amqp1ContainerConnectionTests
     public async Task ServeAsync_ClosedDetachOfASharedLink_DeletesTheSubscriptionOnlyWhenItIsTheLast()
     {
         var bus = Bus();
-        var shared = Amqp1KeptSubscription.QueueNameFor("client", "group|1", isShared: true, isGlobal: false);
+        var shared = Amqp1SubscriptionQueue.QueueNameFor("client", "group|1", isShared: true, isGlobal: false);
         var held = new List<MessageBusOutcome>();
 
         await ServeOnBusAsync(
@@ -342,7 +342,7 @@ public sealed partial class Amqp1ContainerConnectionTests
 
     // The description of the durable subscription the link "durable" of the container "client" keeps.
     private static string DurableDescription(string address, string topicFilter) =>
-        Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus(address, false, false) { ExpiryPolicy = "never" }, topicFilter, null).Description;
+        Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus(address, false, false) { Durable = 1, ExpiryPolicy = "never" }, topicFilter, null).Description;
 
     [TestMethod]
     [DataRow("link-detach")]
@@ -425,7 +425,7 @@ public sealed partial class Amqp1ContainerConnectionTests
                 new TopicAccessGrant("weather", "alice", TopicAccessRights.Subscribe),
             ],
         });
-        var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never" }, "news", null);
+        var plan = Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "never" }, "news", null);
         var owner = bus.Connect("bob");
         owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), plan.Description);
         owner.BindQueue(DurableQueue, "news");
@@ -482,7 +482,7 @@ public sealed partial class Amqp1ContainerConnectionTests
 
         if (bound == 2)
         {
-            var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never" }, "news", null);
+            var plan = Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "never" }, "news", null);
             bus.Connect().DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true, AutoDelete: true), plan.Description);
         }
 
@@ -511,23 +511,23 @@ public sealed partial class Amqp1ContainerConnectionTests
     [TestMethod]
     public void FromDescription_TextThatIsNotADescription_IsNull()
     {
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", null));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", "not hex"));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode("a string"))));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "only", "two" }))));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "a", "b", 5, "never", false, false }))));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", null));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", "not hex"));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode("a string"))));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "only", "two" }))));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "a", "b", 5, "never", false, false }))));
     }
 
     [TestMethod]
     public void QueueNamesFor_ANameWithABar_IsOneNamePerWayOfSharingIt()
     {
-        var names = Amqp1KeptSubscription.QueueNamesFor("client", "group|1");
+        var names = Amqp1SubscriptionQueue.QueueNamesFor("client", "group|1");
 
         Assert.HasCount(3, names);
-        Assert.AreEqual(Amqp1KeptSubscription.QueueNameFor("client", "group|1", false, false), names[0]);
-        Assert.AreEqual(Amqp1KeptSubscription.QueueNameFor("client", "group", true, false), names[1]);
-        Assert.AreEqual(Amqp1KeptSubscription.QueueNameFor("anyone", "group|9", true, true), names[2]);
-        Assert.HasCount(2, Amqp1KeptSubscription.QueueNamesFor("client", "plain").Distinct());
+        Assert.AreEqual(Amqp1SubscriptionQueue.QueueNameFor("client", "group|1", false, false), names[0]);
+        Assert.AreEqual(Amqp1SubscriptionQueue.QueueNameFor("client", "group", true, false), names[1]);
+        Assert.AreEqual(Amqp1SubscriptionQueue.QueueNameFor("anyone", "group|9", true, true), names[2]);
+        Assert.HasCount(2, Amqp1SubscriptionQueue.QueueNamesFor("client", "plain").Distinct());
     }
 
     private static Amqp1Attach DurableAttach(uint handle, string address, string? policy = null, string name = "durable", Amqp1Map? filters = null, params string[] capabilities) =>

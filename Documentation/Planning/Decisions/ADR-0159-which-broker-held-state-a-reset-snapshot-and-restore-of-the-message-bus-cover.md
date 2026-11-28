@@ -41,7 +41,7 @@ ADR-0124's "live sessions" rule applies).
 | MQTT 5 | `pendingWills` (a Will waiting out its delay) | live session state |
 | MQTT 5 | `connectedClients` (the registration of each open connection) | live session state |
 | MQTT 3.1.1 | none: `MqttProtocolServer` holds only the bus and the policy; retained messages are `MqttBusRetainedMessages` on the bus | - |
-| AMQP 1.0 | none: nodes are bus topics and queues; a kept (durable) subscription is a bus named queue (`Amqp1KeptSubscription`, ADR-0146 decision 3), so it follows the bus | - |
+| AMQP 1.0 | none: nodes are bus topics and queues; a durable or shared subscription is a bus named queue (`Amqp1SubscriptionQueue`, ADR-0146 decision 3 and Amendment 4), so it follows the bus | - |
 | Kafka | `KafkaGroupCoordinator.groups`: members, pending members, static instances, generation | live session state |
 | Kafka | `KafkaProducerStates`: per `(ProducerId, Topic)` sequence windows and the next producer id | test data tied to the log |
 | Kafka | topics, committed offsets, logs | on the bus already |

@@ -60,8 +60,8 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>When the container sends: the source filters it applies (ADR-0146 decision 2).</summary>
     public Amqp1SourceFilters Filters { get; set; } = Amqp1SourceFilters.None;
 
-    /// <summary>When the container sends from a topic and keeps the subscription: its plan (ADR-0146 decision 3); <see langword="null"/> for a live subscription.</summary>
-    public Amqp1KeptSubscription? Kept { get; set; }
+    /// <summary>When the container sends from a topic subscription held in a bus queue, a kept or a non-durable shared one: that queue's plan (ADR-0146 decision 3 and Amendment 4); <see langword="null"/> otherwise.</summary>
+    public Amqp1SubscriptionQueue? SubscriptionQueue { get; set; }
 
     /// <summary>Whether the link only looked a kept subscription up (an attach with no source), so it consumes nothing.</summary>
     public bool IsSubscriptionLookup { get; set; }

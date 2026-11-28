@@ -70,7 +70,7 @@ internal sealed class Amqp1SourceFilters
     /// </summary>
     /// <param name="source">The source as the <c>attach</c> carried it.</param>
     /// <param name="appliesNoLocal">Whether this link applies no-local: its node is a topic and it is not
-    /// a shared subscription the container keeps. When false the entry is left out.</param>
+    /// a shared subscription, kept or not. When false the entry is left out.</param>
     /// <returns>The filters applied; <see langword="null"/> when a selector entry is refused (not a
     /// string, or one <see cref="Amqp1Selector.Parse"/> refuses), which refuses the attach.</returns>
     public static Amqp1SourceFilters? Read(object? source, bool appliesNoLocal)
