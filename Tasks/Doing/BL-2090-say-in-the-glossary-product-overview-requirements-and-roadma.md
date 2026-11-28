@@ -43,3 +43,4 @@ Stand-in: documentation only; the seeds, reset, restore and events already exist
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
