@@ -75,3 +75,4 @@ Design worked out from the code, to build next run (decide and record as Amendme
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
 - 2026-11-27: Doing -> Backlog. touches now includes Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests (and the Amqp1 library CLAUDE.md), which BL-2041 in Doing holds; build after it, from the design in Notes
+- 2026-11-28: Backlog -> Doing.
