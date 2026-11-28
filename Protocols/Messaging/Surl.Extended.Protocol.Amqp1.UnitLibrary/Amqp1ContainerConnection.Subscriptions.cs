@@ -61,7 +61,7 @@ public sealed partial class Amqp1ContainerConnection
 
     private Amqp1Error? MakeQueueAndConsume(Amqp1Session session, Amqp1Link link, Amqp1KeptSubscription kept, BusQueueInspectResult found)
     {
-        var refusal = ClearStaleQueue(kept, found) ?? DeclareAndBind(kept);
+        var refusal = ClearStaleQueue(kept, found) ?? DeclareAndBind(kept, link.Filters.NoLocal);
         if (refusal is not null)
         {
             return refusal;
@@ -102,10 +102,12 @@ public sealed partial class Amqp1ContainerConnection
         return differs ? RefusalUnless(busConnection.DeleteQueueIfDescribed(kept.QueueName, found.SubscriptionDescription, ifUnused: true)) : null;
     }
 
-    private Amqp1Error? DeclareAndBind(Amqp1KeptSubscription kept)
+    // ADR-0146 Amendment 3: with no-local the queue takes no topic publish of any AMQP 1.0 connection
+    // whose open carried this connection's container-id, attached or not.
+    private Amqp1Error? DeclareAndBind(Amqp1KeptSubscription kept, bool noLocal)
     {
         var flags = kept.IsPersistent ? new BusQueueFlags(Durable: true) : new BusQueueFlags(Exclusive: true);
-        var declared = busConnection.DeclareQueue(kept.QueueName, flags, kept.Description);
+        var declared = busConnection.DeclareQueue(kept.QueueName, flags, kept.Description, noLocal ? busConnection.PublisherName : null);
         return RefusalUnless(declared.Outcome) ?? RefusalUnless(busConnection.BindQueue(kept.QueueName, kept.TopicFilter));
     }
 

@@ -29,6 +29,9 @@ public sealed partial class Amqp1ContainerConnection
 
         var open = (Amqp1Open)performative!;
         clientContainerId = open.ContainerId;
+
+        // ADR-0146 Amendment 3: the name a kept subscription with no-local keeps out of its queue.
+        busConnection.PublisherName = $"{Amqp1BusNodeDirectory.Scheme}:{open.ContainerId}";
         clientChannelMax = open.ChannelMax;
         clientMaxFrameSize = open.MaxFrameSize;
         StartEmptyFrames(open.IdleTimeOut);

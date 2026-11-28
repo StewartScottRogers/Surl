@@ -87,7 +87,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         // ADR-0146 decision 2.2: a refused selector refuses the attach before any node is made.
-        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(source, request.IsTopic) : Amqp1SourceFilters.None;
+        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(source, AppliesNoLocal(request, terminus)) : Amqp1SourceFilters.None;
         if (filters is null)
         {
             return (null, Error(Amqp1ErrorCondition.InvalidField, "selector not valid"));
@@ -104,6 +104,11 @@ public sealed partial class Amqp1ContainerConnection
         link.Kept = PlanKeptSubscription(attach, terminus, nodeAddress, filters);
         return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.Kept), null);
     }
+
+    // ADR-0146 decision 2.1 and Amendment 3: no-local is for a topic link, but not for a shared
+    // subscription the container keeps; shared asked with no durability is a live link, and applies it.
+    private static bool AppliesNoLocal(Amqp1NodeRequest request, Amqp1Terminus terminus) =>
+        request.IsTopic && !(terminus.IsShared && Amqp1KeptSubscription.IsAskedFor(terminus));
 
     // ADR-0146 decision 3.1: only a client receiver's topic source asking durability keeps a subscription.
     private Amqp1KeptSubscription? PlanKeptSubscription(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1SourceFilters filters) =>

@@ -164,7 +164,8 @@ Source filters (BL-959; ADR-0146 decisions 2.1 and 2.4):
   recognised by its descriptor, ulong or symbol (`0x0000468C:0x00000000` to `0x00000004`): a JMS
   selector (a string `Amqp1Selector.Parse` accepts; anything else refuses the attach with a null source
   and a closing `detach` with `amqp:invalid-field`, `selector not valid`, before the node is resolved),
-  no-local (a topic link only: the bus's `noLocal` subscription), the direct binding (the routing key
+  no-local (a topic link only, and not a shared kept subscription; a live link is the bus's `noLocal`
+  subscription, a kept one is under durable and shared subscriptions below), the direct binding (the routing key
   equals a string), the topic binding (a string `AmqpTopicExchangeNames.ToCanonicalFilter` accepts, matched
   word by word, `*` one word and `#` none or more) and the headers binding (a map whose `x-match` is
   absent, `all` or `any`, string or symbol; `x-` keys are not matched, a null value matches a property
@@ -228,10 +229,17 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   another connection shows no filter to judge: an attach with a source is `amqp:resource-locked`, one
   with none `amqp:not-found`. Filters
   run as a message leaves the queue; a message they refuse, or the client cannot name, is acknowledged.
-  No-local is not applied to a kept subscription. An attach with no source finds the subscription by
-  link name (plain, shared, shared and global) and is answered its stored source; with none it is
+  An attach with no source finds the subscription by link name (plain, shared, shared and global) and is
+  answered its stored source, less a no-local a shared one was stored with; with none it is
   `amqp:not-found`. A `closed` detach deletes the queue unless another consumer still takes from it.
   `Amqp1BusNodeDirectory` refuses `/queue/surl-subscription-...` with `amqp:not-found`.
+- No-local (BL-2039; ADR-0146 Amendment 3): once the client's `open` is read the connection sets
+  `BusConnection.PublisherName` to `amqp1:` and the `container-id`. An unshared kept subscription with
+  no-local declares its queue excluding that name, so the queue takes no topic publish of any AMQP 1.0
+  connection with that `container-id`, attached or detached, and every other publish. A shared kept
+  subscription does not apply no-local: the entry is left out of its echoed source and its description,
+  and its queue excludes nobody. Adding or dropping no-local changes the description, so it replaces the
+  subscription.
 - Every delete the container asks for is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
   queue still carrying the description judged (BL-2010): replacing a stale one (`ClearStaleQueue`)
   the description just inspected and judged, only while unused; a `closed` detach
