@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary/AccountBook.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2006 — Name every caller in the AccountBook.HasNamedAccount summary
 
@@ -30,13 +30,21 @@ documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `HasNamedAccount` summary no longer reads as serving SASL `EXTERNAL` alone: it names or truthfully groups every caller (`EXTERNAL`, the Kerberos logins and `NamesAccount`).
-- [ ] The diff changes only `///` lines in `AccountBook.cs`.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
+- [x] The `HasNamedAccount` summary no longer reads as serving SASL `EXTERNAL` alone: it names or truthfully groups every caller (`EXTERNAL`, the Kerberos logins and `NamesAccount`).
+- [x] The diff changes only `///` lines in `AccountBook.cs`.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- Callers searched again (2026-11-27), unchanged from Context: `ExternalSaslExchange`, `GssapiSaslExchange`,
+  `GssSpnegoSaslExchange`, `NegotiateKerberosLogin`, `AuthenticationPolicy.FindKerberosAccountName` and
+  `AuthenticationPolicy.NamesAccount` (also used by `HonoursTokenIssuedTo`).
+- The summary says "checked logins" because those paths skip the account match under `--allow-anonymous`.
+- Verified: full `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests green.
+- Filed BL-2050: the `ExternalSaslExchange` class summary omits the unchecked acceptance.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The HasNamedAccount summary names every caller: SASL EXTERNAL, the Kerberos logins and NamesAccount.
