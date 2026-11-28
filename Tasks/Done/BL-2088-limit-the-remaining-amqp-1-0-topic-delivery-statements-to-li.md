@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary/Amqp1Link.cs, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary/Amqp1ContainerConnection.Transactions.cs, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2088 — Limit the remaining AMQP 1.0 topic delivery statements to live subscriptions
 
@@ -35,14 +35,23 @@ deliveries they mean: a live subscription's, not a kept or non-durable shared on
 
 ## Acceptance criteria
 
-- [ ] The XML comments on `Amqp1Link.Subscription`, `Consumer` and `DroppedCount` say that a kept or non-durable shared subscription uses `Consumer`, and that only a live subscription's messages are dropped and counted.
-- [ ] The comment above `RollBack` says only deliveries with a queue delivery tag go back to their queue.
-- [ ] The `Amqp1:Surl-Delivery-1` row says it covers deliveries from a live topic subscription.
-- [ ] The diff changes only comment lines in the two `.cs` files and that one row, `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] The XML comments on `Amqp1Link.Subscription`, `Consumer` and `DroppedCount` say that a kept or non-durable shared subscription uses `Consumer`, and that only a live subscription's messages are dropped and counted.
+- [x] The comment above `RollBack` says only deliveries with a queue delivery tag go back to their queue.
+- [x] The `Amqp1:Surl-Delivery-1` row says it covers deliveries from a live topic subscription.
+- [x] The diff changes only comment lines in the two `.cs` files and that one row, `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Delivered by `align-and-document`. The `RollBack` comment also names two conditions the code tests: a settled held
+  outcome is unsettled again only while its link has not ended, and a delivery already settled on the bus by an outcome
+  stated outside the transaction does not go back (ADR-0146 Amendment 1).
+- Verified 2026-11-28: `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` clean; fast tests
+  passed in every test project. No Integration run: only comments and one document row changed.
+- Filed with the board script, not `task-planner`: BL-2110 (two more conformance rows) and BL-2111 (a possible
+  rollback defect with `undeliverable-here`, read from the code, not yet reproduced).
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. AMQP 1.0 link and rollback comments and the Surl-Delivery-1 row now say which topic deliveries they mean

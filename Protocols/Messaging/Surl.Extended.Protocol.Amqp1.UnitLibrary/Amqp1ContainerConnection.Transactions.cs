@@ -117,8 +117,11 @@ public sealed partial class Amqp1ContainerConnection
         }
     }
 
-    // ADR-0146 decisions 1.5 and 1.6: held outcomes are forgotten, their settled deliveries unsettled again;
-    // deliveries acquired in the transaction and not retired outside it go back to their queue, redelivered.
+    // ADR-0146 decisions 1.5 and 1.6 and Amendment 1: held outcomes are forgotten, their settled deliveries
+    // unsettled again unless their link has ended. Deliveries acquired in the transaction and still
+    // unsettled leave the unsettled set, and only those with a queue delivery tag (a queue's, or a kept or
+    // non-durable shared subscription's) go back to their queue, redelivered, unless an outcome stated
+    // outside the transaction has already settled them on the bus; a live topic subscription's has none.
     private static void RollBack(Amqp1Transaction transaction)
     {
         foreach (var held in transaction.HeldOutcomes)

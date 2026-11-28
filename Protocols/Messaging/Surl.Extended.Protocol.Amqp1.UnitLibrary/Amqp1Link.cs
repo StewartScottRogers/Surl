@@ -73,10 +73,10 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>Whether the link only looked a kept subscription up (an attach with no source), so it consumes nothing.</summary>
     public bool IsSubscriptionLookup { get; set; }
 
-    /// <summary>When the container sends from a topic: the live subscription.</summary>
+    /// <summary>When the container sends from a live topic subscription: that subscription; <see langword="null"/> otherwise. A kept or non-durable shared subscription's link has none and uses <see cref="Consumer"/>.</summary>
     public BusSubscription? Subscription { get; set; }
 
-    /// <summary>When the container sends from a queue: the bus consumer.</summary>
+    /// <summary>When the container sends from a bus queue, a queue node's or a kept or non-durable shared subscription's: the consumer of it; <see langword="null"/> otherwise, as for a live topic subscription or a kept subscription lookup.</summary>
     public BusQueueConsumer? Consumer { get; set; }
 
     /// <summary>When the container sends from a live topic subscription: the messages handed to the link that wait until it can send them, in order. A queue's messages wait in the queue instead (ADR-0146 Amendment 7).</summary>
@@ -85,7 +85,7 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>How many messages wait.</summary>
     public int WaitingCount => Volatile.Read(ref waitingCount);
 
-    /// <summary>How many topic messages were dropped because too many waited.</summary>
+    /// <summary>How many of a live topic subscription's messages were dropped because too many waited. No others are dropped or counted here: a link with a <see cref="Consumer"/>, a kept or non-durable shared subscription's included, has none wait on it.</summary>
     public int DroppedCount => Volatile.Read(ref droppedCount);
 
     /// <summary>When the container sends: how many of its deliveries on the link wait for the client to settle them.</summary>
