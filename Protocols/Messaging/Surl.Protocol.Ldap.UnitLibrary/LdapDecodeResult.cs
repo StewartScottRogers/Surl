@@ -5,8 +5,10 @@ namespace Surl.Protocol.Ldap;
 /// </summary>
 /// <param name="Outcome">How the decode ended.</param>
 /// <param name="MessageId">
-/// The <c>messageID</c> whenever it could be read, so a malformed message can still be answered
-/// by its ID; <see langword="null"/> when it could not.
+/// The <c>messageID</c> whenever it could be read, even from a malformed message;
+/// <see langword="null"/> when it could not. <see cref="LdapSession"/> does not answer a
+/// malformed message by this ID: it sends the Notice of Disconnection (<c>messageID</c> 0,
+/// ADR-0072 decision 3).
 /// </param>
 /// <param name="Message">
 /// The message; <see langword="null"/> unless <paramref name="Outcome"/> is <see cref="LdapDecodeOutcome.Decoded"/>.

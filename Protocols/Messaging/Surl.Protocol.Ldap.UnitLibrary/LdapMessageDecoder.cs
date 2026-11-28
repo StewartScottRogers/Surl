@@ -177,7 +177,7 @@ internal sealed class LdapMessageDecoder
         };
     }
 
-    // The requests no curl build sends, and every unrecognized one.
+    // Every operation but bind, unbind and search, which ReadOperation reads itself.
     private static LdapProtocolOperation ReadOtherOperation(AsnReader reader, int applicationTagNumber) => applicationTagNumber switch
     {
         14 => ReadCompareRequest(reader),

@@ -15,8 +15,9 @@ cannot change; the host can, in memory only, through
 
 The BER codec (BL-289, ADR-0072 decision 9), internal and with no transport of its own:
 `LdapMessageFrameReader` reads one whole `LDAPMessage` off an `IConnection` under the
-message limit, `LdapMessageDecoder` (with `LdapFilterDecoder` and `LdapBerFieldReader`)
-decodes it into an `LdapMessage` or an `LdapDecodeOutcome` carrying the message ID, and
+message limit, `LdapMessageDecoder.Decode` (with `LdapFilterDecoder` and
+`LdapBerFieldReader`) returns an `LdapDecodeResult` - the `LdapDecodeOutcome`, the message
+ID when it could be read, and the `LdapMessage` when it decoded - and
 `LdapMessageEncoder` writes the responses. All of it uses the BCL's `System.Formats.Asn1`.
 
 Beside it is the directory (BL-306, ADR-0072 decision 1), internal too: `LdapDirectory`
