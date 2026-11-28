@@ -21,15 +21,17 @@ Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured w
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
 
 **Echo-and-close mode** (ADR-0080 amendment 2026-11-11, BL-1050): `new TelnetProtocolServer(TelnetUpstreamTestCaseReplies)`
-sends no banner, negotiates as usual, echoes every data byte verbatim (no CRLF, no `quit`), records every byte read in
-`ReceivedBytes`, and closes on the client's half-close or, once it has sent something, after the seam's `IdlePeriod`
-(on `ExchangeContext.TimeProvider`). Never composed by `Surl.Composition`; the parameterless constructor keeps ADR-0025.
+sends no banner, negotiates as usual, echoes every data byte verbatim (no CRLF, no `quit`) except that an LF is held
+back until more data follows it, so a final LF is never echoed, records every byte read in `ReceivedBytes`, and closes
+on the client's half-close or, once it has sent something, after the seam's `IdlePeriod` (on
+`ExchangeContext.TimeProvider`). Never composed by `Surl.Composition`; the parameterless constructor keeps ADR-0025.
 
-**Chosen-error fault** (ADR-0138, BL-798): `TelnetSession` holds each completed line
+**Line faults** (ADR-0138, BL-798; ADR-0141, BL-914): `TelnetSession` holds each completed line
 (`LineAwaitingAnswer`) until `TelnetProtocolServer` has asked `ExchangeContext.Faults` through
-`TelnetLineFaults` - scheme only, TELNET has no command, path or account - and a matching `error` rule's
+`TelnetLineFaults` - listener and scheme only, TELNET has no command, path or account - and a matching `error` rule's
 text is sent as one line in place of the echo, then the session ends, publishing `FaultAppliedEvent`
-with target `line <n>`. A reply that does not fit, or a rule of another kind, is noted and not applied. A `delay` rule
-holds the line's answer for its `ms` on `ExchangeContext.TimeProvider` with the idle clock paused, and a `drop` rule
-aborts the connection with nothing written for the line (`TelnetSession.EndWithoutAnswer`), each through
-`CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (BL-914).
+with target `line <n>`. A `delay` rule holds the line's answer for its `ms` on `ExchangeContext.TimeProvider` with the
+idle clock paused (the hold ends early if the client closes or resets the connection), and a `drop` rule aborts the
+connection with nothing written for the line (`TelnetSession.EndWithoutAnswer`), each through
+`CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent`. Only an `error` rule whose reply does not fit, or
+a rule of a kind other than `error`, `delay` or `drop`, is noted and not applied.

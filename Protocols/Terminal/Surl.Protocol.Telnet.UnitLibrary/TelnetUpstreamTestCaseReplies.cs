@@ -4,7 +4,8 @@ namespace Surl.Protocol.Telnet;
 /// The seam that lets one upstream curl test case play the TELNET server half (ADR-0080 decision 2,
 /// amended 2026-11-11 for test 1452). Handed to <see cref="TelnetProtocolServer"/>, it puts the
 /// server in <b>echo-and-close mode</b>: no banner, the option negotiation as usual, every data
-/// byte the client sends echoed verbatim with no line ending added, and the connection closed when
+/// byte the client sends echoed verbatim with no line ending added - except that an LF is held back
+/// until more data follows it, so a final LF is never echoed - and the connection closed when
 /// the client half-closes or, once it has sent something, goes quiet for <see cref="IdlePeriod"/>.
 /// Every byte read from the client is recorded in arrival order in <see cref="ReceivedBytes"/>.
 /// </summary>

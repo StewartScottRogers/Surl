@@ -4,22 +4,26 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Telnet;
 
 /// <summary>
-/// Asks the exchange's fault plan, at each line the client completes, whether to answer it with a
-/// chosen error (ADR-0124, decision 4; ADR-0138): the point names the scheme only - TELNET has no
-/// login, no command and no path, so a rule scoped by any of those never matches it.
+/// Asks the exchange's fault plan, at each line the client completes, for a rule to apply to it
+/// (ADR-0124, decision 4; ADR-0138; ADR-0141): the point names the listener and the scheme only -
+/// TELNET has no login, no command and no path, so a rule scoped by an account, a command or a
+/// path never matches it.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="Fits"/>) is applied, and
-/// applying it publishes one <see cref="FaultAppliedEvent"/> whose target is <c>line &lt;n&gt;</c>,
-/// the line's number in the session counted from 1 - never the line's text, which may be anything
-/// a person typed. A rule of any other kind, or a reply that does not fit, is noted as not applied
-/// and the line is answered as without it.
+/// A <see cref="FaultKind.Delay"/> rule, a <see cref="FaultKind.Drop"/> rule (both through
+/// <see cref="CommandStageFaults"/>) and a <see cref="FaultKind.Error"/> rule whose reply fits
+/// (<see cref="Fits"/>) are applied, and applying one publishes one
+/// <see cref="FaultAppliedEvent"/> whose target is <c>line &lt;n&gt;</c>, the line's number in the
+/// session counted from 1 - never the line's text, which may be anything a person typed. An
+/// <see cref="FaultKind.Error"/> rule whose reply does not fit, or a rule of any other kind, is
+/// noted as not applied and the line is answered as without it.
 /// </remarks>
 internal static class TelnetLineFaults
 {
     /// <summary>
-    /// Finds and applies the fault for a line: a delay holds it, a drop aborts the connection, and
-    /// each publishes its <see cref="FaultAppliedEvent"/>.
+    /// Finds and applies the fault for a line: a delay holds it, a drop aborts the connection, a
+    /// fitting error is handed back for the caller to send, and each publishes its
+    /// <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
     /// <param name="connection">The connection a drop aborts.</param>

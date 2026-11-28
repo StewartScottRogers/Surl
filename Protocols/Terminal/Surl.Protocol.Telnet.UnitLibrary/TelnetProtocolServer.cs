@@ -43,9 +43,12 @@ namespace Surl.Protocol.Telnet;
 /// section 6).
 /// </para>
 /// <para>
-/// <b>Chosen errors.</b> Each completed line, <c>quit</c> included, first asks the exchange's
-/// fault plan (<see cref="TelnetLineFaults"/>); a chosen-error rule's text is sent as one line in
-/// place of the line's answer and the connection is closed (ADR-0124 decision 4, ADR-0138).
+/// <b>Fault rules.</b> Each completed line, <c>quit</c> included, first asks the exchange's
+/// fault plan (<see cref="TelnetLineFaults"/>; ADR-0124 decision 4, ADR-0138, ADR-0141). A
+/// <c>delay</c> rule holds the completed line's answer for its <c>ms</c>, or until the client
+/// closes or resets the connection, and the line is then answered as usual. A <c>drop</c> rule
+/// aborts the connection, with nothing written for the line. A chosen-error rule's text is sent
+/// as one line in place of the line's answer and the connection is closed.
 /// </para>
 /// <para>
 /// <b>Limits.</b> <see cref="ExchangeLimits.MaxLineBytes"/> (ADR-0006, section 1) bounds a
