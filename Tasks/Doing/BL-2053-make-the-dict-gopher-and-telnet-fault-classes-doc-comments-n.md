@@ -39,3 +39,4 @@ Found while working BL-2009 (2026-11-27), read from source. Doc comments only; n
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
