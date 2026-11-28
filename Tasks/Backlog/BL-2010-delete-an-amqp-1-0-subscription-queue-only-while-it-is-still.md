@@ -1,5 +1,5 @@
 ---
-id: BL-1994
+id: BL-2010
 title: Delete an AMQP 1.0 subscription queue only while it is still the subscription the link was judged on
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1994 — Delete an AMQP 1.0 subscription queue only while it is still the subscription the link was judged on
+# BL-2010 — Delete an AMQP 1.0 subscription queue only while it is still the subscription the link was judged on
 
 ## Goal
 

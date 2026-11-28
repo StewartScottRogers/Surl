@@ -1,5 +1,5 @@
 ---
-id: BL-1995
+id: BL-2011
 title: Keep another client's binding from feeding an AMQP 1.0 subscription queue
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1995 — Keep another client's binding from feeding an AMQP 1.0 subscription queue
+# BL-2011 — Keep another client's binding from feeding an AMQP 1.0 subscription queue
 
 ## Goal
 

@@ -71,9 +71,9 @@ Subscribe on its topic filter, with no `$queue/...` grant, and gives no account 
   grant is judged there) and read direct sends meant for other topics, which breaks the Goal's "no other queue or
   topic". It follows ADR-0146 decision 3.4 (`/queue/surl-subscription-...` is not found). `SeedEnqueue` is
   unchanged. Two BL-955 tests that filled a described queue by direct send now seed it. The ADR amendment is
-  BL-1996, because BL-1983 in Doing holds `Documentation/Planning/Decisions`.
-- Left for follow-up, found by code review: BL-1994 (deletes of a subscription queue go by name, not by judged
-  description) and BL-1995 (another account's bind then unbind can leave its filter's messages in a subscription
+  BL-2012, because BL-1983 in Doing holds `Documentation/Planning/Decisions`.
+- Left for follow-up, found by code review: BL-2010 (deletes of a subscription queue go by name, not by judged
+  description) and BL-2011 (another account's bind then unbind can leave its filter's messages in a subscription
   queue).
 - Verify: build clean, format clean, 30399 fast tests passed, 3 skipped; both libraries 100% line and branch.
   No upstream curl measurement: `amqp1` is an extended scheme (ADR-0083).

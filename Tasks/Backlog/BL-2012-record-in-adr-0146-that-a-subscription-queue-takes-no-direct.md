@@ -1,5 +1,5 @@
 ---
-id: BL-1996
+id: BL-2012
 title: Record in ADR-0146 that a subscription queue takes no direct send
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1996 — Record in ADR-0146 that a subscription queue takes no direct send
+# BL-2012 — Record in ADR-0146 that a subscription queue takes no direct send
 
 ## Goal
 
