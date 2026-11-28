@@ -5,9 +5,9 @@ namespace Surl.Protocol.Telnet;
 
 /// <summary>
 /// Asks the exchange's fault plan, at each line the client completes, for a rule to apply to it
-/// (ADR-0124, decision 4; ADR-0138; ADR-0141): the point names the listener and the scheme only -
-/// TELNET has no login, no command and no path, so a rule scoped by an account, a command or a
-/// path never matches it.
+/// (ADR-0124, decision 4; ADR-0138; ADR-0141): the point names the exchange ID, the listen URL
+/// (as <see cref="ReportedListenUrl"/> formats it) and the scheme only - TELNET has no login, no
+/// command and no path, so a rule scoped by an account, a command or a path never matches it.
 /// </summary>
 /// <remarks>
 /// A <see cref="FaultKind.Delay"/> rule, a <see cref="FaultKind.Drop"/> rule (both through

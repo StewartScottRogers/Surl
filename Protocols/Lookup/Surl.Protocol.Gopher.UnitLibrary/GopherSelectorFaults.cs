@@ -4,16 +4,22 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Gopher;
 
 /// <summary>
-/// Asks the exchange's fault plan, once the selector is read, whether to answer it with a chosen
-/// error item (ADR-0124, decision 4; ADR-0138): the point names the scheme (<c>gopher</c> or
-/// <c>gophers</c>) and the path, the selector as the request path the content store is asked for
-/// (<c>/a</c>). Gopher has no login and no command, so the point names neither.
+/// Asks the exchange's fault plan, once the selector is read, whether to hold it, drop the
+/// connection or answer it with a chosen error item (ADR-0124, decision 4; ADR-0138; ADR-0141):
+/// the point names the exchange ID, the listen URL (as <see cref="ReportedListenUrl"/> formats
+/// it), the scheme (<c>gopher</c> or <c>gophers</c>) and the path, the selector as the request
+/// path the content store is asked for (<c>/a</c>). Gopher has no login and no command, so the
+/// point names neither.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="Fits"/>) is applied, and
-/// applying it publishes one <see cref="FaultAppliedEvent"/> naming the path. A rule of any other
-/// kind, or a reply that does not fit, is noted as not applied and the selector is answered as
-/// without it.
+/// A <see cref="FaultKind.Delay"/> rule holds the selector for its <c>ms</c>, or until the client
+/// closes or resets the connection, and the selector is then answered as usual; a
+/// <see cref="FaultKind.Drop"/> rule aborts the connection (both through
+/// <see cref="CommandStageFaults"/>); a <see cref="FaultKind.Error"/> rule whose reply fits
+/// (<see cref="Fits"/>) is answered in place of the selector's content. Each publishes one
+/// <see cref="FaultAppliedEvent"/> naming the path. Only a rule of another kind, or an
+/// <see cref="FaultKind.Error"/> rule whose reply does not fit, is noted as not applied, and the
+/// selector is answered as without it.
 /// </remarks>
 internal static class GopherSelectorFaults
 {
