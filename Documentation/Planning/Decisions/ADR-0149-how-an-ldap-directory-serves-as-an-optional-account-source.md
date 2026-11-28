@@ -204,6 +204,7 @@ delay as any refusal.
 (a pooled connection would have to rebind as the service, RFC 4513 section 5.1, between users), and no
 verdict is cached, so a test that changes or disables a directory account sees it at the next login.
 A cache or a pool is later work if a measured load needs one, in a new ADR.
+*This covers logins. Using an OCI or MCP token is not one; see the note of 2026-11-27 at the end.*
 
 ### 5. TLS (RFC 4513 section 3)
 
@@ -484,3 +485,13 @@ Each bound is a constant in `Surl.Authentication`, not an option, except `timeou
 - **Unchanged:** login events and fault points name the family `ssh` unless the login carries a `LoginExchange`
   (ADR-0128, amendment 1).
 - Implemented by `AuthenticationSettings.DirectorySchemeFor`, which replaces amendment 2's `HttpDirectoryScheme`.
+
+## Note (2026-11-27, BL-2003): a directory user's OCI and MCP tokens
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"). Decision 4 still holds for every
+login: no login verdict is cached. A token the OCI registry or the MCP server issued after a directory login is to
+be honoured without asking the directory again, for at most one hour after the name's last accepted directory
+login, so a user the directory disables or deletes keeps that long at most. The rule, its refusals and the tasks
+that build it are in
+[ADR-0167 Amendment 3](ADR-0167-what-a-reset-snapshot-and-restore-do-with-in-progress-object-uploads-and-the-oci-and-mcp-servers-tokens.md#amendment-3-2026-11-27-bl-2003-a-directory-users-oci-and-mcp-tokens).
+On 2026-11-27 the code does not do this yet: it refuses every such token when it is used.
