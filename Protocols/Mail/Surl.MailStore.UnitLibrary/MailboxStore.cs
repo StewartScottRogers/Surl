@@ -423,7 +423,7 @@ public sealed partial class MailboxStore
     /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found; an owner
     /// named by two entries gets two copies.</param>
     /// <param name="message">The pending message, its bytes all written.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
     /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
@@ -452,7 +452,7 @@ public sealed partial class MailboxStore
     /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found.</param>
     /// <param name="message">The pending message, its bytes all written; disposed whatever the outcome.</param>
     /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns>As <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> returns.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
@@ -493,7 +493,7 @@ public sealed partial class MailboxStore
     /// <param name="flags">The message's flags.</param>
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns>The outcome and, when it is <see cref="MailStoreOutcome.Succeeded"/>, where the message was stored.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
@@ -561,7 +561,7 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <param name="copies">The copies, each with its own pending message.</param>
     /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
-    /// <param name="exchange">The exchange behind the write.</param>
+    /// <param name="exchange">The exchange behind the write, as <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> takes it.</param>
     /// <returns>As <see cref="Deliver(IReadOnlyList{MailOwnerCopy}, ExchangeContext)"/> returns.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="copies"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">A pending message was stored, refused or disposed already.</exception>
@@ -713,7 +713,7 @@ public sealed partial class MailboxStore
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="stored">Where the message was stored, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns>As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid, ExchangeContext)"/> returns.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
@@ -746,7 +746,7 @@ public sealed partial class MailboxStore
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="stored">Where the message was stored, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/>,
     /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
@@ -930,7 +930,7 @@ public sealed partial class MailboxStore
     /// <param name="flags">The flags to set, clear or replace with.</param>
     /// <param name="result">The message's flags afterwards, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published when the flags change (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.MessageMissing"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
@@ -976,7 +976,7 @@ public sealed partial class MailboxStore
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published for each message removed (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
@@ -1006,7 +1006,7 @@ public sealed partial class MailboxStore
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="uids">The UIDs that may be removed.</param>
     /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published for each message removed (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public MailStoreOutcome Expunge(MailView view, string mailboxName, IEnumerable<uint> uids, out IReadOnlyList<uint> expungedUids, ExchangeContext? exchange = null)
@@ -1039,7 +1039,7 @@ public sealed partial class MailboxStore
     /// <param name="destinationMailboxName">The mailbox copied to; may be the source.</param>
     /// <param name="copied">What was copied, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
     /// otherwise <see langword="null"/>.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published for each copy made (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
@@ -1065,7 +1065,7 @@ public sealed partial class MailboxStore
     /// the messages new UIDs there.</param>
     /// <param name="moved">What was moved, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
     /// otherwise <see langword="null"/>.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the events published for each message moved, one for its copy in the destination and one for its removal from the source (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>
     /// (the destination has no UIDs left to give).</returns>
@@ -1142,7 +1142,7 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The new mailbox's name.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published when the mailbox is created (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <param name="use">The RFC 6154 use the mailbox gets (<see cref="MailFolderUse"/>, with or without the backslash), or <see langword="null"/> for none; <see cref="MailStoreOutcome.FolderUseUnknown"/> or <see cref="MailStoreOutcome.FolderUseTaken"/> refuse it.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
@@ -1183,7 +1183,7 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published when the mailbox is deleted (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or
     /// <see cref="MailStoreOutcome.InboxCannotBeDeleted"/>.</returns>
@@ -1223,7 +1223,7 @@ public sealed partial class MailboxStore
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="newMailboxName">The name it gets.</param>
-    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the events a successful rename publishes, one for the new name and, unless <c>INBOX</c> is renamed, one for the old name's removal (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/>, <see cref="MailStoreOutcome.InvalidName"/>,
     /// <see cref="MailStoreOutcome.AlreadyExists"/> or
