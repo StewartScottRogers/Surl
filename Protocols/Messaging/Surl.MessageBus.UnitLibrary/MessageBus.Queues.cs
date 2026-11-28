@@ -197,7 +197,11 @@ public sealed partial class MessageBus
         }
     }
 
-    internal BusQueueRemovalResult DeleteQueue(BusConnection connection, string queueName, bool ifUnused, bool ifEmpty)
+    internal BusQueueRemovalResult DeleteQueue(BusConnection connection, string queueName, bool ifUnused, bool ifEmpty) =>
+        DeleteQueueUnlessRefused(connection, queueName, queue => queue.DeleteRefusal(ifUnused, ifEmpty));
+
+    // The refusal is asked under the lock the delete happens under, so the queue it judged is the one deleted.
+    private BusQueueRemovalResult DeleteQueueUnlessRefused(BusConnection connection, string queueName, Func<NamedQueue, MessageBusOutcome> refusalOf)
     {
         if (declaredQueueNames.Contains(queueName))
         {
@@ -212,7 +216,7 @@ public sealed partial class MessageBus
                 return new(outcome, 0);
             }
 
-            var refusal = queue.DeleteRefusal(ifUnused, ifEmpty);
+            var refusal = refusalOf(queue);
             if (refusal is not MessageBusOutcome.Succeeded)
             {
                 return new(refusal, 0);

@@ -225,6 +225,32 @@ public sealed class BusConnection : IDisposable
     }
 
     /// <summary>
+    /// Deletes a queue with every message in it, as <see cref="DeleteQueue(string)"/> does, only while
+    /// it still carries <paramref name="subscriptionDescription"/>: a caller that judged a queue by its
+    /// description deletes that one, never one declared under its name since with another (ADR-0146,
+    /// decision 3.4). The checks and the delete happen under one hold of the bus's lock. Like
+    /// <see cref="DeleteQueue(string)"/>, it asks for no grant.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="subscriptionDescription">The description the queue must carry, or
+    /// <see langword="null"/> for a queue that must carry none.</param>
+    /// <param name="ifUnused">Whether to refuse while a consumer still takes deliveries from it.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>;
+    /// <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when the queue carries another
+    /// description, or carries one where none was given, or none where one was;
+    /// <see cref="MessageBusOutcome.QueueInUse"/> when <paramref name="ifUnused"/> failed; otherwise
+    /// <see cref="MessageBusOutcome.UnknownQueue"/>, <see cref="MessageBusOutcome.QueueLocked"/> or
+    /// <see cref="MessageBusOutcome.AccessDenied"/> as <see cref="DeleteQueue(string)"/>'s. Nothing is
+    /// deleted unless it succeeded.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome DeleteQueueIfDescribed(string queueName, string? subscriptionDescription, bool ifUnused = false)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.RunAs(Exchange, () => bus.DeleteQueueIfDescribed(this, queueName, subscriptionDescription, ifUnused));
+    }
+
+    /// <summary>
     /// Looks a queue up without creating it (AMQP 0-9-1 <c>queue.declare</c> with <c>passive</c>).
     /// </summary>
     /// <param name="queueName">The queue's name.</param>

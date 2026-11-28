@@ -98,8 +98,9 @@ public enum MessageBusOutcome
     /// did not take it.</summary>
     NoReadyConsumer,
 
-    /// <summary>A declare gave a subscription description, and the queue exists with another one
-    /// or none (ADR-0146, decision 3.2): it is not that subscription's queue, or the subscription
-    /// changed. The queue is unchanged.</summary>
+    /// <summary>A declare, a subscription queue consume or a delete by description gave a subscription
+    /// description, and the queue exists with another one or none; or a delete asked for a queue with
+    /// none, and it carries one (ADR-0146, decisions 3.2 and 3.4): it is not that subscription's queue,
+    /// or the subscription changed. The queue is unchanged.</summary>
     QueueDescriptionDiffers,
 }

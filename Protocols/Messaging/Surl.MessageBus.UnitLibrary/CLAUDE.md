@@ -101,6 +101,14 @@ What it holds now (BL-629):
   `/queue/`) brings no message from outside its bindings. `SeedEnqueue`, the test host's own, still
   fills it. The check at consume time reads the bindings as they are then: a message another client's
   binding copied in, then unbound, stays in the queue.
+- **Deleting by description (BL-2010, ADR-0146 decision 3.4).**
+  `BusConnection.DeleteQueueIfDescribed(name, description, ifUnused)` deletes a queue only while it
+  carries exactly that description (`null` for a queue that must carry none), else
+  `QueueDescriptionDiffers`, and with `ifUnused` is `QueueInUse` while a consumer takes from it. The
+  checks and the delete happen under one hold of the bus's lock, and every other refusal is
+  `DeleteQueue`'s. Like `DeleteQueue` it asks for no grant: the caller judges access on the
+  description, and the match keeps it from deleting a queue declared under the name since with
+  another description. The AMQP 1.0 container's own deletes of subscription queues are all this one.
 - **Batch publish, all or none (BL-961, ADR-0146 decision 1.6).** `BusConnection.PublishBatch` takes an
   ordered list of `BusBatchEntry` - `ToTopic(message)` or `ToQueue(name, message)` - and answers a
   `BusBatchPublishResult`: `Succeeded` with each entry's `BusPublishResult` in order, or the first refused
