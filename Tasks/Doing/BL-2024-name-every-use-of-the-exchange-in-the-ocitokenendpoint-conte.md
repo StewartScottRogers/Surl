@@ -41,3 +41,4 @@ Describe what the code does when this task runs, and search the class again firs
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
