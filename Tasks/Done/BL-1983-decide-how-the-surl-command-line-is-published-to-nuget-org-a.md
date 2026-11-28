@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1983 — Decide how the surl command line is published to nuget.org as a .NET tool
 
@@ -45,17 +45,33 @@ Base class library only; no new package reference.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions` names the package ID, the command name,
+- [x] A new ADR in `Documentation/Planning/Decisions` names the package ID, the command name,
       the package shape and the release workflow steps, with the reasons and the options
       weighed, and is marked "Decided by Claude under Stewart's delegation".
-- [ ] The ADR cites ADR-0098 and the trusted publishing setup BL-1795 and BL-1797 left in
+- [x] The ADR cites ADR-0098 and the trusted publishing setup BL-1795 and BL-1797 left in
       `release.yml` (nuget.org user `StewartRogers86`).
-- [ ] BL-1984's Context names the ADR and its decisions, so a lane can implement it without
+- [x] BL-1984's Context names the ADR and its decisions, so a lane can implement it without
       a question.
 
 ## Notes
+
+- ADR-0191: ID `Surly.Surl.Console`, command `surl`, one framework-dependent tool package.
+  `Surly.Surl.Console` rather than this task's example `Surly.Surl`, because ADR-0187, Stewart's
+  own decision, gives every package the ID `Surly.Surl.<name>`.
+- Measured with SDK 10.0.404 on Windows x64 (figures in the ADR) by editing
+  `Surl.Console.csproj` temporarily; the file was restored and is unchanged.
+- This task's Context says `Directory.Build.props` makes `Surl.Console` not packable. It does
+  not: that `IsPackable` false is for test projects, and an unchanged pack makes a library
+  package `surl`. The ADR records the measured behaviour.
+- BL-1984 edited beyond its Context: `touches` gained `Surl.Cli.UnitLibrary` and its tests
+  (`--aihelp` lives there), `Product-Overview.md` and `Roadmap.md` (both say `surl` is not a
+  .NET tool).
+- Docs pipeline: written in the session, not delegated to `align-and-document`, since the work
+  is the decision itself. No `.cs` or project file changed, so no build or test run (`/verify`
+  is never run for docs).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0191 decides surl ships to nuget.org as the framework-dependent .NET tool Surly.Surl.Console (command surl), with the release.yml steps; BL-1984 carries them.
