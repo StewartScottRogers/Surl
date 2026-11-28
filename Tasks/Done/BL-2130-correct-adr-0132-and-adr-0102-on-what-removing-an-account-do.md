@@ -39,7 +39,7 @@ Found while working BL-2123 on 2026-11-28. See ADR-0185 decisions 2 and 6 and it
   `MailboxStore.AddOwner` / `RetireOwner`, `AccountStore.SetPassword` and `LoadMailStoreAsync`'s `accountNames`.
 - ADR-0132 amendment 1 decision 3 also listed "mailbox and groups" as account members a password change keeps.
   `Account` has only `Schemes` besides name and password, so it now says "scheme restriction".
-- BL-2129 was still in Doing in this checkout, so ADR-0102 says "not yet built (BL-2129)". BL-2132 updates it once
+- BL-2129 was still in Doing in this checkout, so ADR-0102 says "not yet built (BL-2129)". BL-2134 updates it once
   BL-2129 is done. BL-2133 holds the other stale statements found in the two ADRs.
 - Docs only: `dotnet build` 0 warnings, fast tests passed in all 83 test assemblies.
 

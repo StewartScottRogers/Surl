@@ -1,5 +1,5 @@
 ---
-id: BL-2132
+id: BL-2134
 title: Say in ADR-0102 that ADR-0185 Amendment 1 is built
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2132 — Say in ADR-0102 that ADR-0185 Amendment 1 is built
+# BL-2134 — Say in ADR-0102 that ADR-0185 Amendment 1 is built
 
 ## Goal
 
