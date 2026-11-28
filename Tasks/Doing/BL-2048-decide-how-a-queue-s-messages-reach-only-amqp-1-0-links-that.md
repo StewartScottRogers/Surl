@@ -43,3 +43,4 @@ consuming the same queue has some, and if not, how the container and the bus pre
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
