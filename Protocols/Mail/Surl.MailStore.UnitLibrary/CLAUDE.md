@@ -55,6 +55,9 @@ header `SURL-MAIL-INDEX-2`, written only when some mailbox holds a use; a store 
 folder, loaded or new, replacing the folder's use and leaving any other mailbox of the owner that
 held it with none (a change, written by the next save; loading itself writes nothing); a folder
 configured with no use keeps the loaded one unless another folder is configured with that use.
+`HoldsAnyFolderUse` says whether any mailbox of any owner holds a use at the moment it is read;
+the IMAP server reads it once, when it is constructed, to decide whether it offers `SPECIAL-USE`
+for its whole life (ADR-0055, Amendment 2).
 `SaveChangesAsync` writes the index, then deletes the files of messages no longer held; an
 index write that throws leaves the change in memory and the next save writes it. A store made
 by the constructor has no files and holds every message's bytes in memory. The servers call

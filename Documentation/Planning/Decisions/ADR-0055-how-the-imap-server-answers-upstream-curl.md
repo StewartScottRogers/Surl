@@ -738,7 +738,7 @@ completes all four cases against them.
    CREATE-SPECIAL-USE` (RFC 6154 sections 2 and 3), after `MOVE` and before `APPENDLIMIT=` in the same
    states and the same line as decision 2's others. A store started with none advertises exactly what
    decision 2 says today. It is decided at start, not per command, so a test sees one stable `CAPABILITY`.
-   **That last sentence is intent, not yet what the code does: see Amendment 2.**
+   Amendment 2 says what counts as a use at start; BL-2013 built it.
    `LIST-EXTENDED` is not advertised, so `LIST ... RETURN (SPECIAL-USE)` and `LIST (SPECIAL-USE) ...` are
    answered as decision 3 answers any `LIST` form it does not implement, unchanged; **why:** curl sent
    neither, and RFC 5258 is a larger feature than this one.
@@ -780,19 +780,19 @@ configuration, the IMAP server, the `--aihelp` text, and the hosts' views (see i
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1975. It settles a difference
 between Amendment 1 point 3 and the code. No capability, `LIST` line or response text changes.
 
-**The code today** asks `MailboxStore.HoldsAnyFolderUse`, which looks at every owner's mailboxes, each time it writes
-the capability list (`ImapSession.cs`) and each time `CREATE` carries `USE` (`ImapSession.Changes.cs`). So once the
-last mailbox holding a use is deleted, every session of every owner sees, until the store holds a use again (after a
-reset or restore of an in-memory store that brings one back, or a restart that configures one):
+**The code** reads `MailboxStore.HoldsAnyFolderUse`, which looks at every owner's mailboxes, once, in
+`ImapProtocolServer`'s constructor (BL-2013). The capability list (`ImapSession.cs`) and `CREATE` with `USE`
+(`ImapSession.Changes.cs`) follow that one value. Until BL-2013 both asked the store each time, so deleting the last
+mailbox holding a use withdrew the extension from every session of every owner. What a client gets after that
+`DELETE`:
 
-| The client sends | It gets today | It gets once this amendment is built |
+| The client sends | Before BL-2013 | Now |
 | --- | --- | --- |
 | `CAPABILITY`, and the greeting of a new connection | no `SPECIAL-USE CREATE-SPECIAL-USE` | both, as before the `DELETE` |
 | `CREATE Sent (USE (\Sent))` | `NO [USEATTR] The use cannot be given to this mailbox`; no mailbox is made | `OK CREATE completed`; `Sent` holds `\Sent` |
 | `CREATE Sent` | `OK CREATE completed`; `Sent` holds no use | the same |
 
-**Decision: point 3 stands. Whether the two capabilities are offered is fixed at start.** This is intent: BL-2013
-builds it.
+**Decision: point 3 stands. Whether the two capabilities are offered is fixed at start.**
 
 1. The answer is whether the store holds at least one use when the IMAP server is constructed, which
    `Surl.Composition` does after the store is made or loaded and before a listener accepts. A use counts whether

@@ -36,10 +36,13 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `AUTHENTICATE`, `STARTTLS`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`,
   `CHECK`, `CLOSE`, `UNSELECT`, `FETCH`, `SEARCH`, `APPEND`, `CREATE`, `DELETE`, `RENAME`,
   `SUBSCRIBE`, `UNSUBSCRIBE`, `STORE`, `COPY`, `MOVE`, `EXPUNGE` and the `UID` forms of
-  `FETCH`, `SEARCH`, `STORE`, `COPY`, `MOVE` and `EXPUNGE`. While the store holds a folder use
-  (`MailboxStore.HoldsAnyFolderUse`), `SPECIAL-USE CREATE-SPECIAL-USE` are offered after `MOVE`,
-  before and after a login (ADR-0055, Amendment 1). `IDLE` and the other extensions decision 2
-  says are not advertised, `SPECIAL-USE` apart, are not offered.
+  `FETCH`, `SEARCH`, `STORE`, `COPY`, `MOVE` and `EXPUNGE`. When the store holds a folder use
+  as the server is constructed (`MailboxStore.HoldsAnyFolderUse`, read once),
+  `SPECIAL-USE CREATE-SPECIAL-USE` are offered after `MOVE`, before and after a login, and
+  `CREATE` takes `(USE (...))`, for the server's whole life, whatever is later deleted, created,
+  reset or restored; otherwise neither is offered and `USE` is `NO [USEATTR]` (ADR-0055,
+  Amendments 1 and 2). `IDLE` and the other extensions decision 2 says are not advertised,
+  `SPECIAL-USE` apart, are not offered.
 - Log redaction (ADR-0183 decision 5, settled by its amendment 1): `CreateRedactor` wraps one
   `ImapLineRedactionRule` per exchange in a `LineBytesRedactor`, and the exchange log shows `****`
   for what the rule withholds: the password of `LOGIN` (atom, quoted string or literal, a literal

@@ -69,6 +69,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
     private readonly bool isTlsUpgradeAvailable;
+    private readonly bool isSpecialUseOffered;
 
     /// <summary>
     /// Creates an IMAP server that serves <paramref name="mailStore"/>.
@@ -80,7 +81,12 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <c>Surl.Composition</c> passes the <c>imap</c> scheme's one <c>AuthenticationPolicy</c> both
     /// here and as <paramref name="authenticationPolicy"/>.
     /// </param>
-    /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
+    /// <param name="mailStore">
+    /// The mail store the SMTP, IMAP and POP3 servers share, already made or loaded: whether it holds
+    /// a folder use now (<see cref="MailboxStore.HoldsAnyFolderUse"/>) decides, for this server's whole
+    /// life, whether it offers <c>SPECIAL-USE CREATE-SPECIAL-USE</c> and accepts <c>CREATE</c> with
+    /// <c>USE</c> (ADR-0055, Amendment 2).
+    /// </param>
     /// <param name="isTlsUpgradeAvailable">
     /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>.
     /// <c>Surl.Composition</c> passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>,
@@ -101,6 +107,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
         this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
+        isSpecialUseOffered = mailStore.HoldsAnyFolderUse;
     }
 
     /// <summary>
@@ -142,7 +149,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, UpstreamTestCaseReplies).RunAsync();
+        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, isSpecialUseOffered, UpstreamTestCaseReplies).RunAsync();
     }
 
     /// <summary>

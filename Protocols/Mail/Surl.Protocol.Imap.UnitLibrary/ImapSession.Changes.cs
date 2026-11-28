@@ -109,9 +109,9 @@ internal sealed partial class ImapSession
 
     // CREATE drops one trailing "/" (RFC 3501, section 6.3.3); its parents are not created. A
     // "(USE (...))" parameter (RFC 6154, section 3) is parsed whether or not SPECIAL-USE is
-    // offered. While it is not offered, any well-formed USE, the empty list included, is
-    // NO [USEATTR]; while it is, the list names at most one use, as the store holds one use per
-    // mailbox (ADR-0055, Amendment 1).
+    // offered. A server that does not offer it answers any well-formed USE, the empty list
+    // included, NO [USEATTR]; one that does takes a list naming at most one use, as the store
+    // holds one use per mailbox (ADR-0055, Amendments 1 and 2).
     private ImapResponse CreateMailbox(ImapArguments arguments)
     {
         var nameBytes = arguments.ReadSpacedAString();
@@ -129,7 +129,7 @@ internal sealed partial class ImapSession
     }
 
     private string CreateMailboxWithUses(string name, bool hasUseParameter, IReadOnlyList<string> uses) =>
-        uses.Count > 1 || (hasUseParameter && !mailStore.HoldsAnyFolderUse)
+        uses.Count > 1 || (hasUseParameter && !isSpecialUseOffered)
             ? ImapResponses.UseNotAllowed
             : ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, name, context, uses.FirstOrDefault()), "CREATE");
 

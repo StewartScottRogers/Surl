@@ -1778,9 +1778,9 @@ public sealed partial class MailboxStore
     }
 
     /// <summary>
-    /// Whether any mailbox of any owner holds an RFC 6154 use right now. IMAP advertises
-    /// <c>SPECIAL-USE</c> only while this is true (ADR-0055, Amendment 1), and the answer does not
-    /// depend on a login.
+    /// Whether any mailbox of any owner holds an RFC 6154 use right now. The IMAP server reads this
+    /// once, when it is constructed, to decide whether it offers <c>SPECIAL-USE</c> for its whole
+    /// life (ADR-0055, Amendment 2). The answer does not depend on a login.
     /// </summary>
     public bool HoldsAnyFolderUse
     {

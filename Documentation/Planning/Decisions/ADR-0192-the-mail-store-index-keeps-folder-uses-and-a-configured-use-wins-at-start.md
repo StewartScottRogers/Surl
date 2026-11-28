@@ -14,9 +14,9 @@
 A mailbox's RFC 6154 use comes from configuration (`--mailbox "...;folders=Sent=sent"`) or from IMAP
 `CREATE <name> (USE (...))`. ADR-0050 decision 7's index held no use, and BL-1507 left persistence of uses out
 of its scope. So a store loaded from `--directory` lost every use: a mailbox already in the index was not given
-its configured use again, a use given by `CREATE` was gone, and the IMAP server, which offers
-`SPECIAL-USE CREATE-SPECIAL-USE` while any mailbox holds a use, offered neither once no mailbox held one. A
-test of `MailboxStore.LoadAsync` reproduced it before the change.
+its configured use again, a use given by `CREATE` was gone, and the IMAP server, which then offered
+`SPECIAL-USE CREATE-SPECIAL-USE` while any mailbox held a use (until BL-2013; ADR-0055 Amendment 2), offered
+neither once no mailbox held one. A test of `MailboxStore.LoadAsync` reproduced it before the change.
 
 No byte on the wire is decided here: the `CAPABILITY` and `LIST` lines are ADR-0055 Amendment 1's. Upstream
 curl never reads the index.

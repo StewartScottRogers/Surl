@@ -6,9 +6,10 @@ using static Surl.Protocol.Imap.ImapTestExchange;
 namespace Surl.Protocol.Imap;
 
 /// <summary>
-/// ADR-0055 Amendment 1, decisions 3 to 5: <c>SPECIAL-USE</c> offered only while the store holds a
-/// use, the use after the children attribute of <c>LIST</c> and <c>LSUB</c>, and <c>CREATE</c>'s
-/// <c>(USE (...))</c>, with the four BL-1485 measurements of pinned upstream curl replayed.
+/// ADR-0055 Amendment 1, decisions 3 to 5, and Amendment 2: <c>SPECIAL-USE</c> offered for a
+/// server's whole life only when the store held a use as the server was constructed, the use after
+/// the children attribute of <c>LIST</c> and <c>LSUB</c>, and <c>CREATE</c>'s <c>(USE (...))</c>,
+/// with the four BL-1485 measurements of pinned upstream curl replayed.
 /// </summary>
 [TestClass]
 public sealed class ImapSpecialUseTests
@@ -172,8 +173,59 @@ public sealed class ImapSpecialUseTests
         Assert.Contains("d OK DELETE completed\r\ne OK CREATE completed\r\n", written);
     }
 
+    [TestMethod]
+    public async Task ServeAsync_LastUseDeleted_SameAndNewSessionStillOfferSpecialUse()
+    {
+        var clock = new ManualTimeProvider();
+        var store = StoreWithOnlySentUse(clock);
+        var server = Server(store);
+
+        var deleting = await ServeAsync(server, Login + "b DELETE Sent\r\nc CAPABILITY\r\n", clock, TestContext.CancellationToken);
+        var next = await ServeAsync(server, Login + "b CAPABILITY\r\n", clock, TestContext.CancellationToken);
+
+        Assert.IsFalse(store.HoldsAnyFolderUse);
+        var offered = Capabilities.Replace("MOVE ", "MOVE SPECIAL-USE CREATE-SPECIAL-USE ", StringComparison.Ordinal);
+        var afterLogin = offered.Replace("SASL-IR ", string.Empty, StringComparison.Ordinal);
+        Assert.EndsWith($"b OK DELETE completed\r\n* CAPABILITY {afterLogin}\r\nc OK CAPABILITY completed\r\n", Utf8(deleting.WrittenBytes));
+        Assert.AreEqual($"* OK [CAPABILITY {offered}] surl ready\r\n{LoggedIn}* CAPABILITY {afterLogin}\r\nb OK CAPABILITY completed\r\n", Utf8(next.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_LastUseDeleted_CreateWithThatUseSucceedsAndTheMailboxListsWithIt()
+    {
+        var clock = new ManualTimeProvider();
+        var store = StoreWithOnlySentUse(clock);
+
+        var connection = await ServeAsync(Server(store), Login + "b DELETE Sent\r\nc CREATE Sent (USE (\\Sent))\r\nd LIST \"\" Sent\r\n", clock, TestContext.CancellationToken);
+
+        Assert.EndsWith(
+            "b OK DELETE completed\r\nc OK CREATE completed\r\n* LIST (\\HasNoChildren \\Sent) \"/\" Sent\r\nd OK LIST completed\r\n",
+            Utf8(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_UseGivenAfterConstruction_SpecialUseStaysUnofferedAndCreateWithAUseIsRefused()
+    {
+        var clock = new ManualTimeProvider();
+        var store = AnonymousStore(clock);
+        var server = Server(store);
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.CreateMailbox(store.ViewFor(string.Empty), "Sent", use: @"\Sent"));
+
+        var connection = await ServeAsync(server, Login + "b CAPABILITY\r\nc CREATE x (USE (\\Drafts))\r\n", clock, TestContext.CancellationToken);
+
+        var afterLogin = Capabilities.Replace("SASL-IR ", string.Empty, StringComparison.Ordinal);
+        Assert.AreEqual(LoggedIn + $"* CAPABILITY {afterLogin}\r\nb OK CAPABILITY completed\r\nc {UseRefused}\r\n", AfterGreeting(connection));
+    }
+
     private static string OrderListLines(string written) =>
         string.Concat(written.Split("\r\n", StringSplitOptions.RemoveEmptyEntries).Order(StringComparer.Ordinal).Select(line => line + "\r\n"));
+
+    private static MailboxStore StoreWithOnlySentUse(TimeProvider clock)
+    {
+        var store = AnonymousStore(clock);
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.CreateMailbox(store.ViewFor(string.Empty), "Sent", use: @"\Sent"));
+        return store;
+    }
 
     private static MailboxStore StoreWithUses(TimeProvider clock)
     {
