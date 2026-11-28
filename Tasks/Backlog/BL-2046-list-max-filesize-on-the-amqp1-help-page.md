@@ -1,5 +1,5 @@
 ---
-id: BL-2032
+id: BL-2046
 title: List --max-filesize on the amqp1 help page
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2032 — List --max-filesize on the amqp1 help page
+# BL-2046 — List --max-filesize on the amqp1 help page
 
 ## Goal
 

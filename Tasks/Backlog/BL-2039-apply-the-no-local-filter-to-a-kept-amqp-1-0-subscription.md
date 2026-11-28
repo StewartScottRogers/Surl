@@ -1,28 +1,28 @@
 ---
-id: BL-2025
+id: BL-2039
 title: Apply the no-local filter to a kept AMQP 1.0 subscription
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2024]
+depends-on: [BL-2038]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2025 — Apply the no-local filter to a kept AMQP 1.0 subscription
+# BL-2039 — Apply the no-local filter to a kept AMQP 1.0 subscription
 
 ## Goal
 
 A durable, shared, `session-end` or `connection-close` AMQP 1.0 subscriber that is echoed the no-local filter
-does not receive the publishes ADR-0146's amendment (BL-2023) says it withholds.
+does not receive the publishes ADR-0146's amendment (BL-2037) says it withholds.
 
 ## Context
 
 - Found while working BL-1990 (2026-11-27) by reading the code; prove it with a failing test first.
 - The entry is echoed (`Amqp1SourceFilters.NoLocalPredicate`, `Amqp1Terminus.Source`) but
   `Amqp1ContainerConnection.Subscriptions.cs`, `MakeQueueAndConsume`, never passes it to the bus, against
-  ADR-0146 decision 2.1. Use the operation BL-2024 adds.
+  ADR-0146 decision 2.1. Use the operation BL-2038 adds.
 - A lookup attach (no source) is answered the stored filters (`LookKeptSubscriptionUp`), so they must keep
   matching what is applied.
 - Existing live-link test:

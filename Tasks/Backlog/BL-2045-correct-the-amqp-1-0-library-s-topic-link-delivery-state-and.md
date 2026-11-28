@@ -1,5 +1,5 @@
 ---
-id: BL-2031
+id: BL-2045
 title: Correct the AMQP 1.0 library's topic link, delivery state and detach statements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2031 — Correct the AMQP 1.0 library's topic link, delivery state and detach statements
+# BL-2045 — Correct the AMQP 1.0 library's topic link, delivery state and detach statements
 
 ## Goal
 
@@ -33,7 +33,7 @@ Found while working BL-1990 (2026-11-27). All paths are in
 - `Amqp1ContainerConnection.Links.cs`, in `AnswerDetachAsync`, the comment "Nothing of a link is kept for
   resumption" does not allow for a kept subscription, whose queue survives a detach with `closed` false (ADR-0146
   decisions 3.4 and 3.6). The link itself is never resumed.
-- BL-2010, BL-2025, BL-2027, BL-2028 and BL-2029 change behaviour in this library: describe the code as it is when
+- BL-2010, BL-2039, BL-2041, BL-2042 and BL-2043 change behaviour in this library: describe the code as it is when
   this task runs.
 - Comments and notes only; no behaviour, store, event or fault changes.
 

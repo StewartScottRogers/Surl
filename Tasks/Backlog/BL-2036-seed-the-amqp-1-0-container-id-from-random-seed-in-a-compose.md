@@ -1,5 +1,5 @@
 ---
-id: BL-2022
+id: BL-2036
 title: Seed the AMQP 1.0 container-id from --random-seed in a composed run
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2022 — Seed the AMQP 1.0 container-id from --random-seed in a composed run
+# BL-2036 — Seed the AMQP 1.0 container-id from --random-seed in a composed run
 
 ## Goal
 

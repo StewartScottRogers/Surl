@@ -1,5 +1,5 @@
 ---
-id: BL-2030
+id: BL-2044
 title: Add dated notes to ADR-0107 decision 7 and ADR-0146 decision 1.5 for kept subscriptions and held transaction bytes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2030 — Add dated notes to ADR-0107 decision 7 and ADR-0146 decision 1.5 for kept subscriptions and held transaction bytes
+# BL-2044 — Add dated notes to ADR-0107 decision 7 and ADR-0146 decision 1.5 for kept subscriptions and held transaction bytes
 
 ## Goal
 
@@ -37,7 +37,7 @@ pointing at ...:*"); recorded text is never rewritten. The code is in
 - **ADR-0146 decision 1.5**, "Topic deliveries have nothing to return: their outcomes only settle them (ADR-0107
   decision 6)": false for a kept subscription, whose deliveries are queue deliveries that a rollback returns; and
   the statement referred to is in ADR-0107 decision **5**, not 6.
-- ADR-0107 decision 4's "Dynamic nodes" bullet is BL-2028's subject; leave it.
+- ADR-0107 decision 4's "Dynamic nodes" bullet is BL-2042's subject; leave it.
 
 ## Acceptance criteria
 

@@ -1,5 +1,5 @@
 ---
-id: BL-2028
+id: BL-2042
 title: Delete an AMQP 1.0 dynamic target queue when its sending link ends
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2028 — Delete an AMQP 1.0 dynamic target queue when its sending link ends
+# BL-2042 — Delete an AMQP 1.0 dynamic target queue when its sending link ends
 
 ## Goal
 

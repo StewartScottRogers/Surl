@@ -69,11 +69,11 @@ Each statement was checked on 2026-11-27.
   lets a subscription outlive its connection (`session-end` and `connection-close` queues are exclusive to
   it), and a `shared` source with `durable` `none` or `link-detach` is a live subscription, not a bus queue.
 - The `container-id` note also says `Surl.Composition` passes no `IIdentifierRandom`, so a composed container
-  uses the unseeded fallback even in a seeded run (BL-2022).
+  uses the unseeded fallback even in a seeded run (BL-2036).
 - Verification: `dotnet build` 0 warnings, 0 errors; fast tests passed with 0 failures. No `.cs` or project
   file changed.
-- Filed: BL-2022 to BL-2031 (code defects and stale statements read from the code, none proven by a run) and
-  BL-2032 (`--max-filesize` missing from the `amqp1` help page).
+- Filed: BL-2036 to BL-2045 (code defects and stale statements read from the code, none proven by a run) and
+  BL-2046 (`--max-filesize` missing from the `amqp1` help page).
 
 ## Log
 

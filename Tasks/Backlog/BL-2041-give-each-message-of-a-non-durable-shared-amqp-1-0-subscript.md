@@ -1,16 +1,16 @@
 ---
-id: BL-2027
+id: BL-2041
 title: Give each message of a non-durable shared AMQP 1.0 subscription to one of its links
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2026]
+depends-on: [BL-2040]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2027 — Give each message of a non-durable shared AMQP 1.0 subscription to one of its links
+# BL-2041 — Give each message of a non-durable shared AMQP 1.0 subscription to one of its links
 
 ## Goal
 
@@ -19,7 +19,7 @@ Two links attached to one `shared` source with `durable` `none` receive each pub
 ## Context
 
 - Found while working BL-1990 (2026-11-27) by reading the code; prove it with a failing test first.
-- ADR-0146 decision 3.5, as BL-2026's dated amendment applies it to non-durable sources. Read the amendment first
+- ADR-0146 decision 3.5, as BL-2040's dated amendment applies it to non-durable sources. Read the amendment first
   and do exactly that.
 - Today `Amqp1KeptSubscription.IsAskedFor` leaves such a source out and
   `Amqp1ContainerConnection.Links.cs`, `Subscribe`, gives each link its own live subscription.

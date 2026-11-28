@@ -1,5 +1,5 @@
 ---
-id: BL-2029
+id: BL-2043
 title: Keep a shared session-end AMQP 1.0 subscription while another session still holds it
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2029 — Keep a shared session-end AMQP 1.0 subscription while another session still holds it
+# BL-2043 — Keep a shared session-end AMQP 1.0 subscription while another session still holds it
 
 ## Goal
 

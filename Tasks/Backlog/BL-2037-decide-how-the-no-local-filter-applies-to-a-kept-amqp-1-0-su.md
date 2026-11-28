@@ -1,5 +1,5 @@
 ---
-id: BL-2023
+id: BL-2037
 title: Decide how the no-local filter applies to a kept AMQP 1.0 subscription
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2023 — Decide how the no-local filter applies to a kept AMQP 1.0 subscription
+# BL-2037 — Decide how the no-local filter applies to a kept AMQP 1.0 subscription
 
 ## Goal
 
@@ -39,13 +39,13 @@ Found while working BL-1990 (2026-11-27) by reading the code; nothing was run.
   snapshotted; how a shared subscription and a transaction's batch publish behave; and what the echo says. ADR-0146
   rejected copy-in filtering for selectors because the bus would have to call protocol code: say why the chosen
   way does or does not have that cost.
-- BL-2024 (bus) and BL-2025 (container) build the answer. Amend only by adding a dated amendment.
+- BL-2038 (bus) and BL-2039 (container) build the answer. Amend only by adding a dated amendment.
 
 ## Acceptance criteria
 
 - [ ] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering each question in Context, with the alternatives rejected.
-- [ ] The amendment names the `Surl.MessageBus` operation or option BL-2024 adds.
-- [ ] The bodies of BL-2024 and BL-2025 agree with the amendment (edited if they do not).
+- [ ] The amendment names the `Surl.MessageBus` operation or option BL-2038 adds.
+- [ ] The bodies of BL-2038 and BL-2039 agree with the amendment (edited if they do not).
 - [ ] The diff to ADR-0146 only adds lines.
 
 ## Notes

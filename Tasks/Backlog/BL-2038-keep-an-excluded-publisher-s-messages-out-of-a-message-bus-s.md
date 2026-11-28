@@ -1,33 +1,33 @@
 ---
-id: BL-2024
+id: BL-2038
 title: Keep an excluded publisher's messages out of a message bus subscription queue as ADR-0146 decides no-local
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2023]
+depends-on: [BL-2037]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2024 — Keep an excluded publisher's messages out of a message bus subscription queue as ADR-0146 decides no-local
+# BL-2038 — Keep an excluded publisher's messages out of a message bus subscription queue as ADR-0146 decides no-local
 
 ## Goal
 
-`Surl.MessageBus` offers what BL-2023's amendment to ADR-0146 names, so a subscription queue's consumer never
+`Surl.MessageBus` offers what BL-2037's amendment to ADR-0146 names, so a subscription queue's consumer never
 receives a publish the no-local filter withholds from it.
 
 ## Context
 
 - Found while working BL-1990 (2026-11-27): a live subscription takes `noLocal`
   (`BusConnection.Subscribe`; `BusSubscription.KeepsFrom`), a queue has no equivalent.
-- Read BL-2023's dated amendment to ADR-0146 first: it says whose publishes are withheld, where, and what is
+- Read BL-2037's dated amendment to ADR-0146 first: it says whose publishes are withheld, where, and what is
   persisted and snapshotted. Do exactly that.
 - Start at `MessageBus.Accept` and `CopyIntoBoundQueues` (`MessageBus.cs`, `MessageBus.Queues.cs`), the batch
   publish (`MessageBus.Batch.cs`), `MessageBus.SubscriptionQueues.cs`, and the persistence and snapshot files.
 - Stand-in: the shared message bus. State the amendment adds to a queue is reset, snapshotted and restored with
   it; a withheld copy publishes no store change on the event stream. No new fault.
-- BL-2025 uses the operation from the AMQP 1.0 container.
+- BL-2039 uses the operation from the AMQP 1.0 container.
 
 ## Acceptance criteria
 
