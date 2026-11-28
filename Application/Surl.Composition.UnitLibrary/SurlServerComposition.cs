@@ -586,8 +586,9 @@ public static partial class SurlServerComposition
     /// <summary>
     /// Chooses where the LDAP server's directory is read from: its <see cref="LdapDirectoryFile"/>
     /// in <c>&lt;data directory's full path&gt;/.surl/ldap</c>, read through
-    /// <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so the directory is
-    /// empty (ADR-0072, decision 1).
+    /// <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so no entry comes
+    /// from a file (ADR-0072, decision 1), and the directory is empty only while the host has seeded
+    /// none (ADR-0158, decision 3).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="fileSystem">The file system the content store serves.</param>
