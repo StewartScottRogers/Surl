@@ -43,3 +43,4 @@ accounts, or a sessions reset, which deletes every client, code and token.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
