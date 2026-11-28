@@ -39,3 +39,4 @@ Stand-in (root `CLAUDE.md`): a test adds or removes accounts while clients are s
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
