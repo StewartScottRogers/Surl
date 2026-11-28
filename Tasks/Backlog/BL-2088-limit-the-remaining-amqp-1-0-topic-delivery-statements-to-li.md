@@ -1,5 +1,5 @@
 ---
-id: BL-2085
+id: BL-2088
 title: Limit the remaining AMQP 1.0 topic delivery statements to live subscriptions
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2085 — Limit the remaining AMQP 1.0 topic delivery statements to live subscriptions
+# BL-2088 — Limit the remaining AMQP 1.0 topic delivery statements to live subscriptions
 
 ## Goal
 

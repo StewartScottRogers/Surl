@@ -47,7 +47,7 @@ nothing to put back.
   while `OfferQueueDelivery` and `OfferSubscriptionQueueDelivery` pass the bus's delivery tag.
 - 2026-11-28 verify: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests
   30769 passed, 0 failed, 3 skipped. Integration tests not run: comment-only change.
-- Similar drift outside this task's files is filed as BL-2085.
+- Similar drift outside this task's files is filed as BL-2088.
 
 ## Log
 
