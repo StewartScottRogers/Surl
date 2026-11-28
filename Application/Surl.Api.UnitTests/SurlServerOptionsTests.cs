@@ -22,6 +22,32 @@ public sealed class SurlServerOptionsTests
     }
 
     [TestMethod]
+    public void New_StartTimeSeeds_AreNone()
+    {
+        var options = new SurlServerOptions();
+
+        Assert.IsEmpty(options.RedisKeys);
+        Assert.IsNull(options.DirectoryLdif);
+        Assert.IsEmpty(options.DnsZones);
+    }
+
+    [TestMethod]
+    public void StartTimeSeedLists_SetToNull_AreLeftEmpty()
+    {
+        var options = new SurlServerOptions
+        {
+            RedisKeys = [new SurlRedisKey("k", "v")],
+            DnsZones = [new SurlDnsZone("example.com", "text")],
+        };
+
+        options.RedisKeys = null!;
+        options.DnsZones = null!;
+
+        Assert.IsEmpty(options.RedisKeys);
+        Assert.IsEmpty(options.DnsZones);
+    }
+
+    [TestMethod]
     public void TimeProvider_SetToNull_ThrowsArgumentNull()
     {
         var options = new SurlServerOptions();

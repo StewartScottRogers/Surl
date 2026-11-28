@@ -23,7 +23,8 @@ public sealed class SurlServerKeys
     /// <summary>
     /// Sets a string key as <c>SET</c> would, replacing a key that exists; the fault plan is not consulted.
     /// Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for
-    /// <see cref="StoreKind.Keyspace"/>.
+    /// <see cref="StoreKind.Keyspace"/>. A reset drops what is set here, and sets a key
+    /// <see cref="SurlServerOptions.RedisKeys"/> gave back to its start-time value.
     /// </summary>
     /// <param name="key">The key, at least one character, written as UTF-8.</param>
     /// <param name="value">The value, written as UTF-8.</param>
@@ -34,8 +35,8 @@ public sealed class SurlServerKeys
     /// <exception cref="ArgumentNullException"><paramref name="key"/> or <paramref name="value"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> is outside 0 to 15, or
     /// <paramref name="expiry"/> is outside 1 millisecond to 365 days.</exception>
-    /// <exception cref="SurlSeedRefusedException">The keyspace refused the key: too large, full, or no Redis server
-    /// is composed.</exception>
+    /// <exception cref="SurlSeedRefusedException">The keyspace refused the key: too large, full, or no
+    /// <c>redis</c> or <c>rediss</c> listen URL is served.</exception>
     public Task SetAsync(string key, string value, TimeSpan? expiry = null, int database = 0, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -116,7 +117,8 @@ public sealed class SurlServerKeys
     /// <summary>
     /// Sets a string key from raw bytes as <c>SET</c> would, replacing a key that exists; the fault plan is not
     /// consulted. Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for
-    /// <see cref="StoreKind.Keyspace"/>.
+    /// <see cref="StoreKind.Keyspace"/>. A reset drops what is set here, and sets a key
+    /// <see cref="SurlServerOptions.RedisKeys"/> gave back to its start-time value.
     /// </summary>
     /// <param name="key">The key, at least one byte.</param>
     /// <param name="value">The value.</param>
@@ -127,13 +129,28 @@ public sealed class SurlServerKeys
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> is outside 0 to 15, or
     /// <paramref name="expiry"/> is outside 1 millisecond to 365 days.</exception>
-    /// <exception cref="SurlSeedRefusedException">The keyspace refused the key: too large, full, or no Redis server
-    /// is composed.</exception>
-    public async Task SetAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry = null, int database = 0, CancellationToken cancellationToken = default)
+    /// <exception cref="SurlSeedRefusedException">The keyspace refused the key: too large, full, or no
+    /// <c>redis</c> or <c>rediss</c> listen URL is served.</exception>
+    public Task SetAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry = null, int database = 0, CancellationToken cancellationToken = default) =>
+        SeedAsync(stores, database, key, value, expiry, keepOnReset: false, cancellationToken);
+
+    /// <summary>
+    /// Seeds one string key into <paramref name="stores"/>' keyspace, saying whether a reset returns to it, and turns
+    /// the keyspace's refusal into the exception a test sees.
+    /// </summary>
+    /// <exception cref="SurlSeedRefusedException">The keyspace refused the key.</exception>
+    internal static async Task SeedAsync(
+        ComposedStores stores,
+        int database,
+        ReadOnlyMemory<byte> key,
+        ReadOnlyMemory<byte> value,
+        TimeSpan? expiry,
+        bool keepOnReset,
+        CancellationToken cancellationToken)
     {
         try
         {
-            await stores.SeedKeyAsync(database, key, value, expiry, cancellationToken);
+            await stores.SeedKeyAsync(database, key, value, expiry, keepOnReset, cancellationToken);
         }
         catch (InvalidOperationException refused)
         {

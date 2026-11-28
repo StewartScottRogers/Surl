@@ -21,8 +21,9 @@ public sealed class SurlServerZones
 
     /// <summary>
     /// Adds one zone read from zone-file text; the fault plan is not consulted. A zone whose apex is already held
-    /// is refused: a reset drops it. Publishes a <see cref="StoreChangedEvent"/> with
-    /// <see cref="StoreChange.Seeded"/> for <see cref="StoreKind.Zones"/>.
+    /// is refused. A reset drops a zone added here and keeps those <see cref="SurlServerOptions.DnsZones"/> gave.
+    /// Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for
+    /// <see cref="StoreKind.Zones"/>.
     /// </summary>
     /// <param name="apex">The zone's apex, a domain name with or without its final dot.</param>
     /// <param name="zoneFileText">The zone file's text, at most 16 MiB.</param>
@@ -30,14 +31,25 @@ public sealed class SurlServerZones
     /// <returns>A task that completes once the zone is added.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="apex"/> or <paramref name="zoneFileText"/> is null.</exception>
     /// <exception cref="SurlSeedRefusedException">The zones refused it: text that cannot be a zone, a second zone
-    /// for the apex, a bound passed, or no DNS server is composed.</exception>
-    public async Task AddZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken = default)
+    /// for the apex, a bound passed, or no <c>dns</c> listen URL is served.</exception>
+    public Task AddZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(apex);
         ArgumentNullException.ThrowIfNull(zoneFileText);
+        return SeedAsync(stores, apex, zoneFileText, keepOnReset: false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Seeds one zone into <paramref name="stores"/>' DNS zones, saying whether a reset returns to it, and turns the
+    /// zones' refusal into the exception a test sees.
+    /// </summary>
+    /// <exception cref="SurlSeedRefusedException">The zones refused it.</exception>
+    internal static async Task SeedAsync(
+        ComposedStores stores, string apex, string zoneFileText, bool keepOnReset, CancellationToken cancellationToken)
+    {
         try
         {
-            await stores.SeedZoneAsync(apex, zoneFileText, cancellationToken);
+            await stores.SeedZoneAsync(apex, zoneFileText, keepOnReset, cancellationToken);
         }
         catch (Exception refused) when (refused is not OperationCanceledException)
         {

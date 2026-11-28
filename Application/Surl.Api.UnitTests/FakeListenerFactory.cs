@@ -71,6 +71,9 @@ internal sealed class FakeListenerFactory : IListenerFactory
     /// <summary>Whether every start waits until it is cancelled instead of binding.</summary>
     public bool StartWaitsUntilCancelled { get; init; }
 
+    /// <summary>How many listeners were started, disposed ones included.</summary>
+    public int StartedListenerCount => Volatile.Read(ref startedListenerCount);
+
     /// <summary>How many listeners were started and are not yet disposed.</summary>
     public int OpenListenerCount => Volatile.Read(ref startedListenerCount) - Volatile.Read(ref disposedListenerCount);
 

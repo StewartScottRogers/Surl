@@ -218,7 +218,10 @@ public sealed class SurlServer : IAsyncDisposable
     /// Afterwards the content store holds the files <see cref="SurlServerOptions.Files"/> gave and no others; the
     /// configured mailboxes hold no messages (each with a new <c>UIDVALIDITY</c>); the configured topics and queues
     /// hold no messages; the accounts, proxy accounts and TLS-SRP accounts are exactly those given at start; the
-    /// Redis databases and the LDAP directory are empty and there is no DNS zone; no client-declared AMQP 0-9-1
+    /// Redis databases hold the keys <see cref="SurlServerOptions.RedisKeys"/> gave and no others, each expiry
+    /// measured again from the reset; the LDAP directory holds the entries read from the data directory at start and
+    /// those <see cref="SurlServerOptions.DirectoryLdif"/> gave; the DNS zones are those read from the data directory
+    /// at start and those <see cref="SurlServerOptions.DnsZones"/> gave; no client-declared AMQP 0-9-1
     /// exchange or binding remains; and the Kafka brokers hold no producer state and no consumer group.
     /// </para>
     /// <para>
@@ -318,7 +321,9 @@ public sealed class SurlServer : IAsyncDisposable
 
     /// <summary>
     /// Starts a server on every listen URL in <paramref name="options"/> and returns once every
-    /// listener has bound.
+    /// listener has bound. Before any binds, its stores hold the start-time seeds
+    /// <see cref="SurlServerOptions.RedisKeys"/>, <see cref="SurlServerOptions.DirectoryLdif"/> and
+    /// <see cref="SurlServerOptions.DnsZones"/> give, applied in that order.
     /// </summary>
     /// <param name="options">What to serve.</param>
     /// <param name="cancellationToken">Cancels the start only; a started server ignores it.</param>
@@ -326,6 +331,8 @@ public sealed class SurlServer : IAsyncDisposable
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
     /// <exception cref="ArgumentException">The options are misused (<see cref="SurlServerOptions"/> says how).</exception>
     /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the start; nothing is left bound or locked.</exception>
+    /// <exception cref="SurlSeedRefusedException">A store refused a start-time seed, or no listen URL serves it; nothing
+    /// is left bound or locked.</exception>
     /// <exception cref="OperationCanceledException">The start was cancelled before every listener bound.</exception>
     public static Task<SurlServer> StartAsync(SurlServerOptions options, CancellationToken cancellationToken = default) =>
         StartAsync(options, SurlServerHostSeams.Production, cancellationToken);
@@ -384,7 +391,25 @@ public sealed class SurlServer : IAsyncDisposable
         var record = options.RecordExchanges
             ? new ExchangeRecordSubscriber(start.Serving!.Events, timeProvider, ExchangeRecordBounds.Of(options))
             : null;
+        await ApplyStartTimeSeedsAsync(start.Serving!, options, record, cancellationToken);
         return await ServeUntilBoundAsync(commandLine, start.Serving!, options, custom, record, cancellationToken);
+    }
+
+    // After the recording subscribed, so it holds each Seeded event; before serving, so no client sees a store unseeded.
+    // Not try/catch: an await in a catch block compiles to a rethrow branch no test can reach.
+    private static async Task ApplyStartTimeSeedsAsync(
+        ComposedServing composedServing, SurlServerOptions options, ExchangeRecordSubscriber? record, CancellationToken cancellationToken)
+    {
+        var seeding = StartTimeSeeds.ApplyAsync(composedServing.Stores, options, cancellationToken);
+        await seeding.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+        if (!seeding.IsCompletedSuccessfully)
+        {
+            await StopRecordingAsync(record);
+            await composedServing.DisposeAsync();
+        }
+
+        // Throws the refusal, or the cancellation, once nothing is left recording or locked.
+        await seeding;
     }
 
     /// <summary>The exchange log <c>surl</c> would write at the command line's level, to <paramref name="log"/>.</summary>

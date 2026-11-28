@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Authentication;
 using Surl.Cli;
 using Surl.Composition;
+using Surl.Extended.Protocol.Redis;
 using Surl.Output;
 
 namespace Surl.Api;
@@ -15,9 +16,14 @@ namespace Surl.Api;
 /// </summary>
 internal static class SurlServerArguments
 {
+    // The keyspace's databases are numbered 0 to 15, as Redis numbers them by default.
+    private const int HighestRedisDatabase = 15;
+
     /// <summary>
     /// Throws for options no start can be made from: nothing that could name a listen URL (ListenUrls, ConfigFiles and AdditionalArguments all empty), a null word, a data directory
-    /// together with in-memory files, or an in-memory file path that is not a plain relative path.
+    /// together with in-memory files, an in-memory file path that is not a plain relative path, or a start-time seed
+    /// no store could be asked for (<see cref="SurlServerOptions.RedisKeys"/> and
+    /// <see cref="SurlServerOptions.DnsZones"/> say which).
     /// </summary>
     /// <param name="options">The options.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
@@ -51,6 +57,38 @@ internal static class SurlServerArguments
         if (options.HookTimeLimit < SurlServerOptions.MinHookTimeLimit || options.HookTimeLimit > SurlServerOptions.MaxHookTimeLimit)
         {
             throw new ArgumentException("HookTimeLimit must be from 1 millisecond to 30 seconds.", nameof(options));
+        }
+
+        ThrowIfRedisKeyMisused(options.RedisKeys);
+        ThrowIfDnsZoneMisused(options.DnsZones);
+    }
+
+    private static void ThrowIfRedisKeyMisused(IReadOnlyList<SurlRedisKey> keys)
+    {
+        if (keys.Any(key => key is null || key.Key.IsEmpty))
+        {
+            throw new ArgumentException("RedisKeys may not hold null or an empty key.", "options");
+        }
+
+        if (keys.Any(key => key.Database is < 0 or > HighestRedisDatabase))
+        {
+            throw new ArgumentException("A RedisKeys database must be from 0 to 15.", "options");
+        }
+
+        if (keys.Any(key => key.Expiry is { } expiry && IsOutsideSeedExpiry(expiry)))
+        {
+            throw new ArgumentException("A RedisKeys expiry must be from 1 millisecond to 365 days.", "options");
+        }
+    }
+
+    private static bool IsOutsideSeedExpiry(TimeSpan expiry) =>
+        expiry < TimeSpan.FromMilliseconds(1) || expiry > RedisKeyspace.MaxSeedExpiry;
+
+    private static void ThrowIfDnsZoneMisused(IReadOnlyList<SurlDnsZone> zones)
+    {
+        if (zones.Any(zone => zone?.Apex is null || zone.ZoneFileText is null))
+        {
+            throw new ArgumentException("DnsZones may not hold null, a null apex or a null zone-file text.", "options");
         }
     }
 
