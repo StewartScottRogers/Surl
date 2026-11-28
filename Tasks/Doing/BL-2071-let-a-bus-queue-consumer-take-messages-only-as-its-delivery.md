@@ -44,3 +44,4 @@ stays ready or goes to another consumer.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
