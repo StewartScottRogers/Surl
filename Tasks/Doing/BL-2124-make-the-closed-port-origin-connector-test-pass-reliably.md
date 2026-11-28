@@ -38,3 +38,4 @@ loaded machine, and Windows takes about 2 s to refuse a closed port), or another
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
