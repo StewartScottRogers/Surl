@@ -66,9 +66,9 @@ rewrites other sentences of the same remarks, so keep what it wrote.
   ends, and a `REPLY`'d SASL response applies only after a `REPLY`'d `AUTH`.
 - 2026-11-27: Gates: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
   30378 passed, 0 failed, 3 skipped; no changed `.cs` line other than `///`. Integration tests not run: comments only.
-- 2026-11-27: Filed BL-1995 (privacy defect: with `--mail-delivered-to`, an alias that absorbs an earlier recipient
+- 2026-11-27: Filed BL-2000 (privacy defect: with `--mail-delivered-to`, an alias that absorbs an earlier recipient
   gives one owner's address to another, against ADR-0053 Amendment 1 decision 4; found by reading the code, not
-  reproduced), BL-1996, BL-1997, BL-1998 and BL-1999 (other false comments and documents). BL-1995 must also rewrite
+  reproduced), BL-2001, BL-2002, BL-1998 and BL-1999 (other false comments and documents). BL-2000 must also rewrite
   the delivery paragraph written here.
 
 ## Log

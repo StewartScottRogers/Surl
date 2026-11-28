@@ -4,7 +4,7 @@ title: Make the glossary's trace fields row true of the Delivered-To code that e
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1995]
+depends-on: [BL-2000]
 touches: [Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-27
@@ -21,7 +21,7 @@ The "trace fields" row of `Documentation/Wiki/Glossary.md` says what the code do
 
 Found while working BL-1977 (2026-11-27). The row says the `Delivered-To` lines are "intent until BL-1487's code
 lands", but `SmtpTraceFields.Build` and `SmtpSession.ReceiveMessageAsync` write them. The row also says `DeliveredFor`
-always lists the envelope addresses; on 2026-11-27 the SMTP server never set it. BL-1995 fixes that, so this task
+always lists the envelope addresses; on 2026-11-27 the SMTP server never set it. BL-2000 fixes that, so this task
 waits for it. ADR-0053 Amendment 1.
 
 ## Acceptance criteria

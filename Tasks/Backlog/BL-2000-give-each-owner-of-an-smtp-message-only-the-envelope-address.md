@@ -1,5 +1,5 @@
 ---
-id: BL-1995
+id: BL-2000
 title: Give each owner of an SMTP message only the envelope addresses that reached that owner
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1995 — Give each owner of an SMTP message only the envelope addresses that reached that owner
+# BL-2000 — Give each owner of an SMTP message only the envelope addresses that reached that owner
 
 ## Goal
 
@@ -54,7 +54,7 @@ replaces it), the `//` comment above `SmtpSession.ReceiveMessageAsync`, and the 
 `CLAUDE.md` (BL-1978 writes there that each deliverable recipient has its own pending message). Checked on
 2026-11-27 and needing no change: the `--mail-delivered-to` paragraph in
 `Application/Surl.Cli.UnitLibrary/AiHelpProse.cs` and the doc comment of `MailboxStore.DeliveredToEnabled` already
-describe one copy per owner. BL-1996 corrects other comments in these files afterwards.
+describe one copy per owner. BL-2001 corrects other comments in these files afterwards.
 
 Stand-in: the shared mail store; the event is the store's delivery `StoreChangedEvent`; seeding, reset and the
 out-of-space and command-stage faults are the existing ones. The field is Surl's own (RFC 9228), so no upstream curl

@@ -1,16 +1,16 @@
 ---
-id: BL-1996
+id: BL-2001
 title: Make the XML comments of SmtpTraceFields and the SmtpSession parts name everything the code does
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1995]
+depends-on: [BL-2000]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpTraceFields.cs, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpSession.cs, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpSession.UpstreamTestCase.cs, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpSession.Faults.cs]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1996 — Make the XML comments of SmtpTraceFields and the SmtpSession parts name everything the code does
+# BL-2001 — Make the XML comments of SmtpTraceFields and the SmtpSession parts name everything the code does
 
 ## Goal
 
@@ -21,13 +21,13 @@ The XML doc comments in `SmtpTraceFields.cs`, `SmtpSession.cs`, `SmtpSession.Ups
 
 Found while working BL-1977 (2026-11-27), each checked against the code that day. XML doc comments only; no
 behaviour change, so no store, event or fault is added. Files are in `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/`.
-BL-1995 changes how pending messages are made, so describe the code as it is after BL-1995.
+BL-2000 changes how pending messages are made, so describe the code as it is after BL-2000.
 
 1. `SmtpTraceFields.cs`: the class summary says "The two trace fields" and `Build`'s `<returns>` says "The two
    lines", but `Build` also writes one `Delivered-To` line per `deliveredTo` address ahead of `Return-Path` when the
    list is given (ADR-0053 Amendment 1). Its `<param name="deliveredTo">` sits after `<returns>`.
 2. `SmtpSession.cs`: the class summary says a `DATA` body streams into one `PendingMessage`. With
-   `MailboxStore.DeliveredToEnabled` and a recipient to deliver to there are several (BL-1995: one per owner),
+   `MailboxStore.DeliveredToEnabled` and a recipient to deliver to there are several (BL-2000: one per owner),
    written through `SmtpTeeStream`.
 3. `SmtpSession.UpstreamTestCase.cs`: the summary omits that `IsAddressTheCaseAccepts` answers a `RCPT` or `VRFY`
    argument with a byte past ASCII `501 Invalid address` unless the case's `CAPA` lists `SMTPUTF8`.

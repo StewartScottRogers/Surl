@@ -1,5 +1,5 @@
 ---
-id: BL-1997
+id: BL-2002
 title: Name the three upstream test case refusals in the SMTP library's CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1997 — Name the three upstream test case refusals in the SMTP library's CLAUDE.md
+# BL-2002 — Name the three upstream test case refusals in the SMTP library's CLAUDE.md
 
 ## Goal
 
