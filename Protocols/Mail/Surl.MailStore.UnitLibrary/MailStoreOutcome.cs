@@ -49,8 +49,9 @@ public enum MailStoreOutcome
     StorageFailed,
 
     /// <summary>Storing the messages would pass the quota of an owner they go to (ADR-0102,
-    /// decision 1.4): IMAP answers <c>NO [OVERQUOTA]</c>, SMTP <c>452 4.2.2</c>. Nothing was
-    /// stored, for any recipient.</summary>
+    /// decision 1.4), or an out-of-space rule of the fault plan refused a delivery or append
+    /// (ADR-0124 decision 4): IMAP answers <c>NO [OVERQUOTA]</c>, SMTP <c>452 4.2.2</c>. Nothing
+    /// was stored, for any recipient.</summary>
     QuotaExceeded,
 
     /// <summary>The operation would delete or rename a shared folder or <c>Shared</c>, or create

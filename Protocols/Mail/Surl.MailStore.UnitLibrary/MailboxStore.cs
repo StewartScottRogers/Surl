@@ -119,8 +119,12 @@ public sealed partial class MailboxStore
     /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
     /// is an owner and an account named by its normalised address. Ignored with
     /// <c>--allow-anonymous</c>.</param>
-    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
-    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="events">Where the store publishes the <see cref="StoreChangedEvent"/>s of
+    /// writes made after it is constructed (ADR-0124 decision 1) and the
+    /// <see cref="FaultAppliedEvent"/> of each out-of-space rule it applies, or
+    /// <see langword="null"/> to publish nothing. What the constructor itself creates is not
+    /// published, and neither is <see cref="RetireOwner"/> or an <see cref="AddOwner"/> that
+    /// reaches a retired owner again.</param>
     /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
     /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
     /// <exception cref="ArgumentNullException"><paramref name="accountNames"/> or
@@ -201,8 +205,13 @@ public sealed partial class MailboxStore
     /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
     /// is an owner and an account named by its normalised address. Ignored with
     /// <c>--allow-anonymous</c>.</param>
-    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
-    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="events">Where the store publishes the <see cref="StoreChangedEvent"/>s of
+    /// writes made after it is loaded (ADR-0124 decision 1) and the
+    /// <see cref="FaultAppliedEvent"/> of each out-of-space rule it applies, or
+    /// <see langword="null"/> to publish nothing. What loading itself changes - a missing
+    /// <c>INBOX</c> or configured folder created, a configured use given, each counted in
+    /// <see cref="ChangeCount"/> - is not published, and neither is <see cref="RetireOwner"/> or
+    /// an <see cref="AddOwner"/> that reaches a retired owner again.</param>
     /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
     /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
     /// <param name="deliveredToEnabled">The value of <see cref="DeliveredToEnabled"/>; false by default.</param>
@@ -425,8 +434,10 @@ public sealed partial class MailboxStore
     /// <param name="message">The pending message, its bytes all written.</param>
     /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
-    /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>,
+    /// <see cref="MailStoreOutcome.StoreFull"/>, or <see cref="MailStoreOutcome.QuotaExceeded"/>
+    /// when the copies would pass an owner's quota or an out-of-space rule of the fault plan
+    /// matches an owner's <c>INBOX</c>. A refusal stores nothing for any owner.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
     /// or disposed already.</exception>
@@ -749,8 +760,10 @@ public sealed partial class MailboxStore
     /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange, which still asks the fault plan.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/>,
-    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
-    /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>,
+    /// <see cref="MailStoreOutcome.StoreFull"/>, or <see cref="MailStoreOutcome.QuotaExceeded"/>
+    /// when the message would pass the quota of the mailbox's owner (a shared folder counts
+    /// against none) or an out-of-space rule of the fault plan matches the mailbox.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
@@ -1041,7 +1054,10 @@ public sealed partial class MailboxStore
     /// otherwise <see langword="null"/>.</param>
     /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published for each copy made (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <see cref="MailStoreOutcome.MailboxMissing"/>,
+    /// <see cref="MailStoreOutcome.QuotaExceeded"/> when the copies would pass the destination
+    /// owner's quota (a shared folder counts against none), or
+    /// <see cref="MailStoreOutcome.StoreFull"/>. The fault plan is not consulted.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public MailStoreOutcome Copy(
         MailView view,
@@ -1067,8 +1083,12 @@ public sealed partial class MailboxStore
     /// otherwise <see langword="null"/>.</param>
     /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the events published for each message moved, one for its copy in the destination and one for its removal from the source (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>
-    /// (the destination has no UIDs left to give).</returns>
+    /// <see cref="MailStoreOutcome.MailboxMissing"/>,
+    /// <see cref="MailStoreOutcome.QuotaExceeded"/> when the moved messages would pass the
+    /// destination owner's quota (a shared folder counts against none; a move within one owner
+    /// adds nothing to it and is not refused for quota), or
+    /// <see cref="MailStoreOutcome.StoreFull"/> (the destination has no UIDs left to give). The
+    /// fault plan is not consulted.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public MailStoreOutcome Move(
         MailView view,
@@ -1146,9 +1166,15 @@ public sealed partial class MailboxStore
     /// <param name="use">The RFC 6154 use the mailbox gets (<see cref="MailFolderUse"/>, with or without the backslash), or <see langword="null"/> for none; <see cref="MailStoreOutcome.FolderUseUnknown"/> or <see cref="MailStoreOutcome.FolderUseTaken"/> refuse it.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
-    /// <see cref="MailStoreOutcome.InvalidName"/>, <see cref="MailStoreOutcome.AlreadyExists"/> or
-    /// <see cref="MailStoreOutcome.TooManyMailboxes"/>, or <see cref="MailStoreOutcome.StoreFull"/>
-    /// when no <c>UIDVALIDITY</c> is left to give.</returns>
+    /// <see cref="MailStoreOutcome.InvalidName"/>,
+    /// <see cref="MailStoreOutcome.SharedFolderProtected"/> (shared folders are configured and the
+    /// name is <c>Shared</c> or under <c>Shared/</c>, whether or not the view is a member of
+    /// any), <see cref="MailStoreOutcome.AlreadyExists"/>,
+    /// <see cref="MailStoreOutcome.TooManyMailboxes"/>, <see cref="MailStoreOutcome.StoreFull"/>
+    /// when no <c>UIDVALIDITY</c> is left to give,
+    /// <see cref="MailStoreOutcome.FolderUseUnknown"/> (<paramref name="use"/> is none of
+    /// <see cref="MailFolderUse.All"/>) or <see cref="MailStoreOutcome.FolderUseTaken"/> (another
+    /// mailbox of the owner holds <paramref name="use"/>).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
     public MailStoreOutcome CreateMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null, string? use = null)
@@ -1185,8 +1211,12 @@ public sealed partial class MailboxStore
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published when the mailbox is deleted (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MailboxMissing"/> or
-    /// <see cref="MailStoreOutcome.InboxCannotBeDeleted"/>.</returns>
+    /// <see cref="MailStoreOutcome.MailboxMissing"/>,
+    /// <see cref="MailStoreOutcome.InboxCannotBeDeleted"/>, or
+    /// <see cref="MailStoreOutcome.SharedFolderProtected"/> when the name is a shared folder the
+    /// view is a member of, or <c>Shared</c> for a view that is a member of any (while shared
+    /// folders are configured, a non-member gets <see cref="MailStoreOutcome.MailboxMissing"/>
+    /// for those names).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
     public MailStoreOutcome DeleteMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null)
@@ -1226,9 +1256,14 @@ public sealed partial class MailboxStore
     /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the events a successful rename publishes, one for the new name and, unless <c>INBOX</c> is renamed, one for the old name's removal (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/>, <see cref="MailStoreOutcome.InvalidName"/>,
-    /// <see cref="MailStoreOutcome.AlreadyExists"/> or
-    /// <see cref="MailStoreOutcome.TooManyMailboxes"/> (renaming <c>INBOX</c> adds a mailbox), or
-    /// <see cref="MailStoreOutcome.StoreFull"/> when no <c>UIDVALIDITY</c> is left to give.</returns>
+    /// <see cref="MailStoreOutcome.AlreadyExists"/>,
+    /// <see cref="MailStoreOutcome.TooManyMailboxes"/> (renaming <c>INBOX</c> adds a mailbox),
+    /// <see cref="MailStoreOutcome.StoreFull"/> when no <c>UIDVALIDITY</c> is left to give, or
+    /// <see cref="MailStoreOutcome.SharedFolderProtected"/> when
+    /// <paramref name="mailboxName"/> is a shared folder the view is a member of, or <c>Shared</c>
+    /// for a view that is a member of any, or when an existing mailbox of the owner's would be
+    /// renamed to <c>Shared</c> or a name under <c>Shared/</c> while shared folders are
+    /// configured.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public MailStoreOutcome RenameMailbox(MailView view, string mailboxName, string newMailboxName, ExchangeContext? exchange = null)
     {

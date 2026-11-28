@@ -84,14 +84,28 @@ overload taking a whole message as bytes routes it through a pending message.
 
 Events and faults (BL-788, ADR-0124 decisions 1 and 4, ADR-0127): the constructor and `LoadAsync`
 take an optional `ISurlEventPublisher` and `IFaultPlan` (null: publish nothing, fault nothing).
-Every change publishes one `StoreChangedEvent` (`StoreKind.Mail`) under the store's lock, named by
-`MailStoreChangeName` - `<owner>/<mailbox>` or `<owner>/<mailbox>/;UID=<uid>` - with the message's
-length and never its bytes; a refused or no-op operation publishes nothing, and start-up is not a
-change. `Deliver` and `Append` ask the plan at `FaultStage.StoreWrite` (account the owner, path the
-mailbox) before taking the lock; an `OutOfSpace` rule refuses the whole write with `QuotaExceeded` and
-the store publishes the `FaultAppliedEvent`. The synchronous writes serve a plan answer that is still pending or failed
-as no rule; `DeliverAsync` and `AppendAsync` (BL-868, ADR-0127 amendment 1; `AppendAsync` returns a
-`MailAppendResult`) await the plan, so an override answering later can refuse the write. SMTP and IMAP use them.
+Writes publish `StoreChangedEvent`s (`StoreKind.Mail`) under the store's lock, named by
+`MailStoreChangeName` - `<owner>/<mailbox>` or `<owner>/<mailbox>/;UID=<uid>`; a message's event
+carries its length and never its bytes, a mailbox's event no byte count. One operation is not always
+one event. `Append`, and a `ChangeFlags` that alters the flags, publish one. A delivery and `Seed`
+publish one per owner copy (each owner of each recipient entry or `MailOwnerCopy`). `Expunge` and
+`MaildropLock.RemoveMessages` publish one per message removed. `Copy` publishes one per message
+copied; `Move` two per message moved (its copy `Written`, its original `Deleted`). `CreateMailbox`
+publishes one, and so does `DeleteMailbox`, with none for the messages the mailbox held.
+`RenameMailbox` publishes two (old name `Deleted`, new name `Written`), or one for `INBOX` (new name
+`Written`), and none per message. `Reset` and `Restore` publish one each, named by the empty string.
+`AddOwner` publishes one for a new owner (`Created`, naming its `INBOX`) and none when it reaches a
+retired owner again; `RetireOwner` publishes none. A refused operation, or one with nothing to do (no
+recipient, no matching UID, flags already as asked), publishes no `StoreChangedEvent`. Nothing the
+constructor or `LoadAsync` does at start-up is published, although `LoadAsync` counts an `INBOX` or
+configured folder it creates, and a configured use it gives, in `ChangeCount`, and the next save
+writes it (the constructor leaves `ChangeCount` at 0).
+Deliveries and appends (`Seed` excepted) ask the plan at `FaultStage.StoreWrite` (account the owner,
+path the mailbox) outside the store's lock; `Copy` and `Move` never ask it. An `OutOfSpace` rule
+refuses the whole write with `QuotaExceeded` and the store publishes the `FaultAppliedEvent`. The
+synchronous writes serve a plan answer that is still pending or failed as no rule; `DeliverAsync` and
+`AppendAsync` (BL-868, ADR-0127 amendment 1; `AppendAsync` returns a `MailAppendResult`) await the
+plan, so an override answering later can refuse the write. SMTP and IMAP use them.
 
 Seed, reset, snapshot and restore (BL-799, ADR-0124 decision 3, ADR-0131), in
 `MailboxStore.Control.cs`: `Seed` resolves a recipient as `LookUpRecipient` does and delivers only a
