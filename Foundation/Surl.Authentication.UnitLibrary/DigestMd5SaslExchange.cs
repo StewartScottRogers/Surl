@@ -26,6 +26,13 @@ namespace Surl.Authentication;
 /// <see cref="NtlmSaslExchange.SecurityLayerNeedsPasswordNote"/>, since the layer's keys come from
 /// the account's password.
 /// </para>
+/// <para>
+/// Where the server's success can carry data but it carries no security layer
+/// (<see cref="SaslExchangeContext.CanCarryAdditionalSuccessData"/> alone) the challenge, the
+/// checks and <c>--allow-anonymous</c> are the first paragraph's, but the <c>rspauth=&lt;hex&gt;</c>
+/// that answers the challenge's response is the success's
+/// <see cref="SaslLoginStep.AdditionalSuccessData"/>, with no continuation and no layer.
+/// </para>
 /// </summary>
 internal sealed class DigestMd5SaslExchange(SaslExchangeContext context) : SaslMechanismExchange(context)
 {
@@ -80,12 +87,18 @@ internal sealed class DigestMd5SaslExchange(SaslExchangeContext context) : SaslM
         Context.CanCarrySecurityLayer & issuedNonce is null & message.IsEmpty;
 
     // Under --allow-anonymous an initial response ends the login at once; a response to the
-    // challenge gets the rspauth continuation curl waits for.
+    // challenge gets the rspauth the client waits for, with the success where it can carry data
+    // and otherwise as the continuation curl waits for.
     private SaslLoginStep AcceptUnchecked()
     {
         if (issuedNonce is null)
         {
             return AcceptedUnchecked;
+        }
+
+        if (Context.SuccessCarriesData)
+        {
+            return AcceptedUnchecked with { AdditionalSuccessData = UncheckedResponseAuth };
         }
 
         acceptance = AcceptedUnchecked;
@@ -120,8 +133,9 @@ internal sealed class DigestMd5SaslExchange(SaslExchangeContext context) : SaslM
         var accepted = Accept(account.AccountName!, user);
         var responseAuth = Encoding.ASCII.GetBytes(
             "rspauth=" + Convert.ToHexStringLower(DigestMd5Calculation.ComputeResponseAuth(response, account.Password)));
-        if (Context.CanCarrySecurityLayer)
+        if (Context.SuccessCarriesData)
         {
+            // Without a security layer Answers let only qop=auth through, for which ForAcceptor gives no layer.
             var sessionKey = DigestMd5Calculation.ComputeSessionKey(response, account.Password);
             return ValueTask.FromResult(accepted with
             {

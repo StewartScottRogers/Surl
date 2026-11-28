@@ -481,11 +481,23 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `extensions-not-supported`. A refusal's `RefusalNote` is the `server-final-message` that
   refuses it (`e=invalid-proof` for a wrong proof and an unknown user alike); success is
   `v=<ServerSignature>` as a challenge on the mail servers, or `AdditionalSuccessData` where the
-  server carries one (`CanCarrySecurityLayer`).
+  server's success carries data (`SaslExchangeContext.SuccessCarriesData`, below).
 - `SaslPrep` is RFC 4013's mapping (C.1.2 spaces to U+0020, B.1 removed) and NFKC; the
   prohibited-output and bidirectional checks are not made, since they only refuse.
 - `ScramSaslMechanismTests` replays RFC 5802 section 5's and RFC 7677 section 3's examples byte
   for byte.
+
+## Success data without a security layer (BL-2015, ADR-0125's amendment)
+
+- `SaslExchangeStart.CanCarryAdditionalSuccessData` says the server's success carries data and
+  asks for no security layer; `CanCarrySecurityLayer` implies it
+  (`SaslExchangeContext.SuccessCarriesData`).
+- `SCRAM` and `DIGEST-MD5` put their last message in `AdditionalSuccessData` under either. With
+  the new flag alone `DIGEST-MD5` is otherwise the mail exchange (`qop="auth"`, no empty initial
+  response, unchecked under `--allow-anonymous`, its fixed `rspauth` with the success when the
+  challenge was issued), and has no layer.
+- `NTLM` and `GSS-SPNEGO` do not read it: layers, SPNEGO and the always-checked login stay with
+  `CanCarrySecurityLayer`. The tests are `SaslSuccessDataWithoutSecurityLayerTests`.
 
 ## SASL `SCRAM-SHA-512` (BL-700)
 

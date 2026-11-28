@@ -95,7 +95,9 @@ What it holds:
   started from a `SaslExchangeStart`), each step a `SaslLoginStep` with its
   `SaslLoginOutcome`, and an accepted step's `ISaslSecurityLayer` when the server said it
   `CanCarrySecurityLayer` and the mechanism negotiated one, with any data its success carries
-  (`AdditionalSuccessData`, such as LDAP `DIGEST-MD5`'s `rspauth`). `IMailAuthenticationPolicy`
+  (`AdditionalSuccessData`, such as LDAP `DIGEST-MD5`'s `rspauth`), which a server asks for with
+  `CanCarrySecurityLayer` or, to be offered no security layer, with
+  `CanCarryAdditionalSuccessData` (BL-2015; ADR-0125's amendment). `IMailAuthenticationPolicy`
   extends it with the mail-only members: the `MailLoginOffer` a mail server advertises and
   POP3's `ApopLogin`. The server owns the framing (base64, and the security layer's 4-byte
   lengths); the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements it

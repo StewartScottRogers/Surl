@@ -143,3 +143,31 @@ Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
 
 [ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) narrows decision 9 and Amendment 1: SCRAM stays out of `AuthenticationMethods.DefaultAccepted` and the original servers (mail, and any server upstream curl speaks) offer it only when `--auth` names it, but `kafka`, `kafkas`, `xmpp` and `xmpps`, which upstream curl does not speak, offer their SCRAM mechanisms when `--auth` is not given, by a per-scheme default in the composition.
+
+## Amendment, 2026-11-27 (BL-2015) — success data asked for without a security layer
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"). Amends decision 6.
+
+`SaslExchangeStart.CanCarrySecurityLayer` also asked for success data, so a server that wanted only
+the data (XMPP's `<success>`) had `DIGEST-MD5` offer `auth-int` and `auth-conf` and `NTLM` grant
+signing and sealing, layers it cannot run (found in BL-1994).
+
+- `SaslExchangeStart` gains `CanCarryAdditionalSuccessData`, `false` by default: the server can
+  send data with an accepted login's success. `CanCarrySecurityLayer` implies it, so LDAP is
+  unchanged.
+- `SCRAM` sends `v=<ServerSignature>` as `AdditionalSuccessData` when either flag is set. This
+  replaces decision 6's naming of `CanCarrySecurityLayer`; its mention of Kafka was never what the
+  code did: Kafka, MQTT 5 and AMQP 1.0 set neither flag and answer the server-final challenge
+  themselves, and still do.
+- `DIGEST-MD5` reads the flag the same way. With it alone the challenge, the checks and
+  `--allow-anonymous` are the mail exchange's (`qop="auth"` alone, an empty initial response not
+  taken as none), and the `rspauth` that answers the challenge's response comes with the success,
+  with no security layer. *Why:* whether success carries data is the protocol's to say (RFC 4422
+  section 3.6), so a server that says it does should get it from every mechanism that has some,
+  and XMPP keeps sending `rspauth` in `<success>` once BL-2016 moves it to this flag.
+- `NTLM` does not read the flag: with it alone it grants neither signing nor sealing, accepts
+  unchecked under `--allow-anonymous` and never unwraps SPNEGO. SPNEGO and `GSS-SPNEGO` stay with
+  `CanCarrySecurityLayer`, which only LDAP sets once BL-2016 is done.
+
+Rejected: having XMPP drop the flag altogether, which loses SCRAM's success data in `<success>`
+(RFC 6120 section 6.4.6).

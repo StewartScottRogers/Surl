@@ -38,7 +38,12 @@ public sealed class ScramSaslMechanismTests
         PolicyFixture.CreateWithFixedNonces(accounts ?? RfcAccounts, clock, allowAnonymous, EveryMethod);
 
     private ScramSaslExchange Exchange(
-        ScramHash hash, string? initialResponse, string serverNonce, bool allowAnonymous = false, bool canCarrySecurityLayer = false) =>
+        ScramHash hash,
+        string? initialResponse,
+        string serverNonce,
+        bool allowAnonymous = false,
+        bool canCarrySecurityLayer = false,
+        bool canCarryAdditionalSuccessData = false) =>
         new(
             new SaslExchangeContext(
                 Policy(allowAnonymous: allowAnonymous),
@@ -46,7 +51,8 @@ public sealed class ScramSaslMechanismTests
                 hash.MechanismName,
                 initialResponse is null ? null : Ascii(initialResponse),
                 null,
-                canCarrySecurityLayer),
+                canCarrySecurityLayer,
+                CanCarryAdditionalSuccessData: canCarryAdditionalSuccessData),
             hash,
             () => serverNonce);
 
@@ -252,9 +258,17 @@ public sealed class ScramSaslMechanismTests
     }
 
     [TestMethod]
-    public async Task Exchange_WhereSuccessCarriesData_AcceptsWithTheServerFinalMessageAsAdditionalSuccessData()
+    [DataRow(true, false, DisplayName = "a server that can carry a security layer")]
+    [DataRow(false, true, DisplayName = "a server whose success can carry data")]
+    public async Task Exchange_WhereSuccessCarriesData_AcceptsWithTheServerFinalMessageAsAdditionalSuccessData(
+        bool canCarrySecurityLayer, bool canCarryAdditionalSuccessData)
     {
-        var exchange = Exchange(ScramHash.Sha256, Sha256ClientFirst, Sha256ServerNonce, canCarrySecurityLayer: true);
+        var exchange = Exchange(
+            ScramHash.Sha256,
+            Sha256ClientFirst,
+            Sha256ServerNonce,
+            canCarrySecurityLayer: canCarrySecurityLayer,
+            canCarryAdditionalSuccessData: canCarryAdditionalSuccessData);
         await exchange.BeginAsync(CancellationToken.None);
 
         var accepted = await Undelayed(exchange.ContinueAsync(Ascii(Sha256ClientFinal), CancellationToken.None));

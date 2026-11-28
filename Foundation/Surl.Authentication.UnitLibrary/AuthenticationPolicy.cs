@@ -495,7 +495,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
             ? mechanism.Start(new SaslExchangeContext(
-                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer, start.Exchange))
+                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer, start.Exchange, start.CanCarryAdditionalSuccessData))
             : new RefusedSaslExchange(SaslLoginOutcome.RefusedPlaintext);
     }
 

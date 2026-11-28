@@ -15,7 +15,7 @@ namespace Surl.Authentication;
 /// match is answered with <c>v=&lt;ServerSignature&gt;</c>: as a challenge the client answers
 /// empty, then accepted, on a server that sends no data with success (the mail servers), or as
 /// <see cref="SaslLoginStep.AdditionalSuccessData"/> where it does
-/// (<see cref="SaslExchangeContext.CanCarrySecurityLayer"/>). A refusal, after the refusal delay,
+/// (<see cref="SaslExchangeContext.SuccessCarriesData"/>). A refusal, after the refusal delay,
 /// carries the <c>server-final-message</c> that refuses it, <c>e=&lt;server-error&gt;</c>, as its
 /// <see cref="SaslLoginStep.RefusalNote"/>: <c>invalid-encoding</c> for a malformed message,
 /// <c>channel-binding-not-supported</c> for <c>p=</c>, <c>extensions-not-supported</c> for
@@ -162,7 +162,7 @@ internal sealed class ScramSaslExchange : SaslMechanismExchange
 
     private SaslLoginStep Succeed(SaslLoginStep accepted, byte[] serverFinal)
     {
-        if (Context.CanCarrySecurityLayer)
+        if (Context.SuccessCarriesData)
         {
             return accepted with { AdditionalSuccessData = serverFinal };
         }

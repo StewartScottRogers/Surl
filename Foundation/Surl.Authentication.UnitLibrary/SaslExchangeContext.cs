@@ -21,6 +21,10 @@ namespace Surl.Authentication;
 /// and is never accepted unchecked (ADR-0072, decision 4).
 /// </param>
 /// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
+/// <param name="CanCarryAdditionalSuccessData">
+/// Whether the server set <see cref="SaslExchangeStart.CanCarryAdditionalSuccessData"/>, which by
+/// itself asks for no security layer.
+/// </param>
 internal sealed record SaslExchangeContext(
     AuthenticationPolicy Policy,
     string Scheme,
@@ -28,8 +32,16 @@ internal sealed record SaslExchangeContext(
     ReadOnlyMemory<byte>? InitialResponse,
     X509Certificate2? ClientCertificate,
     bool CanCarrySecurityLayer = false,
-    LoginExchange? Exchange = null)
+    LoginExchange? Exchange = null,
+    bool CanCarryAdditionalSuccessData = false)
 {
+    /// <summary>
+    /// Whether an accepted step may carry the mechanism's last message as
+    /// <see cref="SaslLoginStep.AdditionalSuccessData"/>: the server said so, or it carries a
+    /// security layer, which implies it.
+    /// </summary>
+    public bool SuccessCarriesData => CanCarrySecurityLayer || CanCarryAdditionalSuccessData;
+
     /// <summary>
     /// The configured accounts.
     /// </summary>
