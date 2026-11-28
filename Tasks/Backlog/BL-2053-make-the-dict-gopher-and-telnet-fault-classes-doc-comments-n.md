@@ -1,5 +1,5 @@
 ---
-id: BL-2050
+id: BL-2053
 title: Make the DICT, Gopher and TELNET fault classes' doc comments name the whole fault point and the applied delay and drop
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2050 — Make the DICT, Gopher and TELNET fault classes' doc comments name the whole fault point and the applied delay and drop
+# BL-2053 — Make the DICT, Gopher and TELNET fault classes' doc comments name the whole fault point and the applied delay and drop
 
 ## Goal
 

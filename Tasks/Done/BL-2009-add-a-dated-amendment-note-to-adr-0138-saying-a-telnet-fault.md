@@ -56,7 +56,7 @@ place.
 - The amendment cites BL-2009, not the BL-1999 the Context names: this task was filed as BL-1999 and renumbered
   (commit `760380d53`); BL-1999 in `Done` is an unrelated glossary task.
 - No TELNET test uses a `listener`-scoped rule; that one matches is read from `FaultPlan.MatchesListener`.
-- Filed BL-2050 for the stale doc comments in the three `*Faults` classes (outside this task's `touches`).
+- Filed BL-2053 for the stale doc comments in the three `*Faults` classes (outside this task's `touches`).
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: 83 assemblies, 30575 passed, none failed.
 
 ## Log
