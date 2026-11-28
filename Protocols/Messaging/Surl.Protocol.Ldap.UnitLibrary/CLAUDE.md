@@ -6,7 +6,10 @@ Phase 5, built. How the server answers is decided in ADR-0072 (as ADR-0076 amend
 terms are in `Documentation/Wiki/Glossary.md`, section "LDAP, SMB and RTSP".
 
 The LDAP server (RFC 4511): answers the search upstream curl encodes in an `ldap://` URL
-- base DN, attributes, scope and filter - from a read-only directory it serves.
+- base DN, attributes, scope and filter - from a directory it serves, which LDAP clients
+cannot change; the host can, in memory only, through
+`LdapProtocolServer.SeedDirectoryEntries`, `ResetDirectory` and `RestoreDirectory`
+(ADR-0158).
 
 **URL schemes answered:** `ldap`, `ldaps`
 

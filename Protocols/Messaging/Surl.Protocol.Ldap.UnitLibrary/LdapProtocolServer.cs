@@ -5,7 +5,9 @@ namespace Surl.Protocol.Ldap;
 /// <summary>
 /// The LDAPv3 server (RFC 4511) upstream curl's <c>ldap://</c> and <c>ldaps://</c> transfers talk
 /// to: answers simple, SASL and Sicily binds, <c>StartTLS</c>, searches, compares, unbind and
-/// abandon from a read-only directory, as ADR-0072 decisions 2 to 7 say.
+/// abandon from a directory LDAP clients cannot change, as ADR-0072 decisions 2 to 7 say. The host
+/// can change it, in memory only, through <see cref="SeedDirectoryEntries"/>,
+/// <see cref="ResetDirectory"/> and <see cref="RestoreDirectory"/> (ADR-0158).
 /// </summary>
 /// <remarks>
 /// <para>
