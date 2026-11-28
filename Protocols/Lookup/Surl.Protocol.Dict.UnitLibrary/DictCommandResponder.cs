@@ -10,8 +10,11 @@ namespace Surl.Protocol.Dict;
 /// <remarks>
 /// Command names and <c>SHOW</c> and <c>OPTION</c> subjects are matched without regard to
 /// case; database and strategy names, and words, ordinally. The reply text is Surl's own
-/// fixed text, and a word the client sent comes back only inside a quoted string with
-/// <c>"</c> and <c>\</c> escaped (ADR-0006, section 3). It is not safe for concurrent calls.
+/// fixed text, apart from the counts, headwords and definitions drawn from what is served,
+/// and except a chosen-error reply, whose text is the fault rule's
+/// (<see cref="DictCommandFaults"/>). A word the client sent comes back only inside a quoted
+/// string with <c>"</c> and <c>\</c> escaped (ADR-0006, section 3). It is not safe for
+/// concurrent calls.
 /// </remarks>
 internal sealed class DictCommandResponder
 {
@@ -56,7 +59,10 @@ internal sealed class DictCommandResponder
     /// Creates a responder that answers on <paramref name="connection"/> from <paramref name="dictionary"/>.
     /// </summary>
     /// <param name="connection">The connection every reply is written to.</param>
-    /// <param name="context">The exchange, for its cancellation token.</param>
+    /// <param name="context">
+    /// The exchange: its cancellation token, its log, and the fault plan and events that
+    /// <see cref="DictCommandFaults"/> uses for each recognized command.
+    /// </param>
     /// <param name="dictionary">Where definitions and headwords come from.</param>
     public DictCommandResponder(IConnection connection, ExchangeContext context, DictContentDictionary dictionary)
     {

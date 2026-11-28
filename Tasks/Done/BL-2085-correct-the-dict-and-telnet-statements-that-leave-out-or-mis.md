@@ -8,7 +8,7 @@ depends-on: [BL-2069]
 touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/DictCommandResponder.cs, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/DictProtocolServer.cs, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/CLAUDE.md, Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary/CLAUDE.md, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2085 — Correct the DICT and TELNET statements that leave out or misstate what fault rules do
 
@@ -47,16 +47,25 @@ as one task. It adds no store, event or fault, so the stand-in questions do not 
 
 ## Acceptance criteria
 
-- [ ] `DictCommandResponder`'s class remarks say the reply text is Surl's own fixed text except a chosen-error reply, whose text is the fault rule's.
-- [ ] `DictCommandResponder`'s constructor `<param name="context">` names the cancellation token, the log, the fault plan and the events.
-- [ ] `DictProtocolServer`'s class and `ServeAsync` summaries include a `drop` fault rule among the ways a session ends, `ServeAsync`'s includes a definition that cannot be sent, and the class remarks say what a `delay`, a `drop` and a fitting `error` rule each do.
-- [ ] The TELNET library's `CLAUDE.md` says an `error` rule's text is sent in place of the line's answer, the echo or `bye`.
-- [ ] The "Chosen-error fault" headings in the DICT and Gopher libraries' `CLAUDE.md` are replaced by headings that cover `delay`, `drop` and `error` rules.
-- [ ] The diff to the two `.cs` files changes comment lines only, and `dotnet build` is clean and the fast tests pass.
+- [x] `DictCommandResponder`'s class remarks say the reply text is Surl's own fixed text except a chosen-error reply, whose text is the fault rule's.
+- [x] `DictCommandResponder`'s constructor `<param name="context">` names the cancellation token, the log, the fault plan and the events.
+- [x] `DictProtocolServer`'s class and `ServeAsync` summaries include a `drop` fault rule among the ways a session ends, `ServeAsync`'s includes a definition that cannot be sent, and the class remarks say what a `delay`, a `drop` and a fitting `error` rule each do.
+- [x] The TELNET library's `CLAUDE.md` says an `error` rule's text is sent in place of the line's answer, the echo or `bye`.
+- [x] The "Chosen-error fault" headings in the DICT and Gopher libraries' `CLAUDE.md` are replaced by headings that cover `delay`, `drop` and `error` rules.
+- [x] The diff to the two `.cs` files changes comment lines only, and `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- The headings are now "Command faults" (DICT) and "Selector faults" (Gopher), named after the point each server asks
+  the fault plan at; both also cite ADR-0141 and BL-914.
+- The class remarks also except the counts, headwords and definitions drawn from what is served, because "fixed text"
+  would otherwise still be false for `DEFINE` and `MATCH`.
+- Verified 2026-11-28: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
+  30769 passed, 3 skipped, 0 failed across 83 test assemblies.
+- Related statements outside this task's criteria are filed as BL-2087.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. DICT doc comments and the DICT, Gopher and TELNET library notes state what fault rules do
