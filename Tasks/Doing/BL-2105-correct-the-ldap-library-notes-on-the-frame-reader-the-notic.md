@@ -37,3 +37,4 @@ Found while working BL-2100 (2026-11-28). All statements are in `Protocols/Messa
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
