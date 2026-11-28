@@ -169,7 +169,8 @@ internal sealed class DictCommandResponder
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            context.Log.Note($"{file.Mapping.Location} could not be read while it was sent ({exception.Message}); the connection was aborted.");
+            var failedAction = text.HasFailedWrite ? "written to the connection" : "read";
+            context.Log.Note($"{file.Mapping.Location} could not be {failedAction} while it was sent ({exception.Message}); the connection was aborted.");
             connection.Abort();
 
             return false;
