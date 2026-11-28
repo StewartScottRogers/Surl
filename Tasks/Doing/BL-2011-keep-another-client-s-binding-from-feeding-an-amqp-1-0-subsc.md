@@ -41,3 +41,4 @@ clients try to bind to it or unbind from it.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
