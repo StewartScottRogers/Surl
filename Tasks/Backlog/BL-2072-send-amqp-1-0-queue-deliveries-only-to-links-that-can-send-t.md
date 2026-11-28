@@ -1,16 +1,16 @@
 ---
-id: BL-2066
+id: BL-2072
 title: Send AMQP 1.0 queue deliveries only to links that can send them
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2065, BL-2043]
+depends-on: [BL-2071, BL-2043]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md, Documentation/Planning/Decisions/ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md]
 requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2066 — Send AMQP 1.0 queue deliveries only to links that can send them
+# BL-2072 — Send AMQP 1.0 queue deliveries only to links that can send them
 
 ## Goal
 
@@ -19,7 +19,7 @@ holds one another consumer could take.
 
 ## Context
 
-- ADR-0146 Amendment 7 (BL-2048) decides this; items 1 and 3 to 6 are the container part. BL-2065 adds
+- ADR-0146 Amendment 7 (BL-2048) decides this; items 1 and 3 to 6 are the container part. BL-2071 adds
   `BusQueueConsumer.SetDeliveryCredit` and `TryClaimDelivery`.
 - Start at `Amqp1ContainerConnection.Links.cs` (`Consume`, `OfferQueueDelivery`),
   `Amqp1ContainerConnection.Subscriptions.cs` (`BindAndConsume`, `OfferSubscriptionQueueDelivery`, whose filter

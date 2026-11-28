@@ -628,7 +628,7 @@ showed it, each case on one connection with two links on one queue:
 
 Part 2 section 2.6.7 (link flow control) limits what a sender may send on one link by that link's
 credit, and has `drain` use the credit up or give it back. Which of several links a queue's message goes
-to is the node's choice, and this is Surl's. BL-2065 builds the bus part and BL-2066 the container part;
+to is the node's choice, and this is Surl's. BL-2071 builds the bus part and BL-2072 the container part;
 until both are done the code behaves as the test showed.
 
 1. **The rule.** A message of a queue or subscription queue never waits on a link that cannot send it.
@@ -639,7 +639,7 @@ until both are done the code behaves as the test showed.
    that consumes a bus queue: `/queue/` and dynamic nodes, and kept subscriptions, shared or not, and
    non-durable shared ones, even while a queue has one consumer. A live topic link is unchanged: it has
    its own copy, nothing competes for it, and up to 1000 wait on it (ADR-0107 decision 5).
-2. **What `Surl.MessageBus` adds (BL-2065): a consumer's delivery credit.**
+2. **What `Surl.MessageBus` adds (BL-2071): a consumer's delivery credit.**
    - `BusQueueConsumer.SetDeliveryCredit(uint)` sets the most deliveries the bus holds for the consumer
      that it has not yet claimed. A consumer never given a credit behaves exactly as before.
    - The bus assigns a message to such a consumer only while it has room as before **and** holds fewer
@@ -655,7 +655,7 @@ until both are done the code behaves as the test showed.
      and one persisted or snapshotted is saved with that mark.
    - `PublishToQueue(..., onlyWhenConsumed: true)` and `PublishToConsumedQueues` count a consumer only
      when it could be assigned the message, so one with no credit left is not ready.
-3. **What the container does (BL-2066).**
+3. **What the container does (BL-2072).**
    - Each queue and subscription-queue consumer is given credit 0 before it starts. Whenever the link's
      credit, its session's window or its count of unsettled deliveries changes, its consumer is given
      the link's credit, or 0 while the window is 0 or the link holds 1000 unsettled. (The bus's
@@ -689,7 +689,7 @@ until both are done the code behaves as the test showed.
    take it), decision 3.2 (when a refused message is acknowledged), Amendment 4 item 2 (what has not been
    sent waits in the queue, not on a link, and is not marked redelivered when a link ends) and ADR-0107
    decision 5's "From a queue" bullet with its BL-1990 note (no delivery waits for credit on a queue
-   link). ADR-0107 points here once BL-2066 edits it.
+   link). ADR-0107 points here once BL-2072 edits it.
 7. **Stand-in.** A test with two consumers of one queue gets every message on the one that is receiving,
    as it would from a broker. What nobody can take stays visible on the shared bus, where a test can
    browse it or another protocol take it; `Delivered` on the event stream means claimed for sending.

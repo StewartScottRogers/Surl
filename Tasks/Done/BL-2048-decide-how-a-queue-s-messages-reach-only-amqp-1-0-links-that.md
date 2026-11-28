@@ -42,7 +42,7 @@ consuming the same queue has some, and if not, how the container and the bus pre
 
 2026-11-28. Decision: ADR-0146 Amendment 7. A queue's message goes only to a link that can send it (credit,
 session window open, under 1000 unsettled); what nobody can take stays ready. The bus gains a consumer delivery
-credit with a claim at send time. Built by BL-2065 (bus), then BL-2066 (container, also after BL-2043).
+credit with a claim at send time. Built by BL-2071 (bus), then BL-2072 (container, also after BL-2043).
 
 Proof before deciding: a temporary MSTest file in `Surl.Extended.Protocol.Amqp1.UnitTests`
 (`Amqp1ContainerConnectionTests.TemporaryCreditProbe.cs`, reusing its fakes), run with
@@ -66,4 +66,4 @@ repository's citations of it; the specification text was not re-read in this run
 
 - 2026-11-27: Created.
 - 2026-11-28: Backlog -> Doing.
-- 2026-11-28: Doing -> Done. ADR-0146 Amendment 7 decides that a queue's messages go only to AMQP 1.0 links that can send them; BL-2065 and BL-2066 build it
+- 2026-11-28: Doing -> Done. ADR-0146 Amendment 7 decides that a queue's messages go only to AMQP 1.0 links that can send them; BL-2071 and BL-2072 build it

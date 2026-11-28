@@ -1,5 +1,5 @@
 ---
-id: BL-2065
+id: BL-2071
 title: Let a bus queue consumer take messages only as its delivery credit allows
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2065 — Let a bus queue consumer take messages only as its delivery credit allows
+# BL-2071 — Let a bus queue consumer take messages only as its delivery credit allows
 
 ## Goal
 
@@ -20,7 +20,7 @@ stays ready or goes to another consumer.
 ## Context
 
 - ADR-0146 Amendment 7 (BL-2048) decides this; item 2 is the bus part and items 5 and 7 say what callers see.
-  BL-2066 then uses it in the AMQP 1.0 container.
+  BL-2072 then uses it in the AMQP 1.0 container.
 - Operations: `BusQueueConsumer.SetDeliveryCredit(uint)` and `BusQueueConsumer.TryClaimDelivery` (answers `bool`
   and the delivery). A consumer never given a credit behaves exactly as before.
 - Start at `BusQueueConsumer.cs` (`HasRoom`, `Take`, which sets `QueuedMessage.HandedOut`), `NamedQueue.cs`
