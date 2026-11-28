@@ -17,6 +17,8 @@
   is superseded by the one the code has; see Amendment 2, decided by Claude under Stewart's delegation.
 - **Amended (2026-11-27, BL-2003):** decision 4: a token issued to a user only the `--user-ldap` directory knows is
   honoured for a bounded time; see Amendment 3, decided by Claude under Stewart's delegation.
+- **Amended (2026-11-28, BL-2059):** Amendment 3, point 3: no public surface resets the sessions store alone; what
+  ends a directory user's tokens is listed in Amendment 4, decided by Claude under Stewart's delegation.
 
 ## Context
 
@@ -226,6 +228,8 @@ of the whole instance), which revokes every OCI token and all MCP OAuth state (d
 works with `--directory`). A `refuse-login` rule stops later logins, and so the hour starting again, but ends no
 token. `remove_account` of a directory user's name removes nothing, and an accounts reset or restore leaves the
 directory user's tokens as they were (ADR-0149 decision 6).
+*The paragraph above is superseded by Amendment 4: no public surface resets the sessions store alone, so with
+`--directory` no public reset ends a token, and adding then removing an account of the user's name does.*
 
 ### 4. What stays refused
 
@@ -292,3 +296,78 @@ with the tokens.
   account's name safely. Rejected: the mark must pass through both servers' code and token records, and the "never
   held" rule keeps every refusal without it.
 - **A `--user-ldap` key for the hour.** Rejected: ADR-0149 decision 10 makes its bounds constants, bar `timeout`.
+
+## Amendment 4 (2026-11-28, BL-2059): what ends a directory user's tokens
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), 2026-11-28, in BL-2059. It
+corrects Amendment 3, point 3, from the code (read, not run); no code, option or help text changes. No upstream curl
+measurement applies: upstream curl has neither `oci` nor `mcp`.
+
+### 1. The correction
+
+Amendment 3, point 3, said a test resets the sessions store (`StoreKind.Sessions`) and that this works with
+`--directory`. No supported surface does that. `ComposedStores.ResetAsync(StoreKind, ...)` resets one store alone,
+and does not refuse the sessions when the content store is on disk, but no host calls it, and `ComposedStores` is not
+a supported programming interface (ADR-0099 decision 1). `SurlServer.ResetAsync`, the `surl-mcp` `reset_server`
+tool and the control endpoint's `POST /v1/reset` reset the whole instance. This replaces point 3's second paragraph;
+of it, these remain true: a `refuse-login` rule ends no token, `remove_account` of a name the accounts do not hold
+removes nothing, and an accounts reset or restore ends no directory user's token by itself.
+
+### 2. The surfaces
+
+"Disk" means `--directory` or a `--share` (in `Surl.Api`, `SurlServerOptions.DataDirectory` or a share): the content
+store is then on disk. A running `surl` is reached only through its `--control` endpoint, or by stopping it.
+
+| Way | Public surfaces | What stops being honoured | Without disk | With disk |
+| --- | --- | --- | --- | --- |
+| Whole-instance reset | `SurlServer.ResetAsync`; `reset_server`; `POST /v1/reset` | every OCI token and all MCP OAuth state and HTTP sessions, every user's, deleted | works | refused at the content store, which is first, so nothing is reset (`InvalidOperationException`; an `isError` result; `409`) |
+| Whole-instance restore | `SurlServer.RestoreAsync`; `restore_server`; `POST /v1/snapshots/{id}/restore` | the same | works | no snapshot can be taken, so there is none to restore |
+| Add, then remove, an account of the user's name | `SurlServer.Accounts.Add` then `Remove`; `add_account` then `remove_account`; `POST /v1/accounts` then `DELETE /v1/accounts/{user}` | that name's OCI and MCP tokens on every server of the instance, from the next use after the removal (point 3) | works | works |
+| Stop the instance | `SurlServer.StopAsync` or `DisposeAsync`; `stop_server`, or `surl-mcp` ending; ending the `surl` process (the control endpoint has no stop request) | everything: tokens are in memory only | works | works |
+| Wait out the bounds of Amendment 3, point 2 | none needed | OCI after 300 s; MCP an hour after the name's last accepted directory login | works | works |
+| Move the clock past those bounds | `SurlServerOptions.TimeProvider` only | as waiting; an unexpired refresh token (24 h) is honoured again after a new directory login | works | works |
+| Present an MCP refresh token at `/token` | the MCP server itself | that one refresh token, used up once the `refresh_token` grant looks it up, accepted or not (an accepted use issues a new one) | works | works |
+
+Beside these, only the cap of Amendment 3, point 6, stops an issued token being honoured: when 10000 other
+directory names fill one server's record, the name whose last login is oldest has its tokens there refused until it
+logs in again. Nothing else does. Disabling or deleting the user in the directory, changing the password there, an
+unreachable directory and any `refuse-login` rule end no token, and `remove_account` of a name never added removes
+nothing. Neither server has a token revocation request, the MCP `DELETE` ends an HTTP session and no token, and no
+option sets a token's lifetime.
+
+### 3. Adding and removing the name
+
+This is Amendment 3's "never held" rule (point 4), pinned by
+`HonoursTokenIssuedTo_ADirectoryUsersNameAddedForThisSchemeThenRemoved_FollowsTheAccountThenIsFalse`. It is the one
+public way to end one user's tokens at once while the instance runs, with disk or without. The tokens are refused,
+not deleted. The account added is allowed on every scheme, with any password. What else it does:
+
+- Between the add and the removal the account book alone judges the name, so earlier tokens are still honoured and
+  the directory password is refused unless the account's is the same.
+- After the removal the directory accepts the user's logins again, but every token they issue is refused until the
+  instance stops. A reset or restore does not forget a held name.
+- Adding the name again makes its tokens that are unexpired and not used up honoured again.
+- Every scheme then needs a login to read, as after any such account, until a reset or restore returns accounts that
+  never had one (ADR-0132 amendment 5); with disk, until the instance stops. `--allow-anonymous` still serves reads.
+- Where the name had no mail-store owner, and without `--allow-anonymous`, the add makes one with an empty `INBOX`
+  and the removal retires it ([ADR-0185](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md)).
+- `SurlServer.Accounts.Add` and `add_account` refuse a name holding `:`.
+
+### 4. No sessions-only reset is decided here
+
+The sentence is corrected and nothing is added. A test can already end a directory user's tokens on all three hosts,
+with disk too, and a new instance, cheap to start in a test, gives the name back clean. A reset of the sessions
+alone would also be coarser than one user: it takes every user's tokens, the MCP client registrations and the MQTT 5
+sessions. Nothing here widens what a peer or test may do, and no default changes.
+
+Whether the hosts reset, snapshot and restore one store at a time, sessions among them, is a question about every
+store (FR-061) and is left to BL-2076, so that it is designed once. It has to weigh that with disk no public reset
+reaches any store, those held in memory included.
+
+### Alternatives considered
+
+- **Add a sessions-only reset to the three hosts now.** Not taken: it would settle one store's shape ahead of the
+  question about all of them, and `SurlServer`, `reset_server` and `/v1/reset` would each need changing again if
+  that answer differed.
+- **Make a whole-instance reset skip the stores on disk.** Rejected here: it would change what today's request does,
+  where a caller now learns that nothing was reset.
