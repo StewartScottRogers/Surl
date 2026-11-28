@@ -36,3 +36,4 @@ per-store reset and file the tasks that build it.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
