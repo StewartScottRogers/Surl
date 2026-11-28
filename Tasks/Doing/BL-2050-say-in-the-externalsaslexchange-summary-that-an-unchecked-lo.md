@@ -35,3 +35,4 @@ account of the certificate's name exists and the authorization identity is empty
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
