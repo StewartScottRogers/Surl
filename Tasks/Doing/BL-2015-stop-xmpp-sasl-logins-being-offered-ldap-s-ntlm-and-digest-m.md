@@ -44,3 +44,4 @@ meaning. BL-2016 then changes XMPP. See ADR-0072 decision 4, ADR-0114 decision 3
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
