@@ -40,3 +40,4 @@ first rolls back, so the second transaction's discharge still decides what happe
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
