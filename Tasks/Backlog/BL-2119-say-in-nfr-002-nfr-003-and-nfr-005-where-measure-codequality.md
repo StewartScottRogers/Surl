@@ -1,5 +1,5 @@
 ---
-id: BL-2117
+id: BL-2119
 title: Say in NFR-002, NFR-003 and NFR-005 where Measure-CodeQuality.ps1 is actually run
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2117 — Say in NFR-002, NFR-003 and NFR-005 where Measure-CodeQuality.ps1 is actually run
+# BL-2119 — Say in NFR-002, NFR-003 and NFR-005 where Measure-CodeQuality.ps1 is actually run
 
 ## Goal
 

@@ -37,7 +37,7 @@ Stand-in: nothing to add; documentation only.
 - Checked against `Test-PublishedSurl.ps1` (check 1 allows `surl.pdb`, `surl.dbg`, `surl.dSYM`; check 4 is `Stop-Process` on Windows, SIGTERM and exit 0 elsewhere, within 10 seconds) and `Measure-CodeQuality.ps1` (gates `*.UnitLibrary`, `Surl.Console`, `Surl.Api`).
 - `README.md` "Gate" step: it also said nothing lands without full coverage and the CRAP limit. A lane's check before it pushes is build and fast tests, and `ci.yml` does not run `Measure-CodeQuality.ps1`, so the step now says that.
 - No `.cs`, project or script file changed. `dotnet build`: 0 warnings, 0 errors. Fast tests: 30,858 passed in 83 assemblies.
-- Filed BL-2117: NFR-002, NFR-003 and NFR-005 say "Enforced by `Measure-CodeQuality.ps1`".
+- Filed BL-2119: NFR-002, NFR-003 and NFR-005 say "Enforced by `Measure-CodeQuality.ps1`".
 
 ## Log
 
