@@ -62,7 +62,7 @@ as one task. It adds no store, event or fault, so the stand-in questions do not 
   would otherwise still be false for `DEFINE` and `MATCH`.
 - Verified 2026-11-28: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
   30769 passed, 3 skipped, 0 failed across 83 test assemblies.
-- Related statements outside this task's criteria are filed as BL-2087.
+- Related statements outside this task's criteria are filed as BL-2094.
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-2087
+id: BL-2094
 title: Add fault rules to the Gopher and TELNET server summaries and correct the ADR citations of DICT and TELNET replies
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2087 — Add fault rules to the Gopher and TELNET server summaries and correct the ADR citations of DICT and TELNET replies
+# BL-2094 — Add fault rules to the Gopher and TELNET server summaries and correct the ADR citations of DICT and TELNET replies
 
 ## Goal
 
