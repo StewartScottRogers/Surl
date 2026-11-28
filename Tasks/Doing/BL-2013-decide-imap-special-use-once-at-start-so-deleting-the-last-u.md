@@ -48,3 +48,4 @@ No store, event or fault changes. Upstream curl 8.21.0 sends and reads the same 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
