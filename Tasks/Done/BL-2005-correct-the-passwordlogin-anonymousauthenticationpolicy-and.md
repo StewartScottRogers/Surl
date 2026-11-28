@@ -65,4 +65,4 @@ All files are in `Foundation/Surl.Protocol.Abstractions.UnitLibrary`.
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. PasswordLogin, AnonymousAuthenticationPolicy and NamesAccount statements now match the code; follow-ups BL-2013 to BL-2016 filed
+- 2026-11-27: Doing -> Done. PasswordLogin, AnonymousAuthenticationPolicy and NamesAccount statements now match the code; follow-ups BL-2022 to BL-2025 filed

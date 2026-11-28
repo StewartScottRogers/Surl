@@ -1,5 +1,5 @@
 ---
-id: BL-2014
+id: BL-2023
 title: Say in the McpAuthorizationGrants comments that a token of no named account is refused
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2014 — Say in the McpAuthorizationGrants comments that a token of no named account is refused
+# BL-2023 — Say in the McpAuthorizationGrants comments that a token of no named account is refused
 
 ## Goal
 

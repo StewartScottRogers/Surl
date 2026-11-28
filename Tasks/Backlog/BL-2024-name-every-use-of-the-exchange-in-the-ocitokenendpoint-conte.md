@@ -1,5 +1,5 @@
 ---
-id: BL-2015
+id: BL-2024
 title: Name every use of the exchange in the OciTokenEndpoint context parameter comment
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2015 — Name every use of the exchange in the OciTokenEndpoint context parameter comment
+# BL-2024 — Name every use of the exchange in the OciTokenEndpoint context parameter comment
 
 ## Goal
 

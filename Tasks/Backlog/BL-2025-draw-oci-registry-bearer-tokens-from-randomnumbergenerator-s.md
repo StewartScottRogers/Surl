@@ -1,5 +1,5 @@
 ---
-id: BL-2016
+id: BL-2025
 title: Draw OCI registry bearer tokens from RandomNumberGenerator so --random-seed cannot predict them
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2016 — Draw OCI registry bearer tokens from RandomNumberGenerator so --random-seed cannot predict them
+# BL-2025 — Draw OCI registry bearer tokens from RandomNumberGenerator so --random-seed cannot predict them
 
 ## Goal
 
