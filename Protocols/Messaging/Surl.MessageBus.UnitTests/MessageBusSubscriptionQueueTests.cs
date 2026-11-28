@@ -430,6 +430,162 @@ public sealed class MessageBusSubscriptionQueueTests
         Assert.AreEqual(MessageBusOutcome.Succeeded, deleted);
     }
 
+    [TestMethod]
+    [DataRow("queuer", new[] { Filter }, DisplayName = "no sub on its filter")]
+    [DataRow("binder", new[] { Filter, "weather" }, DisplayName = "sub on only one of its filters")]
+    [DataRow(null, new[] { Filter }, DisplayName = "an anonymous caller")]
+    [DataRow("alice", new string[0], DisplayName = "bound to nothing")]
+    public void ConsumeAndGetFromQueue_ASubscriptionQueueWithQueueRightsButNotSubOnEveryFilter_AreAccessDeniedAndTheMessagesStay(string? account, string[] bound)
+    {
+        var bus = QueueGrantBus();
+        using var owner = bus.Connect("binder");
+        owner.DeclareQueue(Queue, subscriptionDescription: Description);
+        owner.BindQueue(Queue, Filter);
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        Rebind(bus, bound);
+        using var other = bus.Connect(account);
+
+        var consumed = other.Consume(Queue, _ => { });
+        var got = other.GetFromQueue(Queue);
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.AccessDenied, null), consumed);
+        Assert.AreEqual(new BusGetResult(MessageBusOutcome.AccessDenied, null, 0), got);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 1, 0, Description), owner.InspectQueue(Queue));
+    }
+
+    [TestMethod]
+    public void Consume_ASubscriptionQueueConsumedExclusivelyWithoutSubOnItsFilter_IsAccessDeniedNotExclusiveRefused()
+    {
+        var bus = QueueGrantBus();
+        using var owner = bus.Connect("alice");
+        DeclareSubscriptionQueue(owner);
+        owner.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { }, exclusive: true);
+        using var other = bus.Connect("queuer");
+
+        var consumed = other.Consume(Queue, _ => { });
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.AccessDenied, null), consumed);
+    }
+
+    [TestMethod]
+    public void ConsumeAndGetFromQueue_ASubscriptionQueueWithAGrantNamingItButNotSubOnItsFilter_AreAccessDenied()
+    {
+        var bus = new MessageBus(
+            clock,
+            configuration: new MessageBusConfiguration
+            {
+                AccessGrants =
+                [
+                    new TopicAccessGrant("$queue/" + Queue, "queuer", TopicAccessRights.Subscribe),
+                    new TopicAccessGrant("sport/#", "alice", TopicAccessRights.Subscribe),
+                ],
+            });
+        using var owner = bus.Connect("alice");
+        DeclareSubscriptionQueue(owner);
+        using var other = bus.Connect("queuer");
+
+        var consumed = other.Consume(Queue, _ => { });
+        var got = other.GetFromQueue(Queue);
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.AccessDenied, null), consumed);
+        Assert.AreEqual(new BusGetResult(MessageBusOutcome.AccessDenied, null, 0), got);
+    }
+
+    [TestMethod]
+    public void ConsumeAndGetFromQueue_AnotherConnectionsExclusiveSubscriptionQueueWithoutSub_AreQueueLocked()
+    {
+        var bus = QueueGrantBus();
+        using var owner = bus.Connect("alice");
+        owner.DeclareQueue(Queue, new BusQueueFlags(Exclusive: true), Description);
+        owner.BindQueue(Queue, Filter);
+        using var other = bus.Connect("queuer");
+
+        var consumed = other.Consume(Queue, _ => { });
+        var got = other.GetFromQueue(Queue);
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.QueueLocked, null), consumed);
+        Assert.AreEqual(new BusGetResult(MessageBusOutcome.QueueLocked, null, 0), got);
+    }
+
+    [TestMethod]
+    public void ConsumeAndGetFromQueue_ASubscriptionQueueWithQueueRightsAndSubOnItsFilter_TakeItsMessages()
+    {
+        var bus = QueueGrantBus();
+        using var connection = bus.Connect("alice");
+        DeclareSubscriptionQueue(connection);
+        bus.Publish(new BusMessage("sport/chess", "1"u8.ToArray()), "alice");
+        bus.Publish(new BusMessage("sport/chess", "2"u8.ToArray()), "alice");
+
+        var got = connection.GetFromQueue(Queue);
+        var consumed = connection.Consume(Queue, _ => { });
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, got.Outcome);
+        Assert.AreEqual("1", Encoding.UTF8.GetString(got.Delivery!.Message.Payload.Span));
+        Assert.AreEqual(MessageBusOutcome.Succeeded, consumed.Outcome);
+    }
+
+    [TestMethod]
+    [DataRow(new[] { Filter }, DisplayName = "bound")]
+    [DataRow(new string[0], DisplayName = "bound to nothing")]
+    public void ConsumeAndGetFromQueue_ASubscriptionQueueWithNoGrantConfigured_Succeed(string[] bound)
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue(Queue, subscriptionDescription: Description);
+        Rebind(bus, bound);
+
+        var got = connection.GetFromQueue(Queue);
+        var consumed = connection.Consume(Queue, _ => { });
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, got.Outcome);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, consumed.Outcome);
+    }
+
+    [TestMethod]
+    public void ConsumeAndGetFromQueue_AQueueWithNoDescriptionWithoutSubOnItsFilter_TakeItsMessages()
+    {
+        var bus = QueueGrantBus();
+        using var owner = bus.Connect("alice");
+        owner.DeclareQueue(Queue);
+        owner.BindQueue(Queue, Filter);
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        using var other = bus.Connect("queuer");
+
+        var got = other.GetFromQueue(Queue);
+        var consumed = other.Consume(Queue, _ => { });
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, got.Outcome);
+        Assert.AreEqual("kept", Encoding.UTF8.GetString(got.Delivery!.Message.Payload.Span));
+        Assert.AreEqual(MessageBusOutcome.Succeeded, consumed.Outcome);
+    }
+
+    // Everyone, anonymous callers included, may consume any queue by name; alice publishes and subscribes
+    // on sport/#, the binder subscribes on sport/# and weather, and the queuer subscribes on no topic.
+    private MessageBus QueueGrantBus() => new(
+        clock,
+        configuration: new MessageBusConfiguration
+        {
+            AccessGrants =
+            [
+                new TopicAccessGrant("$queue/#", TopicAccessGrant.Everyone, TopicAccessRights.Subscribe),
+                new TopicAccessGrant("sport/#", "alice", TopicAccessRights.Publish),
+                new TopicAccessGrant("sport/#", "alice", TopicAccessRights.Subscribe),
+                new TopicAccessGrant("sport/#", "binder", TopicAccessRights.Subscribe),
+                new TopicAccessGrant("weather", "alice", TopicAccessRights.Subscribe),
+            ],
+        });
+
+    // Leaves the test's queue bound to exactly the given filters, whoever may subscribe to them.
+    private static void Rebind(MessageBus bus, string[] bound)
+    {
+        using var binder = bus.Connect("alice");
+        binder.UnbindQueue(Queue, Filter);
+        foreach (var filter in bound)
+        {
+            Assert.AreEqual(MessageBusOutcome.Succeeded, binder.BindQueue(Queue, filter));
+        }
+    }
+
     // alice publishes and subscribes on sport/#; the binder may bind any filter; nobody has a $queue grant.
     private MessageBus Bus() => new(
         clock,

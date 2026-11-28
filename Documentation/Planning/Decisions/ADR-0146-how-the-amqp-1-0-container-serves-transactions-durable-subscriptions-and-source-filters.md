@@ -513,3 +513,42 @@ Sections 8.3.3 and 8.3.4 allow a durable subscription and a shared non-durable o
   is in force.
 - **Leaving non-durable `shared` unserved and unechoed.** Part 3 allows it, but a JMS shared consumer
   would then receive duplicates, and root `CLAUDE.md` says nothing is left out because it is hard.
+
+## Amendment 5 (BL-2047, 2026-11-27): who may get from or consume a subscription queue by name
+
+Decided by Claude under Stewart's delegation.
+
+Amendment 2 asks for `sub` on a subscription queue's filters before a delete or purge by name, but a
+get or consume by name asked only for the `$queue/<name>` grant. A caller with `sub` on `$queue/#`
+and none on a subscription's filter could so take its messages: AMQP 0-9-1 `basic.get`,
+`basic.consume` with `no-ack`, `basic.reject` without requeue, or a STOMP `SUBSCRIBE` to
+`/queue/surl-subscription-...`.
+
+- `Surl.MessageBus`'s get and consume by name, on a queue carrying a subscription description, need
+  **both** the `$queue/<name>` grant, as on any queue, **and** `sub` covering **every** filter the
+  queue is bound to. Otherwise they are `AccessDenied` (AMQP 0-9-1 answers `403`), nothing is taken
+  and no consumer is added. A `$queue` grant that names the queue exactly is no exception.
+- A described queue bound to **no** filter is refused whenever any grant is configured, as in
+  Amendment 2. With no grant, everyone may.
+- The `$queue` grant is judged first, whether or not the queue exists. The filters are judged on the
+  queue found, after `UnknownQueue` and `QueueLocked`, under the lock the message is taken under, and
+  before any refusal that tells of the queue's consumers.
+- `ConsumeSubscriptionQueue` (decision 3.7) is unchanged: `sub` on the topic filter and no `$queue`
+  grant. A queue with no description is read as before. The test host's own reads (ADR-0164's browse)
+  ask for no grant.
+- The bindings are judged when the call is made. A consumer already added keeps receiving, and the
+  binding swap Amendment 2 names also opens a get and a consume; keeping other clients' bindings off a
+  described queue stays BL-2011.
+- A consumer added to a queue with no description also stays when a test host's restore gives that queue
+  a description, and is handed the restored messages; closing that is BL-2049.
+
+### Alternatives considered (Amendment 5)
+
+- **Letting an explicit `$queue/<name>` grant allow it.** A grant's filter may be a wildcard
+  (`$queue/#`) written for ordinary queues, and telling an exact grant from a wildcard one is a second
+  rule for a narrow gain. An account that should read a subscription is given `sub` on its filter,
+  which says what it may see; secure by default.
+- **Asking only for `sub` on the filters, without the `$queue` grant.** That would widen who may take a
+  queue's messages by name; the subscriber already has `ConsumeSubscriptionQueue`.
+- **Refusing every get and consume by name of a described queue.** A test reading a kept subscription
+  from AMQP 0-9-1 or STOMP is a real use of the stand-in.

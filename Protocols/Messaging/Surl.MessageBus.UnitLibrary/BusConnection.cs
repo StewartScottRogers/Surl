@@ -334,7 +334,8 @@ public sealed class BusConnection : IDisposable
     /// <param name="queueName">The queue's name.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
     /// <see cref="MessageBusOutcome.QueueLocked"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
-    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c> - the
+    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, or, for a
+    /// queue carrying a subscription description, on <see cref="DeleteQueue(string)"/>'s terms - the
     /// delivery, or none when no message was ready, and how many messages are still ready.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
@@ -398,7 +399,8 @@ public sealed class BusConnection : IDisposable
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
     /// <see cref="MessageBusOutcome.QueueLocked"/>, <see cref="MessageBusOutcome.ExclusiveConsumeRefused"/>,
     /// <see cref="MessageBusOutcome.TooManySubscriptions"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
-    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, when
+    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, or, for a
+    /// queue carrying a subscription description, on <see cref="DeleteQueue(string)"/>'s terms, when
     /// refused - and the consumer.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
@@ -412,9 +414,9 @@ public sealed class BusConnection : IDisposable
     }
 
     /// <summary>
-    /// Makes a consumer of a subscription queue as <see cref="Consume"/> does of any queue, but asks
-    /// for <c>sub</c> on the subscription's topic filter instead of on <c>$queue/&lt;name&gt;</c>
-    /// (ADR-0146, decision 3.7). It consumes only a queue carrying
+    /// Makes a consumer of a subscription queue as <see cref="Consume"/> does of a queue, but asks
+    /// for <c>sub</c> on the subscription's topic filter alone, with no <c>$queue/&lt;name&gt;</c>
+    /// grant (ADR-0146, decision 3.7). It consumes only a queue carrying
     /// <paramref name="subscriptionDescription"/> and bound to <paramref name="topicFilter"/> and
     /// nothing else; the checks and the consume happen under one hold of the bus's lock.
     /// </summary>

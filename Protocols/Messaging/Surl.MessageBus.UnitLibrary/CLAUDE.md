@@ -96,8 +96,8 @@ What it holds now (BL-629):
   but asks for `sub` on the topic filter instead of on `$queue/<name>`, so an account needs no queue
   grant for its subscription. Under one hold of the bus's lock the queue must carry that description
   (else `QueueDescriptionDiffers`) and be bound to that filter and nothing else (else `AccessDenied`).
-  `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue. A queue carrying a
-  description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
+  `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue, and `sub` on its
+  filters as well (below). A queue carrying a description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
   `UnknownQueue`, so a direct send (AMQP 0-9-1's default, direct, fanout and headers exchanges, STOMP's
   `/queue/`) brings no message from outside its bindings. `SeedEnqueue`, the test host's own, still
   fills it. The check at consume time reads the bindings as they are then: a message another client's
@@ -120,8 +120,19 @@ What it holds now (BL-629):
   `QueueInUse` and `QueueNotEmpty`, under the lock the removal happens under. A queue with no
   description asks for no grant. The bindings are judged as they are then, and `UnbindQueue` asks for
   no grant, so a client with `sub` on a filter of its own can bind it, unbind the subscription's and
-  then delete the queue. `Consume` and `GetFromQueue` ask only for the `$queue` grant, so a caller
-  holding it can take a subscription queue's messages with no `sub` on its filter.
+  then take the queue's messages or delete it.
+- **Getting from and consuming a subscription queue by name (BL-2047, ADR-0146 Amendment 5).**
+  `GetFromQueue` and `Consume` - what AMQP 0-9-1's `basic.get` and `basic.consume` and a STOMP
+  `SUBSCRIBE` to `/queue/<name>` call - on a queue carrying a description need both: `sub` on
+  `$queue/<name>`, as on any queue, and `sub` covering every filter the queue is bound to, on the
+  delete's terms (one bound to none is refused under any grant). A `$queue` grant alone, `$queue/#`
+  included, is not enough. The `$queue` grant is checked first, before the queue is looked up; the
+  filters come after `UnknownQueue` and `QueueLocked` and before `ExclusiveConsumeRefused` and
+  `TooManySubscriptions`, under the lock the message is taken or the consumer added under. A refused
+  call takes nothing and adds no consumer. They are judged when the call is made: a consumer already
+  added keeps receiving whatever is bound later, and one added while the queue had no description is
+  also handed what a restore that describes the queue puts in it (BL-2049). A queue with no
+  description asks only for the `$queue` grant.
 - **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
   opaque text naming the client that publishes through the connection, `null` unless a server sets it
   (starting with its scheme family and `:`, so protocols never match each other's).
@@ -236,7 +247,8 @@ What it holds now (BL-629):
   `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume (a subscription
   queue consumed through `ConsumeSubscriptionQueue` asks for `sub` on its topic filter instead). A refusal is
   `AccessDenied`, checked before anything that would tell whether the topic or queue exists
-  (except the delete and purge of a subscription queue, above, which judge the queue found).
+  (except the get, consume, delete and purge of a subscription queue by name, above, which judge the
+  queue found).
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
   without touching it, as Kafka's Metadata needs (BL-518). ADR-0102 decision 3.5 records these
   choices (BL-704).

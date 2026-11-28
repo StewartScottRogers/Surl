@@ -185,15 +185,10 @@ public sealed partial class MessageBus
     {
         lock (stateLock)
         {
-            var (outcome, queue) = Access(connection, queueName);
+            var (outcome, queue) = AccessMessages(connection, queueName);
             if (queue is null)
             {
                 return new(outcome, 0);
-            }
-
-            if (!MayRemoveMessages(connection.Account, queue))
-            {
-                return new(MessageBusOutcome.AccessDenied, 0);
             }
 
             var (count, bytes) = queue.RemoveAllReady();
@@ -212,7 +207,7 @@ public sealed partial class MessageBus
         DeleteQueueUnlessRefused(
             connection,
             queueName,
-            queue => MayRemoveMessages(connection.Account, queue)
+            queue => SubscriptionFiltersAllow(connection.Account, queue)
                 ? queue.DeleteRefusal(ifUnused, ifEmpty)
                 : MessageBusOutcome.AccessDenied);
 
@@ -253,7 +248,7 @@ public sealed partial class MessageBus
 
         return ChangeState(() =>
         {
-            var (outcome, queue) = Access(connection, queueName);
+            var (outcome, queue) = AccessMessages(connection, queueName);
             if (queue is null)
             {
                 return new BusGetResult(outcome, null, 0);
@@ -296,7 +291,7 @@ public sealed partial class MessageBus
 
         lock (stateLock)
         {
-            var (outcome, queue) = Access(connection, queueName);
+            var (outcome, queue) = AccessMessages(connection, queueName);
             return queue is null
                 ? new(outcome, null)
                 : AddDeliveringConsumer(connection, queue, deliver, maxUnacknowledged, exclusive, accepts);
