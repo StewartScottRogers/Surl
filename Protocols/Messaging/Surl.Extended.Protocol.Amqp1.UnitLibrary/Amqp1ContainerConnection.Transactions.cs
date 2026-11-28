@@ -166,14 +166,13 @@ public sealed partial class Amqp1ContainerConnection
         }
     }
 
-    // ADR-0146 decisions 1.5 and 1.6 and Amendments 1, 10 and 11: held outcomes are forgotten, their settled
-    // deliveries unsettled again (those of an ended link were forgotten as it ended). Deliveries acquired in the transaction, still
-    // unsettled, with no outcome applied and none held by another open transaction leave the unsettled set,
-    // and those with a queue delivery tag (a queue's, or a kept or non-durable shared subscription's) go
-    // back to their queue, redelivered; a live topic subscription's has none. One whose outcome stated
-    // outside the transaction was applied stays as it is, so one modified undeliverable-here stays with its
-    // link until the link ends. One whose outcome another transaction holds stays with its link too, for
-    // that transaction's discharge to decide.
+    // ADR-0146 decisions 1.5 and 1.6 and Amendments 1, 10, 11 and 12: held outcomes are forgotten, their
+    // settled deliveries unsettled again (those of an ended link were forgotten as it ended), as many as
+    // their link's bound takes. Deliveries acquired in the transaction, still unsettled, with no outcome
+    // applied and none held by another open transaction leave the unsettled set and go back to their queue.
+    // One whose outcome stated outside the transaction was applied stays as it is, so one modified
+    // undeliverable-here stays with its link until the link ends. One whose outcome another transaction
+    // holds stays with its link too, for that transaction's discharge to decide.
     private static void RollBack(Amqp1Transaction transaction)
     {
         foreach (var held in transaction.HeldOutcomes)
@@ -191,10 +190,35 @@ public sealed partial class Amqp1ContainerConnection
         foreach (var delivery in transaction.Acquired.Where(acquired => !acquired.OutcomeApplied && acquired.Held is null && acquired.Session.Unsettled.Remove(acquired.DeliveryId)))
         {
             delivery.Link.UnsettledCount--;
-            if (delivery.QueueDeliveryTag is { } tag)
+            ReturnToQueue(delivery);
+        }
+
+        ForgetSettledPastLinkBound(transaction.HeldOutcomes.Where(held => held.Settled).Select(held => held.Delivery));
+    }
+
+    // ADR-0146 Amendment 12: a rollback leaves no link holding more than MaxWaitingDeliveries unsettled.
+    // Of the client-settled deliveries it put back, those past the bound, the earliest stated first, are
+    // forgotten; one with no outcome applied goes back to its queue.
+    private static void ForgetSettledPastLinkBound(IEnumerable<Amqp1OutgoingDelivery> putBack)
+    {
+        // Lazy: the link's count is read again for each delivery, after the last one forgotten.
+        foreach (var delivery in putBack.Where(delivery => delivery.Link.UnsettledCount > MaxWaitingDeliveries && delivery.Session.Unsettled.Remove(delivery.DeliveryId)))
+        {
+            delivery.Link.UnsettledCount--;
+            if (!delivery.OutcomeApplied)
             {
-                delivery.Link.Consumer!.Reject(tag, requeue: true);
+                ReturnToQueue(delivery);
             }
+        }
+    }
+
+    // Puts a delivery with a queue delivery tag (a queue's, or a kept or non-durable shared subscription's)
+    // back on its queue, redelivered; a live topic subscription's has none and nothing to return.
+    private static void ReturnToQueue(Amqp1OutgoingDelivery delivery)
+    {
+        if (delivery.QueueDeliveryTag is { } tag)
+        {
+            delivery.Link.Consumer!.Reject(tag, requeue: true);
         }
     }
 

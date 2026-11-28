@@ -176,6 +176,102 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RoundsOfSettledRetirementAndRollBackOnALiveTopicLink_LeaveNoMoreThanMaxWaitingDeliveriesUnsettled()
+    {
+        // Settling in the transaction frees the link's room, so three rounds send it three times what it
+        // may hold unsettled. A live topic link has no bus consumer whose cap would stop it.
+        const uint Rounds = 3;
+        List<byte[]> frames =
+        [
+            Open(),
+            BusFrame(new Amqp1Begin(0, 200_000, 200_000)),
+            BusFrame(CoordinatorAttach(0)),
+            Control(0, 0, DeclareHex),
+            BusFrame(ReceiverAttach(1, "/topic/news") with { ReceiverSettleMode = 1 }),
+            BusFrame(WideCredit(1, deliveryCount: 0, credit: Rounds * Round)),
+            BusFrame(SenderAttach(2, "/topic/news")),
+        ];
+        for (var first = 0u; first < Rounds * Round; first += Round)
+        {
+            frames.AddRange(Enumerable.Range(0, (int)Round).Select(index =>
+                BusFrame(new Amqp1Transfer(2) { DeliveryId = first + (uint)index + 1, DeliveryTag = [0], MessageFormat = 0, Settled = true }, Message)));
+            frames.Add(BusFrame(new Amqp1Disposition(true, first)
+            {
+                Last = first + Round - 1,
+                Settled = true,
+                State = Amqp1DeliveryState.TransactionalState(FirstTransactionId, Amqp1DeliveryState.Accepted),
+            }));
+        }
+
+        // Under rcv-settle-mode second the container settles, one disposition each, every delivery of the
+        // range it still holds unsettled.
+        frames.Add(Control(0, (Rounds * Round) + 1, DischargeRollBackHex));
+        frames.Add(BusFrame(new Amqp1Disposition(true, 0) { Last = (Rounds * Round) - 1, State = Amqp1DeliveryState.Accepted }));
+
+        var (written, _) = await ServeOnBusAsync(Bus(), [.. frames]);
+
+        Assert.HasCount((int)(Rounds * Round), Transfers(written));
+        var settledByContainer = written.Select(frame => frame.Performative).OfType<Amqp1Disposition>().Where(disposition => !disposition.IsReceiver).ToList();
+        Assert.HasCount(Amqp1ContainerConnection.MaxWaitingDeliveries, settledByContainer);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackPuttingBackASettledQueueDeliveryOnAFullLink_ReturnsItToItsQueue()
+    {
+        // The link takes the 1000 the bus lets it hold unacknowledged, states one outcome outside the
+        // transaction without settling and settles another delivery in it, so it is sent one more and is
+        // full again when the rollback comes.
+        var bus = Bus();
+        Enqueue(bus, "orders", [.. Enumerable.Range(0, (int)Round + 1).Select(index => $"message-{index}")]);
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            Open(),
+            BusFrame(new Amqp1Begin(0, 200_000, 200_000)),
+            BusFrame(CoordinatorAttach(0)),
+            Control(0, 0, DeclareHex),
+            BusFrame(ReceiverAttach(1, "orders")),
+            BusFrame(WideCredit(1, deliveryCount: 0, credit: Round + 10)),
+            BusFrame(new Amqp1Disposition(true, 1) { State = Amqp1DeliveryState.Accepted }),
+            RetireInTransaction(0, Amqp1DeliveryState.Accepted, settled: true),
+            Control(0, 1, DischargeRollBackHex),
+            BusFrame(ReceiverAttach(2, "orders")),
+            BusFrame(WideCredit(2, deliveryCount: 0, credit: 1)));
+
+        var sent = Transfers(written);
+        Assert.HasCount((int)Round + 2, sent);
+        var returned = sent[^1];
+        Assert.AreEqual(2u, returned.Transfer.Handle);
+        Assert.AreEqual("message-0", DataOf(returned.Payload));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackForgettingADeliveryModifiedUndeliverableHere_DoesNotReturnItToItsQueue()
+    {
+        // As above, but the delivery the rollback puts back on the full link was modified
+        // undeliverable-here outside the transaction first, so its message stays with that link.
+        var bus = Bus();
+        Enqueue(bus, "orders", [.. Enumerable.Range(0, (int)Round + 1).Select(index => $"message-{index}")]);
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            Open(),
+            BusFrame(new Amqp1Begin(0, 200_000, 200_000)),
+            BusFrame(CoordinatorAttach(0)),
+            Control(0, 0, DeclareHex),
+            BusFrame(ReceiverAttach(1, "orders")),
+            BusFrame(WideCredit(1, deliveryCount: 0, credit: Round + 10)),
+            BusFrame(new Amqp1Disposition(true, 0) { State = UndeliverableHere() }),
+            BusFrame(new Amqp1Disposition(true, 1) { State = Amqp1DeliveryState.Accepted }),
+            RetireInTransaction(0, Amqp1DeliveryState.Accepted, settled: true),
+            Control(0, 1, DischargeRollBackHex),
+            BusFrame(ReceiverAttach(2, "orders")),
+            BusFrame(WideCredit(2, deliveryCount: 0, credit: 1)));
+
+        Assert.HasCount((int)Round + 1, Transfers(written));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_CommitUnderSettleSecond_SettlesWithTheHeldOutcomeWithoutWhatThePeerSized()
     {
         var bus = Bus();

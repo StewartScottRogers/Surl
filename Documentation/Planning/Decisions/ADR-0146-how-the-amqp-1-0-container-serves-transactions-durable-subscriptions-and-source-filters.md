@@ -998,3 +998,45 @@ failed that way before BL-2127's fix. A delivery the client had settled was alre
 - **Moving the acquisition to the second transaction,** so that its rollback requeues the delivery.
   The second would count an acquired delivery it never acquired against `MaxAcquiredDeliveries`, and
   a rollback would then do more than forget the outcomes stated in it.
+
+## Amendment 12 (BL-2135, 2026-11-28): a rollback keeps a link within its 1000 unsettled
+
+Decided by Claude under Stewart's delegation, pointing at
+[ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) (every store a peer can fill is bounded).
+
+A transactional `disposition` that settles frees room under the link's 1000 unsettled, and a rollback
+put every such delivery back. A live topic link has no bus consumer whose 1000 unacknowledged would
+stop it, so a client could take 1000, settle them in a transaction, repeat up to `MaxHeldOutcomes`
+(100000) and discharge with `fail` true: the link then held 100000 unsettled until it ended, which the
+client, having settled them, never names again. A queue link could pass 1000 the same way by first
+stating outcomes outside the transaction without settling, which frees the bus's room.
+`Amqp1ContainerConnectionTests.ServeAsync_RoundsOfSettledRetirementAndRollBackOnALiveTopicLink_LeaveNoMoreThanMaxWaitingDeliveriesUnsettled`
+left 3000 unsettled before BL-2135's fix.
+
+1. **The bound.** After a rollback, as at any other time, a sending link holds **at most 1000**
+   deliveries unsettled (`MaxWaitingDeliveries`, ADR-0107 decision 7). A connection so keeps no more
+   unsettled deliveries after rollbacks than its links may hold without any transaction.
+2. **Which stay.** A rollback first does what Amendments 10 and 11 say. Then, while a link holds more
+   than 1000, the deliveries the rollback put back on it because the client had settled them are
+   **forgotten**, the earliest stated first: each stays settled, and a later `disposition` naming it
+   changes nothing. A delivery the client never settled is never forgotten.
+3. **A forgotten queue delivery** with no outcome applied goes back to its queue, marked redelivered,
+   at once: the transaction did not retire it and the client no longer holds it. One with an outcome
+   applied keeps what that outcome did, so one modified `undeliverable-here` stays unacknowledged on
+   the bus until the link ends. A live topic delivery has nothing to return.
+4. **This amends** decision 6, Amendment 1's second and third bullets and Amendment 11 item 2: a
+   settled delivery is unsettled again after a rollback only as far as its link's bound takes it.
+5. **Stand-in.** A test that settles up to 1000 deliveries of a link in a transaction and rolls it back
+   finds them unsettled again, as before. Past that, which ones remain is the same every run. A link
+   left holding 1000 is sent nothing more until the client settles one. No new option or fault.
+
+### Alternatives considered (Amendment 12)
+
+- **Counting a delivery settled in a transaction toward the 1000 until the discharge.** One transaction
+  could then take no more than 1000 messages from a live topic link, and later ones would be dropped
+  past 1000 waiting, where today a test can consume many more and commit them.
+- **Putting back no settled delivery.** Amendment 1 lets a client retire one again after the rollback,
+  and a test may rely on that.
+- **A separate, connection-wide bound.** A second number for what the link's bound already covers.
+- **Refusing the settling `disposition`, or detaching the link.** Either ends work the transaction can
+  still commit.
