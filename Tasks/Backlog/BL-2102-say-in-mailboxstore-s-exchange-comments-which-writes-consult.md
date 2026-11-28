@@ -1,5 +1,5 @@
 ---
-id: BL-2100
+id: BL-2102
 title: Say in MailboxStore's exchange comments which writes consult the out-of-space fault point
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2100 — Say in MailboxStore's exchange comments which writes consult the out-of-space fault point
+# BL-2102 — Say in MailboxStore's exchange comments which writes consult the out-of-space fault point
 
 ## Goal
 

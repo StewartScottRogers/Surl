@@ -1,5 +1,5 @@
 ---
-id: BL-2099
+id: BL-2101
 title: Add a dated note to ADR-0050 that Surl.Composition loads the mail store and sets its message limit
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2099 — Add a dated note to ADR-0050 that Surl.Composition loads the mail store and sets its message limit
+# BL-2101 — Add a dated note to ADR-0050 that Surl.Composition loads the mail store and sets its message limit
 
 ## Goal
 

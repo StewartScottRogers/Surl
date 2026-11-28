@@ -39,7 +39,7 @@ Stand-in: nothing to add; a documentation note, with no store, event, seed, rese
   which its pointers call "the note of 2026-11-28 at the end of this decision"; a second one there would be ambiguous.
 - Checked in code: `LoadAsync` only counts the created `INBOX`; the first `SaveChangesAsync` whose index write succeeds
   writes it; stopping the server saves nothing.
-- Follow-ups filed: BL-2099 (ADR-0050 still says `Surl.Console` loads the store and sets its message limit) and BL-2100
+- Follow-ups filed: BL-2101 (ADR-0050 still says `Surl.Console` loads the store and sets its message limit) and BL-2102
   (`MailboxStore` comments name the out-of-space fault point on methods that never consult it). Filed with the board
   script directly. The two new task files are the only changes besides ADR-0050 and this file, which the third
   criterion's "diff" (this task's work) does not count.
