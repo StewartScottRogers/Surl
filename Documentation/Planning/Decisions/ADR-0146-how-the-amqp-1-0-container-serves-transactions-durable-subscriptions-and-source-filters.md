@@ -552,3 +552,46 @@ and none on a subscription's filter could so take its messages: AMQP 0-9-1 `basi
   queue's messages by name; the subscriber already has `ConsumeSubscriptionQueue`.
 - **Refusing every get and consume by name of a described queue.** A test reading a kept subscription
   from AMQP 0-9-1 or STOMP is a real use of the stand-in.
+
+## Amendment 6 (BL-2012, 2026-11-27): a subscription queue takes no direct send
+
+Decided by Claude under Stewart's delegation, while working BL-1992.
+
+Decision 3.7 admits a subscriber on `sub` on its topic filter alone. A direct send is judged by no
+right on that filter, and binding a queue to an AMQP 0-9-1 exchange other than `amq.topic` asks for no
+grant, so a subscriber could bind its queue to such an exchange and be handed direct sends that its
+right does not cover.
+
+- A queue carrying a subscription description takes no direct send from a client, with or without
+  `--topic-access` grants: `Surl.MessageBus`'s `PublishToQueue` and a batch's `ToQueue` entry answer
+  `UnknownQueue`, as for a queue that does not exist, even for a message already expired. Nothing is
+  queued and the queue's out-of-space fault is not asked for. `MessageTooLarge` and the `AccessDenied`
+  of `pub` on `$queue/<name>` are judged first, as for any queue. Decision 3.2's queue so takes what
+  its bindings copy in, and Amendment 4's "takes no direct send" is this rule.
+- A batch holding such an entry publishes nothing (decision 1.6, whose list of refusals gains this
+  one).
+- What a client sees follows from the protocol it sends with:
+  - **AMQP 0-9-1**, through any exchange but `amq.topic` (the default exchange, and direct, fanout,
+    headers and declared topic exchanges): the queue is not routed to. Other queues the publish chose
+    still take it. When none counts as routed, the message is returned with `312 NO_ROUTE` if
+    `mandatory` or `immediate` is set, and otherwise dropped and noted in the exchange log.
+  - **STOMP** `SEND` to `/queue/<name>`: ERROR `message:Resource limit exceeded`, then close, its
+    answer to `UnknownQueue` (ADR-0100 decision 3.6).
+  - **AMQP 1.0**: decision 3.4 already refuses the attach to a `surl-subscription-` address with
+    `amqp:not-found`. For a described queue under another name, which no Surl server declares, a
+    transfer would be `rejected` with `amqp:not-found`, and a commit with `amqp:transaction:rollback`.
+- **Seeding is unchanged.** The test host's `SeedEnqueue` (`Surl.Api`'s `Messages.EnqueueAsync` and
+  the control endpoint use it) still puts a message into a subscription queue, whatever its topic.
+- Amendment 3 item 2's "Every other publish reaches it" is of topic publishes and the seed: a direct
+  send from another protocol does not reach a subscription queue.
+- A topic publish still reaches the queue through whatever it is bound to (Amendment 3's excluded
+  publisher apart). This rule does not keep other clients' bindings off a described queue; that is
+  BL-2011.
+
+### Alternatives considered (Amendment 6)
+
+- **Checking each message's topic against the subscription's filter at consume time.** A direct
+  send's topic is the sender's own label, which no topic grant judged: AMQP 0-9-1 takes it from the
+  routing key, which through a fanout or headers exchange can be any text, so a message could pass the
+  check without the right the check stands for. It would also run on every message taken, and a sender
+  would be answered as if a message the subscriber never receives had been taken.
