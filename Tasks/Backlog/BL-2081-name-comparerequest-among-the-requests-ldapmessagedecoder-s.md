@@ -1,5 +1,5 @@
 ---
-id: BL-2079
+id: BL-2081
 title: Name CompareRequest among the requests LdapMessageDecoder's remarks say it decodes
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2079 — Name CompareRequest among the requests LdapMessageDecoder's remarks say it decodes
+# BL-2081 — Name CompareRequest among the requests LdapMessageDecoder's remarks say it decodes
 
 ## Goal
 
