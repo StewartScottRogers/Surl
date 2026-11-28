@@ -33,3 +33,4 @@ added to the `--user-ldap` paragraph in `AiHelpProse.cs` (ADR-0167, Amendment 3)
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
