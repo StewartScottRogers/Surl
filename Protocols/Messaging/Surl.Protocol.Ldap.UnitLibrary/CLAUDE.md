@@ -56,9 +56,20 @@ whose tag or length it refuses or that does not decode (`LdapDiagnostics`), for 
 operation that is not a write, for a message past `--max-message` outside a security layer,
 and for the idle timeout or maximum duration. It sends none, closing with no reply, when
 the first message is not whole within the head timeout, when a security-layer buffer is
-past the layer's maximum or `--max-message` or fails its check, and at shutdown. It notes
-each decision (`LdapLogText`). `ldaps` is the same exchange inside the engine's implicit
-TLS: `Surl.Composition`'s
+past the layer's maximum or `--max-message` or fails its check, and at shutdown.
+
+Its log notes (peer text and result code names rendered by `LdapLogText`) cover bind refusals
+and checked logins (a SASL or Sicily step's as the SASL contract words them), an installed
+security layer, `StartTLS` accepted or refused and the bytes discarded after it, each search it
+sends a result for, a write refused as read-only, a fault rule's chosen error or one that is not
+applied, the Notice of Disconnection and its write missing the deadline, and the closes with no
+reply for the head timeout, a close part way through a message and a security-layer buffer that
+is too large or fails its check. A delay or drop rule is noted by `CommandStageFaults`. The
+library writes no note for a critical-control refusal, an unsupported extended operation,
+abandon, unbind, a compare no fault rule answers (a bind-first refusal included), a close
+between messages or a shutdown.
+
+`ldaps` is the same exchange inside the engine's implicit TLS: `Surl.Composition`'s
 `ProtocolServerRegistrations.Original` registers the server a second time behind
 `ImplicitTlsSchemeServer` (`ProtocolServerRegistration.ImplicitTls`; BL-310). Its tests replay request bytes recorded from the
 pinned Windows build where a recording holds the case; others - abandon, unknown operations,

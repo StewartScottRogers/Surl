@@ -5,12 +5,14 @@ namespace Surl.Protocol.Ldap;
 
 /// <summary>
 /// The command-stage faults (ADR-0124 decision 4, ADR-0139, ADR-0141): each search, compare and
-/// write is asked about at a <see cref="FaultStage.Command"/> point once the bind check has let it
-/// through and before the directory is read. A matching <see cref="FaultKind.Delay"/> rule holds the
-/// operation's response for the rule's <c>ms</c> with the idle clock paused, then answers it as
-/// usual; a <see cref="FaultKind.Drop"/> rule aborts the connection with no response and ends the
-/// session (<see cref="CommandStageFaults"/>). A matching <see cref="FaultKind.Error"/> rule's reply
-/// - a resultCode 1 to 80 other than 10 and 14, a space and the diagnostic message - is the
+/// write is asked about at a <see cref="FaultStage.Command"/> point before it is answered, and so
+/// before the directory is read. A compare, and a search whose base is not the root DSE's, is asked
+/// about only once the bind check has let it through; writes and the root DSE's search need no bind
+/// check. A matching <see cref="FaultKind.Delay"/> rule holds the operation's response for the
+/// rule's <c>ms</c> with the idle clock paused, then answers it as usual; a
+/// <see cref="FaultKind.Drop"/> rule aborts the connection with no response and ends the session
+/// (<see cref="CommandStageFaults"/>). A matching <see cref="FaultKind.Error"/> rule's reply - a
+/// resultCode 1 to 80 other than 10 and 14, a space and the diagnostic message - is the
 /// operation's response, with no entry before it and an empty <c>matchedDN</c>.
 /// </summary>
 internal sealed partial class LdapSession

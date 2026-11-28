@@ -3,11 +3,13 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Ldap;
 
 /// <summary>
-/// Decides a <c>BindRequest</c> (ADR-0072 decisions 2 and 4) and notes the decision: a simple
+/// Decides a <c>BindRequest</c> (ADR-0072 decisions 2 and 4): a simple
 /// bind is checked through <see cref="IAuthenticationPolicy.CheckPasswordLoginAsync"/>, a SASL or
 /// Sicily bind through the SASL contract (<see cref="LdapSaslBindJudge"/>), and any other
 /// authentication choice is refused <c>authMethodNotSupported</c>. Every bind but the next step
-/// of the SASL or Sicily exchange in progress abandons that exchange.
+/// of the SASL or Sicily exchange in progress abandons that exchange. It notes each refusal it
+/// makes itself and each checked simple login; a SASL or Sicily step is noted as the SASL contract
+/// words it. A simple bind accepted unchecked gets no note.
 /// </summary>
 internal sealed class LdapBindJudge
 {
