@@ -13,10 +13,11 @@ download. Ctrl-click (⌘-click on a Mac) to open it in its own tab.*
 
 [![Code coverage: lines and branches covered across every production library - click for the full report](https://github.com/StewartScottRogers/Surl/raw/gource/coverage/badge.svg)](https://stewartscottrogers.github.io/Surl/coverage/)
 
-*Every production library is held to 100% line and branch coverage, cyclomatic complexity
-of at most 10 and a CRAP score of at most 30. The [full report](https://stewartscottrogers.github.io/Surl/coverage/)
-shows each library against those gates and every member outside one, measured on Windows
-and regenerated on the same schedule as the video above.*
+*Every production library, and the `Surl.Console` and `Surl.Api` hosts, is held to 100%
+line and branch coverage, cyclomatic complexity of at most 10 and a CRAP score of at most
+30. The [full report](https://stewartscottrogers.github.io/Surl/coverage/) shows each of
+them against those gates and every member outside one, measured on Windows and regenerated
+on the same schedule as the video above.*
 
 ### [▦ Live task board](https://stewartscottrogers.github.io/Surl/board/)
 
@@ -629,9 +630,12 @@ line of Claude Code agents shaped for this one job, not a general-purpose coding
    `.claude/agents`: a protocol architect and implementer, a test writer, a build fixer, a
    code reviewer, a coverage auditor, and a conformance auditor that points pinned
    upstream curl at Surl and checks every exchange.
-4. **Gate.** Nothing lands unless it builds with warnings as errors and holds every
-   library to 100% line and branch coverage, cyclomatic complexity of at most 10 and a
-   Change Risk Anti-Patterns (CRAP) score of at most 30.
+4. **Gate.** A finished task lands only if the solution builds with warnings as errors,
+   which holds cyclomatic complexity to at most 10, and the fast tests pass. Every
+   production library, and the `Surl.Console` and `Surl.Api` hosts, is also held to 100%
+   line and branch coverage and a Change Risk Anti-Patterns (CRAP) score of at most 30.
+   `Measure-CodeQuality.ps1` measures those two; it is part of neither a lane's check
+   before it pushes nor the CI workflow.
 5. **Escalate.** Anything that needs a human decision is moved to `Blocked` with the
    question written down, and the shift ends with an alarm until someone answers it.
 
