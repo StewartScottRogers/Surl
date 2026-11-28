@@ -10,7 +10,9 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// Answers <c>GET /token</c>, the registry's own token endpoint (Token "Requesting a Token",
 /// "Token Response Fields"; ADR-0115, decision 4.3): checks the <c>Basic</c> credentials through
 /// <see cref="IAuthenticationPolicy"/>, grants each asked scope what the login allows, and issues
-/// an opaque token from <see cref="OciTokenBook"/>.
+/// an opaque token from <see cref="OciTokenBook"/>, whose bytes come from the book's
+/// <see cref="System.Security.Cryptography.RandomNumberGenerator"/> and never from
+/// <c>--random-seed</c>.
 /// </summary>
 /// <remarks>
 /// An account is granted <c>pull</c>, and <c>push</c> and <c>delete</c> under
@@ -23,7 +25,7 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <param name="tokens">The server's tokens.</param>
 /// <param name="allowsUploads">Whether the store allows uploads, so a token may grant <c>push</c> and <c>delete</c>.</param>
 /// <param name="tlsSession">The connection's TLS session, or <see langword="null"/> on plain text.</param>
-/// <param name="context">The exchange: its random source.</param>
+/// <param name="context">The exchange: its clock, behind the answer's <c>issued_at</c>, and the exchange ID and listen URL each login carries.</param>
 internal sealed class OciTokenEndpoint(IAuthenticationPolicy policy, OciTokenBook tokens, bool allowsUploads, TlsSession? tlsSession, ExchangeContext context)
 {
     /// <summary>
@@ -81,7 +83,7 @@ internal sealed class OciTokenEndpoint(IAuthenticationPolicy policy, OciTokenBoo
 
         var granted = accountName is null ? OciActions.Pull : AccountActions();
 
-        return tokens.Issue(accountName, Grants(query, granted), context.Identifiers) is { } token
+        return tokens.Issue(accountName, Grants(query, granted)) is { } token
             ? reply.Bytes(HttpStatus.Ok, "application/json", [], TokenBody(token))
             : reply.Error(OciError.TooManyRequests);
     }

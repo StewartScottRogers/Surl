@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.HttpServing;
@@ -82,7 +83,11 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IExch
     /// <param name="newSessionId">Makes each upload session's UUID; <see langword="null"/> draws it from the exchange's identifier source.</param>
     /// <param name="maxLiveTokens">How many live tokens it keeps, so a test reaches the bound.</param>
     /// <param name="metadataIndex">Where verified digests are cached; <see langword="null"/> hashes on every read.</param>
-    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid>? newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens, ObjectMetadataIndex? metadataIndex = null)
+    /// <param name="tokenRandomSource">
+    /// Where each token's bytes come from, so a test knows each token; <see langword="null"/>, as
+    /// the public constructors pass, is <see cref="RandomNumberGenerator.Create()"/>.
+    /// </param>
+    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid>? newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens, ObjectMetadataIndex? metadataIndex = null, RandomNumberGenerator? tokenRandomSource = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -91,7 +96,8 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IExch
         this.store = store;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
-        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId, new OciTokenBook(timeProvider, maxLiveTokens), metadataIndex);
+        var tokens = new OciTokenBook(timeProvider, tokenRandomSource ?? RandomNumberGenerator.Create(), maxLiveTokens);
+        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId, tokens, metadataIndex);
     }
 
     /// <inheritdoc/>

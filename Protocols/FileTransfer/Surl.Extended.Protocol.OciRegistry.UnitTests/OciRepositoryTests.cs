@@ -118,7 +118,7 @@ public sealed class OciRepositoryTests
         var server = new OciRegistryProtocolServer(harness.Store, harness.MetadataIndex!, harness.Policy, harness.TimeProvider);
         var tokenConnection = new InMemoryConnection([Encoding.Latin1.GetBytes($"GET /token?scope=repository:app:pull HTTP/1.1\r\nHost: registry.test\r\n{UnitTestAuthenticationPolicy.BasicAuthorization}\r\nConnection: close\r\n\r\n")]);
         await server.ServeAsync(tokenConnection, harness.Context());
-        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes($"GET /v2/app/blobs/{digest} HTTP/1.1\r\nHost: registry.test\r\nAuthorization: Bearer {CountingIdentifierRandom.TokenOf(1)}\r\nConnection: close\r\n\r\n")]);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes($"GET /v2/app/blobs/{digest} HTTP/1.1\r\nHost: registry.test\r\nAuthorization: Bearer {H.TokenIn(tokenConnection.WrittenBytes)}\r\nConnection: close\r\n\r\n")]);
 
         await server.ServeAsync(connection, harness.Context());
 

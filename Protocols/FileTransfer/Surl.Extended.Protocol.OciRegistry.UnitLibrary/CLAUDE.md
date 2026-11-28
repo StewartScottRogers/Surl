@@ -70,8 +70,11 @@ Token authentication (BL-438, ADR-0115 decision 4 and Amendment 1):
   other resource types, names off the grammar and scopes past 16 are dropped. Bad or missing credentials
   `401 UNAUTHORIZED` with `WWW-Authenticate: Basic realm="surl", charset="UTF-8"`; credentials the policy
   refuses over plain text `403 DENIED`; another `service` `400 UNSUPPORTED`; `POST` `405` with `Allow: GET`;
-  10000 live tokens `429`. Tokens are 32 bytes from `ExchangeContext.Identifiers`, base64url, kept in memory
-  for 300 seconds on the `TimeProvider`.
+  10000 live tokens `429`. Tokens are 32 bytes from `RandomNumberGenerator`, base64url, kept in memory
+  for 300 seconds on the `TimeProvider`. A token grants access, so `--random-seed` never decides it
+  (ADR-0124 decision 6); the upload session UUID, which grants nothing, does follow
+  `ExchangeContext.Identifiers` (ADR-0163). A test passes the internal constructor its own
+  `RandomNumberGenerator` to know each token.
 - Every `/v2/` request then needs `Authorization: Bearer <token>`: none `401 UNAUTHORIZED` with
   `Bearer realm="<http|https>://<host>:<port>/token",service="surl",scope="repository:<name>:<pull|pull,push|delete>"`
   (no scope on `/v2/`); an unknown or expired token or another scheme the same with `error="invalid_token"`; a
