@@ -324,3 +324,103 @@ Alternatives: asking for `$queue/<name>` rights would lock out the subscriber, w
 right may reasonably do. The check reads the bindings as they are at the delete, and an unbind asks for
 no grant, so an account with `sub` on another filter can still swap the bindings first; keeping other
 clients' bindings off a described queue is BL-2011.
+
+## Amendment 3 (BL-2037, 2026-11-27): no-local on a kept subscription
+
+Decided by Claude under Stewart's delegation.
+
+Decision 2.1 withholds, on a topic link, what "the same connection" publishes, and decision 3 says
+nothing about it. A kept subscription can outlive its connection, and its queue keeps no publisher.
+Read for this: **Jakarta Messaging 3.1**.
+
+- Section 8.3.3 (unshared durable subscriptions): "The noLocal parameter may be used to specify that
+  messages published to the topic by the Session, JMSContext or TopicSession's own connection, or any
+  other connection with the same client identifier, will not be added to the durable subscription."
+  The same section makes a resubscribe with a different `noLocal` value "equivalent to unsubscribing
+  (deleting) the old one and creating a new one".
+- Section 8.3.1 (unshared non-durable subscriptions) speaks of "its own connection" only.
+- Appendix A.3.8.1 and A.3.8.2: `noLocal` "is not supported" for shared non-durable or shared durable
+  subscriptions; sections 8.3.2 and 8.3.4 give it no meaning.
+
+This amends decision 2.1 for kept subscriptions (decisions 3.1, 3.5 and 3.6). BL-2038 builds the bus
+part and BL-2039 the container part; until both are done a kept subscriber is echoed the filter and
+still receives its own publishes.
+
+1. **Which links.** A link served as a live topic subscription is unchanged: the bus's `noLocal`
+   subscription withholds what its own connection publishes. That includes a link asking `shared`
+   with `durable` `none` or `expiry-policy` `link-detach`, which the container does not serve as
+   shared. A kept subscription that is not shared, under any of `never`, `session-end` and
+   `connection-close`, applies no-local as items 2 to 7 say.
+2. **Whose publishes.** The client is identified by the `container-id` of its `open` (Part 2 section
+   2.7.1), which stands where JMS has the client identifier and already keys the subscription
+   (decision 3.1). A kept subscription with no-local is withheld every topic publish made by an AMQP
+   1.0 connection of this instance whose `open` carried the subscriber's `container-id`: the
+   subscribing connection, any other open at the same time, and any later one, **whether or not a link
+   is attached**, and across a restart for `never`. Every other publish reaches it: another
+   `container-id`, another protocol, the test host's own publish and a seed. The account plays no
+   part; a client that gives another's `container-id` only keeps its own messages from that
+   subscriber.
+3. **Where.** The bus withholds at **copy-in**: the message is never put in the queue, so it counts
+   against no queue bound. The withheld copy raises no store change, counts in none of `QueuedCount`,
+   `FullQueueCount` and `UnconsumedQueueCount`, and the out-of-space fault is not asked for it. The
+   publish otherwise behaves as before: logs, retained slot, live subscriptions and other queues take
+   it, and the publisher is answered `accepted`.
+4. **What `Surl.MessageBus` adds (BL-2038).**
+   - `BusConnection.PublisherName`: a settable, nullable, opaque name of the client publishing through
+     the connection, `null` unless a server sets it. The AMQP 1.0 container sets it, once the client's
+     `open` is read, to `amqp1:` followed by the `container-id`, so another protocol that names its
+     publishers prefixes its own scheme family and never matches.
+   - An `excludedPublisherName` parameter on a `BusConnection.DeclareQueue(name, flags,
+     subscriptionDescription, excludedPublisherName)` overload: a topic publish through a connection
+     whose `PublisherName` equals it, ordinally, is not copied into the queue. A publish with no
+     connection or no publisher name is never withheld. It needs a subscription description (an
+     `ArgumentException` without one). It is set when the queue is declared, before it is bound, so no
+     publish slips in. A redeclare that passes every other redeclare check, the description matching,
+     sets it on the existing queue, so an unshared subscription persisted before BL-2038 gains it when
+     its subscriber next attaches (what is already queued stays). A declare passing `null` changes
+     nothing.
+5. **Persisted and snapshotted.** The excluded publisher name is kept beside the description:
+   persisted with a `never` subscription, and snapshotted and restored with its queue; it goes with a
+   queue that a reset or delete removes, and stays with a queue a reset keeps. When some persisted
+   queue has one, `queues/index` is written as `SURL-BUS-QUEUES-3`, where every queue's description
+   field is followed by `0x00`, or `0x01` and the excluded publisher name. Otherwise it is written as
+   before, and `SURL-BUS-QUEUES-1` and `SURL-BUS-QUEUES-2` files still load.
+6. **A transaction's batch** is published through the committing connection, so its topic entries are
+   withheld exactly as single publishes are, and the batch's bound check counts no withheld copy.
+7. **Reattaching** needs no new rule: no-local is among the applied filters the description holds
+   (decision 3.2), so the same filters resume the subscription, and adding or dropping no-local
+   replaces it (decision 3.3), as section 8.3.3 says. A lookup attach is answered the filters the
+   container applies to the subscription it found (for a shared one, see item 8).
+8. **A shared subscription** (decision 3.5) does **not** apply no-local, `global` or not, durable or
+   not durable: the entry is left out of the echoed source and of the description, so the client
+   decides whether to go on (Part 3 section 3.5.3), and the queue excludes nobody. A shared
+   subscription an earlier build persisted with the entry in its description differs from what is now
+   planned, so its next attach with a source replaces it.
+9. **The echo** therefore names no-local exactly where it is applied: a live topic link, and a kept
+   subscription that is not shared. A queue link and a shared subscription leave it out.
+
+### Alternatives considered (Amendment 3)
+
+- **The subscribing connection only**, as for a live link. A `never` subscription outlives it, so a
+  client resuming would receive what it published on a later connection, against section 8.3.3.
+- **Only while a link is attached.** Section 8.3.3 says such messages are not added to the
+  subscription, attached or not.
+- **Withholding at delivery**, as filters run (decision 2.4). Every queued message would have to keep
+  its publisher in memory, in its file and in snapshots, and messages that are never to be delivered
+  would use the queue's bounds.
+- **A predicate the bus calls at copy-in.** That is the cost "Alternatives considered" above rejects
+  for selectors: protocol code run on every topic publish, and a rule the bus must persist and still
+  evaluate after a restart. Comparing two opaque names has neither cost: the bus stays
+  protocol-neutral and calls no protocol code, and the name is a string in its files.
+- **Identifying the client by account.** Anonymous clients would all be one client, and JMS names the
+  client identifier.
+- **Own connection only for `session-end` and `connection-close`.** It needs a second bus rule for
+  queues that only the same `container-id` can resume anyway.
+- **Applying no-local to a non-`global` shared subscription by `container-id`**, or to any shared one
+  by whoever declared it. Jakarta Messaging gives it no meaning, a `global` one has no single client,
+  and the first declarer would make the answer depend on attach order.
+- **Refusing a shared attach that asks for it.** Part 3 section 3.5.3 has a container leave out what it
+  does not apply.
+- **Leaving it out of every kept subscription.** Honest, but a JMS durable subscriber asking
+  `noLocal` is a real use of the stand-in, and root `CLAUDE.md` says nothing is left out because it is
+  hard.
