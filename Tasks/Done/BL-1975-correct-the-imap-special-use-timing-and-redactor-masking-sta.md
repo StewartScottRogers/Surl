@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md, Protocols/Mail/Surl.Protocol.Imap.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1975 — Correct the IMAP SPECIAL-USE timing and redactor masking statements to match the code
 
@@ -51,15 +51,27 @@ involved: no behaviour changes.
 
 ## Acceptance criteria
 
-- [ ] ADR-0055 has a new dated amendment, marked decided by Claude under Stewart's delegation, that says whether `SPECIAL-USE` is evaluated each time the capability list is written or fixed at start, why, and what a client sees after the last mailbox with a use is deleted, `CREATE` with `USE` included.
-- [ ] No reader can take Amendment 1, point 3's "decided at start, not per command" for current behaviour when it is not: either that sentence is marked superseded by the new amendment, or the new amendment says the code asks per command today, that deciding at start is intent, and names the filed code task.
-- [ ] The `CreateRedactor` XML comment says a `LOGIN` password sent as a literal is masked and that other literals, an `APPEND` message included, are logged unchanged apart from the 64 KiB case.
-- [ ] The same comment says a run of more than 64 KiB with no CR LF is written as `****` whatever it holds.
-- [ ] Only comments change in `.cs` files; `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean and the `Surl.Protocol.Imap.UnitTests` fast tests pass.
+- [x] ADR-0055 has a new dated amendment, marked decided by Claude under Stewart's delegation, that says whether `SPECIAL-USE` is evaluated each time the capability list is written or fixed at start, why, and what a client sees after the last mailbox with a use is deleted, `CREATE` with `USE` included.
+- [x] No reader can take Amendment 1, point 3's "decided at start, not per command" for current behaviour when it is not: either that sentence is marked superseded by the new amendment, or the new amendment says the code asks per command today, that deciding at start is intent, and names the filed code task.
+- [x] The `CreateRedactor` XML comment says a `LOGIN` password sent as a literal is masked and that other literals, an `APPEND` message included, are logged unchanged apart from the 64 KiB case.
+- [x] The same comment says a run of more than 64 KiB with no CR LF is written as `****` whatever it holds.
+- [x] Only comments change in `.cs` files; `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean and the `Surl.Protocol.Imap.UnitTests` fast tests pass.
 
 ## Notes
+
+- Decision (ADR-0055 Amendment 2): `SPECIAL-USE` is fixed at start, so Amendment 1 point 3 stands and the code is
+  judged wrong. A real server does not withdraw an extension when a folder is deleted, and a client under test must be
+  able to delete and recreate its Sent folder. No behaviour changed here; BL-2013 builds it. Point 3 also carries a
+  one-line pointer saying the sentence is intent.
+- "At start" is defined as when the `ImapProtocolServer` is constructed, so BL-2013 needs no new store member.
+- The edits were made in the session rather than by the `align-and-document` agent: one amendment and one comment.
+- Not filed: ADR-0183 amendment 1 point 5 already records, as a known limit, that after a run past 64 KiB inside a
+  literal the redaction rule's literal count runs long (only the log is affected).
+- Gates: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30417 passed,
+  0 failed, 3 skipped (`Surl.Protocol.Imap.UnitTests` 841 passed).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0055 Amendment 2 decides SPECIAL-USE is fixed at start (code follows in BL-2013) and the CreateRedactor comment states what the IMAP exchange log masks
