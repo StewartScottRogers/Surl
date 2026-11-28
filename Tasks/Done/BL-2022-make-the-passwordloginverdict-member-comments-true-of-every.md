@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary/PasswordLoginVerdict.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-28
 ---
 # BL-2022 — Make the PasswordLoginVerdict member comments true of every case each verdict covers
 
@@ -43,15 +43,23 @@ No store, event or fault changes: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `RefusedAnonymous` comment says the login has no user name, and does not say it carried no credentials or no password.
-- [ ] The `Accepted` comment covers both a match with a local account and acceptance by an LDAP account source.
-- [ ] The `RefusedCredentials` comment covers a token that matches nothing and refusal by a `refuse-login` fault, beside a user name or password that no account or directory accepts.
-- [ ] The diff changes only `///` lines in `PasswordLoginVerdict.cs`.
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean.
+- [x] The `RefusedAnonymous` comment says the login has no user name, and does not say it carried no credentials or no password.
+- [x] The `Accepted` comment covers both a match with a local account and acceptance by an LDAP account source.
+- [x] The `RefusedCredentials` comment covers a token that matches nothing and refusal by a `refuse-login` fault, beside a user name or password that no account or directory accepts.
+- [x] The diff changes only `///` lines in `PasswordLoginVerdict.cs`.
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- Read `AuthenticationPolicy.JudgePasswordLogin`, `CheckPasswordLoginAsync` and `ConcludeCheckedLoginAsync` and wrote
+  the three comments from them. `RefusedAnonymous` also says that `RefusedPlaintext` wins, because it is checked first.
+- The three-comment edit was made in the session instead of by `align-and-document`: one file, already specified line
+  by line in Context, so an agent handoff would have added nothing.
+- Verified 2026-11-28: library build and solution build `-warnaserror` clean, `dotnet format --verify-no-changes`
+  exit 0, fast tests 30101 passed, 0 failed, 3 skipped. No decision, so no ADR.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The Accepted, RefusedCredentials and RefusedAnonymous comments are true of every case AuthenticationPolicy returns them in
