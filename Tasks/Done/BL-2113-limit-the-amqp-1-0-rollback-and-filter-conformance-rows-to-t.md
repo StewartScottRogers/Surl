@@ -44,7 +44,7 @@ they cover.
 - The filter row's "Covered by" gained
   `ServeAsync_DurableSubscriptionWithASelector_AcknowledgesWhatItRefusesAtDelivery`, which covers the new
   subscription-queue clause.
-- No test rolls back a subscription queue's acquired delivery; filed BL-2117.
+- No test rolls back a subscription queue's acquired delivery; filed BL-2118.
 - Edited directly rather than through `align-and-document`: a two-row change.
 
 ## Log

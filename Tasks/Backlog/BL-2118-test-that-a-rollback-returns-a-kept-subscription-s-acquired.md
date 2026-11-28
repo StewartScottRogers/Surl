@@ -1,5 +1,5 @@
 ---
-id: BL-2117
+id: BL-2118
 title: Test that a rollback returns a kept subscription's acquired AMQP 1.0 delivery to its queue
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2117 — Test that a rollback returns a kept subscription's acquired AMQP 1.0 delivery to its queue
+# BL-2118 — Test that a rollback returns a kept subscription's acquired AMQP 1.0 delivery to its queue
 
 ## Goal
 
