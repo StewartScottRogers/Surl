@@ -1,5 +1,5 @@
 ---
-id: BL-1974
+id: BL-1990
 title: Add dated amendment notes to ADR-0107 for its stale link, container-id, refused attach, delivery state and topic subscription statements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1974 — Add dated amendment notes to ADR-0107 for its stale link, container-id, refused attach, delivery state and topic subscription statements
+# BL-1990 — Add dated amendment notes to ADR-0107 for its stale link, container-id, refused attach, delivery state and topic subscription statements
 
 ## Goal
 

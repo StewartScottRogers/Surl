@@ -73,8 +73,8 @@ source is refused with `amqp:not-allowed`). ADR-0107's "Amended by" header lines
 - The `ImplicitTlsSchemeServer` note also says `mqtts` is not wrapped, because the amended sentence claimed it was.
 - No `.cs` or project file changed, so `verify` was not required. `dotnet build` (0 warnings, 0 errors) and the fast
   tests (no failures) were run anyway.
-- Out of scope, filed: BL-1974 (further stale statements in ADR-0107), BL-1975 (ADR-0122 Amendment 2 and BL-911),
-  BL-1976 (durable AMQP 1.0 subscription under `--topic-access`).
+- Out of scope, filed: BL-1990 (further stale statements in ADR-0107), BL-1991 (ADR-0122 Amendment 2 and BL-911),
+  BL-1992 (durable AMQP 1.0 subscription under `--topic-access`).
 
 ## Log
 

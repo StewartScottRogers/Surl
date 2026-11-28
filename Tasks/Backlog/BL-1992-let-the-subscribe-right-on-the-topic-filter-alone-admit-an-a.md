@@ -1,5 +1,5 @@
 ---
-id: BL-1976
+id: BL-1992
 title: Let the Subscribe right on the topic filter alone admit an AMQP 1.0 durable or shared subscription
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1976 — Let the Subscribe right on the topic filter alone admit an AMQP 1.0 durable or shared subscription
+# BL-1992 — Let the Subscribe right on the topic filter alone admit an AMQP 1.0 durable or shared subscription
 
 ## Goal
 

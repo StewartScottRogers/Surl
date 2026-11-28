@@ -1,5 +1,5 @@
 ---
-id: BL-1975
+id: BL-1991
 title: Note in ADR-0122 Amendment 2 that --cert and --self-signed are allowed beside TLS-SRP since BL-911
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1975 — Note in ADR-0122 Amendment 2 that --cert and --self-signed are allowed beside TLS-SRP since BL-911
+# BL-1991 — Note in ADR-0122 Amendment 2 that --cert and --self-signed are allowed beside TLS-SRP since BL-911
 
 ## Goal
 
