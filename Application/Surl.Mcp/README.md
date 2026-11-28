@@ -22,7 +22,8 @@ that needs no .NET runtime.
 
 ## Tools
 
-- `start_server` - starts a server from listen URLs and `surl`'s own options.
+- `start_server` - starts a server from listen URLs and `surl`'s own options, with in-memory files, cookies and
+  [start-time seeds](#start-time-seeds) of its Redis keyspace, LDAP directory and DNS zones.
 - `list_servers` - lists the servers this host started.
 - `stop_server` - stops one.
 - `get_exchanges` - the bytes each client sent and was answered, with the listen URL and scheme of each
@@ -56,9 +57,14 @@ that needs no .NET runtime.
   name of the store change (`<database>/<key>`) and `byte_count` the length of the value. `add_ldap_entries`
   takes `ldif` and answers `{entry_count}`; `add_dns_zone` takes `apex` and `zone_text` and answers
   `{apex, byte_count}`. A `changetype:` record, a second zone for an apex, a key past the keyspace's bounds, or
-  a server with no Redis, LDAP or DNS server composed is refused with the store's own words.
+  a seed of a store no listen URL of the server serves (`redis` or `rediss` for the keyspace, `ldap` or `ldaps`
+  for the directory, `dns` for the zones) is refused with the store's own words.
 - `reset_server`, `snapshot_server`, `restore_server` - return a server's stores, the three above included, and
-  the AMQP 0-9-1 and MQTT 5 broker state, to their configured state, or save and restore them.
+  the AMQP 0-9-1 and MQTT 5 broker state, to their configured state, or save and restore them. `reset_server`
+  returns the Redis keyspace, the LDAP directory and the DNS zones to `start_server`'s
+  [start-time seeds](#start-time-seeds): what `set_key`, `add_ldap_entries` and `add_dns_zone` added since is
+  dropped, a start-time key changed or removed since is back, and each expiry is measured again from the reset.
+  A server with a store on disk (`--directory`) refuses a reset.
 - `list_mailboxes`, `list_messages`, `read_message`, `read_file`, `list_files`, `browse_queue`,
   `read_retained_message`, `read_log` - read back what a client left (ADR-0164), each with a `server_id`.
   They are `list_mailboxes` (`owner`), `list_messages` (`owner`, `mailbox`, `after_uid`, `limit`),
@@ -76,6 +82,43 @@ that needs no .NET runtime.
   is no clear-faults tool (ADR-0161).
 
 The `surl://aihelp` resources carry `surl --aihelp`'s topics.
+
+## Start-time seeds
+
+Three optional `start_server` properties give a server's stores what they hold from the start (ADR-0158
+decisions 3, 4 and 9):
+
+| Property | Shape |
+| --- | --- |
+| `redis_keys` | An array of Redis string keys, each as `set_key` takes it: exactly one of `key` and `key_base64`, exactly one of `value` and `value_base64`, and optionally `database` (0 to 15, default 0) and `expire_ms` (1 to 31536000000, default never) |
+| `directory_ldif` | A non-empty string of LDIF content records, as `add_ldap_entries`' `ldif` |
+| `dns_zones` | An array of `{"apex", "zone_text"}`, both required and non-empty, as `add_dns_zone` takes them |
+
+```json
+{
+  "listen_urls": ["redis://127.0.0.1:0", "ldap://127.0.0.1:0", "dns://127.0.0.1:0"],
+  "arguments": ["--allow-anonymous"],
+  "redis_keys": [
+    {"key": "greeting", "value": "hello"},
+    {"key_base64": "cmF3", "value_base64": "Ynl0ZXM=", "database": 2, "expire_ms": 60000}
+  ],
+  "directory_ldif": "dn: dc=example,dc=com\nobjectClass: domain\ndc: example\n",
+  "dns_zones": [{"apex": "example.com", "zone_text": "$TTL 3600\n@ IN SOA ns.example.com. host.example.com. 1 7200 3600 1209600 300\nwww IN A 192.0.2.1\n"}]
+}
+```
+
+They are applied before any listener binds (keys, then entries, then zones), publish `seeded` store changes
+`get_events` finds, and are what `reset_server` returns to. No local path is read. The whole `tools/call`
+message is at most 4 MiB. A refused call starts nothing:
+
+| What is wrong | Answer |
+| --- | --- |
+| The input schema refuses it: an unknown property of an item, a wrong type, a `database` or `expire_ms` out of range, a zone without `apex` or `zone_text`, an empty `apex`, `zone_text` or `directory_ldif` | JSON-RPC error `-32602` naming the path, such as `arguments.redis_keys[1].ttl: not allowed` |
+| A `redis_keys` item's content: both or neither of `key` and `key_base64`, or of `value` and `value_base64`, an empty key, bad base64 | `isError: true` naming the item, such as `redis_keys[1]: give exactly one of key and key_base64` |
+| A store refuses the seed, or no listen URL serves the store | `isError: true` with the refusal, such as `Keyspace: A key in database 0 was refused: This instance holds no Redis keyspace.` |
+
+No answer shows a Redis value. A store's refusal of `directory_ldif` or of a zone is in the store's own words,
+which may quote part of the text.
 
 ## Options
 

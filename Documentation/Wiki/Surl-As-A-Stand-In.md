@@ -98,19 +98,50 @@ await server.Zones.AddZoneAsync("example.com", zoneFileText);                   
 ```
 
 A seed goes through the path a client would write by, so names, limits and events apply, and a seed never
-trips a fault rule; one a client would be refused throws `SurlSeedRefusedException`. A snapshot is an
-in-memory copy that only its own server restores; with `DataDirectory` set, reset and snapshot throw
-`InvalidOperationException` so a fixture never empties a real directory. Recipes:
-`StandInMailRoundTripRecipeTests.SeedMessage_ThenReadOverPop3_ReturnsTheSeededMessage` and
+trips a fault rule; one a client would be refused throws `SurlSeedRefusedException`, as does a seed of the
+keyspace, the directory or the zones when no listen URL serves that store (`redis` or `rediss`, `ldap` or
+`ldaps`, `dns`). A snapshot is an in-memory copy that only its own server restores; with `DataDirectory` set,
+reset and snapshot throw `InvalidOperationException` so a fixture never empties a real directory. A key is at
+most 16 MiB with its value, in database 0 to 15 and living 1 millisecond to 365 days; an LDIF seed and a zone
+are at most 16 MiB each; the directory refuses a `changetype:` record and a value read from a file or URL, and
+the zones refuse a second zone for an apex they hold. `ResetAsync` and `RestoreAsync` cover these three stores
+as well as the first four, and also the broker state the message bus carries: the AMQP 0-9-1 broker's declared
+exchanges and bindings and the MQTT 5 broker's sessions kept with no connection (ADR-0159).
+
+Recipes: `StandInMailRoundTripRecipeTests.SeedMessage_ThenReadOverPop3_ReturnsTheSeededMessage` and
 `ResetAsync_AfterSeeding_LeavesTheMailboxEmptyForTheNextTest`; for the directory,
 `StandInLdapDirectoryRecipeTests` (`SeedEntry_ThenSearchOverLdap_PrintsTheSeededDnAndAttribute`,
-`ResetAsync_AfterSeeding_TheSameSearchNoLongerFindsTheEntry`). A key is at most 16 MiB with its value, in
-database 0 to 15 and living 1 millisecond to 365 days; an LDIF seed and a zone are at most 16 MiB each; the
-directory refuses a `changetype:` record and a value read from a file or URL, and the zones refuse a second
-zone for an apex you did not reset. `ResetAsync` and `RestoreAsync` cover these three stores as well as the
-first four, and also the broker state the message bus carries: the AMQP 0-9-1 broker's declared exchanges and
-bindings and the MQTT 5 broker's sessions kept with no connection (ADR-0159). Unit tests:
-`SurlServerTests.Lookups`.
+`ResetAsync_AfterSeeding_TheSameSearchNoLongerFindsTheEntry`). Unit tests: `SurlServerTests.Lookups`.
+
+### Start-time seeds
+
+The keyspace, the directory and the zones also take seeds at start, which are what a reset returns to
+(ADR-0158 decisions 3 and 4): `SurlServerOptions.RedisKeys`, `DirectoryLdif` and `DnsZones` in `Surl.Api`, and
+`start_server`'s `redis_keys`, `directory_ldif` and `dns_zones` in `Surl.Mcp`.
+
+```csharp
+var options = new SurlServerOptions
+{
+    ListenUrls = { "ldap://127.0.0.1:0" },
+    AllowAnonymous = true,
+    DirectoryLdif = "dn: dc=example,dc=com\nobjectClass: domain\ndc: example\n",
+};
+await using var server = await SurlServer.StartAsync(options);
+// ... the test may add more with server.Directory.AddEntriesAsync ...
+await server.ResetAsync();   // the start-time entry stays; what was added while serving is gone
+```
+
+On both hosts they are applied before any listener binds. A reset (`ResetAsync`, `reset_server`) drops every
+seed made while serving, brings back a start-time key changed or removed since, and measures each expiry again
+from the reset. A refused one, including one for a store no listen URL serves, starts nothing: `Surl.Api`
+throws `SurlSeedRefusedException` from `StartAsync`, and `start_server` answers `isError: true`. The shapes
+and every refusal are in the [`Surl.Api`](../../Application/Surl.Api/README.md#start-time-seeds) and
+[`surl-mcp`](../../Application/Surl.Mcp/README.md#start-time-seeds) READMEs. The command line and the control
+endpoint have no start-time seeds; `--directory` loads the directory and the zones.
+
+Recipe: `StandInLdapDirectoryRecipeTests.ResetAsync_AfterStartTimeAndRuntimeSeeds_SearchStillFindsOnlyTheStartTimeEntry`.
+Unit tests: `SurlServerTests.StartTimeSeeds` in `Surl.Api.UnitTests` and `StartServerSeedTests` in
+`Surl.Mcp.UnitTests`.
 
 ## Reading back what a client left
 
@@ -230,6 +261,11 @@ and `wait_for_event` also take `store` and `name`), `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`
 resources. See [`Application/Surl.Mcp/README.md`](../../Application/Surl.Mcp/README.md).
 
+`start_server` seeds the Redis keyspace, the LDAP directory and the DNS zones before any listener binds with
+`redis_keys`, `directory_ldif` and `dns_zones`; `set_key`, `add_ldap_entries` and `add_dns_zone` seed them while
+the server runs; and `reset_server` returns to the start-time seeds, dropping the later ones
+([Start-time seeds](#start-time-seeds), above).
+
 ## Recipes
 
 Each is an `Integration` test class in `Conformance/Surl.Conformance.UnitTests`; upstream curl plays the
@@ -239,6 +275,7 @@ code under test, and a test is inconclusive where no pinned build is installed.
   `SeedMessage_ThenReadOverPop3_ReturnsTheSeededMessage`, `ResetAsync_AfterSeeding_LeavesTheMailboxEmptyForTheNextTest`.
 - **File upload** - `StandInFileUploadRecipeTests.cs`: `UploadOverFtp_ThenFetchOverHttp_ReturnsTheUploadedBytes`,
   `UploadOverSftp_ThenFetchOverHttp_ReturnsTheUploadedBytes`.
+- **LDAP directory seeds** - `StandInLdapDirectoryRecipeTests.cs` (tests named above).
 - **Injected faults** - `StandInFaultRecipeTests.cs` (tests named above).
 - **Parallel instances** - `StandInParallelInstancesRecipeTests.cs` (tests named above).
 - **Publish and consume** - `StandInPublishAndConsumeRecipeTests.cs`:

@@ -32,7 +32,8 @@ the extended servers off, `UnsupportedProtocol`, as `surl` does). Listen on `mcp
   `--directory`, `AllowUploads` is `--allow-uploads`, `ListDirectories` is
   `--list-directories`, `FollowSymlinks` is `--follow-symlinks`, `ServeDotFiles` is
   `--serve-dot-files`, `LogLevel` is `--log-level`), and `AdditionalArguments` takes any other
-  option in `surl`'s own words. `surl --manual` describes them all.
+  option in `surl`'s own words. `surl --manual` describes them all. The start-time seeds
+  `RedisKeys`, `DirectoryLdif` and `DnsZones` are not `surl` options ([below](#start-time-seeds)).
 
   | Property | `surl` option |
   | --- | --- |
@@ -342,12 +343,16 @@ await server.Directory.AddEntriesAsync("dn: dc=example,dc=com\nobjectClass: doma
 await server.Zones.AddZoneAsync("example.com", zoneFileText);
 ```
 
-`Keys.SetAsync` sets a string key (key and value together at most 16 MiB, database 0 to 15, expiry 1
-millisecond to 365 days, else `ArgumentOutOfRangeException`; an empty key is an `ArgumentException`).
-`Directory.AddEntriesAsync` adds LDIF content records, all or none, at most 16 MiB; a `changetype:` record
-and a value read from a file or URL are refused. `Zones.AddZoneAsync` adds one zone, at most 16 MiB; a second
-zone for a held apex is refused until a reset. Each throws `SurlSeedRefusedException` (`Store` is
-`Keyspace`, `Directory` or `Zones`) when refused or when no Redis, LDAP or DNS server is composed.
+`Keys.SetAsync` sets a string key: database 0 to 15 and an expiry of 1 millisecond to 365 days, else
+`ArgumentOutOfRangeException`; an empty key is an `ArgumentException`; the key and value together are at most
+16 MiB. `Directory.AddEntriesAsync` adds LDIF content records, all or none, at most 16 MiB; a `changetype:`
+record and a value read from a file or URL are refused. `Zones.AddZoneAsync` adds one zone, at most 16 MiB; a
+second zone for a held apex is refused (a reset frees the apex of a zone added while serving, not of one the
+server started with). Each throws `SurlSeedRefusedException` when the store refuses the seed, or when no listen
+URL serves the store: a `redis` or `rediss` URL for the keyspace, an `ldap` or `ldaps` URL for the directory, a
+`dns` URL for the zones. Its `Store` is `Keyspace`, `Directory` or `Zones`, and for these three its `Refusal`
+is the store's message without the final full stop, such as `This instance holds no Redis keyspace`. With
+`SURL_EXTENSIONS=0` there is no Redis or DNS server, so no keyspace and no zones.
 
 A seed a client would be refused throws `SurlSeedRefusedException`, never fails silently: its
 `Store` is the store and its `Refusal` the store's own word for it - `NoSuchAccount` for mail to an
@@ -373,7 +378,7 @@ Redis keyspace, the LDAP directory, AMQP 0-9-1 exchanges, Kafka producers, sessi
 | Mail | the configured mailboxes holding nothing | yes, with UIDs and flags | the snapshot's |
 | Messages | no retained or queued messages | retained messages, topic logs, committed offsets and queues, except a queue exclusive to a connection | the snapshot's |
 | Accounts, proxy accounts, TLS-SRP accounts | exactly those given at start | yes | the snapshot's |
-| Redis keyspace, LDAP directory, DNS zones | empty databases, an empty directory, no zone | yes | the snapshot's |
+| Redis keyspace, LDAP directory, DNS zones | the [start-time seeds](#start-time-seeds) and nothing else; with none, empty databases, an empty directory, no zone | yes | the snapshot's |
 | AMQP 0-9-1 exchanges and bindings | none a client declared | yes | the snapshot's |
 | Kafka producer state | none | yes | the snapshot's |
 | Kafka consumer groups | dropped | no | dropped |
@@ -399,6 +404,48 @@ password's bytes (its UTF-8 bytes, and the bytes a base64 password decodes to), 
 snapshot as holding every named account's password. The empty-name Bearer-token account is held
 as the SHA-256 of its token only. A TLS-SRP account is held as its user name, salt, group and
 verifier, never its password (ADR-0132 amendment 3, ADR-0170).
+
+### Start-time seeds
+
+`SurlServerOptions.RedisKeys` (`SurlRedisKey`: key, value, optional expiry, database), `DirectoryLdif` (LDIF
+content records) and `DnsZones` (`SurlDnsZone`: apex, zone-file text) give the three stores what they hold
+from the start, and `ResetAsync` returns to it (ADR-0158 decisions 3 and 4):
+
+```csharp
+var zoneFileText = "$TTL 3600\n@ IN SOA ns.example.com. host.example.com. 1 7200 3600 1209600 300\nwww IN A 192.0.2.1\n";
+var options = new SurlServerOptions
+{
+    ListenUrls = { "redis://127.0.0.1:0", "ldap://127.0.0.1:0", "dns://127.0.0.1:0" },
+    AllowAnonymous = true,
+    RedisKeys =
+    [
+        new SurlRedisKey("greeting", "hello"),                          // database 0, no expiry
+        new SurlRedisKey("session:1", "alice", TimeSpan.FromHours(1), database: 1),
+    ],
+    DirectoryLdif = "dn: dc=example,dc=com\nobjectClass: domain\ndc: example\n",
+    DnsZones = [new SurlDnsZone("example.com", zoneFileText)],
+};
+await using var server = await SurlServer.StartAsync(options);
+
+await server.Keys.SetAsync("greeting", "changed");     // a seed made while serving
+await server.ResetAsync();                             // drops it
+var greeting = await server.Keys.GetAsync("greeting"); // greeting.Text is "hello"
+```
+
+- They are applied before any listener binds, so no client sees a store without them: the keys in order (a
+  later one replaces an earlier one of the same database and key), then the LDIF, then the zones. They never
+  consult the fault plan. Each key, entry and zone publishes a `StoreChanged` event (`Seeded`), which
+  `FindEvents` finds when `RecordExchanges` is on.
+- `ResetAsync` returns the keyspace, the directory and the zones to them: a seed made while serving is dropped,
+  a start-time key a client or a later seed changed or removed is back with its start-time value, and each
+  expiry is measured again from the reset.
+- A refused one throws `SurlSeedRefusedException` from `StartAsync`, including one for a store no listen URL
+  serves; nothing is left bound or locked.
+- A null item, an empty key, a database outside 0 to 15, an expiry outside 1 millisecond to 365 days, or a null
+  apex or zone text is an `ArgumentException` from `StartAsync`.
+- The command line and the control endpoint have no start-time seeds. `surl --directory` (`DataDirectory`)
+  loads the directory from `.surl/ldap/directory.ldif` and the zones from `.surl/dns/*.zone`; such a server
+  refuses `ResetAsync` ([above](#seed-reset-snapshot)).
 
 ## Read back what a client left
 
