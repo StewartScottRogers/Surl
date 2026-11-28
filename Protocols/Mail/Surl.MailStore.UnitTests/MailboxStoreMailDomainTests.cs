@@ -245,6 +245,29 @@ public sealed class MailboxStoreMailDomainTests
     }
 
     [TestMethod]
+    public void Constructor_AliasWithTwoTargetsAtFault_NamesTheFirst()
+    {
+        var failure = Assert.ThrowsExactly<MailRouteException>(() => DomainStore(
+            [], Configuration(aliases: [new MailAlias("a@example.com", ["carol@example.com", "dan@example.org"])])));
+
+        Assert.AreEqual(MailRouteProblem.TargetNamesNoMailbox, failure.Problem);
+        Assert.AreEqual("carol@example.com", failure.Address);
+    }
+
+    [TestMethod]
+    public void Constructor_ManyAliasesThatAllNameOneAnother_ThrowsExpandingEachOnce()
+    {
+        // Following every path through these would take 14! expansions.
+        var addresses = Enumerable.Range(0, 15).Select(number => $"a{number}@example.com").ToList();
+        var aliases = addresses.Select(address => new MailAlias(address, [.. addresses.Where(other => other != address)])).ToArray();
+
+        var failure = Assert.ThrowsExactly<MailRouteException>(() => DomainStore([], Configuration(aliases: aliases)));
+
+        Assert.AreEqual(MailRouteProblem.IncludesItself, failure.Problem);
+        Assert.AreEqual("a0@example.com", failure.Address);
+    }
+
+    [TestMethod]
     public void Deliver_AliasToSeveralOwners_GivesEachOwnerOneCopy()
     {
         var store = DomainStore(

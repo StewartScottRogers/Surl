@@ -84,3 +84,23 @@ account's mailbox still takes mail. No ADR said what an added or removed account
 
 - `ComposedStores` and the mail store agree on who exists after every add, remove, reset and restore.
 - ADR-0131 decisions 2 and 4 read as amended here.
+
+## Note, 2026-11-28 (BL-2121): an alias target that stops naming an owner
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+ADR-0102 decision 1.3 says "at runtime an alias always ends in owners". Adding and retiring owners ends that: a
+target can come to name none, by being retired, by an added account making its local part ambiguous by case, or by
+the domain's catch-all it then falls to leading back to the alias. So:
+
+1. **Such a target adds no owner, and every other target is still resolved.** The order the targets are listed in
+   does not change who receives the message. A test that retires one member of a mailing alias sees the others go on
+   receiving mail.
+2. **An alias none of whose targets leads to an owner is `NoSuchAccount`** (SMTP accepts and discards, ADR-0102
+   decision 1.3 step 5). Resolution does not go back to a mailbox or account of the alias's own address, or to the
+   catch-all for that address: the alias matched, and the first step that matches decides.
+3. **The start-up check is unchanged.** A misconfigured alias or catch-all is still refused, naming the first fault
+   in target order.
+
+Alternative not taken: refusing the whole alias while any target names no owner, which would let one removed account
+stop a list's mail to everyone.

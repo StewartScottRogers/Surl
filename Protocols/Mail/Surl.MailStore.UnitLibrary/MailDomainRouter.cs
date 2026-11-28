@@ -47,7 +47,7 @@ internal sealed class MailDomainRouter
     {
         foreach (var route in configuredAliases.Select(AliasRoute).Concat(catchAlls.Select(CatchAllRoute)))
         {
-            var problem = Expand(route, [], []);
+            var problem = Expand(route, new Expansion());
             if (problem is not null)
             {
                 throw problem;
@@ -57,13 +57,15 @@ internal sealed class MailDomainRouter
 
     /// <summary>
     /// The owners <paramref name="address"/> resolves to, each once; none when it resolves to
-    /// none (step 5).
+    /// none (step 5). A target of an alias or catch-all that no longer names an owner, as one
+    /// can after an owner is added or retired (ADR-0185), adds none, and the other targets are
+    /// still resolved.
     /// </summary>
     public IReadOnlyList<OwnerMailboxes> Resolve(MailDomainAddress address)
     {
-        var owners = new List<OwnerMailboxes>();
-        _ = Resolve(address, [], owners, out _);
-        return owners;
+        var expansion = new Expansion();
+        _ = Resolve(address, expansion, out _);
+        return expansion.Owners;
     }
 
     private static Route AliasRoute(MailAlias alias) => new(MailRouteKind.Alias, "alias " + alias.Address, alias.Address, alias.Targets);
@@ -72,26 +74,25 @@ internal sealed class MailDomainRouter
         new(MailRouteKind.CatchAll, "catch-all " + catchAll.Key, catchAll.Value, [catchAll.Value]);
 
     /// <param name="address">The address to resolve, in a configured domain.</param>
-    /// <param name="routesOnPath">The routes being expanded on the way here, to find a loop.</param>
-    /// <param name="owners">Where each owner found is added once.</param>
+    /// <param name="expansion">What has been expanded and found on the way here.</param>
     /// <param name="namesNoOwner">Set when the address resolved to nothing at step 5.</param>
-    /// <returns>The problem a route on the way has, or <see langword="null"/>.</returns>
-    private MailRouteException? Resolve(MailDomainAddress address, HashSet<string> routesOnPath, List<OwnerMailboxes> owners, out bool namesNoOwner)
+    /// <returns>The first problem a route on the way has, or <see langword="null"/>.</returns>
+    private MailRouteException? Resolve(MailDomainAddress address, Expansion expansion, out bool namesNoOwner)
     {
         namesNoOwner = false;
         var name = address.ToString();
         var alias = aliases.Find(name);
         if (alias is not null)
         {
-            return Expand(AliasRoute(alias), routesOnPath, owners);
+            return Expand(AliasRoute(alias), expansion);
         }
 
         var owner = mailboxes.Find(name) ?? findAccount(address.LocalPart);
         if (owner is not null)
         {
-            if (!owners.Contains(owner))
+            if (!expansion.Owners.Contains(owner))
             {
-                owners.Add(owner);
+                expansion.Owners.Add(owner);
             }
 
             return null;
@@ -99,33 +100,45 @@ internal sealed class MailDomainRouter
 
         if (catchAlls.TryGetValue(address.Domain, out var target))
         {
-            return Expand(CatchAllRoute(new(address.Domain, target)), routesOnPath, owners);
+            return Expand(CatchAllRoute(new(address.Domain, target)), expansion);
         }
 
         namesNoOwner = true;
         return null;
     }
 
-    private MailRouteException? Expand(Route route, HashSet<string> routesOnPath, List<OwnerMailboxes> owners)
+    /// <summary>
+    /// Resolves every target of <paramref name="route"/>, whatever problems the earlier ones
+    /// have, and returns the first problem in target order. A route already expanded is not
+    /// expanded again: its owners are found, and following every path to it could take
+    /// factorially long.
+    /// </summary>
+    private MailRouteException? Expand(Route route, Expansion expansion)
     {
-        if (!routesOnPath.Add(route.Key))
+        if (expansion.RoutesExpanded.Contains(route.Key))
+        {
+            return null;
+        }
+
+        if (!expansion.RoutesOnPath.Add(route.Key))
         {
             return new MailRouteException(route.Kind, MailRouteProblem.IncludesItself, route.Address);
         }
 
-        var problem = route.Targets.Select(target => ResolveTarget(route, target, routesOnPath, owners)).FirstOrDefault(problem => problem is not null);
-        routesOnPath.Remove(route.Key);
-        return problem;
+        var problems = route.Targets.Select(target => ResolveTarget(route, target, expansion)).ToList();
+        expansion.RoutesOnPath.Remove(route.Key);
+        expansion.RoutesExpanded.Add(route.Key);
+        return problems.Find(problem => problem is not null);
     }
 
-    private MailRouteException? ResolveTarget(Route route, string target, HashSet<string> routesOnPath, List<OwnerMailboxes> owners)
+    private MailRouteException? ResolveTarget(Route route, string target, Expansion expansion)
     {
         if (!MailDomainAddress.TryParse(target, out var address) || !Serves(address.Domain))
         {
             return new MailRouteException(route.Kind, MailRouteProblem.TargetOutsideMailDomains, target);
         }
 
-        var problem = Resolve(address, routesOnPath, owners, out var namesNoOwner);
+        var problem = Resolve(address, expansion, out var namesNoOwner);
         return namesNoOwner ? new MailRouteException(route.Kind, MailRouteProblem.TargetNamesNoMailbox, target) : problem;
     }
 
@@ -134,4 +147,17 @@ internal sealed class MailDomainRouter
     /// <param name="Address">The address a loop's refusal names: an alias's own, a catch-all's target.</param>
     /// <param name="Targets">The addresses it delivers to.</param>
     private sealed record Route(MailRouteKind Kind, string Key, string Address, IReadOnlyList<string> Targets);
+
+    /// <summary>The state of resolving one address or checking one route.</summary>
+    private sealed class Expansion
+    {
+        /// <summary>Each owner found, once, in the order first found.</summary>
+        public List<OwnerMailboxes> Owners { get; } = [];
+
+        /// <summary>The keys of the routes being expanded on the way here, to find a loop.</summary>
+        public HashSet<string> RoutesOnPath { get; } = [];
+
+        /// <summary>The keys of the routes whose every target has been resolved.</summary>
+        public HashSet<string> RoutesExpanded { get; } = [];
+    }
 }

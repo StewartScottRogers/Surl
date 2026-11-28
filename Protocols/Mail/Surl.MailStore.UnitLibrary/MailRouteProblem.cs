@@ -2,7 +2,8 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// Why an alias or catch-all cannot be resolved (ADR-0102, decision 1.3): each is refused at
-/// start, so at runtime every alias ends in owners.
+/// start. A target that stops naming an owner while the store runs is not refused: it adds no
+/// recipient (ADR-0185's 2026-11-28 note).
 /// </summary>
 public enum MailRouteProblem
 {

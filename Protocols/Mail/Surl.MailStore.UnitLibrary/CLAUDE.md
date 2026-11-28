@@ -23,7 +23,9 @@ catch-all, else `NoSuchAccount` (accepted and discarded). Domains compare in the
 `MailDomainName.TryNormalise` gives (`IdnMapping`, lower case, no trailing dot); local parts as
 ADR-0050 decision 5 says (`LocalPartLookup`). Each `--mailbox` is an owner and a login named by its
 normalised address. An alias or catch-all that does not resolve throws `MailRouteException` at
-construction. A `MailRecipient` may name several owners (`OwnerNames`), each once. With no domain,
+construction. After `AddOwner` or `RetireOwner`, a target that no longer names an owner adds none and
+every other target still resolves, in any order (BL-2121, ADR-0185's 2026-11-28 note); an alias none
+of whose targets leads to an owner is `NoSuchAccount`. A `MailRecipient` may name several owners (`OwnerNames`), each once. With no domain,
 or under `--allow-anonymous`, resolution is ADR-0050's unchanged. The index has no field for mail domains.
 
 Quotas, configured folders and shared folders (BL-675, ADR-0102 decisions 1.4 and 1.6), all

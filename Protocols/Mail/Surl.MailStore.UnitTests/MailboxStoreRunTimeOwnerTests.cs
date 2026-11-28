@@ -159,6 +159,62 @@ public sealed class MailboxStoreRunTimeOwnerTests
     }
 
     [TestMethod]
+    [DataRow("ann@example.com", "bob@example.com", DisplayName = "retired target listed first")]
+    [DataRow("bob@example.com", "ann@example.com", DisplayName = "retired target listed second")]
+    public void RetireOwner_OneOfTwoAliasTargets_LeavesTheOtherDeliverable(string first, string second)
+    {
+        var store = AliasStore(["ann", "bob"], [first, second]);
+
+        store.RetireOwner("ann");
+
+        CollectionAssert.AreEqual(new[] { "bob" }, Recipient(store, "<team@example.com>").OwnerNames.ToArray());
+    }
+
+    [TestMethod]
+    public void RetireOwner_EveryAliasTarget_LeavesTheAliasNoSuchAccount()
+    {
+        var store = AliasStore(["ann", "bob", "team"], ["ann@example.com", "bob@example.com"]);
+
+        store.RetireOwner("ann");
+        store.RetireOwner("bob");
+
+        Assert.AreEqual(MailRecipientLookup.NoSuchAccount, store.LookUpRecipient("<team@example.com>", out var recipient));
+        Assert.IsNull(recipient);
+    }
+
+    [TestMethod]
+    public void AddOwner_MakingOneAliasTargetAmbiguousByCase_LeavesTheOtherTargetsDeliverable()
+    {
+        var store = AliasStore(["Ann", "bob"], ["ann@example.com", "bob@example.com"]);
+
+        store.AddOwner("ANN");
+
+        CollectionAssert.AreEqual(new[] { "bob" }, Recipient(store, "<team@example.com>").OwnerNames.ToArray());
+    }
+
+    [TestMethod]
+    public void RetireOwner_AliasTargetWhoseCatchAllLeadsBackToTheAlias_LeavesTheOtherTargetsDeliverable()
+    {
+        var store = AliasStore(["ann", "bob"], ["ann@example.com", "bob@example.com"], catchAllTarget: "team@example.com");
+
+        store.RetireOwner("ann");
+
+        CollectionAssert.AreEqual(new[] { "bob" }, Recipient(store, "<team@example.com>").OwnerNames.ToArray());
+        CollectionAssert.AreEqual(new[] { "bob" }, Recipient(store, "<anyone@example.com>").OwnerNames.ToArray());
+    }
+
+    private static MailboxStore AliasStore(string[] accountNames, string[] targets, string? catchAllTarget = null) =>
+        new(
+            accountNames,
+            allowAnonymous: false,
+            new SettableTimeProvider(),
+            mailDomains: new MailDomainConfiguration(
+                ["example.com"],
+                [],
+                [new MailAlias("team@example.com", targets)],
+                catchAllTarget is null ? [] : [new MailCatchAll("example.com", catchAllTarget)]));
+
+    [TestMethod]
     public void Reset_DropsRunTimeOwnersAndReachesRetiredConfiguredOnesEmpty()
     {
         var store = NewStore("ann");
