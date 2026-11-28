@@ -40,3 +40,4 @@ mailbox change that never consults the fault plan.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
