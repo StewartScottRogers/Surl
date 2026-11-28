@@ -114,9 +114,13 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // ADR-0146 Amendment 7 items 1 and 3: the bus holds for a queue link's consumer at most the link's
-    // credit, and nothing while its session's window is closed or it holds its 1000 unsettled.
-    private static void GiveConsumerWhatTheLinkCanSend(Amqp1Session session, Amqp1Link link) =>
-        link.GiveConsumerCredit(session.RemoteIncomingWindow > 0 && link.UnsettledCount < MaxWaitingDeliveries ? link.Credit : 0);
+    // credit, and nothing while its session's window is closed or it has no room for another delivery.
+    private void GiveConsumerWhatTheLinkCanSend(Amqp1Session session, Amqp1Link link) =>
+        link.GiveConsumerCredit(session.RemoteIncomingWindow > 0 && HasRoomForAnotherDelivery(link) ? link.Credit : 0);
+
+    // Room is what the link holding its 1000 unsettled (ADR-0107 decision 7), or acquiring in
+    // transactions that keep all the acquired deliveries they may, has none of.
+    private bool HasRoomForAnotherDelivery(Amqp1Link link) => link.UnsettledCount < MaxWaitingDeliveries && !IsAcquisitionFull(link);
 
     // Frame by frame while the client's session window allows: a delivery larger than the window is
     // finished as later flows open it (Part 2 section 2.5.6). True when a frame was written.
@@ -142,11 +146,11 @@ public sealed partial class Amqp1ContainerConnection
         return sent;
     }
 
-    // The link's next message as a delivery, its credit taken; null when the link has no credit, holds
-    // its 1000 unsettled, or has nothing to send (ADR-0107 decision 7).
+    // The link's next message as a delivery, its credit taken; null when the link has no credit, has no
+    // room for another delivery, or has nothing to send.
     private Amqp1OutgoingTransfer? StartDelivery(Amqp1Session session, Amqp1Link link)
     {
-        if (link.Credit == 0 || link.UnsettledCount >= MaxWaitingDeliveries || TakeNextMessage(link) is not { } pending)
+        if (link.Credit == 0 || !HasRoomForAnotherDelivery(link) || TakeNextMessage(link) is not { } pending)
         {
             return null;
         }

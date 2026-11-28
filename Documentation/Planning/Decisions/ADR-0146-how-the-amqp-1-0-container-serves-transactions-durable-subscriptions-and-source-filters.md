@@ -138,6 +138,24 @@ but its flags and bindings.
    (decision 1.3). A smaller number, 10000 say, would refuse a bulk send that one queue of the bus
    takes whole. Counting each message as some bytes against `--max-filesize` would bound nothing
    under 0 and would make the byte bound mean something other than bytes.
+
+   *Amended 2026-11-28 (BL-2125), pointing at
+   [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md). Decided by Claude under Stewart's
+   delegation:* the node names the held messages keep are bounded too. A connection's open
+   transactions keep at most **16777216** characters (16 Mi, `MaxHeldNodeNameChars`) of node names
+   between them. Each name string is counted once in each transaction that holds a message keeping
+   it, so the postings of one attached link add its name once per transaction, and each link
+   attached again adds its own, the same name or not. A posting that would pass the bound is not
+   held; it is refused with `amqp:resource-limit-exceeded` (`too many node names held in open
+   transactions`), the transaction and its link staying open, and a pre-settled one is answered by
+   nothing. Discharging or rolling back a transaction frees its share. The bound applies under
+   every `--max-filesize`, 0 included, and is a named constant, as `MaxHeldMessages` is. The
+   message bound is judged first, then this one, then the byte bound.
+
+   Alternatives: counting each held message's name would refuse an ordinary bulk send to a long
+   name, whose one string they share. Keeping one string per address on the connection would need a
+   table of its own that a peer can fill, with its own bound. Counting names against
+   `--max-filesize` would bound nothing under 0.
 5. **Transactional retirement and acquisition (4.4.2, 4.4.3, 4.4.4).** A client `disposition`
    whose state is `transactional-state` holds its outcome (`accepted`, `rejected`, `released`,
    `modified`) in the transaction: the delivery stays acquired by its link and is neither
@@ -157,6 +175,44 @@ but its flags and bindings.
    one (Amendment 4), is sent queue deliveries. Their outcomes act on the queue, one stated in a
    transaction being held until the commit, and a rollback returns to the queue, marked
    redelivered, those acquired in the transaction that the link has not retired outside it.
+
+   *Amended 2026-11-28 (BL-2125), pointing at
+   [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md). Decided by Claude under Stewart's
+   delegation:* what a connection's open transactions keep of the container's deliveries is bounded,
+   in three ways.
+   - **Acquired deliveries: at most 100000** between them (`MaxAcquiredDeliveries`, the number
+     `Surl.MessageBus`'s `DefaultMaxMessagesPerQueue` gives). An unsettled delivery counts from when
+     it is sent until its transaction is discharged or its link ends, also after the client settles
+     it outside the transaction. At the bound a link whose `flow` names an open transaction has no
+     room, as one holding 1000 unsettled has none: it is sent nothing more, its bus consumer is given
+     credit 0, so a queue's messages stay ready for another link (Amendment 7), and a `drain` gives
+     its credit back. A live topic link has no consumer: up to 1000 messages wait on it and later ones
+     are dropped, as on any link that cannot send. It sends again when a discharge or a link's end
+     frees room, or a `flow` stops naming the transaction. A link whose deliveries are pre-settled adds none and is not stopped. A
+     delivery partly written is finished.
+   - **Held outcomes: at most 100000** between them (`MaxHeldOutcomes`). A transactional
+     `disposition` that would pass it is answered as one naming an unknown id is (Amendment 1), with
+     `rejected` and `amqp:resource-limit-exceeded` (`too many outcomes held in open transactions`):
+     none of its range is held, and the deliveries stay as they were, also when the client sent it
+     settled: they stay unsettled on the link, and the transaction can still be committed without
+     them. A delivery that already has a held outcome adds none, so stating it again is accepted at
+     the bound.
+   - **Nothing a peer sized.** An outcome is held bare: `accepted`, `rejected` and `released` with
+     no field, `modified` with only `delivery-failed` and `undeliverable-here`, and any other state,
+     `received` included, as no outcome. So the `error`, `message-annotations` and other fields a
+     client sends are not kept, and under `rcv-settle-mode` `second` a commit's settling
+     `disposition` states the bare outcome. A link's end drops its deliveries from every open
+     transaction, which neither a commit nor a rollback would change, so an ended link and its
+     address are not kept either.
+
+   All of this applies under every `--max-filesize`, with named constants, no option.
+
+   Alternatives: sending past the bound outside the transaction would retire for good a delivery the
+   client believes a rollback returns. Detaching the link or closing the connection would end work
+   the transaction can still commit. Holding part of a refused `disposition`'s range would leave the
+   client unable to tell which part. Dropping a delivery from the count when the client settles it
+   outside the transaction would not bound the held outcomes and needs a second path back from the
+   delivery to each transaction.
 
 6. **Discharge (4.3, 4.5.3, 4.5.8).** A transfer on a coordinator link holding a `discharge`
    (`0x32`):

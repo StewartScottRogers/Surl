@@ -6,6 +6,6 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// </summary>
 /// <param name="Transaction">The transaction holding it.</param>
 /// <param name="Delivery">The delivery it retires.</param>
-/// <param name="Outcome">The outcome the <c>transactional-state</c> carried, as read.</param>
+/// <param name="Outcome">The outcome the <c>transactional-state</c> carried, kept bare (<see cref="Amqp1DeliveryState.BareOutcomeOf"/>); <see langword="null"/> when it carried no <c>accepted</c>, <c>rejected</c>, <c>released</c> or <c>modified</c>.</param>
 /// <param name="Settled">Whether the client's <c>disposition</c> also settled the delivery.</param>
 internal sealed record Amqp1HeldOutcome(Amqp1Transaction Transaction, Amqp1OutgoingDelivery Delivery, object? Outcome, bool Settled);

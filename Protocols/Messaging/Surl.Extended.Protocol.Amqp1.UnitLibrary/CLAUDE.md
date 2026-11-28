@@ -126,8 +126,8 @@ BL-513 amendment):
 - A queue's messages go only to links that can send them (ADR-0146 Amendment 7; tests in
   `Amqp1ContainerConnectionTests.DeliveryCredit.cs`). Every consumer, of a queue or a subscription
   queue, is given delivery credit 0 before it starts (`Amqp1Link.StartConsumer`), then the link's
-  credit, or 0 while its session's remote `incoming-window` is 0 or it holds 1000 unsettled
-  (`GiveConsumerWhatTheLinkCanSend`, before and after each link sends; `SendWaitingAsync` goes round
+  credit, or 0 while its session's remote `incoming-window` is 0, it holds 1000 unsettled or it is
+  acquiring in transactions that are full (local transactions, below) (`GiveConsumerWhatTheLinkCanSend`, before and after each link sends; `SendWaitingAsync` goes round
   until a round writes nothing). The bus's callback only wakes the pump. A delivery is claimed
   (`TryClaimDelivery`) only as the container starts writing it, so what nobody can take stays ready on
   the bus, and what the bus held for a link that can no longer send goes to another, not marked
@@ -156,7 +156,8 @@ BL-513 amendment):
   `delivery-count`; deliveries go in order while credit and the client's session `incoming-window`
   allow, each a new `delivery-id`, an 8-byte tag and `message-format` 0, split into `more` frames of
   the smaller `max-frame-size` and written frame by frame as the window opens (`Amqp1OutgoingTransfer`);
-  a link holding 1000 deliveries unsettled sends nothing more until the client settles one. `drain`
+  a link holding 1000 deliveries unsettled sends nothing more until the client settles one, and a link
+  acquiring in full transactions nothing until there is room. `drain`
   sends what the link has - what waits on a live topic link; on a queue link, claiming until the bus
   holds nothing for it - then gives the rest back with a `flow` and sets the consumer's credit to 0 (a
   link that cannot send gets the credit back, its messages staying ready); `echo` is answered with a
@@ -233,7 +234,9 @@ Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
   (`amqp:resource-limit-exceeded` past it); under `--max-filesize 0`, no limit, held messages have no
   byte bound. Under every `--max-filesize` the open transactions hold at most 100000 messages between
   them (`MaxHeldMessages`), so empty ones are bounded too; one past it is `rejected` in
-  `transactional-state` with `amqp:resource-limit-exceeded`. Access was judged at attach. A
+  `transactional-state` with `amqp:resource-limit-exceeded`. So is a posting that would keep more than
+  16 Mi characters of node names between them (`MaxHeldNodeNameChars`, each link's name string counted
+  once per transaction). Access was judged at attach. A
   `txn-id` naming no open transaction (not four bytes, discharged, rolled back, from another
   connection) is `rejected` with `amqp:transaction:unknown-id`.
 - `discharge` with `fail` true drops the held messages; with `fail` false publishes them all or none
@@ -242,6 +245,13 @@ Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
   (detach, its session's end, the connection's end) rolls back what it declared, with no frame. A
   pre-settled `declare`, `discharge` or transactional transfer is applied and answered by nothing.
   Transactional retirement and acquisition (BL-957; ADR-0146 decision 1.5 and its amendment): a client `disposition` in `transactional-state` holds its outcome until the commit applies it (a rollback unsettles it again; an unknown `txn-id` is answered `rejected` with `amqp:transaction:unknown-id`), and a `flow` whose `properties` carry `txn-id` makes the container's transfers carry `transactional-state` naming it; a rollback returns those queue deliveries, still unsettled and with no outcome applied, to their queue redelivered, and leaves one whose outcome was applied as it is, so one modified `undeliverable-here` outside the transaction stays with its link until the link ends; a commit applies a held outcome only to a delivery with none applied (ADR-0146 Amendment 10).
+  The open transactions keep at most 100000 acquired deliveries (`MaxAcquiredDeliveries`) between them,
+  each until its discharge or its link's end; at it, a link acquiring in one has no room, so it is sent
+  nothing more and its consumer is given credit 0 (`HasRoomForAnotherDelivery`). They hold at most
+  100000 outcomes (`MaxHeldOutcomes`); a transactional `disposition` that would pass it is answered
+  `rejected` with `amqp:resource-limit-exceeded` and holds none of its range. An outcome is held bare
+  (`Amqp1DeliveryState.BareOutcomeOf`), and a link's end drops its deliveries from every open
+  transaction (ADR-0146, BL-2125 note to decision 1.5).
 
 Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
 

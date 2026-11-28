@@ -106,6 +106,39 @@ public sealed class Amqp1DeliveryStateTests
     }
 
     [TestMethod]
+    [DataRow(Amqp1Descriptor.Accepted)]
+    [DataRow(Amqp1Descriptor.Rejected)]
+    [DataRow(Amqp1Descriptor.Released)]
+    public void BareOutcomeOf_OutcomeWithFields_IsTheOutcomeWithNone(ulong descriptor)
+    {
+        var bare = Amqp1DeliveryState.BareOutcomeOf(new Amqp1Described(descriptor, new List<object?> { new string('d', 1000) }));
+
+        Assert.AreEqual(descriptor, bare!.Descriptor);
+        Assert.IsEmpty((IReadOnlyList<object?>)bare.Value!);
+    }
+
+    [TestMethod]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public void BareOutcomeOf_Modified_KeepsOnlyItsTwoBooleans(bool deliveryFailed, bool undeliverableHere)
+    {
+        var annotations = new Amqp1Map([new(new Amqp1Symbol("x"), new string('d', 1000))]);
+
+        var bare = Amqp1DeliveryState.BareOutcomeOf(
+            new Amqp1Described(Amqp1Descriptor.Modified, new List<object?> { deliveryFailed, undeliverableHere, annotations }));
+
+        Assert.AreEqual(Amqp1Descriptor.Modified, bare!.Descriptor);
+        CollectionAssert.AreEqual(new object?[] { deliveryFailed, undeliverableHere }, ((IReadOnlyList<object?>)bare.Value!).ToArray());
+    }
+
+    [TestMethod]
+    public void BareOutcomeOf_ReceivedOrNoOutcome_IsNull()
+    {
+        Assert.IsNull(Amqp1DeliveryState.BareOutcomeOf(new Amqp1Described(Amqp1Descriptor.Received, new List<object?> { 1u, 2UL })));
+        Assert.IsNull(Amqp1DeliveryState.BareOutcomeOf(null));
+    }
+
+    [TestMethod]
     public void FlowTransactionId_ReadsTheTxnIdPropertyOnly()
     {
         var carrying = new Amqp1Flow(1, 0, 1) { Properties = new Amqp1Map([new("txn-id", 2), new(new Amqp1Symbol("x"), 1), new(new Amqp1Symbol("txn-id"), new byte[] { 1, 2, 3, 4 })]) };

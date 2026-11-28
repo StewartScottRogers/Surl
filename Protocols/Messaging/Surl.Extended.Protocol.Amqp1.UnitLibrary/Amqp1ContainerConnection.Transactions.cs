@@ -19,6 +19,25 @@ public sealed partial class Amqp1ContainerConnection
     /// </summary>
     public const int MaxHeldMessages = MessageBus.MessageBus.DefaultMaxMessagesPerQueue;
 
+    /// <summary>
+    /// The most characters of node names the messages posted in a connection's open transactions keep
+    /// between them, each link's name counted once per transaction, whatever <c>--max-filesize</c> is
+    /// (ADR-0146, BL-2125 note to decision 1.4).
+    /// </summary>
+    public const int MaxHeldNodeNameChars = 16 * 1024 * 1024;
+
+    /// <summary>
+    /// The most deliveries a connection's open transactions keep as acquired between them (ADR-0146,
+    /// BL-2125 note to decision 1.5); at it, a link acquiring in one of them sends nothing more.
+    /// </summary>
+    public const int MaxAcquiredDeliveries = MessageBus.MessageBus.DefaultMaxMessagesPerQueue;
+
+    /// <summary>
+    /// The most outcomes a connection's open transactions hold between them (ADR-0146, BL-2125 note to
+    /// decision 1.5); a transactional <c>disposition</c> that would pass it is refused.
+    /// </summary>
+    public const int MaxHeldOutcomes = MessageBus.MessageBus.DefaultMaxMessagesPerQueue;
+
     // The connection's open transactions by number (ADR-0146 decision 1.2: a transaction belongs to the connection).
     private readonly Dictionary<uint, Amqp1Transaction> transactions = [];
 
@@ -82,20 +101,25 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // ADR-0146 decision 1.5: a transactional disposition holds its outcome until the commit; an unknown
-    // txn-id is answered rejected, and the deliveries stay as they were.
+    // txn-id, or one that would pass MaxHeldOutcomes, is answered rejected, and the deliveries stay as
+    // they were. The outcome is held bare, so a peer cannot size what is kept.
     private async ValueTask RetireInTransactionAsync(Amqp1Session session, Amqp1Disposition disposition, List<KeyValuePair<uint, Amqp1OutgoingDelivery>> deliveries)
     {
         if (OpenTransaction(Amqp1DeliveryState.TransactionIdOf(disposition.State)) is not { } transaction)
         {
-            await WriteAsync(session.OutgoingChannel, new Amqp1Disposition(IsReceiver: false, disposition.First)
-            {
-                Last = disposition.Last,
-                State = Amqp1DeliveryState.Rejected(UnknownTransaction()),
-            });
+            await RefuseRetirementAsync(session, disposition, UnknownTransaction());
             return;
         }
 
-        var outcome = Amqp1DeliveryState.TransactionalOutcomeOf(disposition.State);
+        // A delivery an open transaction already holds an outcome for adds none.
+        var added = deliveries.Count(entry => entry.Value.Held is null);
+        if (transactions.Values.Sum(open => open.HeldOutcomes.Count) + added > MaxHeldOutcomes)
+        {
+            await RefuseRetirementAsync(session, disposition, Error(Amqp1ErrorCondition.ResourceLimitExceeded, "too many outcomes held in open transactions"));
+            return;
+        }
+
+        var outcome = Amqp1DeliveryState.BareOutcomeOf(Amqp1DeliveryState.TransactionalOutcomeOf(disposition.State));
         foreach (var (deliveryId, delivery) in deliveries)
         {
             transaction.HoldOutcome(delivery, outcome, disposition.Settled);
@@ -105,6 +129,22 @@ public sealed partial class Amqp1ContainerConnection
             }
         }
     }
+
+    // The container's rejected disposition over the refused one's range, settling nothing (ADR-0146 Amendment 1).
+    private ValueTask RefuseRetirementAsync(Amqp1Session session, Amqp1Disposition disposition, Amqp1Error error) =>
+        WriteAsync(session.OutgoingChannel, new Amqp1Disposition(IsReceiver: false, disposition.First)
+        {
+            Last = disposition.Last,
+            State = Amqp1DeliveryState.Rejected(error),
+        });
+
+    // ADR-0146, BL-2125 note to decision 1.5: whether what the link sends next would be acquired in a
+    // transaction and the open transactions already keep as many acquired deliveries as they may. A
+    // pre-settled delivery is kept by none.
+    private bool IsAcquisitionFull(Amqp1Link link) =>
+        !link.SenderSettles
+        && OpenTransaction(link.AcquiringTransactionId) is not null
+        && transactions.Values.Sum(open => open.Acquired.Count) >= MaxAcquiredDeliveries;
 
     // The held outcomes are applied in the order stated; under rcv-settle-mode second the container then
     // settles the deliveries the client left unsettled.
@@ -127,7 +167,7 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // ADR-0146 decisions 1.5 and 1.6 and Amendments 1 and 10: held outcomes are forgotten, their settled
-    // deliveries unsettled again unless their link has ended. Deliveries acquired in the transaction, still
+    // deliveries unsettled again (those of an ended link were forgotten as it ended). Deliveries acquired in the transaction, still
     // unsettled and with no outcome applied leave the unsettled set, and those with a queue delivery tag (a
     // queue's, or a kept or non-durable shared subscription's) go back to their queue, redelivered; a live
     // topic subscription's has none. One whose outcome stated outside the transaction was applied stays as
@@ -138,7 +178,7 @@ public sealed partial class Amqp1ContainerConnection
         {
             var delivery = held.Delivery;
             delivery.Held = null;
-            if (held.Settled && !delivery.Link.IsEnded)
+            if (held.Settled)
             {
                 delivery.Session.Unsettled.Add(delivery.DeliveryId, delivery);
                 delivery.Link.UnsettledCount++;
@@ -188,6 +228,13 @@ public sealed partial class Amqp1ContainerConnection
             return Error(Amqp1ErrorCondition.ResourceLimitExceeded, "too many messages held in open transactions");
         }
 
+        // Each link attached again has its own node name string, which no byte bound counts (ADR-0146,
+        // BL-2125 note to decision 1.4).
+        if (transactions.Values.Sum(open => open.HeldNodeNameChars) + transaction.NodeNameCharsAddedBy(entry.Message.Topic) > MaxHeldNodeNameChars)
+        {
+            return Error(Amqp1ErrorCondition.ResourceLimitExceeded, "too many node names held in open transactions");
+        }
+
         // Held messages count with the partial deliveries against --max-filesize (ADR-0146 decision 1.4);
         // --max-filesize 0 is no limit (ADR-0006).
         var bytes = delivery.Bytes.WrittenCount;
@@ -205,6 +252,15 @@ public sealed partial class Amqp1ContainerConnection
         Amqp1Transaction.IdOf(transactionId) is { } id && transactions.TryGetValue(id, out var transaction) ? transaction : null;
 
     private static Amqp1Error UnknownTransaction() => Error(Amqp1ErrorCondition.TransactionUnknownId, "unknown transaction");
+
+    // An ended link's deliveries leave every open transaction, freeing their room.
+    private void ForgetTransactionalDeliveriesOf(Amqp1Link link)
+    {
+        foreach (var transaction in transactions.Values)
+        {
+            transaction.ForgetDeliveriesOf(link);
+        }
+    }
 
     // ADR-0146 decision 1.7: the transactions a coordinator link declared roll back, with no frame of
     // their own, when it detaches, its session ends or the connection ends.

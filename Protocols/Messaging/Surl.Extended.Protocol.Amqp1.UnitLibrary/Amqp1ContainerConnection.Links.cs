@@ -309,6 +309,7 @@ public sealed partial class Amqp1ContainerConnection
         link.IsEnded = true;
         DiscardPartial(link);
         RollBackTransactionsDeclaredBy(link);
+        ForgetTransactionalDeliveriesOf(link);
         link.Sending = null;
         link.UnsettledCount = 0;
         foreach (var deliveryId in session.Unsettled.Where(entry => entry.Value.Link == link).Select(entry => entry.Key).ToList())

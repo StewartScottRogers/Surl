@@ -7,10 +7,12 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// delivery acquired in a transaction, without one. It reads which of <c>received</c>,
 /// <c>accepted</c>, <c>rejected</c>, <c>released</c> and <c>modified</c> a state is, a
 /// <c>modified</c>'s <c>undeliverable-here</c>, and a <c>transactional-state</c>'s <c>txn-id</c> and
-/// outcome.
+/// outcome. An outcome a transaction holds is kept without its details (<see cref="BareOutcomeOf"/>).
 /// </summary>
 public static class Amqp1DeliveryState
 {
+    private const int DeliveryFailedFieldIndex = 0;
+
     private const int UndeliverableHereFieldIndex = 1;
 
     private static readonly Dictionary<ulong, Amqp1Outcome> OutcomesByDescriptor = new()
@@ -101,7 +103,25 @@ public static class Amqp1DeliveryState
     /// <param name="state">A delivery state, as read.</param>
     /// <returns><see langword="true"/> for a <c>modified</c> whose <c>undeliverable-here</c> is true.</returns>
     public static bool IsUndeliverableHere(object? state) =>
-        OutcomeOf(state) == Amqp1Outcome.Modified
-        && ((Amqp1Described)state!).Value is IReadOnlyList<object?> fields
-        && fields.ElementAtOrDefault(UndeliverableHereFieldIndex) is true;
+        OutcomeOf(state) == Amqp1Outcome.Modified && IsTrueField(state, UndeliverableHereFieldIndex);
+
+    /// <summary>
+    /// The outcome a delivery state states, with nothing whose size its sender chose: <c>accepted</c>,
+    /// <c>rejected</c> and <c>released</c> with no field, and <c>modified</c> with only its
+    /// <c>delivery-failed</c> and <c>undeliverable-here</c>.
+    /// </summary>
+    /// <param name="state">A delivery state, as read.</param>
+    /// <returns>The outcome; <see langword="null"/> when the state is none of those four.</returns>
+    public static Amqp1Described? BareOutcomeOf(object? state) => OutcomeOf(state) switch
+    {
+        Amqp1Outcome.Accepted => Accepted,
+        Amqp1Outcome.Rejected => new(Amqp1Descriptor.Rejected, Array.Empty<object?>()),
+        Amqp1Outcome.Released => new(Amqp1Descriptor.Released, Array.Empty<object?>()),
+        Amqp1Outcome.Modified => new(Amqp1Descriptor.Modified, new object?[] { IsTrueField(state, DeliveryFailedFieldIndex), IsUndeliverableHere(state) }),
+        _ => null,
+    };
+
+    // Whether a described list's field is the boolean true; the state must be a described value.
+    private static bool IsTrueField(object? state, int index) =>
+        ((Amqp1Described)state!).Value is IReadOnlyList<object?> fields && fields.ElementAtOrDefault(index) is true;
 }
