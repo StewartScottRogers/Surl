@@ -1,5 +1,5 @@
 ---
-id: BL-2086
+id: BL-2091
 title: Say in the surl LDAP help and manual text that the --control endpoint can add directory entries
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-11-28
 completed:
 ---
-# BL-2086 — Say in the surl LDAP help and manual text that the --control endpoint can add directory entries
+# BL-2091 — Say in the surl LDAP help and manual text that the --control endpoint can add directory entries
 
 ## Goal
 

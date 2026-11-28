@@ -1,5 +1,5 @@
 ---
-id: BL-2088
+id: BL-2093
 title: Say in the LdapProtocolServer.LoadAsync XML docs that a missing file leaves a directory the host can seed
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2088 — Say in the LdapProtocolServer.LoadAsync XML docs that a missing file leaves a directory the host can seed
+# BL-2093 — Say in the LdapProtocolServer.LoadAsync XML docs that a missing file leaves a directory the host can seed
 
 ## Goal
 

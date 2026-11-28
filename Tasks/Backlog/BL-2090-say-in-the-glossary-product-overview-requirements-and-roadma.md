@@ -1,5 +1,5 @@
 ---
-id: BL-2085
+id: BL-2090
 title: Say in the Glossary, Product Overview, Requirements and Roadmap that the host can change the LDAP directory
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-11-28
 completed:
 ---
-# BL-2085 — Say in the Glossary, Product Overview, Requirements and Roadmap that the host can change the LDAP directory
+# BL-2090 — Say in the Glossary, Product Overview, Requirements and Roadmap that the host can change the LDAP directory
 
 ## Goal
 

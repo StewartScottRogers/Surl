@@ -1,5 +1,5 @@
 ---
-id: BL-2087
+id: BL-2092
 title: Say in the ComposeLdapDirectoryFile XML docs that host seeds can fill a directory with no file
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2087 — Say in the ComposeLdapDirectoryFile XML docs that host seeds can fill a directory with no file
+# BL-2092 — Say in the ComposeLdapDirectoryFile XML docs that host seeds can fill a directory with no file
 
 ## Goal
 

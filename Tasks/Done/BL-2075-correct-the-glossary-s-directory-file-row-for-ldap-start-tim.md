@@ -30,7 +30,7 @@ Found while working BL-2034 (2026-11-28). The row calls `directory.ldif` "the LD
 
 - Delivered by `align-and-document`. The row also names the control endpoint's `POST /v1/directory`, a runtime seed the Context did not list, and says a reset keeps the start-time seed and drops the runtime ones (ADR-0158 decisions 3 and 4).
 - "Only the Glossary changes" is read as the product diff; this task file and the follow-up task files are board changes.
-- The same wrong wording elsewhere was filed, not fixed here: BL-2085 (Glossary "LDAP directory" row, Product Overview, Requirements, Roadmap, README), BL-2086 (`surl` help and manual text), BL-2087 (`Surl.Composition` XML docs), BL-2088 (LDAP library docs).
+- The same wrong wording elsewhere was filed, not fixed here: BL-2090 (Glossary "LDAP directory" row, Product Overview, Requirements, Roadmap, README), BL-2091 (`surl` help and manual text), BL-2092 (`Surl.Composition` XML docs), BL-2093 (LDAP library docs).
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: 30510 passed, 0 failed.
 
 ## Log
