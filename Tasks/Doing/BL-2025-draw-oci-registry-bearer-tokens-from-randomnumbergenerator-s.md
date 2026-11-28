@@ -44,3 +44,4 @@ the source injectable for tests. If the fix needs `Surl.Composition`, add it to 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
