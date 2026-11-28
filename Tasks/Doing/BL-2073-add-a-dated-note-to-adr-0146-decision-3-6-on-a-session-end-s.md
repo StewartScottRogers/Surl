@@ -36,3 +36,4 @@ ADR-0146 says when a `session-end` subscription that more than one session of a 
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
