@@ -47,8 +47,8 @@ public sealed class Amqp1BusNodeDirectoryTests
         var directory = new Amqp1BusNodeDirectory(bus, bus.Connect("alice"), new UnitTestSeededIdentifierRandom(1));
         var address = directory.Resolve(new(null, true, "alice")).CanonicalAddress!;
 
-        directory.DeleteDynamicNode(address);
-        directory.DeleteDynamicNode(address);
+        Assert.IsTrue(directory.DeleteDynamicNode(address));
+        Assert.IsFalse(directory.DeleteDynamicNode(address));
 
         Assert.AreEqual(MessageBusOutcome.UnknownQueue, bus.Connect().InspectQueue(address[Amqp1NodeAddress.QueuePrefix.Length..]).Outcome);
     }
@@ -62,8 +62,9 @@ public sealed class Amqp1BusNodeDirectoryTests
         var other = bus.Connect("bob");
         other.DeclareQueue("surl-dynamic-taken", new BusQueueFlags(Durable: !exclusive, Exclusive: exclusive, AutoDelete: exclusive));
 
-        new Amqp1BusNodeDirectory(bus, bus.Connect("alice"), new UnitTestSeededIdentifierRandom(1)).DeleteDynamicNode("/queue/surl-dynamic-taken");
+        var deleted = new Amqp1BusNodeDirectory(bus, bus.Connect("alice"), new UnitTestSeededIdentifierRandom(1)).DeleteDynamicNode("/queue/surl-dynamic-taken");
 
+        Assert.IsFalse(deleted);
         Assert.AreEqual(MessageBusOutcome.Succeeded, other.InspectQueue("surl-dynamic-taken").Outcome);
     }
 

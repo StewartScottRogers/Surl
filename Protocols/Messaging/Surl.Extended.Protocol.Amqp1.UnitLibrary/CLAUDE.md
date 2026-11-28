@@ -105,7 +105,13 @@ BL-513 amendment):
   attach is refused (a chosen-error fault, the bus refusing the consume), whoever else consumes it
   then. A link that attached to it by its address never deletes it by that rule; the bus still deletes
   it when its last consumer ends, whichever link that is, and a queue declared under the name after
-  that is not the dynamic node's and stays. A client receiver's link is a live bus subscription (a
+  that is not the dynamic node's and stays. When the container deletes one, every other link of the
+  connection still consuming it is detached, closing, with `amqp:resource-deleted` (`the node was
+  deleted`; Part 2 section 2.8.15), after the frame that deleted it is answered; no `detach` is written
+  for a link ending with the node, as every link of an ending session or connection is. A link sending
+  to it by its address consumes nothing and stays, and what it sends afterwards is judged as any send to
+  a queue of that name (an unsettled transfer outside a transaction is `rejected` with `amqp:not-found`
+  while there is none). A queue deleted any other way detaches nothing. A client receiver's link is a live bus subscription (a
   topic link with no subscription queue) or a consumer with 1000 unacknowledged (a queue link, and a
   topic link on the bus queue of a kept or non-durable shared subscription, under durable and shared
   topic subscriptions below); an attach with no source that finds a kept subscription is neither and

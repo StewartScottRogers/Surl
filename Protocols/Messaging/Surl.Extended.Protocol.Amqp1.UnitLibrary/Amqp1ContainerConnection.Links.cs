@@ -327,11 +327,29 @@ public sealed partial class Amqp1ContainerConnection
     // it; a link that only named its address made none.
     private void DeleteMadeDynamicNode(Amqp1Link link)
     {
-        if (link.MadeDynamicNodeAddress is { } address)
+        if (link.MadeDynamicNodeAddress is { } address && nodes.DeleteDynamicNode(address))
         {
-            nodes.DeleteDynamicNode(address);
+            deletedDynamicNodeAddresses.Add(address);
         }
     }
+
+    // Part 2 section 2.8.15: a link still consuming a dynamic node deleted under it is detached with
+    // amqp:resource-deleted. Run once a frame is answered, so a link that ended with the node, as every
+    // link of an ending session has, is not among them; at the connection's end it is not run.
+    private async ValueTask DetachConsumersOfDeletedNodesAsync()
+    {
+        var stranded = sessionsByIncomingChannel.Values
+            .SelectMany(session => session.LinksByClientHandle.Values.Where(IsConsumingADeletedNode).Select(link => (session, link)))
+            .ToList();
+        deletedDynamicNodeAddresses.Clear();
+        foreach (var (session, link) in stranded)
+        {
+            await DetachWithErrorAsync(session, link, Error(Amqp1ErrorCondition.ResourceDeleted, "the node was deleted"));
+        }
+    }
+
+    private bool IsConsumingADeletedNode(Amqp1Link link) =>
+        link is { Consumer: not null, IsEnded: false } && deletedDynamicNodeAddresses.Contains(link.NodeAddress);
 
     private void EndLinks(Amqp1Session session)
     {

@@ -17,5 +17,6 @@ public interface IAmqp1NodeDirectory
     /// is already gone.
     /// </summary>
     /// <param name="canonicalAddress">The address <see cref="Resolve"/> gave the dynamic node.</param>
-    void DeleteDynamicNode(string canonicalAddress);
+    /// <returns>Whether this call deleted the node, so the links still on it are left on nothing.</returns>
+    bool DeleteDynamicNode(string canonicalAddress);
 }

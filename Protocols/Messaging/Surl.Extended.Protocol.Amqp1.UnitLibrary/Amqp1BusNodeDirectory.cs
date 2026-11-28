@@ -57,18 +57,16 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
     /// The queue goes only while it is still the connection's dynamic one: the bus may have deleted it with
     /// its last consumer, and a later attach by address may have declared another queue under the name.
     /// </remarks>
-    public void DeleteDynamicNode(string canonicalAddress)
+    public bool DeleteDynamicNode(string canonicalAddress)
     {
         ArgumentNullException.ThrowIfNull(canonicalAddress);
 
         var name = canonicalAddress[Amqp1NodeAddress.QueuePrefix.Length..];
 
         // A queue that exists takes this declare only when it is exclusive to this connection and auto-deleted.
-        if (connection.InspectQueue(name).Outcome == MessageBusOutcome.Succeeded
-            && connection.DeclareQueue(name, DynamicQueueFlags).Outcome == MessageBusOutcome.Succeeded)
-        {
-            connection.DeleteQueue(name);
-        }
+        return connection.InspectQueue(name).Outcome == MessageBusOutcome.Succeeded
+            && connection.DeclareQueue(name, DynamicQueueFlags).Outcome == MessageBusOutcome.Succeeded
+            && connection.DeleteQueue(name) == MessageBusOutcome.Succeeded;
     }
 
     private Amqp1NodeResolution DeclareDynamicQueue()

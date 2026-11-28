@@ -39,6 +39,6 @@ internal sealed class UnitTestAmqp1NodeDirectory(Func<Amqp1NodeRequest, Amqp1Nod
         return Amqp1NodeResolution.Found(address);
     }
 
-    public void DeleteDynamicNode(string canonicalAddress) =>
-        busConnection?.DeleteQueue(canonicalAddress[Amqp1NodeAddress.QueuePrefix.Length..]);
+    public bool DeleteDynamicNode(string canonicalAddress) =>
+        busConnection?.DeleteQueue(canonicalAddress[Amqp1NodeAddress.QueuePrefix.Length..]) == MessageBusOutcome.Succeeded;
 }
