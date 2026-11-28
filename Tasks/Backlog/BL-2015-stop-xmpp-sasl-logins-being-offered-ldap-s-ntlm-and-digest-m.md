@@ -1,5 +1,5 @@
 ---
-id: BL-2011
+id: BL-2015
 title: Stop XMPP SASL logins being offered LDAP's NTLM and DIGEST-MD5 security layers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2011 — Stop XMPP SASL logins being offered LDAP's NTLM and DIGEST-MD5 security layers
+# BL-2015 — Stop XMPP SASL logins being offered LDAP's NTLM and DIGEST-MD5 security layers
 
 ## Goal
 
@@ -29,7 +29,7 @@ ignores `SaslLoginStep.SecurityLayer`, so a client that negotiates a layer gets 
 
 Add a separate flag to `SaslExchangeStart` (default `false`) for "the success can carry data";
 `CanCarrySecurityLayer` keeps implying it, so LDAP is unchanged. `ScramSaslExchange` reads the new
-meaning. BL-2012 then changes XMPP. See ADR-0072 decision 4, ADR-0114 decision 3 and ADR-0125.
+meaning. BL-2016 then changes XMPP. See ADR-0072 decision 4, ADR-0114 decision 3 and ADR-0125.
 
 ## Acceptance criteria
 

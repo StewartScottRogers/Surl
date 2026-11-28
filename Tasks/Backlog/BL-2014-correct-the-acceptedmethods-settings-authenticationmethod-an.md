@@ -1,5 +1,5 @@
 ---
-id: BL-2010
+id: BL-2014
 title: Correct the AcceptedMethods, Settings, AuthenticationMethod and library CLAUDE.md descriptions in Surl.Authentication
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2010 — Correct the AcceptedMethods, Settings, AuthenticationMethod and library CLAUDE.md descriptions in Surl.Authentication
+# BL-2014 — Correct the AcceptedMethods, Settings, AuthenticationMethod and library CLAUDE.md descriptions in Surl.Authentication
 
 ## Goal
 

@@ -1,16 +1,16 @@
 ---
-id: BL-2012
+id: BL-2016
 title: Have XMPP SASL logins ask for success data without asking for a security layer
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2011]
+depends-on: [BL-2015]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2012 — Have XMPP SASL logins ask for success data without asking for a security layer
+# BL-2016 — Have XMPP SASL logins ask for success data without asking for a security layer
 
 ## Goal
 
@@ -21,13 +21,13 @@ still arrives in `<success/>`.
 
 Found while working BL-1994 (2026-11-27). `XmppSaslLogin.StartAsync` passes
 `CanCarrySecurityLayer: true` to `SaslExchangeStart`, though the server ignores
-`SaslLoginStep.SecurityLayer`. BL-2011 adds the flag that asks only for additional success data;
+`SaslLoginStep.SecurityLayer`. BL-2015 adds the flag that asks only for additional success data;
 this task passes that one instead, and corrects the sentence about it in the library's `CLAUDE.md`
 ("SASL and resource binding"). RFC 6120 section 6.3.10; ADR-0114 decision 3.
 
 ## Acceptance criteria
 
-- [ ] A test in the XMPP `.UnitTests` project asserts the `SaslExchangeStart` has `CanCarrySecurityLayer` `false` and BL-2011's flag `true`.
+- [ ] A test in the XMPP `.UnitTests` project asserts the `SaslExchangeStart` has `CanCarrySecurityLayer` `false` and BL-2015's flag `true`.
 - [ ] The existing SCRAM success tests pass, with the server-final message in `<success/>`.
 - [ ] The library's `CLAUDE.md` names the new flag and no longer says the exchange is started with `CanCarrySecurityLayer: true`.
 - [ ] The library stays at 100% line and branch coverage.

@@ -52,7 +52,7 @@ No store, event or fault changes: documentation only.
   verified signature. The class summary names both.
 - The same pass also corrected the class summary's plain-text sentences (`--allow-anonymous` lifts the
   refusal; storage credentials are outside it).
-- Filed: BL-2010 (other false descriptions in this library), BL-2011 and BL-2012 (XMPP SASL logins ask
+- Filed: BL-2014 (other false descriptions in this library), BL-2015 and BL-2016 (XMPP SASL logins ask
   for a security layer they never apply; read from source, not reproduced).
 - Verify: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30380 passed,
   0 failed, 3 skipped. No integration tests run: only comments changed.
