@@ -1,5 +1,5 @@
 ---
-id: BL-2053
+id: BL-2054
 title: Align the other documents that describe direct sends with ADR-0146 Amendment 6
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2053 — Align the other documents that describe direct sends with ADR-0146 Amendment 6
+# BL-2054 — Align the other documents that describe direct sends with ADR-0146 Amendment 6
 
 ## Goal
 

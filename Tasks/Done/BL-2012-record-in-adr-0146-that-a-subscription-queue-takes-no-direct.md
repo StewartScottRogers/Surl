@@ -39,7 +39,7 @@ ADR-0146 states that a queue carrying a subscription description takes no direct
 - Context and BL-1992 named the rejected alternative without a reason; the reason written (a direct send's topic
   is the sender's own unjudged label) is Claude's, under the delegation.
 - STOMP answering a described queue with `Resource limit exceeded` follows ADR-0100's table; left as it is.
-- Other documents that need the rule are BL-2053.
+- Other documents that need the rule are BL-2054.
 
 ## Log
 
