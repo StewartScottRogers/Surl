@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2037 — Decide how the no-local filter applies to a kept AMQP 1.0 subscription
 
@@ -43,14 +43,20 @@ Found while working BL-1990 (2026-11-27) by reading the code; nothing was run.
 
 ## Acceptance criteria
 
-- [ ] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering each question in Context, with the alternatives rejected.
-- [ ] The amendment names the `Surl.MessageBus` operation or option BL-2038 adds.
-- [ ] The bodies of BL-2038 and BL-2039 agree with the amendment (edited if they do not).
-- [ ] The diff to ADR-0146 only adds lines.
+- [x] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering each question in Context, with the alternatives rejected.
+- [x] The amendment names the `Surl.MessageBus` operation or option BL-2038 adds.
+- [x] The bodies of BL-2038 and BL-2039 agree with the amendment (edited if they do not).
+- [x] The diff to ADR-0146 only adds lines.
 
 ## Notes
+
+- Decision (ADR-0146 Amendment 2): an unshared kept subscription with no-local is withheld, at copy-in, every topic publish by an AMQP 1.0 connection of the instance whose open carried its container-id, attached or not; the bus compares two opaque names (BusConnection.PublisherName and an excludedPublisherName parameter of DeclareQueue). A shared subscription does not apply the filter and is not echoed it. Why: Jakarta Messaging 3.1 section 8.3.3 and appendix A.3.8.
+- Read: Jakarta Messaging 3.1 sections 4.2.2, 8.3.1 to 8.3.4 and appendix A.3.8 and A.3.20, fetched from jakarta.ee on 2026-11-27. The Session javadoc URL tried answered 404; nothing rests on it. Nothing was run against a Surl server.
+- The amendment was written in the run itself rather than delegated to align-and-document: the decision needed the code and the specification already read.
+- BL-2038 and BL-2039 bodies edited to match: names, redeclare rule, shared subscriptions, container-id in place of connection.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0146 Amendment 2 decides which publishes a kept subscription with no-local withholds (same container-id, at copy-in; shared subscriptions do not apply it) and BL-2038/BL-2039 match it.
