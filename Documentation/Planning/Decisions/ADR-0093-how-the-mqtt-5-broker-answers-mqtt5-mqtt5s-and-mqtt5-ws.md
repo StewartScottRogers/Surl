@@ -488,6 +488,12 @@ default**, gives it ADR-0014's fetch:
   messages its Retain Handling allows, it sends DISCONNECT **`0x00`** Normal disconnection and
   closes, discarding the client's Will as a normal end. A server may disconnect a client with
   `0x00` (3.14.2.1), so the broker stays within MQTT 5.0. Publishing is unaffected.
+- **Answered after earlier connections** (amendment, 2026-11-28, BL-2117, decided by Claude under
+  Stewart's delegation): under the flag a SUBSCRIBE is answered only once every connection to the bus
+  that joined before it has handled what its client has sent, for at most 2 seconds, so a client that
+  publishes, disconnects and at once reads on a new connection gets what it published
+  ([ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
+  decision 3.11).
 - **Why opt-in.** The flag makes the broker useless as a broker for every other client on that
   listener, so it is chosen, not assumed; the Curl port's integration test (BL-502) passes it,
   exactly as an operator who wants `curl`-style reads would.

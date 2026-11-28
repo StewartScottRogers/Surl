@@ -194,3 +194,13 @@ exits 0 only on `DISCONNECT`, and sends `PINGREQ` only while it receives nothing
 - **Always hold open.** A plain fetch would exit 28 or hang instead of 0.
 - **End after a quiet time.** The result would depend on how fast the publisher is, not on what it published.
 - **A flag with no count.** Curl could then never exit 0 from a held subscription.
+
+## Amendment 2 (2026-11-28, BL-2117): the one-shot subscribe is answered after earlier connections
+
+Decided by Claude under Stewart's delegation. Without a held subscription, a `SUBSCRIBE` is answered
+only once every connection to the message bus that came before it has handled what its client has sent,
+for at most 2 seconds, so `curl -d <payload> <url> --next <url>` reads back what it published on a
+retained topic. Measured with pinned upstream curl 8.21.0 against a JIT-compiled `surl`: 21 of 30 runs
+read nothing before, 0 of 60 after.
+[ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
+decision 3.11 records how.

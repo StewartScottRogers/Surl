@@ -683,6 +683,52 @@ topic space's.
 (planning name), the identity today. Layer 2's declared topics and queues, `--topic-map` aliases and
 `--topic-access` checks (BL-664) replace it; no server changes when they do.
 
+#### 3.11 A one-shot subscriber waits for the connections before it (amendment, 2026-11-28, BL-2117)
+
+Decided by Claude under Stewart's delegation.
+
+**Problem.** A one-shot subscriber - `mqtt` and `mqtts` always (ADR-0014), the MQTT 5 broker under
+`--mqtt5-disconnect-after-retained` (ADR-0093 decision 9) - gets only what is retained when it is
+answered. A client that publishes at QoS 0, disconnects and at once subscribes on a new connection
+(`curl -d 71 <url> --next <url>`) had no ordering between the two: two connections are two tasks,
+and nothing made the first handle its `PUBLISH` before the second was answered. Under a JIT-compiled
+`surl` (the `Surly.Surl.Console` tool package, ADR-0191), where the first publish compiles its code
+while the second connection runs, the subscriber lost the race in most runs; the native binary lost it
+rarely. Measured on Windows, 2026-11-28, a fresh `surl` each run, `--topic "home/#;retain"`:
+
+| Build and client | Runs that read nothing, before | After |
+| --- | --- | --- |
+| Pinned upstream curl 8.21.0 (Git for Windows) over `mqtt`, JIT | 21 of 30 | 0 of 60 |
+| A client written from MQTT 3.1.1, `mqtt`, JIT | 60 of 100 | 0 of 100 |
+| A client written from MQTT 5.0, `mqtt5`, JIT | 15 of 20 | 0 of 100 |
+| The same, v0.1.12 JIT | 13 of 20 | |
+| The same, native AOT | 2 of 100 (v0.1.12) | 0 of 200 |
+
+**Decision.** The bus keeps the client connections being served that may publish, oldest first
+(`MessageBus.PublishingConnections`), and each one's progress (`PublishingConnectionProgress`):
+**handling** from the moment a read returns bytes, **caught up** while a read waits for the client,
+while a command-stage delay fault holds a packet, and once it has ended. A one-shot subscriber is
+answered only after every connection that joined before it has caught up at least once, so what such a
+client had sent and the server had received is on the bus first.
+
+- The `mqtt`/`mqtts` and `mqtt5`/`mqtt5s`/`mqtt5+ws` servers join and wait. The registry is the bus's,
+  one per instance, so a publish over MQTT 3.1.1 is seen by an MQTT 5 one-shot read and the reverse.
+- The wait is at most **2 seconds** on the exchange's `TimeProvider`; past it the subscriber is answered
+  and the exchange log says so. A client that never lets its connection catch up (publishing without
+  pause, or not reading what it is sent) therefore delays a one-shot read by 2 seconds and no more.
+- Only earlier connections are waited for, so no two connections wait for each other.
+- A held subscription (ADR-0014 Amendment 1) and an MQTT 5 subscription that stays open do not wait:
+  a later publish reaches them live.
+- **What it does not promise.** Nothing orders two TCP connections on the wire: bytes the operating
+  system holds for a connection whose waiting read has not yet resumed are not seen as unhandled. That
+  window is a task continuation's dispatch, far shorter than the new connection's two round trips.
+  Publishers over other protocols do not join; those that acknowledge a publish need no wait.
+
+Rejected: a delay before every one-shot answer (nondeterministic, and slows every fetch); answering
+only once earlier connections have closed (an idle subscriber or a stalled client would always cost
+the full wait); relying on precompiled code (narrows the window, as the native build shows, without
+closing it).
+
 ### 4. Accounts: one account set for every server
 
 #### 4.1 Every login reads the same `AccountBook`
