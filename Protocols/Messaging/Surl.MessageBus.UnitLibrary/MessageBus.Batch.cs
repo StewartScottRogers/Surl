@@ -49,7 +49,7 @@ public sealed partial class MessageBus
         var prepared = new PreparedBatchEntry(queueName, published, IsExpired(published, now));
         var outcome = message.PayloadAndNativeFormBytes > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
             : !accessPolicy.MayUseQueue(account, TopicAccessRights.Publish, queueName) ? MessageBusOutcome.AccessDenied
-            : !prepared.IsExpired && HasQueue(queueName) && IsOutOfSpace(account, QueueChangeName(queueName)) ? MessageBusOutcome.QueueFull
+            : !prepared.IsExpired && TakesDirectSends(queueName) && IsOutOfSpace(account, QueueChangeName(queueName)) ? MessageBusOutcome.QueueFull
             : MessageBusOutcome.Succeeded;
         return (outcome, prepared);
     }
@@ -72,7 +72,7 @@ public sealed partial class MessageBus
     // and publishes them all only when none is refused.
     private BusBatchPublishResult PublishPrepared(List<PreparedBatchEntry> prepared, BusBatchPublishResult firstRefusal, BusConnection publisher, DateTimeOffset now)
     {
-        var plan = new BatchPlan(this);
+        var plan = new BatchPlan(this, publisher);
         var queuesFullByPlan = new List<HashSet<NamedQueue>>(prepared.Count);
         foreach (var entry in prepared)
         {
@@ -117,9 +117,9 @@ public sealed partial class MessageBus
     /// The bus as a batch's entries so far would leave it, counted without changing it: each
     /// topic's log, the retained bytes and each queue's messages and bytes. Dispatch only ever
     /// takes messages out of a queue, so a queue holds no more, when the batch is published, than
-    /// the plan counted.
+    /// the plan counted. A queue excluding <c>publisher</c> is counted no copy.
     /// </summary>
-    private sealed class BatchPlan(MessageBus bus)
+    private sealed class BatchPlan(MessageBus bus, BusConnection publisher)
     {
         private readonly Dictionary<string, PlannedLog> plannedLogs = new(StringComparer.Ordinal);
         private readonly Dictionary<string, long> plannedRetainedBytes = new(StringComparer.Ordinal);
@@ -137,7 +137,7 @@ public sealed partial class MessageBus
             : AdmitToTopic(entry.Published);
 
         private MessageBusOutcome AdmitToQueue(string queueName, PreparedBatchEntry entry) =>
-            !bus.queues.TryGetValue(queueName, out var queue) ? MessageBusOutcome.UnknownQueue
+            bus.DirectSendTarget(queueName) is not { } queue ? MessageBusOutcome.UnknownQueue
             : entry.IsExpired || TryAddToQueue(queue, entry.Published) ? MessageBusOutcome.Succeeded
             : MessageBusOutcome.QueueFull;
 
@@ -198,7 +198,7 @@ public sealed partial class MessageBus
         private HashSet<NamedQueue> AddToBoundQueues(BusMessage published)
         {
             var topicLevels = CanonicalTopicName.SplitLevels(published.Topic);
-            return [.. bus.queues.Values.Where(queue => queue.IsBoundTo(topicLevels) && !TryAddToQueue(queue, published))];
+            return [.. bus.queues.Values.Where(queue => queue.TakesCopyOf(topicLevels, publisher) && !TryAddToQueue(queue, published))];
         }
 
         // As MessageBus.Enqueue's bounds.

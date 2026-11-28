@@ -211,19 +211,34 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   the client's `container-id`, a zero byte and the link name, bound to the topic filter and carrying a
   description (hex of the encoded client address, canonical filter, applied filters, policy and sharing).
   `never` is a durable queue the bus persists; `session-end` and `connection-close` an exclusive one,
-  deleted with its session (`Amqp1Session.SessionSubscriptionQueues`) or connection. It is answered
+  deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. It is answered
   `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
   `shared`/`global` capabilities applied.
-- Each attach judges the Subscribe right first (a live subscription made and ended at once), then
-  inspects the queue: another link or connection holding it is `amqp:resource-locked` (a shared one is
-  held only by a different description), another description replaces it, the same resumes it. Filters
+- Who may: the `sub` right on the topic filter is all a kept subscription needs; it asks for nothing on
+  `$queue/<name>`. Each attach judges it first (a live subscription made and ended at once), then
+  inspects the queue. A subscription already there under the name is judged on its own filter too
+  (`Amqp1KeptSubscription.FromDescription`), so an account without that right gets
+  `amqp:unauthorized-access` whether it asks the same filter, another one or no source, and the queue,
+  its binding and its messages stay. The consume is `BusConnection.ConsumeSubscriptionQueue`, which
+  takes only the queue carrying this description and bound to exactly this filter; one another client
+  bound further is `amqp:unauthorized-access`. The bus takes no direct send to a described queue, so no
+  other protocol's `$queue` send reaches a subscription.
+- Another link or connection holding the queue is `amqp:resource-locked` (a shared one is held only by a
+  different description), another description replaces it, the same resumes it. A queue exclusive to
+  another connection shows no filter to judge: an attach with a source is `amqp:resource-locked`, one
+  with none `amqp:not-found`. Filters
   run as a message leaves the queue; a message they refuse, or the client cannot name, is acknowledged.
   No-local is not applied to a kept subscription. An attach with no source finds the subscription by
   link name (plain, shared, shared and global) and is answered its stored source; with none it is
   `amqp:not-found`. A `closed` detach deletes the queue unless another consumer still takes from it.
   `Amqp1BusNodeDirectory` refuses `/queue/surl-subscription-...` with `amqp:not-found`.
-- Known gap: the bus's `Consume` also judges `sub` on `$queue/<name>`, so under `--topic-access` grants
-  covering the topic but not `$queue/surl-subscription-*` a durable attach gets `amqp:unauthorized-access`.
+- Every delete the container asks for is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
+  queue still carrying the description judged (BL-2010): replacing a stale one (`ClearStaleQueue`)
+  the description just inspected and judged, only while unused; a `closed` detach
+  (`DestroyKeptSubscription`) the link's own, only while unused - for a lookup link, the one found and
+  judged at its attach; a session's end (`EndSessionSubscriptions`) the description the session
+  consumed each under. A queue replaced since by one with another description stays. The bus itself
+  deletes a connection's exclusive queues when the connection ends.
 
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the

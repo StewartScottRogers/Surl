@@ -3,7 +3,7 @@ namespace Surl.Cli;
 /// <summary>
 /// One account given with <c>-u</c>/<c>--user</c> (ADR-0032 section 1): the value split at
 /// its first <c>:</c>. An empty <see cref="UserName"/> makes <see cref="Password"/> a Bearer
-/// token. <c>Surl.Console</c>'s <c>AuthenticationComposition</c> hands these to
+/// token. <c>Surl.Composition</c>'s <c>AuthenticationComposition</c> hands these to
 /// <c>Surl.Authentication</c> as the accounts it checks.
 /// </summary>
 /// <param name="UserName">The user name, never holding a <c>:</c> or a control character; empty for a Bearer token.</param>

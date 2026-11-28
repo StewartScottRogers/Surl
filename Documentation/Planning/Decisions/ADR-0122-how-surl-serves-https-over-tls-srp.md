@@ -5,7 +5,7 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05,
   in BL-563. Built by BL-564 (decision 1's SRP-6a library and decision 4's verifier files),
   BL-565 (decision 1's record layer and key derivation), BL-566 (decisions 2, 3 and 6's alerts),
-  BL-567 (decisions 4, 5 and 6's command line) and BL-568 (decision 7). Amendments 1 to 5 below are
+  BL-567 (decisions 4, 5 and 6's command line) and BL-568 (decision 7). Amendments 1 to 6 below are
   dated where they stand.
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table gains
   decision 1's two rows. [ADR-0010](ADR-0010-the-server-side-tls-contract.md) sections 3 and 4, and
@@ -474,3 +474,19 @@ Decided by Claude under Stewart's delegation, in BL-1880.
   `webtransport` listener started and answered nothing, `coaps` offered pre-shared keys only, and a
   DNS over QUIC listener was not refused without a certificate and failed on its first flow, with or
   without one. A test standing HTTPS over TLS-SRP beside any of them now gets a working listener.
+
+## Amendment 6 (2026-11-27): a `dns` listen URL with `tls` or `https` uses TLS
+
+Decided by Claude under Stewart's delegation, in BL-1939.
+
+- **The rule.** A `dns` listen URL is a listen URL that uses TLS (Amendment 2) when `--dns-transport`
+  names `tls` or `https`, so `surl --dns-transport tls --tlsuser <name> --tlspassword <password>
+  dns://127.0.0.1:0` starts with no other listen URL, and so does `https`. With only `udp`, `tcp` or
+  `quic`, the default `udp,tcp` included, it does not count, and with no other listen URL that uses
+  TLS the options are refused `needs a listen URL that uses TLS` (2). `quic` is UDP, which TLS-SRP
+  does not secure (Amendment 5); named beside `tls` or `https` it still needs `--cert` or
+  `--self-signed`.
+- **Why.** Amendment 5 says TLS-SRP secures the DNS over TLS and DNS over HTTPS listeners, and the
+  composition builds them that way. The command line alone refused them: it reads
+  `ListenUrl.IsImplicitTls`, which `Surl.Composition`'s `DnsTransportComposition` sets only after
+  the command line is read, so the check now reads `--dns-transport` for a `dns` listen URL.

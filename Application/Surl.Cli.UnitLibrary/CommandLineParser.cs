@@ -10,8 +10,9 @@ namespace Surl.Cli;
 /// </summary>
 /// <remarks>
 /// Table-driven: every option is a row of <see cref="CommandLineOptions"/>, so a new option
-/// is a new row, not a new branch. Whether a registered protocol server claims each scheme,
-/// and whether the data directory exists, are checked later by <c>Surl.Console</c>.
+/// is a new row, not a new branch. A listen URL's scheme is accepted or refused here, by
+/// <see cref="ListenUrlParser"/>; whether the data directory can be opened is checked later, by
+/// <c>Surl.Composition</c>'s <c>SurlServerComposition</c> at start.
 /// </remarks>
 public static class CommandLineParser
 {

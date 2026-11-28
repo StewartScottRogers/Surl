@@ -395,8 +395,9 @@ public sealed record SurlCommandLine
     public string? KeytabFile { get; init; }
 
     /// <summary>
-    /// <c>--allow-anonymous</c>: accept every request and login without checking credentials.
-    /// Off by default.
+    /// <c>--allow-anonymous</c>: accept most requests and logins without checking credentials.
+    /// Some checks and refusals stay; <c>surl --help --allow-anonymous</c> lists them. Off by
+    /// default.
     /// </summary>
     public bool AllowAnonymous { get; init; }
 

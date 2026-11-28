@@ -4,10 +4,23 @@ namespace Surl.Authentication;
 
 /// <summary>
 /// The accounts and the loosening options an <see cref="AuthenticationPolicy"/> applies
-/// (ADR-0032, section 1), as <c>Surl.Console</c> composes them from the command line.
+/// (ADR-0032, section 1), as <c>Surl.Composition</c> composes them from the command line.
 /// </summary>
-/// <param name="Accounts">Every account from <c>--user</c> and <c>--user-file</c>.</param>
-/// <param name="AllowAnonymous"><c>--allow-anonymous</c>: accept every request and login unchecked.</param>
+/// <param name="Accounts">
+/// The account book the policy judges by. <c>Surl.Composition</c> starts the servers' book with the
+/// <c>--user</c> and <c>--user-file</c> accounts, then the <c>--mailbox</c> and
+/// <c>--mailbox-file</c> ones (ADR-0102, decision 1.2); the HTTP proxy's with the <c>-U</c> and
+/// <c>--proxy-user-file</c> accounts instead (ADR-0088, decision 5); and that of a policy composed
+/// without accounts with none. Accounts may be added to, changed in and removed from the servers'
+/// and the proxy's books while the instance runs (ADR-0132).
+/// </param>
+/// <param name="AllowAnonymous">
+/// <c>--allow-anonymous</c>: accept most requests and logins without checking credentials. Some checks
+/// stay, among them: an S3 or Cloud Storage signature that is sent and any Azure Storage credential
+/// that is sent are checked, a Kerberos ticket must still check against
+/// <see cref="KerberosAcceptor"/>'s keys, and an LDAP DIGEST-MD5 or NTLM bind still needs the
+/// account's password.
+/// </param>
 /// <param name="AllowPlaintextAuthentication"><c>--allow-plaintext-auth</c>: accept plain-text secrets without TLS.</param>
 /// <param name="AcceptedMethods">
 /// <c>--auth</c>'s methods, <see cref="AuthenticationMethods.DefaultAccepted"/> when it is not given.

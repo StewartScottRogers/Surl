@@ -14,6 +14,14 @@ internal static class UnitTestIndexBytes
     public static byte[] Index(ulong nextFileNumber, uint lastUidValidity, params byte[][] owners) =>
         Join(Header, U64(nextFileNumber), U32(lastUidValidity), U32((uint)owners.Length), Join(owners));
 
+    public static byte[] HeaderWithFolderUses => "SURL-MAIL-INDEX-2\n"u8.ToArray();
+
+    public static byte[] IndexWithFolderUses(ulong nextFileNumber, uint lastUidValidity, params byte[][] owners) =>
+        Join(HeaderWithFolderUses, U64(nextFileNumber), U32(lastUidValidity), U32((uint)owners.Length), Join(owners));
+
+    public static byte[] MailboxWithUse(string name, uint uidValidity, uint nextUid, byte use, params byte[][] messages) =>
+        Join(Name(Encoding.UTF8.GetBytes(name)), U32(uidValidity), U32(nextUid), [use], U32((uint)messages.Length), Join(messages));
+
     public static byte[] Owner(string name, params byte[][] mailboxes) => Owner(Encoding.UTF8.GetBytes(name), mailboxes);
 
     public static byte[] Owner(byte[] name, params byte[][] mailboxes) =>

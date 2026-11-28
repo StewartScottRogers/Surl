@@ -148,7 +148,8 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
         McpOriginCheck.IsAllowed(McpHttpFields.Field(request, "Origin"), _httpScheme, request.Authority);
 
     // Another Authorization scheme is 400. A live token this server issued for this resource logs in as its
-    // account; any other token, or none, is judged by the policy's session, whose refusal is 401 with the RFC
+    // account while the policy's HonoursTokenIssuedTo honours that account, which may be a directory user (ADR-0167
+    // Amendment 3); any other token, or none, is judged by the policy's session, whose refusal is 401 with the RFC
     // 9728 challenge. A token is never read from the query string, so one there is judged as none.
     private async Task<(string? Login, HttpAnswer? Refusal)> LogInAsync(HttpRequest request, CancellationToken cancellationToken)
     {

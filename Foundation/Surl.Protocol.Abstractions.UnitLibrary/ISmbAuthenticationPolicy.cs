@@ -2,11 +2,12 @@ namespace Surl.Protocol.Abstractions;
 
 /// <summary>
 /// Who may log in to the SMB server (ADR-0073, decision 3). It sits beside
-/// <see cref="IAuthenticationPolicy"/>; <c>Surl.Console</c> passes the same object to the SMB
-/// server as this interface. The server owns the SMB version 1 framing, the server challenge and
-/// the answer to the session setup; the policy owns which accounts exist, whether <c>ntlmv1</c>
-/// is in <c>--auth</c>, the NTLMv1 calculation and comparison, ADR-0032 section 8's delay and the
-/// login note.
+/// <see cref="IAuthenticationPolicy"/>; <c>Surl.Composition</c> passes the SMB server, as this
+/// interface, an object that implements both: the <c>smb</c> scheme's policy, for <c>smb</c> and
+/// <c>smbs</c> alike. The server owns the SMB version 1 framing, the server challenge and the
+/// answer to the session setup; the policy owns which accounts exist, whether <c>ntlmv1</c> is in
+/// <c>--auth</c>, the NTLMv1 calculation and comparison, ADR-0032 section 8's delay and the login
+/// note.
 /// </summary>
 public interface ISmbAuthenticationPolicy
 {

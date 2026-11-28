@@ -14,13 +14,20 @@ namespace Surl.Protocol.Smtp;
 /// <remarks>
 /// <para>
 /// What the case changes: <c>REPLY welcome</c> replaces the greeting, and a <c>REPLY</c>'d line -
-/// a command or a SASL response - is answered with the case's text and not run; <c>EHLO</c> lists
-/// the case's <c>CAPA</c> capabilities and an <c>AUTH</c> line with its mechanisms, and nothing
-/// of the server's own; <c>MAIL</c> needs no login, as upstream's test server needs none; a
+/// a command, or a SASL response after a <c>REPLY</c>'d <c>AUTH</c> - is answered with the case's
+/// text and not run; after <c>surl Hello</c>, <c>EHLO</c> lists the case's <c>CAPA</c>
+/// capabilities and an <c>AUTH</c> line with its mechanisms, and none of the server's own;
+/// <c>MAIL</c> needs no login, as upstream's test server needs none; a
 /// <c>DATA</c> body is recorded as it was sent, dot-stuffed with its ending <c>.</c> CRLF, in
-/// <see cref="MailUpstreamTestCaseReplies.UploadedBytes"/> and not delivered; <c>VRFY</c> and
-/// <c>EXPN</c> answer with the case's data for the <c>EHLO</c> name when it has any. Every
-/// command line is recorded.
+/// <see cref="MailUpstreamTestCaseReplies.UploadedBytes"/> and not delivered; <c>VRFY</c>,
+/// <c>EXPN</c> and <c>HELP</c> answer with the case's data for the <c>EHLO</c> or <c>HELO</c>
+/// name when it has any. Every command line is recorded.
+/// </para>
+/// <para>
+/// The case also adds refusals: a <c>MAIL</c> whose <c>SIZE=</c> exceeds the <c>SIZE</c> in the
+/// case's <c>CAPA</c> is answered <c>552 Message size too large</c>; a <c>RCPT</c> with no at
+/// sign is answered <c>501 Invalid address</c>; and so is a <c>RCPT</c> or <c>VRFY</c> argument
+/// with a byte past ASCII, unless the <c>CAPA</c> lists <c>SMTPUTF8</c>.
 /// </para>
 /// <para>
 /// Never composed by the shipped <c>surl</c>: <c>Surl.Conformance.UnitTests</c> composes it on
@@ -49,8 +56,8 @@ public sealed class SmtpUpstreamTestCaseServer : IConnectionProtocolServer
     public IReadOnlyList<string> Schemes => server.Schemes;
 
     /// <summary>
-    /// Greets, then answers every command line on <paramref name="connection"/> until the client
-    /// quits or closes it.
+    /// Greets, then answers every command line on <paramref name="connection"/>, as
+    /// <see cref="SmtpProtocolServer.ServeAsync"/> does, until the session ends.
     /// </summary>
     /// <param name="connection">The accepted connection, plaintext or already TLS.</param>
     /// <param name="context">What the server is told about this exchange.</param>

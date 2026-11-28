@@ -2,29 +2,32 @@
 
 Phase 3. The IMAP4rev1 server (RFC 3501; not IMAP4rev2, ADR-0055 decision 1) that serves the
 mail store to upstream curl, built as
-[ADR-0055](../Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md)
+[ADR-0055](../../../Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md)
 decides - its decisions 16 to 18 record the details BL-202, BL-203 and BL-204 settled - on the
 mail store and line machinery of
-[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+[ADR-0050](../../../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
 with the logins of
-[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
+[ADR-0049](../../../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
 and a limit told from shutdown as
-[ADR-0059](../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
+[ADR-0059](../../../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
 decides. Terms (mail store, owner, anonymous owner, mailbox, UID and UIDVALIDITY, system flags,
 view, selected mailbox, literal, CRLF line, reply line, STARTTLS discard, SASL mechanism, SASL
 exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-**URL schemes answered:** `imap`, and `imaps` through `Surl.Console`'s
-`ImplicitTlsSchemeServer`: the server claims `imap` only and tells implicit TLS apart by
-`IConnection.TlsSession`, never by the scheme.
+**URL schemes answered:** `imap`, and `imaps`, which `Surl.Composition` registers as an
+`ImplicitTlsSchemeServer` wrapping the `imap` server: this server claims `imap` only and tells
+implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
-- `ImapProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`* BYE surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
-  `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into, and
-  `isTlsUpgradeAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given.
+- `ImapProtocolServer`: `IConnectionProtocolServer`, `IConnectionRefusalWriter`
+  (`* BYE surl Too many connections, closing`) and `IExchangeBytesRedactingServer` (log redaction,
+  below). Its constructor takes the
+  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the `imap`
+  scheme's one `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
+  and `isTlsUpgradeAvailable`, which `Surl.Composition` sets from
+  `ServerTlsComposition.IsTlsUpgradeAvailable`: true with a certificate (`--cert` or
+  `--self-signed`) or under TLS-SRP (ADR-0122 decision 5).
 - `ImapSession` (with `ImapSession.Authentication.cs` and `ImapSession.Changes.cs`): one
   connection, its state and its responses from `ImapResponses`. `ImapCommandReader` reads each
   command, its synchronizing literals checked before the `+` continuation and the whole bounded
@@ -33,8 +36,30 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   `AUTHENTICATE`, `STARTTLS`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`,
   `CHECK`, `CLOSE`, `UNSELECT`, `FETCH`, `SEARCH`, `APPEND`, `CREATE`, `DELETE`, `RENAME`,
   `SUBSCRIBE`, `UNSUBSCRIBE`, `STORE`, `COPY`, `MOVE`, `EXPUNGE` and the `UID` forms of
-  `FETCH`, `SEARCH`, `STORE`, `COPY`, `MOVE` and `EXPUNGE`. `IDLE` and the other extensions of
-  decision 2's list are not offered.
+  `FETCH`, `SEARCH`, `STORE`, `COPY`, `MOVE` and `EXPUNGE`. When the store holds a folder use
+  as the server is constructed (`MailboxStore.HoldsAnyFolderUse`, read once),
+  `SPECIAL-USE CREATE-SPECIAL-USE` are offered after `MOVE`, before and after a login, and
+  `CREATE` takes `(USE (...))`, for the server's whole life, whatever is later deleted, created,
+  reset or restored; otherwise neither is offered and `USE` is `NO [USEATTR]` (ADR-0055,
+  Amendments 1 and 2). `IDLE` and the other extensions decision 2 says are not advertised,
+  `SPECIAL-USE` apart, are not offered.
+- Log redaction (ADR-0183 decision 5, settled by its amendment 1): `CreateRedactor` wraps one
+  `ImapLineRedactionRule` per exchange in a `LineBytesRedactor`, and the exchange log shows `****`
+  for what the rule withholds: the password of `LOGIN` (atom, quoted string or literal, a literal
+  masked once for each line it spans) and, through a `SaslLineRedactionRule`, an `AUTHENTICATE`
+  initial response and each client line that answers a `+ ` continuation (a lone `*` and an empty
+  line are logged as sent). Other literals, an `APPEND` message included, are logged unchanged, and
+  the `+` that invites a literal does not count as a SASL continuation; after a synchronizing
+  literal marker, a first server line that does not start with `+` cancels the literal. A run of
+  more than 64 KiB with no CR LF is `****` whatever it holds, because `LineBytesRedactor` holds no
+  more.
+- Redaction of lines the server may refuse (ADR-0183 amendments 3 to 5 and 7, ADR-0182 amendment
+  33): a line is a `LOGIN` when its first or second word is `LOGIN` (any case, words split by spaces
+  or tabs), and when both are, both arguments after the second are withheld. When the first word is
+  `AUTHENTICATE` and the second `AUTH` or `AUTHENTICATE`, the third and fourth words are withheld.
+  Nothing follows the mask on a `LOGIN` password's line with a tab among its arguments (a literal
+  that line announces is withheld too), or on an initial response's line with a tab, a quote or a
+  bare carriage return.
 - Logins (decision 10): `LOGIN` through `IAuthenticationPolicy.CheckPasswordLoginAsync`;
   `AUTHENTICATE` frames `IMailAuthenticationPolicy.StartSaslExchange` (base64, `=`, `*`, `+ `
   continuations read by `CrlfLineReader.ReadSaslContinuationAsync`). A command that reads or
@@ -80,7 +105,8 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   answers `NO [UNAVAILABLE] Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). A client that closes or resets during a `Delay` hold gets no answer and the session ends (ADR-0141 amendment 3, BL-1545).
 - `STARTTLS` (decision 11): `OK Begin TLS negotiation now`, then
   `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`; `BAD STARTTLS not
-  available` without a certificate, `BAD Already using TLS` on a TLS connection.
+  available` only when no upgrade is available (neither a certificate nor TLS-SRP), `BAD Already
+  using TLS` on a TLS connection.
 - Limits (decision 12, ADR-0059): an exchange cancelled for its idle timeout or maximum
   duration (`ExchangeContext.IsCancelledForALimit`) is answered `* BYE surl Timeout, closing`
   and closed, within `LimitReplyWriteDeadline` on a deadline linked to `ShutdownToken`, never to

@@ -6,8 +6,8 @@ namespace Surl.Cli;
 
 /// <summary>
 /// Checks the TLS-SRP options once the whole command line is read (ADR-0122 decision 6 and its
-/// Amendment 2): each needs its partner, <c>--tlsauthtype SRP</c> needs an account, a TLS listen
-/// URL must use them, and they cannot be combined with an option TLS-SRP cannot serve. Each
+/// Amendments 2, 4 and 6): each needs its partner, <c>--tlsauthtype SRP</c> needs an account, a
+/// listen URL that uses TLS must be given, and they cannot be combined with an option TLS-SRP cannot serve. Each
 /// refusal is <see cref="SurlExitCode.FailedInit"/> followed by the try-help line.
 /// </summary>
 internal static class TlsSrpCombination
@@ -72,11 +72,18 @@ internal static class TlsSrpCombination
             : null;
 
     private static CommandLineFailure? RefuseWithoutTlsListenUrl(SurlCommandLine commandLine, IReadOnlyList<ListenUrl> listenUrls) =>
-        listenUrls.Any(listenUrl => UsesTls(listenUrl)) || commandLine.ProxyListenUrls.Any(listenUrl => UsesTls(listenUrl))
+        listenUrls.Concat(commandLine.ProxyListenUrls).Any(listenUrl => UsesTls(listenUrl, commandLine.DnsTransports))
             ? null
             : Refused(FirstOptionName(commandLine), NeedsATlsListenUrl);
 
-    private static bool UsesTls(ListenUrl listenUrl) => listenUrl.IsImplicitTls || UpgradableSchemes.Contains(listenUrl.Scheme);
+    private static bool UsesTls(ListenUrl listenUrl, IReadOnlyList<string> dnsTransports) =>
+        listenUrl.IsImplicitTls || UpgradableSchemes.Contains(listenUrl.Scheme) || ServesDnsOverTlsOnTcp(listenUrl, dnsTransports);
+
+    // --dns-transport tls and https each add a TCP listener that is TLS from the first byte, which
+    // Surl.Composition's DnsTransportComposition marks only after this check. quic is UDP, which
+    // TLS-SRP does not secure (ADR-0122 Amendments 5 and 6).
+    private static bool ServesDnsOverTlsOnTcp(ListenUrl listenUrl, IReadOnlyList<string> dnsTransports) =>
+        listenUrl.Scheme == "dns" && (dnsTransports.Contains("tls") || dnsTransports.Contains("https"));
 
     private static CommandLineFailure? RefuseBeside(SurlCommandLine commandLine)
     {

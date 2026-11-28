@@ -4,8 +4,15 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Smtp;
 
 /// <summary>
-/// The fixed reply lines the SMTP server sends, without their CRLF (ADR-0053, decisions 1, 4, 5,
-/// 6 and 7). None echoes a byte the peer sent (ADR-0006, section 3).
+/// The SMTP server's reply lines held as constants, and the methods that choose or build a reply
+/// line, without their CRLF (ADR-0053, decisions 1, 4, 5, 6 and 7). No constant holds a byte the peer
+/// sent (ADR-0006, section 3). Not every line sent is fixed: <c>EHLO</c>'s reply, built by
+/// <c>SmtpSession.EhloReplyLines</c>, has a <c>SIZE</c> that follows <c>--max-filesize</c> and
+/// <c>STARTTLS</c> and <c>AUTH</c> lines that follow the TLS state and the mail authentication
+/// policy's offer; <see cref="TakesNoArgument"/> names the command; a fault rule gives its own
+/// reply; and <see cref="Continuation"/>'s <c>334</c> carries the policy's challenge in base64,
+/// which can hold the peer's bytes: a SCRAM <c>server-first-message</c> carries the client's
+/// nonce back to it, base64 encoded.
 /// </summary>
 internal static class SmtpReplies
 {

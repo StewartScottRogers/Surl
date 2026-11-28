@@ -14,21 +14,25 @@ namespace Surl.Protocol.Pop3;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Replies.</b> Each is fixed text, never an echo of the peer's bytes: the greeting
-/// <c>+OK surl ready</c>, followed by an <c>APOP</c> timestamp
-/// <c>&lt;16 hex digits.unix seconds@surl&gt;</c> when the mail authentication policy offers
-/// <c>APOP</c>; <c>CAPA</c>'s <c>TOP</c>, <c>UIDL</c>, <c>RESP-CODES</c>, <c>AUTH-RESP-CODE</c>
-/// and <c>PIPELINING</c>, and before a login <c>USER</c> when the policy offers a clear password
-/// on the connection, <c>SASL</c> with the mechanisms it offers, and <c>STLS</c> on a plaintext
-/// connection the server can upgrade.
+/// <b>Replies.</b> No reply line echoes bytes the client sent, with two exceptions: the
+/// <c>+ </c> continuation carrying a SASL SCRAM <c>server-first-message</c> holds the client's
+/// nonce inside its base64 (RFC 5802; ADR-0125), and under an upstream test case
+/// (<see cref="Pop3UpstreamTestCaseServer"/>) the reply to <c>LIST</c> with an argument writes
+/// that argument back. The greeting is <c>+OK surl ready</c>, followed by an <c>APOP</c>
+/// timestamp <c>&lt;16 hex digits.unix seconds@surl&gt;</c> when the mail authentication policy
+/// offers <c>APOP</c>. <c>CAPA</c> lists <c>TOP</c>, <c>UIDL</c>, <c>RESP-CODES</c>,
+/// <c>AUTH-RESP-CODE</c> and <c>PIPELINING</c>, and before a login <c>USER</c> when the policy
+/// offers a clear password on the connection, <c>SASL</c> with the mechanisms it offers, and
+/// <c>STLS</c> on a plaintext connection the server can upgrade.
 /// </para>
 /// <para>
-/// <b>TLS.</b> <c>STLS</c> is answered <c>+OK Begin TLS negotiation</c>, every byte pipelined
-/// after it is thrown away unrun, and the connection is upgraded; the session starts over in the
-/// AUTHORIZATION state. <c>pop3s</c> is implicit TLS that the engine completes before
+/// <b>TLS.</b> An <c>STLS</c> that is accepted - before a login, with no argument, on a plaintext
+/// connection the server can upgrade - is answered <c>+OK Begin TLS negotiation</c>, every byte
+/// pipelined after it is thrown away unrun, and the connection is upgraded; the session starts
+/// over in the AUTHORIZATION state. <c>pop3s</c> is implicit TLS that the engine completes before
 /// <see cref="ServeAsync"/>: the server tells the two apart by <see cref="IConnection.TlsSession"/>,
-/// never by the scheme, and <c>Surl.Console</c> registers it for <c>pop3s</c> (ADR-0056,
-/// decision 8).
+/// never by the scheme, and <c>Surl.Composition</c> registers <c>pop3s</c> as an
+/// <c>ImplicitTlsSchemeServer</c> over the <c>pop3</c> server (ADR-0056, decision 8).
 /// </para>
 /// <para>
 /// <b>Logins.</b> <c>USER</c> is accepted for any name, so no reply tells whether an account
@@ -36,10 +40,13 @@ namespace Surl.Protocol.Pop3;
 /// so the password is never sent. <c>PASS</c> goes to
 /// <see cref="IAuthenticationPolicy.CheckPasswordLoginAsync"/>, and an accepted login takes the
 /// owner's maildrop lock (<see cref="MailboxStore.LockMaildrop"/>) before it is answered;
-/// another session's lock is <c>-ERR [IN-USE]</c>. A maildrop command before any login asks the
-/// policy once about the login with no credentials, and only
+/// another session's lock is <c>-ERR [IN-USE]</c>. Outside an upstream test case, a maildrop
+/// command before any login asks the policy about the login with no credentials. The session
+/// keeps the answer for later maildrop commands until an <c>STLS</c> upgrade drops it, so after
+/// <c>STLS</c> the next maildrop command before a login asks: again after a refusal, or for the
+/// first time when none had asked yet. Only
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/> (<c>--allow-anonymous</c>) opens the
-/// anonymous owner's maildrop; anything else is <c>-ERR [AUTH] Authentication required</c>.
+/// anonymous owner's maildrop; any other verdict is <c>-ERR [AUTH] Authentication required</c>.
 /// <c>AUTH</c> frames the SASL exchange the policy runs (<c>+ </c> continuations, base64, <c>=</c>
 /// for an empty initial response, <c>*</c> to cancel), and <c>APOP</c> hands the policy the
 /// greeting's timestamp; each answers in ADR-0049 section 7's POP3 words and takes the lock as
@@ -56,8 +63,9 @@ namespace Surl.Protocol.Pop3;
 /// answered <c>-ERR Command line too long, closing</c>, one not complete within
 /// <see cref="ExchangeLimits.HeadTimeout"/> <c>-ERR Timeout waiting for a command, closing</c>;
 /// each then closes the connection, the reply written within
-/// <see cref="LimitReplyWriteDeadline"/>. A connection past a connection limit is answered by
-/// <see cref="WriteRefusalAsync"/>.
+/// <see cref="LimitReplyWriteDeadline"/>. A refused plaintext <c>pop3</c> connection, one past a
+/// connection limit, is answered by <see cref="WriteRefusalAsync"/>; a refused <c>pop3s</c>
+/// connection is closed with no reply, before any TLS handshake (ADR-0006, section 5).
 /// </para>
 /// </remarks>
 public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
@@ -82,15 +90,19 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <param name="mailAuthenticationPolicy">Says what <c>CAPA</c> and the greeting offer in the
     /// connection's TLS state - <c>USER</c>, the SASL mechanisms, an <c>APOP</c> timestamp
     /// (ADR-0049, section 2) - and runs each <c>AUTH</c> exchange and <c>APOP</c> check (ADR-0049,
-    /// section 6). <c>Surl.Console</c> passes the same object as
-    /// <paramref name="authenticationPolicy"/>.</param>
+    /// section 6). <c>Surl.Composition</c> passes the <c>pop3</c> scheme's one
+    /// <c>AuthenticationPolicy</c> as both this and <paramref name="authenticationPolicy"/>.</param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
     /// <param name="isTlsUpgradeAvailable">
-    /// Whether a plaintext connection can be upgraded with <c>STLS</c>: <see langword="true"/> when
-    /// a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so <c>CAPA</c>
-    /// advertises it and <c>STLS</c> is answered <c>+OK</c> and upgraded; when
-    /// <see langword="false"/>, <c>STLS</c> is answered <c>-ERR STLS not available</c> (ADR-0056,
-    /// decision 8).
+    /// Whether a plaintext connection can be upgraded with <c>STLS</c>. <c>Surl.Composition</c>
+    /// passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>: <see langword="true"/> when a
+    /// server certificate is configured (<c>--cert</c> or <c>--self-signed</c>) or TLS-SRP is served
+    /// (ADR-0122, decision 5). Before a login, on a plaintext connection, <see langword="true"/>
+    /// makes <c>CAPA</c> advertise <c>STLS</c>, and an <c>STLS</c> with no argument is answered
+    /// <c>+OK Begin TLS negotiation</c> and upgraded; <see langword="false"/> makes that command
+    /// answer <c>-ERR STLS not available</c>. Whichever the value, <c>STLS</c> is first refused
+    /// <c>-ERR Already logged in</c> after a login, else <c>-ERR Invalid arguments</c> with an
+    /// argument, else <c>-ERR Already using TLS</c> on a TLS connection (ADR-0056, decision 8).
     /// </param>
     /// <param name="timestampRandom">
     /// The source of the 8 random bytes in each greeting's <c>APOP</c> timestamp (ADR-0056,
@@ -137,7 +149,9 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
 
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
-    /// until the client quits or closes it, or a limit is passed.
+    /// until the client quits or closes it, a limit is passed, a <see cref="FaultKind.Drop"/>
+    /// fault drops it, or the client leaves (a half-close or a reset) during a
+    /// <see cref="FaultKind.Delay"/> fault's hold (ADR-0141).
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>
@@ -154,7 +168,8 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <summary>
     /// Answers a connection past a connection limit: <c>-ERR surl Too many connections,
     /// closing</c> in place of the greeting, for either <see cref="ConnectionRefusal"/>, then
-    /// completes writes (ADR-0056, decision 9).
+    /// completes writes (ADR-0056, decision 9). The serving engine writes no refusal on a
+    /// <c>pop3s</c> listen URL: that connection is closed with no reply (ADR-0006, section 5).
     /// </summary>
     /// <param name="connection">The connection past the limit.</param>
     /// <param name="refusal">Which limit it is past; both are answered alike.</param>

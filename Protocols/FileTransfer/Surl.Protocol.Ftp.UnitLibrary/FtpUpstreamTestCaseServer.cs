@@ -25,9 +25,9 @@ namespace Surl.Protocol.Ftp;
 /// everyone. Every byte read from the control connection is recorded.
 /// </para>
 /// <para>
-/// <c>AUTH</c> is refused, as on a listener without a certificate: upstream's <c>ftp</c> test
-/// server has no TLS, and its <c>ftps</c> is TLS from the first byte, which the engine completes
-/// before the server half is handed the connection.
+/// <c>AUTH</c> is refused, as on a listener with no TLS upgrade available: upstream's
+/// <c>ftp</c> test server has no TLS, and its <c>ftps</c> is TLS from the first byte, which the
+/// engine completes before the server half is handed the connection.
 /// </para>
 /// <para>
 /// Never composed by the shipped <c>surl</c>: <c>Surl.Conformance.UnitTests</c> composes it on

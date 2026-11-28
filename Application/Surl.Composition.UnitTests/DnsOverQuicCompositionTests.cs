@@ -241,6 +241,26 @@ public sealed class DnsOverQuicCompositionTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ClosesCutFlowsGracefully_IsTrueOnlyForTheDnsOverQuicListenUrl(bool isImplicitTls)
+    {
+        var server = new DnsDatagramRoutingProtocolServer(new RecordingDatagramServer(), () => throw new AssertFailedException("unused"));
+
+        var graceful = server.ClosesCutFlowsGracefully(new ListenUrl("dns", "127.0.0.1", 853) { IsImplicitTls = isImplicitTls });
+
+        Assert.AreEqual(isImplicitTls, graceful);
+    }
+
+    [TestMethod]
+    public void ClosesCutFlowsGracefully_NullListenUrl_Throws()
+    {
+        var server = new DnsDatagramRoutingProtocolServer(new RecordingDatagramServer(), () => throw new AssertFailedException("unused"));
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => server.ClosesCutFlowsGracefully(null!));
+    }
+
+    [TestMethod]
     public void Registrations_Dns_HasTheRoutingDatagramServerAndTheTcpServer()
     {
         var servers = ExtendedProtocolServers.Compose(new ExtendedProtocolServerServices(ComposeServices()));

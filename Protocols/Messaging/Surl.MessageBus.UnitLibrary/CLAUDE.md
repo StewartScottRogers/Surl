@@ -87,9 +87,57 @@ What it holds now (BL-629):
   Declaring again with a non-null description other than the queue's, or on a queue with none,
   is `QueueDescriptionDiffers` and changes nothing; a declare with none checks nothing, so AMQP
   0-9-1 and STOMP never meet it. The description is persisted (`queues/index` is written as
-  `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, only
-  when some persisted queue has one, so a bus with none writes what earlier builds read),
+  `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, when
+  some persisted queue has one and none excludes a publisher, so a bus with none writes what earlier
+  builds read),
   snapshotted and restored with its queue, and goes with the queue on reset.
+- **Subscription queues (BL-1992, ADR-0146 decision 3.7).**
+  `BusConnection.ConsumeSubscriptionQueue(name, description, filter, ...)` consumes as `Consume` does,
+  but asks for `sub` on the topic filter instead of on `$queue/<name>`, so an account needs no queue
+  grant for its subscription. Under one hold of the bus's lock the queue must carry that description
+  (else `QueueDescriptionDiffers`) and be bound to that filter and nothing else (else `AccessDenied`).
+  `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue. A queue carrying a
+  description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
+  `UnknownQueue`, so a direct send (AMQP 0-9-1's default, direct, fanout and headers exchanges, STOMP's
+  `/queue/`) brings no message from outside its bindings. `SeedEnqueue`, the test host's own, still
+  fills it. The check at consume time reads the bindings as they are then: a message another client's
+  binding copied in, then unbound, stays in the queue.
+- **Deleting by description (BL-2010, ADR-0146 decision 3.4).**
+  `BusConnection.DeleteQueueIfDescribed(name, description, ifUnused)` deletes a queue only while it
+  carries exactly that description (`null` for a queue that must carry none), else
+  `QueueDescriptionDiffers`, and with `ifUnused` is `QueueInUse` while a consumer takes from it. The
+  checks and the delete happen under one hold of the bus's lock, and every other refusal is
+  `QueueLocked`, `UnknownQueue`, or `AccessDenied` for a declared queue. It asks for no grant: the
+  caller judges access on the description, and the match keeps it from deleting a queue declared under
+  the name since with another description. The AMQP 1.0 container's own deletes of subscription queues
+  are all this one.
+- **Deleting and purging a subscription queue by name (BL-2027, ADR-0146 Amendment 2).**
+  `DeleteQueue` (either form) and `PurgeQueue` - what AMQP 0-9-1's `queue.delete` and `queue.purge`
+  call - on a queue carrying a description need `sub` covering every filter the queue is bound to,
+  else `AccessDenied`, with the queue and its messages kept. A described queue bound to no filter shows
+  nothing to judge, so it is `AccessDenied` whenever any grant is configured; with no grant, everyone
+  may delete and purge it. The check comes after `UnknownQueue` and `QueueLocked` and before
+  `QueueInUse` and `QueueNotEmpty`, under the lock the removal happens under. A queue with no
+  description asks for no grant. The bindings are judged as they are then, and `UnbindQueue` asks for
+  no grant, so a client with `sub` on a filter of its own can bind it, unbind the subscription's and
+  then delete the queue. `Consume` and `GetFromQueue` ask only for the `$queue` grant, so a caller
+  holding it can take a subscription queue's messages with no `sub` on its filter.
+- **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
+  opaque text naming the client that publishes through the connection, `null` unless a server sets it
+  (starting with its scheme family and `:`, so protocols never match each other's).
+  `BusConnection.DeclareQueue(name, flags, description, excludedPublisherName)` keeps that publisher's
+  messages out of the queue: a topic publish through a connection whose `PublisherName` equals it,
+  ordinally, is withheld at copy-in, single, `PublishToConsumedQueues` and batch alike. A withheld copy
+  is never queued, counts against no queue bound (the batch's check included) and in none of
+  `QueuedCount`, `FullQueueCount` and `UnconsumedQueueCount`, publishes no store change for the queue,
+  and the out-of-space fault is not asked for it; logs, the retained slot, live subscriptions and other
+  queues take the message as ever. A publish with no connection or no publisher name, and a seed, is
+  never withheld. Naming one with no description is an `ArgumentException`. A redeclare that passes
+  every other check sets it on the existing queue, keeping what is already queued; a declare naming
+  none changes nothing. It is snapshotted and restored with its queue, goes with a queue a reset or
+  delete removes, stays with one a reset keeps, and is persisted: when some persisted queue has one,
+  `queues/index` is written as `SURL-BUS-QUEUES-3`, every queue's description field followed by `0x00`,
+  or `0x01` and the name; otherwise as before, and the earlier forms still load.
 - **Batch publish, all or none (BL-961, ADR-0146 decision 1.6).** `BusConnection.PublishBatch` takes an
   ordered list of `BusBatchEntry` - `ToTopic(message)` or `ToQueue(name, message)` - and answers a
   `BusBatchPublishResult`: `Succeeded` with each entry's `BusPublishResult` in order, or the first refused
@@ -185,8 +233,10 @@ What it holds now (BL-629):
   `PublishToQueue(string, BusMessage, string?)`; the parameterless forms are anonymous. A
   publish needs `pub` on a filter matching the topic; a subscribe or a `BindQueue` needs `sub`
   on a filter covering the filter (`CanonicalTopicName.FilterCovers`); a queue is the filter
-  `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume. A refusal is
-  `AccessDenied`, checked before anything that would tell whether the topic or queue exists.
+  `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume (a subscription
+  queue consumed through `ConsumeSubscriptionQueue` asks for `sub` on its topic filter instead). A refusal is
+  `AccessDenied`, checked before anything that would tell whether the topic or queue exists
+  (except the delete and purge of a subscription queue, above, which judge the queue found).
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
   without touching it, as Kafka's Metadata needs (BL-518). ADR-0102 decision 3.5 records these
   choices (BL-704).
@@ -208,8 +258,8 @@ What it holds now (BL-629):
   path, outside the lock: a topic publish (not expired) is `StoreFull`, a direct `PublishToQueue` to
   an existing queue (not expired) is `QueueFull`, nothing changed, and a `FaultAppliedEvent` names
   the path. Only an answer the plan gives at once counts; a pending one is served as no rule. A topic
-  publish (not a seed) also asks, before the lock, for each bound queue's `$queue/<name>`: a queue a
-  rule matches refuses only its own copy (`FullQueueCount`). A queue message dropped because it
+  publish (not a seed) also asks, before the lock, for the `$queue/<name>` of each bound queue not
+  excluding the publisher: a queue a rule matches refuses only its own copy (`FullQueueCount`). A queue message dropped because it
   expired publishes `Deleted` named for the queue with its payload length, and log records dropped by
   `MaxLogBytesPerTopic` retention publish one `Deleted` named for the topic with their bytes (BL-870).
   Not yet: the fault on a bound queue's copy inside `PublishBatch`.

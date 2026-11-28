@@ -202,12 +202,15 @@ public sealed class HelpTextTests
     [
         "        Serves a throwaway self-signed certificate, made at start, for a listen",
         "        URL of a scheme that starts with TLS (such as https) when no --cert is",
-        "        given; without it, and without --cert, such a URL is refused at start.",
-        "        A test uses it to serve a secure scheme without a certificate file;",
-        "        curl then needs -k. It is not the default because no client can verify",
-        "        the certificate, so a client cannot tell surl from anyone else on the",
-        "        path. It cannot be used with --cert. surl warns when it makes the",
-        "        certificate, from the info log level up.",
+        "        given; without it, without --cert and without TLS-SRP (--tlsauthtype",
+        "        SRP or --tlsuser), such a URL is refused at start. TLS-SRP secures TCP",
+        "        only, so a webtransport or DNS over QUIC URL, or a coaps one with no",
+        "        account, needs --cert or --self-signed even then. A test uses it to",
+        "        serve a secure scheme without a certificate file; curl then needs -k.",
+        "        It is not the default because no client can verify the certificate, so",
+        "        a client cannot tell surl from anyone else on the path. It cannot be",
+        "        used with --cert. surl warns when it makes the certificate, from the",
+        "        info log level up.",
     ];
 
     private static readonly string[] ControlExplanationLines =
@@ -310,7 +313,7 @@ public sealed class HelpTextTests
             answer,
             Row(38, "    --abstract-unix-socket <name>", "Listen on an abstract socket (Linux)"),
             Row(38, "    --aihelp <topic>", "Markdown help for AI agents"),
-            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(38, "    --allow-uploads", "Accept uploads into served files"),
             Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
@@ -431,7 +434,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("auth"),
             "auth: Accounts and authentication methods",
-            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
             Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
@@ -458,7 +461,7 @@ public sealed class HelpTextTests
             HelpText.Answer("testing"),
             [
                 "testing: Options for tests; loosening ones warn",
-                Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+                Row(38, "    --allow-anonymous", "Accept most logins or none (warns)"),
                 Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
                 Row(38, "    --auth <methods>", "Authentication methods accepted"),
                 Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
@@ -552,7 +555,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("http"),
             "http: HTTP and HTTPS protocol",
-            Row(34, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(34, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(34, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(34, "    --auth <methods>", "Authentication methods accepted"),
             Row(34, "    --directory <directory>", "Data directory, else in memory"),
@@ -672,7 +675,7 @@ public sealed class HelpTextTests
             HelpText.Answer("--allow-anonymous"),
             [
                 "    --allow-anonymous",
-                "        Accept any login, or none (warns). Default: off.",
+                "        Accept most logins or none (warns). Default: off.",
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
@@ -767,7 +770,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("mqtt"),
             "mqtt: MQTT and MQTTS protocol",
-            Row(40, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(40, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(40, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(40, "    --directory <directory>", "Data directory, else in memory"),
             Row(40, "    --head-timeout <seconds>", "Time to send a request head"),
@@ -782,7 +785,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("ftp"),
             "ftp: FTP and FTPS protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(32, "    --allow-uploads", "Accept uploads into served files"),
             Row(32, "    --directory <directory>", "Data directory, else in memory"),
@@ -800,7 +803,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("imap"),
             "imap: IMAP and IMAPS protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(32, "    --auth <methods>", "Authentication methods accepted"),
             Row(32, "    --directory <directory>", "Data directory, else in memory"),
@@ -815,7 +818,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("pop3"),
             "pop3: POP3 and POP3S protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(32, "    --auth <methods>", "Authentication methods accepted"),
             Row(32, "    --directory <directory>", "Data directory, else in memory"),
@@ -829,7 +832,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("rtsp"),
             "rtsp: RTSP protocol",
-            Row(34, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(34, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(34, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(34, "    --allow-uploads", "Accept uploads into served files"),
             Row(34, "    --auth <methods>", "Authentication methods accepted"),
@@ -845,7 +848,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("ldap"),
             "ldap: LDAP protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(32, "    --auth <methods>", "Authentication methods accepted"),
             Row(32, "    --cacert <file>", "CA certificates for client certs"),
@@ -864,7 +867,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("smb"),
             "smb: SMB and SMBS protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(32, "    --allow-uploads", "Accept uploads into served files"),
             Row(32, "    --auth <methods>", "Authentication methods accepted"),
             Row(32, "    --cert <file>", "Server certificate file"),
@@ -884,7 +887,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("smtp"),
             "smtp: SMTP and SMTPS protocol",
-            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(32, "    --auth <methods>", "Authentication methods accepted"),
             Row(32, "    --directory <directory>", "Data directory, else in memory"),
@@ -899,7 +902,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("ssh"),
             "ssh: SSH protocol",
-            Row(37, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(37, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(37, "    --allow-uploads", "Accept uploads into served files"),
             Row(37, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
             Row(37, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
@@ -924,7 +927,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("security"),
             "security: Options that widen what a peer may do",
-            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-anonymous", "Accept most logins or none (warns)"),
             Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(38, "    --allow-uploads", "Accept uploads into served files"),
             Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
@@ -967,20 +970,23 @@ public sealed class HelpTextTests
             "telnet: TELNET protocol",
             "     --max-line <bytes>  Longest command line accepted");
 
-    // The SOCKS server reads the proxy accounts and the --keytab, and never --proxy-auth (BL-1915).
+    // The SOCKS server reads the proxy accounts, the --keytab, the --proxy-allow-origin ranges and the
+    // --head-timeout, and never --proxy-auth (BL-1915, BL-1920).
     [TestMethod]
-    public void Answer_Socks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth() =>
+    public void Answer_Socks_ListsItsOptionsButNotProxyAuth() =>
         AssertOutput(
             HelpText.Answer("socks"),
             "socks: SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
-            Row(36, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(36, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --allow-anonymous", "Accept most logins or none (warns)"),
+            Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
-            Row(36, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
-            Row(36, "    --proxy-user-file <file>", "Read proxy accounts from a file"));
+            Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
+            Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
+            Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"));
 
     [TestMethod]
-    public void Answer_AiHelpSocks_ListsTheProxyAccountOptionsAndKeytabButNotProxyAuth()
+    public void Answer_AiHelpSocks_ListsItsOptionsButNotProxyAuth()
     {
         var optionRows = AiHelpText.Answer("socks").Output.ReplaceLineEndings("\n").Split('\n')
             .Where(line => line.StartsWith("| `-", StringComparison.Ordinal))
@@ -991,7 +997,9 @@ public sealed class HelpTextTests
             {
                 "--allow-anonymous",
                 "--allow-plaintext-auth",
+                "--head-timeout <seconds>",
                 "--keytab <file>",
+                "--proxy-allow-origin <address>",
                 "-U, --proxy-user <user:password>",
                 "--proxy-user-file <file>",
             },
@@ -1041,7 +1049,7 @@ public sealed class HelpTextTests
     [
         ("user", "-u, --user <user:password>", "Add an account (repeatable)"),
         ("user-file", "--user-file <file>", "Read accounts from a file"),
-        ("allow-anonymous", "--allow-anonymous", "Accept any login, or none (warns)"),
+        ("allow-anonymous", "--allow-anonymous", "Accept most logins or none (warns)"),
         ("allow-plaintext-auth", "--allow-plaintext-auth", "Accept passwords in clear (warns)"),
         ("auth", "--auth <methods>", "Authentication methods accepted"),
     ];

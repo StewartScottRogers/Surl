@@ -4,17 +4,21 @@ using System.Text;
 namespace Surl.MailStore;
 
 /// <summary>
-/// The mail store index's byte format (ADR-0050, decision 7). Every integer is big-endian and
-/// unsigned unless marked signed.
+/// The mail store index's byte format (ADR-0050, decision 7, and ADR-0192). Every integer is
+/// big-endian and unsigned unless marked signed.
 /// </summary>
 /// <remarks>
-/// <see cref="Header"/>; the next message file number (8 bytes); the last <c>UIDVALIDITY</c>
-/// given (4 bytes); the owner count (4 bytes) and that many owners in ordinal order of name.
-/// An owner is its name's UTF-8 length (2 bytes), the name, its mailbox count (4 bytes) and
-/// that many mailboxes in ordinal order of name; an owner with no mailboxes is not written. A
-/// mailbox is its name's UTF-8 length (2 bytes), the name (<c>INBOX</c> in capitals), its
-/// <c>UIDVALIDITY</c> (4 bytes), its next UID (4 bytes), its message count (4 bytes) and that
-/// many messages in ascending UID order. A message is its UID (4 bytes), its flags (1 byte, the
+/// <see cref="Header"/>, or <see cref="HeaderWithFolderUses"/> when any mailbox holds an RFC
+/// 6154 use; the next message file number (8 bytes); the last <c>UIDVALIDITY</c> given
+/// (4 bytes); the owner count (4 bytes) and that many owners in ordinal order of name. An owner
+/// is its name's UTF-8 length (2 bytes), the name, its mailbox count (4 bytes) and that many
+/// mailboxes in ordinal order of name; an owner with no mailboxes is not written. A mailbox is
+/// its name's UTF-8 length (2 bytes), the name (<c>INBOX</c> in capitals), its
+/// <c>UIDVALIDITY</c> (4 bytes), its next UID (4 bytes), under
+/// <see cref="HeaderWithFolderUses"/> only its use (1 byte: 0 none, 1 <c>\All</c>, 2
+/// <c>\Archive</c>, 3 <c>\Drafts</c>, 4 <c>\Flagged</c>, 5 <c>\Junk</c>, 6 <c>\Sent</c>, 7
+/// <c>\Trash</c>; no use twice within an owner, and none on <c>INBOX</c>), its message count
+/// (4 bytes) and that many messages in ascending UID order. A message is its UID (4 bytes), its flags (1 byte, the
 /// <see cref="MailFlags"/> bits), its internal date as Unix seconds (8 bytes, signed) and offset
 /// in minutes (2 bytes, signed), its size (8 bytes) and its message file number (8 bytes). Then
 /// the end of the file.
@@ -29,20 +33,28 @@ internal static class MailStoreIndex
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     /// <summary>
-    /// The 18 ASCII bytes every index starts with: <c>SURL-MAIL-INDEX-1</c> and a line feed.
+    /// The 18 ASCII bytes an index in which no mailbox holds a use starts with:
+    /// <c>SURL-MAIL-INDEX-1</c> and a line feed.
     /// </summary>
     public static ReadOnlySpan<byte> Header => "SURL-MAIL-INDEX-1\n"u8;
+
+    /// <summary>
+    /// The 18 ASCII bytes an index with a use byte in every mailbox starts with:
+    /// <c>SURL-MAIL-INDEX-2</c> and a line feed.
+    /// </summary>
+    public static ReadOnlySpan<byte> HeaderWithFolderUses => "SURL-MAIL-INDEX-2\n"u8;
 
     /// <summary>
     /// The bytes of the index of a store holding <paramref name="owners"/>.
     /// </summary>
     public static byte[] Encode(ulong nextFileNumber, uint lastUidValidity, IEnumerable<OwnerMailboxes> owners)
     {
+        var written = owners.Where(owner => owner.Mailboxes.Count > 0).OrderBy(owner => owner.Name, StringComparer.Ordinal).ToList();
+        var holdsUses = written.Exists(owner => owner.Mailboxes.Values.Any(mailbox => mailbox.Use is not null));
         var writer = new IndexWriter();
-        writer.Write(Header);
+        writer.Write(holdsUses ? HeaderWithFolderUses : Header);
         writer.WriteUInt64(nextFileNumber);
         writer.WriteUInt32(lastUidValidity);
-        var written = owners.Where(owner => owner.Mailboxes.Count > 0).OrderBy(owner => owner.Name, StringComparer.Ordinal).ToList();
         writer.WriteUInt32((uint)written.Count);
         foreach (var owner in written)
         {
@@ -50,7 +62,7 @@ internal static class MailStoreIndex
             writer.WriteUInt32((uint)owner.Mailboxes.Count);
             foreach (var mailbox in owner.Mailboxes.Values.OrderBy(mailbox => mailbox.Name, StringComparer.Ordinal))
             {
-                EncodeMailbox(writer, mailbox);
+                EncodeMailbox(writer, mailbox, holdsUses);
             }
         }
 
@@ -65,12 +77,12 @@ internal static class MailStoreIndex
     public static MailStoreIndexContents Decode(byte[] bytes, int maxMessages, long maxTotalMessageBytes, int maxMailboxes)
     {
         var reader = new IndexReader(bytes);
-        Require(reader.Take(Header.Length).SequenceEqual(Header));
+        var holdsUses = DecodeHeader(reader.Take(Header.Length));
         var contents = new MailStoreIndexContents(reader.ReadUInt64(), reader.ReadUInt32());
         var ownerNames = new HashSet<string>(StringComparer.Ordinal);
         for (var remaining = reader.ReadUInt32(); remaining > 0; remaining--)
         {
-            var owner = DecodeOwner(reader, contents);
+            var owner = DecodeOwner(reader, contents, holdsUses);
             Require(ownerNames.Add(owner.Name));
             contents.Owners.Add(owner);
         }
@@ -82,11 +94,16 @@ internal static class MailStoreIndex
         return contents;
     }
 
-    private static void EncodeMailbox(IndexWriter writer, StoredMailbox mailbox)
+    private static void EncodeMailbox(IndexWriter writer, StoredMailbox mailbox, bool holdsUses)
     {
         writer.WriteName(mailbox.Name);
         writer.WriteUInt32(mailbox.UidValidity);
         writer.WriteUInt32(mailbox.NextUid);
+        if (holdsUses)
+        {
+            writer.Write([EncodeUse(mailbox.Use)]);
+        }
+
         writer.WriteUInt32((uint)mailbox.Messages.Count);
         foreach (var message in mailbox.Messages.Values)
         {
@@ -99,27 +116,46 @@ internal static class MailStoreIndex
         }
     }
 
-    private static OwnerMailboxes DecodeOwner(IndexReader reader, MailStoreIndexContents contents)
+    /// <summary>
+    /// A use's byte: 0 for none, else one more than its place in <see cref="MailFolderUse.All"/>.
+    /// </summary>
+    private static byte EncodeUse(string? use) =>
+        use is null ? (byte)0 : (byte)(MailFolderUse.All.Index().First(known => known.Item == use).Index + 1);
+
+    /// <summary>
+    /// Whether the index's mailboxes hold a use byte, as its header says.
+    /// </summary>
+    private static bool DecodeHeader(ReadOnlySpan<byte> header)
+    {
+        var holdsUses = header.SequenceEqual(HeaderWithFolderUses);
+        Require(holdsUses || header.SequenceEqual(Header));
+        return holdsUses;
+    }
+
+    private static OwnerMailboxes DecodeOwner(IndexReader reader, MailStoreIndexContents contents, bool holdsUses)
     {
         var owner = new OwnerMailboxes(DecodeName(reader));
         var uidValidities = new HashSet<uint>();
+        var uses = new HashSet<string>(StringComparer.Ordinal);
         for (var remaining = reader.ReadUInt32(); remaining > 0; remaining--)
         {
-            var mailbox = DecodeMailbox(reader, contents);
+            var mailbox = DecodeMailbox(reader, contents, holdsUses);
             Require(owner.Mailboxes.TryAdd(mailbox.Name, mailbox) && uidValidities.Add(mailbox.UidValidity));
+            Require(mailbox.Use is null || uses.Add(mailbox.Use));
             contents.MailboxCount += mailbox.Name == MailboxName.Inbox ? 0 : 1;
         }
 
         return owner;
     }
 
-    private static StoredMailbox DecodeMailbox(IndexReader reader, MailStoreIndexContents contents)
+    private static StoredMailbox DecodeMailbox(IndexReader reader, MailStoreIndexContents contents, bool holdsUses)
     {
         var name = MailboxName.Canonical(DecodeName(reader));
         var uidValidity = reader.ReadUInt32();
         var nextUid = reader.ReadUInt32();
         Require(MailboxName.IsValid(name) && uidValidity != 0 && uidValidity <= contents.LastUidValidity && nextUid != 0);
-        var mailbox = new StoredMailbox(name, uidValidity, nextUid);
+        var use = holdsUses ? DecodeUse(reader.Take(1)[0], name) : null;
+        var mailbox = new StoredMailbox(name, uidValidity, nextUid) { Use = use };
         uint lastUid = 0;
         for (var remaining = reader.ReadUInt32(); remaining > 0; remaining--)
         {
@@ -130,6 +166,17 @@ internal static class MailStoreIndex
         }
 
         return mailbox;
+    }
+
+    private static string? DecodeUse(byte code, string mailboxName)
+    {
+        if (code == 0)
+        {
+            return null;
+        }
+
+        Require(code <= MailFolderUse.All.Count && mailboxName != MailboxName.Inbox);
+        return MailFolderUse.All[code - 1];
     }
 
     private static StoredMessage DecodeMessage(IndexReader reader, MailStoreIndexContents contents)

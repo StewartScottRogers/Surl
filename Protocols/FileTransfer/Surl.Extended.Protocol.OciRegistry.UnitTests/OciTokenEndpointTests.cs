@@ -15,6 +15,14 @@ public sealed class OciTokenEndpointTests
 
     private const string AppPullAndPush = "scope=repository:app:pull,push";
 
+    // What --random-seed gives a server: the same identifier bytes for the same seed.
+    private sealed class SeededIdentifierRandom(int seed) : Surl.Protocol.Abstractions.IIdentifierRandom
+    {
+        private readonly Random random = new(seed);
+
+        public void NextBytes(Span<byte> destination) => random.NextBytes(destination);
+    }
+
     [TestMethod]
     public async Task AnswerAsync_GoodCredentials_IssuesATokenWithItsLifetimeAndIssueTime()
     {
@@ -22,10 +30,23 @@ public sealed class OciTokenEndpointTests
 
         var response = await harness.SendAsync("GET", $"/token?service=surl&{AppPullAndPush}&account=tester&client_id=docker", P.BasicAuthorization);
 
-        var token = CountingIdentifierRandom.TokenOf(1);
+        var token = CountingRandomNumberGenerator.TokenOf(1);
         var body = $"{{\"token\":\"{token}\",\"access_token\":\"{token}\",\"expires_in\":300,\"issued_at\":\"2026-11-05T12:00:00Z\"}}";
         Assert.AreEqual($"HTTP/1.1 200 OK\r\n{H.CommonFields}Content-Type: application/json\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n{body}", response);
         Assert.AreEqual("tester", harness.Policy.Logins.Single().UserName);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_TwoServersWithTheSameSeededIdentifiers_IssueDifferentTokens()
+    {
+        var first = H.DrawingTokens(new SeededIdentifierRandom(7));
+        var second = H.DrawingTokens(new SeededIdentifierRandom(7));
+
+        var firstToken = await first.FetchTokenAsync("repository:app:pull");
+        var secondToken = await second.FetchTokenAsync("repository:app:pull");
+
+        Assert.AreEqual(43, firstToken.Length);
+        Assert.AreNotEqual(firstToken, secondToken);
     }
 
     [TestMethod]
@@ -48,7 +69,7 @@ public sealed class OciTokenEndpointTests
 
         var response = await harness.SendAsync("GET", "/token", P.BasicAuthorization);
 
-        var token = CountingIdentifierRandom.TokenOf(1);
+        var token = CountingRandomNumberGenerator.TokenOf(1);
         var body = $"{{\"token\":\"{token}\",\"access_token\":\"{token}\",\"expires_in\":300,\"issued_at\":\"2026-11-05T12:00:00Z\"}}";
         Assert.AreEqual($"HTTP/1.1 200 OK\r\n{H.CommonFields}Content-Type: application/json\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n{body}", response);
     }
@@ -59,7 +80,7 @@ public sealed class OciTokenEndpointTests
         var harness = H.AllowingUploads();
         await harness.SendAsync("GET", $"/token?{AppPullAndPush}", P.BasicAuthorization);
 
-        var response = await harness.SendAsync("POST", "/v2/app/blobs/uploads/", $"Authorization: Bearer {CountingIdentifierRandom.TokenOf(1)}", "Content-Length: 0");
+        var response = await harness.SendAsync("POST", "/v2/app/blobs/uploads/", $"Authorization: Bearer {CountingRandomNumberGenerator.TokenOf(1)}", "Content-Length: 0");
 
         StringAssert.StartsWith(response, "HTTP/1.1 202 Accepted\r\n");
     }
@@ -96,7 +117,7 @@ public sealed class OciTokenEndpointTests
         harness.Policy.AllowsAnonymous = true;
         harness.CreateRepository("app");
         var tokenAnswer = await harness.SendAsync("GET", $"/token?{AppPullAndPush}");
-        var bearer = $"Authorization: Bearer {CountingIdentifierRandom.TokenOf(1)}";
+        var bearer = $"Authorization: Bearer {CountingRandomNumberGenerator.TokenOf(1)}";
 
         var pull = await harness.SendAsync("GET", "/v2/app/tags/list", bearer);
         var push = await harness.SendAsync("POST", "/v2/app/blobs/uploads/", bearer, "Content-Length: 0");
@@ -114,7 +135,7 @@ public sealed class OciTokenEndpointTests
         harness.Policy.AllowsAnonymous = true;
         await harness.SendAsync("GET", $"/token?{AppPullAndPush}", "Authorization: Basic dGVzdGVyOndyb25n");
 
-        var push = await harness.SendAsync("POST", "/v2/app/blobs/uploads/", $"Authorization: Bearer {CountingIdentifierRandom.TokenOf(1)}", "Content-Length: 0");
+        var push = await harness.SendAsync("POST", "/v2/app/blobs/uploads/", $"Authorization: Bearer {CountingRandomNumberGenerator.TokenOf(1)}", "Content-Length: 0");
 
         StringAssert.StartsWith(push, "HTTP/1.1 403 Forbidden\r\n");
     }
@@ -177,7 +198,7 @@ public sealed class OciTokenEndpointTests
         harness.CreateRepository("app");
         await harness.SendAsync("GET", $"/token?{scopes}", P.BasicAuthorization);
 
-        var response = await harness.SendAsync(method, target, $"Authorization: Bearer {CountingIdentifierRandom.TokenOf(1)}", "Content-Length: 0");
+        var response = await harness.SendAsync(method, target, $"Authorization: Bearer {CountingRandomNumberGenerator.TokenOf(1)}", "Content-Length: 0");
 
         StringAssert.StartsWith(response, $"HTTP/1.1 {status}\r\n");
     }
@@ -190,7 +211,7 @@ public sealed class OciTokenEndpointTests
         var others = string.Concat(Enumerable.Range(1, OciTokenEndpoint.MaxScopes).Select(number => $"scope=repository:r{number}:pull&"));
         await harness.SendAsync("GET", $"/token?{others}scope=repository:app:pull", P.BasicAuthorization);
 
-        var response = await harness.SendAsync("GET", "/v2/app/tags/list", $"Authorization: Bearer {CountingIdentifierRandom.TokenOf(1)}");
+        var response = await harness.SendAsync("GET", "/v2/app/tags/list", $"Authorization: Bearer {CountingRandomNumberGenerator.TokenOf(1)}");
 
         StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
     }
@@ -202,7 +223,7 @@ public sealed class OciTokenEndpointTests
         harness.CreateRepository("app");
         await harness.SendAsync("GET", "/token?scope=repository:app:*", P.BasicAuthorization);
 
-        var response = await harness.SendAsync("GET", "/v2/app/tags/list", $"Authorization: Bearer {CountingIdentifierRandom.TokenOf(1)}");
+        var response = await harness.SendAsync("GET", "/v2/app/tags/list", $"Authorization: Bearer {CountingRandomNumberGenerator.TokenOf(1)}");
 
         StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
     }

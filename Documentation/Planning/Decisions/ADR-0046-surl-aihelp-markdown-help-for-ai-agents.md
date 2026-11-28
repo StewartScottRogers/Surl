@@ -520,7 +520,7 @@ bound port and `<path>` for a directory; an agent substitutes them, and the proo
 | 14 | `dict` | Serve DICT | `dict://127.0.0.1:0/` | | `Listening on dict://127.0.0.1:<port>/` | | 0, once stopped | `curl dict://127.0.0.1:<port>/d:surl` |
 | 15 | `gopher` | Serve Gopher | `gopher://127.0.0.1:0/` | | `Listening on gopher://127.0.0.1:<port>/` | | 0, once stopped | `curl gopher://127.0.0.1:<port>/` |
 | 16 | `http` | Serve HTTP | `http://127.0.0.1:0/` | | `Listening on http://127.0.0.1:<port>/` | | 0, once stopped | `curl -I http://127.0.0.1:<port>/` |
-| 17 | `mqtt` | For a test: serve MQTT without accounts | `--allow-anonymous mqtt://127.0.0.1:0/` | | `Listening on mqtt://127.0.0.1:<port>/` | `surl: warning: --allow-anonymous: every request and login is accepted without checking credentials` | 0, once stopped | `curl mqtt://127.0.0.1:<port>/example` |
+| 17 | `mqtt` | For a test: serve MQTT without accounts | `--allow-anonymous mqtt://127.0.0.1:0/` | | `Listening on mqtt://127.0.0.1:<port>/` | `surl: warning: --allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)` | 0, once stopped | `curl mqtt://127.0.0.1:<port>/example` |
 | 18 | `telnet` | Serve TELNET | `telnet://127.0.0.1:0/` | | `Listening on telnet://127.0.0.1:<port>/` | | 0, once stopped | `curl telnet://127.0.0.1:<port>/` |
 | 19 | `tftp` | Serve TFTP | `tftp://127.0.0.1:0/` | | `Listening on tftp://127.0.0.1:<port>/` | | 0, once stopped | `curl tftp://127.0.0.1:<port>/example.txt` |
 

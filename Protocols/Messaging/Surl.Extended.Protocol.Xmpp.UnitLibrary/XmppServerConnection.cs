@@ -80,7 +80,7 @@ internal sealed class XmppServerConnection
         EndStream,
     }
 
-    // Decision 2: before TLS on xmpp with a certificate, unless --allow-plaintext-auth.
+    // Decision 2: before TLS, when a TLS upgrade is available (a certificate or TLS-SRP), unless --allow-plaintext-auth.
     private bool IsTlsRequired =>
         connection.TlsSession is null && options.IsTlsUpgradeAvailable && !options.AllowPlaintextAuthentication;
 
@@ -375,8 +375,9 @@ internal sealed class XmppServerConnection
         return ElementOutcome.RestartAfterLogin;
     }
 
-    // RFC 6120 5.4.2: <proceed/> and the upgrade when the server has a certificate and the
-    // connection is not yet TLS; otherwise the TLS <failure/>, the close and no more (5.4.2.2).
+    // RFC 6120 5.4.2: <proceed/> and the upgrade when a TLS upgrade is available (a certificate or
+    // TLS-SRP) and the connection is not yet TLS; otherwise the TLS <failure/>, the close and no
+    // more (5.4.2.2).
     private async Task<ElementOutcome> AnswerStartTlsAsync()
     {
         if (connection.TlsSession is null && options.IsTlsUpgradeAvailable)
@@ -387,7 +388,7 @@ internal sealed class XmppServerConnection
         }
 
         context.Log.Note(connection.TlsSession is null
-            ? "A <starttls/> arrived and no certificate is configured; answered the TLS failure and closed."
+            ? "A <starttls/> arrived and neither a certificate nor TLS-SRP is available; answered the TLS failure and closed."
             : "A <starttls/> arrived on a connection already TLS; answered the TLS failure and closed.");
         await WriteAsync(XmppStreamText.TlsFailureAndClose);
         return ElementOutcome.EndStream;

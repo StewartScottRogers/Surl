@@ -43,9 +43,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
   `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. Their option rows in `CommandLineOptions`
   are `-x`/`--proxy` (category `proxy`), `-U`/`--proxy-user` (`ArgumentHoldsSecret`) and `--proxy-user-file`
-  (each `auth`, `proxy` and `socks`), and `--proxy-allow-origin` (`proxy` and `security`) (BL-1004).
-  The `socks` category also holds `--keytab`, which SOCKS5 GSS-API reads, and not `--proxy-auth`, which the
-  SOCKS server never applies (BL-1915).
+  (each `auth`, `proxy` and `socks`), and `--proxy-allow-origin` (`proxy`, `security` and `socks`) (BL-1004).
+  The `socks` category also holds `--keytab`, which SOCKS5 GSS-API reads, and `--head-timeout`, which bounds the
+  SOCKS handshake and the origin's connect (BL-1920), and not `--proxy-auth`, which the SOCKS server never
+  applies (BL-1915).
   `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
   `GivenProxyAuthenticationMethods`, apart from `--auth`; `AcceptedProxyAuthenticationMethods` defaults to
   `digest`, `basic`.
@@ -160,7 +161,7 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `coap`, `coaps`, `dns`) and `--http3`, each `option --<name>: <reason>` with exit 2 and the try-help
   line; `Apply` then sets the socket on the one listen URL's `ListenUrl.UnixSocket`. Binding it, and the
   45 refusals, are `Surl.Networking`'s.
-- TLS-SRP (ADR-0122 decision 6 and Amendment 2, BL-567), category `tls` (and `auth` for all but
+- TLS-SRP (ADR-0122 decision 6 and Amendments 2, 4 and 6, BL-567), category `tls` (and `auth` for all but
   `--tlsauthtype`): `--tlsauthtype <SRP>` (`OptionArgumentReader.TlsAuthenticationTypeWord`, any case,
   into `TlsAuthenticationType`), `--tlsuser <name>` (`SrpUserName` reading), `--tlspassword <password>`
   (`ArgumentHoldsSecret`), `--srp-verifiers <file>` and `--srp-groups <file>` set the
@@ -168,7 +169,8 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   line is read `TlsSrpCombination` refuses, in order, an option without its partner, `--tlsauthtype`
   with no account, no listen URL that uses TLS (it counts the listen URLs given bare or by `--url`
   and the `-x`/`--proxy` listen URLs alike: one counts when it is implicit TLS, as an `https` proxy
-  is, or its scheme is `amqp1`, `ftp`, `imap`, `ldap`, `natss`, `pop3`, `smtp` or `xmpp`), then TLS-SRP beside
+  is, or its scheme is `amqp1`, `ftp`, `imap`, `ldap`, `natss`, `pop3`, `smtp` or `xmpp`, or it is a `dns`
+  one and `--dns-transport` names `tls` or `https`, never for `quic`, BL-1939), then TLS-SRP beside
   `--http3`, `--cacert`, `--tls-max` below 1.2 or `--tlsv1.3`,
   each `FailedInit` with the try-help line. `--cert` (an RSA key, else exit 58) and `--self-signed` are allowed
   beside TLS-SRP and add the RSA-signed SRP suites (BL-1099). Reading the files is

@@ -216,7 +216,7 @@ public sealed class Amqp1SecurityNegotiationTests
     }
 
     [TestMethod]
-    public async Task NegotiateAsync_TlsHeaderWithACertificate_IsAnsweredUpgradedAndNegotiatedAgainInsideTls()
+    public async Task NegotiateAsync_TlsHeaderWithTlsUpgradeAvailable_IsAnsweredUpgradedAndNegotiatedAgainInsideTls()
     {
         var policy = new UnitTestAmqp1SaslPolicy("PLAIN");
         var connection = Connection(TlsHeader + SaslHeader + InitPlainAliceSecret + AmqpHeader);
@@ -231,7 +231,7 @@ public sealed class Amqp1SecurityNegotiationTests
     }
 
     [TestMethod]
-    public async Task NegotiateAsync_TlsHeaderWithoutACertificate_IsAnsweredWithTheSaslHeaderAndClosed()
+    public async Task NegotiateAsync_TlsHeaderWithTlsUpgradeUnavailable_IsAnsweredWithTheSaslHeaderAndClosed()
     {
         var connection = Connection(TlsHeader);
 

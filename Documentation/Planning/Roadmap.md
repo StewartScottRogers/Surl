@@ -146,7 +146,7 @@ task board in `Tasks/`, never here.
 ## Milestone 6 — Phase 6
 
 - **Status:** Built, and proven in part (2026-11-14). Releases are tagged, `v0.1.0` of
-  2026-11-16 the first tag and `v0.1.11` the latest on 2026-11-26, and the pass-rate file's
+  2026-11-16 the first tag and `v0.1.12` the latest on 2026-11-27, and the pass-rate file's
   "Releases" table has rows from `0.1.0` on; a tag is Stewart's call. The three
   builds `win-arm64`, `linux-arm64` and `osx-x64` lacked are pinned (BL-361, ADR-0151) and the
   release dry run's conformance job runs on each. `win-x64` conformance against the published
@@ -281,8 +281,8 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
 (ADR-0124) is built on the other two.
 
 - **Status:** The hosts are built and proved, and the stand-in features on them are built and
-  documented by BL-821 (2026-11-14). Still open: neither NuGet package is on nuget.org yet
-  (2026-11-26; see "Not on nuget.org" below). `--control`'s help text says it is served
+  documented by BL-821 (2026-11-14). Both NuGet packages are on nuget.org from 0.1.12
+  (2026-11-27; see "On nuget.org" below). `--control`'s help text says it is served
   (BL-1125).
 - **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
   the in-process .NET interface with typed options, exchange recording, queries and waits, fault
@@ -301,10 +301,18 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
   file (BL-972) and the binding (BL-977). They are the parts of BL-816, which is Done. `Surl.Api` serves the same endpoint
   through `SurlServerOptions.ControlListenUrl` and `ControlTokenFile` and reports it as
   `SurlServer.ControlUrl` (BL-1176); its tests also control stores in process (BL-810). The stand-in page is `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
-- **Not on nuget.org:** from `v0.1.11`, the first release after BL-1795, `release.yml` is
-  written to push both packages there, but its `v0.1.11` run failed at the nuget.org login
-  after creating the GitHub release, so no version of either is there (2026-11-26).
-- **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
+- **On nuget.org:** done with `v0.1.12` (2026-11-27, BL-1797). `Surly.Surl.Api` and
+  `Surly.Surl.Mcp` are there from 0.1.12: `dotnet add package Surly.Surl.Api`, and
+  `dotnet tool install -g Surly.Surl.Mcp` (or `dnx Surly.Surl.Mcp`). The push step is in
+  `release.yml` from `v0.1.11`, the first release after BL-1795; that run failed at the
+  nuget.org login after creating the GitHub release, so 0.1.11 was not pushed.
+- **The `surl` command line as a .NET tool:** built (BL-1984, ADR-0191), not yet published.
+  `release.yml` packs `Surly.Surl.Console`, installs it and runs `surl --version`; from the first
+  release after `v0.1.12` a tag is to attach it to the GitHub release and push it to nuget.org,
+  for `dotnet tool install -g Surly.Surl.Console` (or
+  `dotnet dnx Surly.Surl.Console -- <options> <url>`). No tag has run those steps yet
+  (2026-11-27).
+- **Decisions:** ADR-0098, ADR-0099, ADR-0103, ADR-0124 and ADR-0191.
 
 ## Later
 

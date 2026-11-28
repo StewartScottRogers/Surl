@@ -18,9 +18,11 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// with one Initial packet holding <c>CONNECTION_CLOSE</c> <c>CONNECTION_REFUSED</c> (0x02), because
 /// <c>DOQ_EXCESSIVE_LOAD</c> is an application error and RFC 9000 section 10.2.3 turns it into
 /// <c>APPLICATION_ERROR</c> (0x0c) with no reason before the handshake (ADR-0092 amendment); any other
-/// first datagram gets no bytes (<see cref="QuicConnectionRefusal"/>).
+/// first datagram gets no bytes (<see cref="QuicConnectionRefusal"/>). A flow a <c>close=graceful</c> drop
+/// fault cuts (<see cref="IGracefullyCutDatagramFlow"/>) ends with the QUIC <c>CONNECTION_CLOSE</c>
+/// <c>NO_ERROR</c> of type <c>0x1c</c>, which <c>Surl.Quic</c> sends (ADR-0188, amendment 6).
 /// </remarks>
-public sealed class DnsOverQuicProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
+public sealed class DnsOverQuicProtocolServer : IGracefulCutDatagramProtocolServer, IDatagramRefusalWriter
 {
     /// <summary>The one ALPN protocol offered (RFC 9250 section 4.1.1).</summary>
     public const string ApplicationProtocol = "doq";

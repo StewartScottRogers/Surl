@@ -6,8 +6,9 @@ namespace Surl.Cli;
 /// extended protocol servers are registered, <c>Extended: &lt;schemes&gt;</c> (ADR-0083, decision 8).
 /// </summary>
 /// <remarks>
-/// The version, runtime and schemes are the caller's to supply: only <c>Surl.Console</c>
-/// knows the <c>surl</c> assembly's version and which protocol servers it registered.
+/// The version, runtime and schemes are the caller's to supply: <c>Surl.Console</c> reads the
+/// <c>surl</c> assembly's version and takes the schemes of the registered protocol servers from
+/// <c>Surl.Composition</c>'s <c>SurlServerComposition</c>.
 /// </remarks>
 public static class VersionText
 {

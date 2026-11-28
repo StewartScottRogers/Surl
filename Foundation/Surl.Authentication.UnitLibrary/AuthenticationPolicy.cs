@@ -5,19 +5,30 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// The <see cref="IAuthenticationPolicy"/> <c>surl</c> composes (ADR-0032, sections 4, 5 and 8):
-/// with no accounts every login is refused, anonymous access only where ADR-0032 allows it, a
-/// plain-text secret on an unencrypted connection refused unchecked unless
-/// <c>--allow-plaintext-auth</c>, only the accepted methods offered and checked, and every
-/// refused credential answered after <see cref="RefusalDelay"/> on the injected
-/// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/>, an
-/// <see cref="ISaslAuthenticationPolicy"/>, it offers and runs the SASL mechanisms <c>--auth</c>
-/// accepts (ADR-0049, sections 2 and 5): today <c>GSSAPI</c>,
-/// offered on any connection when <c>--keytab</c> gave a Kerberos acceptor (ADR-0057, decision 9),
-/// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
-/// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
-/// TLS or with <c>--allow-plaintext-auth</c>; <c>EXTERNAL</c>, offered and run only on a
-/// connection with a verified TLS client certificate; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
+/// The <see cref="IAuthenticationPolicy"/> <c>Surl.Composition</c> composes (ADR-0032, sections
+/// 4, 5 and 8): anonymous access only where ADR-0032 allows it, and every refused credential
+/// answered after <see cref="RefusalDelay"/> on the injected <see cref="TimeProvider"/>. Except for
+/// a storage service's credentials (ADR-0108, ADR-0109, ADR-0110), a plain-text secret on an
+/// unencrypted connection is refused unchecked unless <c>--allow-plaintext-auth</c> or
+/// <c>--allow-anonymous</c>, and of the <see cref="AuthenticationMethod"/>s only the accepted ones
+/// are offered and checked. Without <c>--allow-anonymous</c> a login with no local account is
+/// accepted in two cases only, even when there are no accounts at all: a password login for a name
+/// the account book does not hold, which the <see cref="AuthenticationSettings.LdapAccountSource"/>
+/// accepts (ADR-0149, decision 6), and an SSH public-key login with a verified signature by a key
+/// <see cref="AuthenticationSettings.AuthorizedKeys"/> holds for the user (ADR-0051, section 6).
+/// A token issued to an account is honoured while the account book names it, and a directory user's
+/// for a bounded time after a login the directory accepted here (<see cref="HonoursTokenIssuedTo"/>).
+/// As the <see cref="IMailAuthenticationPolicy"/>, an <see cref="ISaslAuthenticationPolicy"/>, it
+/// offers and runs the SASL mechanisms whose methods are accepted (ADR-0049, sections 2 and 5):
+/// <c>GSSAPI</c>, offered on any connection when <c>--keytab</c> gave a Kerberos acceptor
+/// (ADR-0057, decision 9); <c>SCRAM-SHA-256</c>, <c>SCRAM-SHA-512</c>, <c>SCRAM-SHA-1</c>,
+/// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection;
+/// <c>OAUTHBEARER</c>, <c>XOAUTH2</c>, <c>PLAIN</c> and <c>LOGIN</c>, all plain-text, so offered
+/// only over TLS or with <c>--allow-plaintext-auth</c>, and run then or under
+/// <c>--allow-anonymous</c>; <c>EXTERNAL</c>, offered and run only on a connection with a verified
+/// TLS client certificate; and <c>GSS-SPNEGO</c>, accepted by <c>negotiate</c>, offered for
+/// <c>ldap</c> and <c>ldaps</c> and run only where the server says a security layer can follow
+/// (ADR-0072, decision 4). It also offers and checks POP3 <c>APOP</c> when <c>--auth</c> accepts it.
 /// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts,
 /// never refused as plain-text since SSH encrypts first, and public keys against
 /// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7). As the
@@ -65,11 +76,13 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     private readonly IReadOnlyList<SaslMechanism> saslMechanisms;
     private readonly ISurlEventPublisher events;
     private readonly IFaultPlan faults;
+    private readonly AcceptedDirectoryLogins acceptedDirectoryLogins;
 
     /// <summary>
     /// The scheme a <see cref="LoginJudgedEvent"/> and a <see cref="FaultPoint"/> name for an HTTP
-    /// login, whose request does not carry its listen URL's scheme: every scheme the HTTP family
-    /// serves (<c>https</c>, <c>ws</c>, <c>rtsp</c> ...) is named <c>http</c>.
+    /// login that carries no <see cref="LoginExchange"/> (its session was started without one):
+    /// every scheme the HTTP family serves (<c>https</c>, <c>ws</c>, <c>rtsp</c> ...) is then named
+    /// <c>http</c>. With one, they name its scheme.
     /// </summary>
     public const string HttpLoginScheme = "http";
 
@@ -81,8 +94,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     public const string SshLoginScheme = "ssh";
 
     /// <summary>
-    /// The scheme an SMB login (<c>smb</c>, <c>smbs</c>) is published and matched under, since its
-    /// request does not carry its listen URL's scheme.
+    /// The scheme an SMB login (<c>smb</c>, <c>smbs</c>) is published and matched under when its
+    /// request carries no <see cref="LoginExchange"/>; with one, the exchange's scheme is used.
     /// </summary>
     public const string SmbLoginScheme = "smb";
 
@@ -159,6 +172,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
+        acceptedDirectoryLogins = new AcceptedDirectoryLogins(timeProvider);
         PasswordCheck = new AccountBookAndDirectoryPasswordCheck(settings.Accounts, settings.LdapAccountSource);
         ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
         AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
@@ -182,11 +196,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         var checkStartedAt = timeProvider.GetUtcNow();
         var verdict = JudgePasswordLogin(login);
-        if (verdict == PasswordLoginVerdict.RefusedCredentials && IsForTheDirectory(login))
+        var isAcceptedByTheDirectory = verdict == PasswordLoginVerdict.RefusedCredentials
+            && await IsAcceptedByTheDirectoryAsync(login, cancellationToken).ConfigureAwait(false);
+        if (isAcceptedByTheDirectory)
         {
-            var directory = await settings.LdapAccountSource!
-                .CheckAsync(login.Scheme, login.UserName!, login.Password!.Value, cancellationToken).ConfigureAwait(false);
-            verdict = directory.IsAccepted ? PasswordLoginVerdict.Accepted : PasswordLoginVerdict.RefusedCredentials;
+            verdict = PasswordLoginVerdict.Accepted;
         }
 
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
@@ -202,11 +216,12 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         if (verdict == PasswordLoginVerdict.RefusedCredentials)
         {
             // Counted from the check's start, so a slow directory does not stack its latency on the delay.
-            var remaining = RefusalDelay - (timeProvider.GetUtcNow() - checkStartedAt);
-            if (remaining > TimeSpan.Zero)
-            {
-                await Task.Delay(remaining, timeProvider, cancellationToken).ConfigureAwait(false);
-            }
+            await WaitRefusalDelayAsync(cancellationToken, checkStartedAt).ConfigureAwait(false);
+        }
+        else if (isAcceptedByTheDirectory)
+        {
+            // Accepted by the directory and refused by no fault, so the user's tokens are honoured from now.
+            acceptedDirectoryLogins.Record(login.UserName!);
         }
 
         return verdict;
@@ -264,6 +279,20 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         var principal = login.ClientPrincipal ?? string.Empty;
 
         return settings.AllowAnonymous || settings.Accounts.HasNamedAccount(principal) ? principal : null;
+    }
+
+    // Asks the directory about a login the account book cannot settle; false for every other login.
+    private async ValueTask<bool> IsAcceptedByTheDirectoryAsync(PasswordLogin login, CancellationToken cancellationToken)
+    {
+        if (!IsForTheDirectory(login))
+        {
+            return false;
+        }
+
+        var result = await settings.LdapAccountSource!
+            .CheckAsync(login.Scheme, login.UserName!, login.Password!.Value, cancellationToken).ConfigureAwait(false);
+
+        return result.IsAccepted;
     }
 
     // A password login the account book cannot settle, for a name the book does not hold (ADR-0149, decision 6).
@@ -352,12 +381,41 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange) =>
         new HttpAuthenticationSession(this, tlsSession is not null, exchange);
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Whether the account book, as this policy's <see cref="AuthenticationSettings.Accounts"/> view
+    /// shows it, holds a named account of exactly <paramref name="name"/> now. A directory user, a name
+    /// only the <see cref="AuthenticationSettings.LdapAccountSource"/> knows, is never named, logged in
+    /// or not (ADR-0167, Amendment 3, point 5). The empty name never matches.
+    /// </summary>
+    /// <param name="name">The name, compared ordinally.</param>
+    /// <returns><see langword="true"/> only when a named account has that name.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     public bool NamesAccount(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
 
         return settings.Accounts.HasNamedAccount(name);
+    }
+
+    /// <summary>
+    /// Whether a token issued to <paramref name="accountName"/> is still honoured (ADR-0167,
+    /// decision 4 and Amendment 3): when <see cref="NamesAccount"/> names it, or when both this
+    /// policy's <see cref="CheckPasswordLoginAsync"/> accepted the name through the directory, no
+    /// fault refusing it, less than one hour ago on the injected <see cref="TimeProvider"/>, and the
+    /// account book has never held an account of that name, on any scheme, since it was built. A
+    /// refused login neither ends nor renews that hour. At most 10000 such names are kept; when full,
+    /// those an hour old or older are dropped, then the one whose last login is oldest. It contacts no
+    /// directory, publishes no event and asks no fault rule.
+    /// </summary>
+    /// <param name="accountName">The name the token was issued to, compared ordinally.</param>
+    /// <returns><see langword="true"/> when the token is still honoured.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
+    public bool HonoursTokenIssuedTo(string accountName)
+    {
+        ArgumentNullException.ThrowIfNull(accountName);
+
+        return NamesAccount(accountName)
+            || (acceptedDirectoryLogins.IsRecentlyAccepted(accountName) && !settings.Accounts.HasEverHeldAccountNamed(accountName));
     }
 
     /// <summary>
@@ -437,7 +495,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
             ? mechanism.Start(new SaslExchangeContext(
-                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer, start.Exchange))
+                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer, start.Exchange, start.CanCarryAdditionalSuccessData))
             : new RefusedSaslExchange(SaslLoginOutcome.RefusedPlaintext);
     }
 
@@ -652,7 +710,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
     /// <summary>
     /// Gets the accounts, the loosening options, the accepted methods, the authorized keys and the
-    /// Kerberos acceptor this policy judges by, as <c>Surl.Console</c> composed them.
+    /// Kerberos acceptor this policy judges by, as <c>Surl.Composition</c> composed them.
     /// </summary>
     public AuthenticationSettings Settings => settings;
 

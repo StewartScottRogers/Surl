@@ -47,16 +47,16 @@ choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Xmpp:RFC6120-5.3.1-1 | MUST | On `xmpp` with a certificate, the first features are `<starttls><required/></starttls>` alone. | `ServeAsync_CertificateConfigured_OffersRequiredStartTlsAlone` |
+| Xmpp:RFC6120-5.3.1-1 | MUST | On `xmpp` with a certificate or under TLS-SRP, the first features are `<starttls><required/></starttls>` alone. | `ServeAsync_TlsUpgradeAvailable_OffersRequiredStartTlsAlone` |
 | Xmpp:Surl-Tls-1 | MUST | Under `--allow-plaintext-auth`, STARTTLS is offered without `<required/>`, beside the plain-text mechanisms. | `ServeAsync_AllowPlaintextAuthentication_OffersVoluntaryStartTlsBesideThePlainTextMechanisms` |
 | Xmpp:RFC6120-6.5.4-1 | MUST | `<auth/>` before TLS when TLS is required is `<failure><encryption-required/></failure>`, the stream kept. | `ServeAsync_SaslAuthBeforeTlsWhileRequired_IsEncryptionRequiredAndTheStreamKept` |
 | Xmpp:RFC6120-5.3.1-2 | MUST | A stanza before TLS is `not-authorized`; any other element is `policy-violation`. | `ServeAsync_OtherElementBeforeTls_EndsTheStreamAsSection5Says` |
 | Xmpp:RFC6120-5.4.2.3-1 | MUST | `<starttls/>` is answered `<proceed/>`, then the TLS handshake through the listener seam. | `ServeAsync_StartTls_IsAnsweredProceedThenTheUpgrade` |
-| Xmpp:RFC6120-5.4.2.2-1 | MUST | When the upgrade is unavailable, or `<starttls/>` is repeated, the answer is the TLS `<failure/>`, then `</stream:stream>` and close. | `ServeAsync_StartTlsWithoutACertificate_IsTheTlsFailureAndClose`, `ServeAsync_StartTlsRepeatedAfterTls_IsTheTlsFailureAndClose` |
+| Xmpp:RFC6120-5.4.2.2-1 | MUST | When the upgrade is unavailable, or `<starttls/>` is repeated, the answer is the TLS `<failure/>`, then `</stream:stream>` and close. | `ServeAsync_StartTlsWithTlsUpgradeUnavailable_IsTheTlsFailureAndClose`, `ServeAsync_StartTlsRepeatedAfterTls_IsTheTlsFailureAndClose` |
 | Xmpp:RFC6120-5.4.3.2-1 | MUST | A failed handshake closes the connection with no bytes. | `ServeAsync_HandshakeFails_ClosesWithNoMoreBytes` |
 | Xmpp:RFC6120-5.4.3.3-1 | MUST | After TLS the client's new stream header is answered with a new `id`, and STARTTLS is not offered again. | `ServeAsync_StreamRestartedAfterTls_HasANewIdAndOffersSaslAndNotStartTls` |
 | Xmpp:XEP0368-1 | MUST | On `xmpps` the TLS handshake runs from the first byte, before any XML, and STARTTLS is never offered. | `XmppServerStartTlsTests.ServeAsync_ConnectionTlsFromItsFirstByte_OffersSaslAndRefusesStartTls`, `PinnedCurlPortClientTalksToSurlOverXmppTests.SendMessage_AfterScramLogin_Succeeds` (`xmpps` case) |
-| Xmpp:Surl-Tls-2 | MUST | `xmpps` without a certificate, and `xmpp` without one and without `--allow-plaintext-auth` or `--allow-anonymous`, fail at start with `CertificateProblem` (58). | `CommandLineRunnerExtendedProtocolTests.RunAsync_XmppsSchemeWithoutACertificate_ExitsWithTheMissingCertificateCode` |
+| Xmpp:Surl-Tls-2 | MUST | `xmpps` without a certificate, and `xmpp` without one and without `--allow-plaintext-auth` or `--allow-anonymous`, fail at start with `CertificateProblem` (58), except under TLS-SRP, which needs no certificate for either (ADR-0122 Amendment 5). | `CommandLineRunnerExtendedProtocolTests.RunAsync_XmppsSchemeWithoutACertificate_ExitsWithTheMissingCertificateCode`, `ServerTlsCompositionTests.FindListenUrlWithoutCertificate_XmppUnderTlsSrp_IsNull` |
 
 ## SASL (RFC 6120 section 6; RFC 4616, RFC 4505, RFC 5802, RFC 7677)
 

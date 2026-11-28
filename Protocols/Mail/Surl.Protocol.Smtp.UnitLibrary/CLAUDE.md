@@ -1,28 +1,31 @@
 # Surl.Protocol.Smtp.UnitLibrary
 
 Phase 3. The SMTP server (RFC 5321) that receives the mail upstream curl sends, built as
-[ADR-0053](../Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)
+[ADR-0053](../../../Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)
 decides, on the mail store and line machinery of
-[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+[ADR-0050](../../../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
 with the logins of
-[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
+[ADR-0049](../../../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)
 and a limit told from shutdown as
-[ADR-0059](../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
+[ADR-0059](../../../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
 decides. Terms (mail store, owner, anonymous owner, discarded recipient, trace fields, CRLF
 line, reply line, dot-stuffing, STARTTLS discard, SASL mechanism, SASL exchange) are the
 glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-**URL schemes answered:** `smtp`, and `smtps` through `Surl.Console`'s
-`ImplicitTlsSchemeServer`: the server claims `smtp` only and tells implicit TLS apart by
-`IConnection.TlsSession`, never by the scheme.
+**URL schemes answered:** `smtp`, and `smtps`, which `Surl.Composition` registers as an
+`ImplicitTlsSchemeServer` over the `smtp` server: the server claims `smtp` only and tells
+implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
-- `SmtpProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`421 4.3.2 surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
-  `AuthenticationPolicy` as both), the shared `MailboxStore`, and `isTlsUpgradeAvailable`, which
-  `Surl.Console` sets when `--cert` or `--self-signed` is given.
+- `SmtpProtocolServer`: `IConnectionProtocolServer`, `IConnectionRefusalWriter`
+  (`421 4.3.2 surl Too many connections, closing`) and `IExchangeBytesRedactingServer`, whose
+  `CreateRedactor` returns a `LineBytesRedactor` over `SmtpLineRedactionRule`. Its
+  constructor takes the `IAuthenticationPolicy`, the `IMailAuthenticationPolicy`
+  (`Surl.Composition` passes the `smtp` scheme's one `AuthenticationPolicy` as both), the
+  shared `MailboxStore`, and `isTlsUpgradeAvailable`, which `Surl.Composition` sets with a
+  certificate (`--cert` or `--self-signed`) or under TLS-SRP (ADR-0122 decision 5;
+  `ServerTlsComposition.IsTlsUpgradeAvailable`).
 - `SmtpSession`: one connection. The greeting, then each CRLF line read with `CrlfLineReader`
   and answered with `ReplyLineWriter` (`Surl.LineProtocol`) from the fixed lines in
   `SmtpReplies`, split by `SmtpCommandLine`: `EHLO` (`SIZE`, `8BITMIME`, `SMTPUTF8`,
@@ -48,15 +51,26 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   `SmtpTraceFields`, then the body as `CrlfLineReader.ReadDotStuffedBodyAsync` unstuffs it, so
   with a data directory the message goes straight into the store's pending file. A message past
   `--max-filesize` (trace fields and body together) or a peer that closes mid-body disposes it,
-  deleting the pending file; otherwise `MailboxStore.Deliver(..., PendingMessage)` stores it
+  deleting the pending file; otherwise `MailboxStore.DeliverAsync` stores it
   and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`, `QuotaExceeded` (checked only after `DATA`, never at `RCPT`;
   ADR-0102 decision 1.4) `452 4.2.2 Mailbox full` with nothing delivered to any recipient,
   `MessageTooLarge` `552 5.3.4`, and `StorageFailed` `451 4.3.0 Local error in processing` with
   `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
   that throws after a delivered message is noted and still answered `250`.
+  `SmtpMailTransaction.DeliverablePerOwner` splits `Deliverable` into one recipient per owner
+  (one per recipient for the anonymous owner), each recording only the paths, in `RCPT` order,
+  that resolved to that owner (the anonymous owner's, its own path alone); each delivery
+  event's `DeliveredFor` is that list, with the option or without. With `--mail-delivered-to`
+  (`MailboxStore.DeliveredToEnabled`) and at least one deliverable recipient, each owner has its
+  own pending message, with `Delivered-To` lines ahead of `Return-Path` naming only those paths,
+  so an alias's several owners share no copy and no owner reads another's address. The longest
+  pending message decides `--max-filesize`, and they are delivered together through the
+  `DeliverAsync` overload that takes `MailOwnerCopy` values (ADR-0053 Amendment 1). Without the
+  option the owners share one pending message.
 - `STARTTLS` (decision 5): `220`, then `CrlfLineReader.DiscardBuffered`, then
-  `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` without a certificate,
-  `503` on a TLS connection.
+  `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` only when no upgrade is
+  available (`isTlsUpgradeAvailable` false: no certificate and no TLS-SRP), `503` on a TLS
+  connection.
 - Limits (decision 7, ADR-0059): `500` past `--max-line`, `421` past `--head-timeout`, `552`
   past `--max-filesize`, each then closing, written within `LimitReplyWriteDeadline`; an
   exchange cancelled for a limit (`ExchangeContext.IsCancelledForALimit`) is answered
@@ -68,7 +82,17 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   `Error` rule's reply is written in place of the command's own (`DATA`'s in place of `354`,
   before the message), nothing is stored, a note is logged and one `FaultAppliedEvent` (target:
   the path, else the verb) is published; a rule with no reply answers
-  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901).
+  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for
+  its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a
+  `Drop` rule aborts the connection with no answer and ends the session, each through
+  `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent`
+  (ADR-0141, BL-901). A client that leaves during a `Delay` hold is sent nothing and the
+  session ends (ADR-0141 amendment 3).
+- `SmtpLineRedactionRule` (ADR-0183): wraps `Surl.LineProtocol`'s `SaslLineRedactionRule`, so
+  the `AUTH` initial response and each answer to a `334 ` continuation, other than a lone `*`
+  or an empty line, are logged as `****`. Message lines from a `354` reply to the ending `.`
+  line are logged as they arrived, except that `LineBytesRedactor` writes any line over 64 KiB
+  as `****`.
 - `SmtpLogText`: renders peer bytes for the verbose notes of decision 8.
 - `SmtpUpstreamTestCaseServer` (ADR-0080 decision 2): the SMTP server half of one upstream
   curl test case, never composed by the shipped `surl`. It is `SmtpProtocolServer` built with

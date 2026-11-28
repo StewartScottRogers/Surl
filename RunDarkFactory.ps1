@@ -109,7 +109,17 @@
     <repo>.logs\lanes-<stamp>\shift-end.txt, which every lane reads before it claims. So no
     lane claims a task after the end; each finishes and integrates what it holds and logs
     "shift end (time up)". -Restart starts a new shift, with -Hours of its own.
-    -TestShiftEnd rehearses this.
+
+    The coordinator ends the shift, and with -Continuous starts the next one, once no lane is
+    still working. A held task may outlast the shift: past -Hours plus -TaskMinutes plus 30
+    minutes the coordinator still waits for every lane whose process runs and that wrote a
+    heartbeat in the last 60 minutes, tracing which. A running lane silent for longer is hung:
+    it is stopped, and restarted or left for the next shift to adopt. A lane that is dead
+    after its restarts, or never started, is not waited for. -TestShiftEnd rehearses this.
+
+    A lane shift starts only from a clean checkout holding exactly origin/<branch>. One that
+    is only behind is fast-forwarded; a dirty, ahead or diverged one is refused.
+    -TestShiftBranch rehearses this.
 
     PARALLEL LANES (-Lanes 2 or more, 16 at most)
 
@@ -264,7 +274,8 @@ param(
     # then merge three made-up lanes into status.json, print it and the board commit built
     # from it (never pushed), and exit.
     [switch]$TestHeartbeat,
-    # Prove Restore-ShiftBranch on a throwaway repository in a temporary folder, and exit.
+    # Prove Restore-ShiftBranch and Sync-ShiftCheckout on throwaway repositories in a
+    # temporary folder, and exit.
     [switch]$TestShiftBranch,
     # Prove the frozen-merge decisions (name, superseded pull requests, the step each CI
     # state leads to) on recorded values, and exit.
@@ -282,7 +293,8 @@ param(
     # Prove how failing test names are read from dotnet test output, and exit.
     [switch]$TestFlakyTests,
     # Prove that lanes end at the shift's end - the hours handed to a lane, the published
-    # end and rehearsal lanes that claim nothing - and exit.
+    # end and rehearsal lanes that claim nothing - and which overdue lanes the coordinator
+    # waits for, and exit.
     [switch]$TestShiftEnd,
     # How often, in minutes, the lanes' heartbeats are published as status.json on the
     # force-pushed board branch, plus once at shift end. 0 = never publish.
@@ -1768,6 +1780,26 @@ function Restore-ShiftBranch {
     return ''
 }
 
+function Sync-ShiftCheckout {
+    # Makes -Repo ready for a lane shift on -Branch: clean, and holding exactly
+    # origin/<branch>. A clean checkout that is only behind is fast-forwarded; a dirty,
+    # ahead or diverged one is left alone. Returns '' when ready, or why not.
+    param([string]$Branch, [string]$Repo = $Root)
+    if (@(git -C $Repo status --porcelain) | Where-Object { $_ }) { return 'working tree not clean; commit or stash first' }
+    git -C $Repo fetch -q origin $Branch 2>&1 | Out-Null
+    $head = "$(git -C $Repo rev-parse HEAD 2>$null)".Trim()
+    $remote = "$(git -C $Repo rev-parse --verify -q "origin/$Branch" 2>$null)".Trim()
+    if ($head -eq $remote) { return '' }
+    $differs = "$Branch differs from origin/$Branch; push or pull first"
+    if (-not $remote) { return $differs }
+    git -C $Repo merge-base --is-ancestor $head $remote 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { return $differs }
+    git -C $Repo merge -q --ff-only $remote 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { return "$Branch is behind origin/$Branch and could not be fast-forwarded" }
+    Write-Trace '-' 'branch' "$Branch was behind origin/$Branch; fast-forwarded to $($remote.Substring(0, 9))" 'Yellow'
+    return ''
+}
+
 if ($TestShiftBranch) {
     $repo = Join-Path ([IO.Path]::GetTempPath()) "df-shift-branch-$PID"
     New-Item -ItemType Directory -Force -Path $repo | Out-Null
@@ -1789,6 +1821,50 @@ if ($TestShiftBranch) {
         else { Write-Host "FAIL $($case[0]): expected $($case[1]), got $got" -ForegroundColor Red; $failed++ }
     }
     Remove-Item -Recurse -Force -Path $repo -ErrorAction SilentlyContinue
+
+    # Sync-ShiftCheckout, on a clone of a throwaway bare origin that a second clone moves.
+    $base = Join-Path ([IO.Path]::GetTempPath()) "df-shift-checkout-$PID"
+    $origin = Join-Path $base 'origin.git'
+    $other = Join-Path $base 'other'
+    $mine = Join-Path $base 'mine'
+    New-Item -ItemType Directory -Force -Path $base | Out-Null
+    function Add-RehearsalCommit {
+        param([string]$Repo, [string]$Message, [switch]$Push)
+        git -C $Repo -c user.name=t -c user.email=t@t commit -q --allow-empty -m $Message 2>&1 | Out-Null
+        if ($Push) { git -C $Repo push -q origin HEAD:work 2>&1 | Out-Null }
+    }
+    function Get-RehearsalSync {
+        # What Sync-ShiftCheckout answers for the clone, and where that leaves the clone.
+        $r = Sync-ShiftCheckout -Branch work -Repo $mine
+        $head = "$(git -C $mine rev-parse HEAD)".Trim()
+        $there = "$(git -C $mine rev-parse origin/work)".Trim()
+        return "'$r' $(if ($head -eq $there) { 'at origin' } else { 'not at origin' })"
+    }
+    git init -q --bare $origin 2>&1 | Out-Null
+    git clone -q $origin $other 2>&1 | Out-Null
+    Add-RehearsalCommit $other 'one' -Push
+    git clone -q -b work $origin $mine 2>&1 | Out-Null
+    $differs = "'work differs from origin/work; push or pull first' not at origin"
+    $cases = @(
+        ,@('level with origin starts', "'' at origin", { Get-RehearsalSync })
+        ,@('only behind is fast-forwarded', "'' at origin", { Add-RehearsalCommit $other 'two' -Push; Get-RehearsalSync })
+        ,@('dirty and behind is refused', "'working tree not clean; commit or stash first' not at origin", {
+            Add-RehearsalCommit $other 'three' -Push
+            git -C $mine fetch -q origin 2>&1 | Out-Null
+            Set-Content -Path (Join-Path $mine 'x.txt') -Value 'x'
+            Get-RehearsalSync
+            Remove-Item (Join-Path $mine 'x.txt') })
+        ,@('ahead is refused', $differs, {
+            git -C $mine merge -q --ff-only origin/work 2>&1 | Out-Null
+            Add-RehearsalCommit $mine 'mine'
+            Get-RehearsalSync })
+        ,@('diverged is refused', $differs, { Add-RehearsalCommit $other 'four' -Push; Get-RehearsalSync }))
+    foreach ($case in $cases) {
+        $got = & $case[2]
+        if ($case[1] -ceq $got) { Write-Host "PASS $($case[0]): $got" -ForegroundColor Green }
+        else { Write-Host "FAIL $($case[0]): expected $($case[1]), got $got" -ForegroundColor Red; $failed++ }
+    }
+    Remove-Item -Recurse -Force -Path $base -ErrorAction SilentlyContinue
     exit $(if ($failed) { 1 } else { 0 })
 }
 
@@ -2627,6 +2703,28 @@ function Test-LaneAlive {
     return [bool]($p -and $p.ProcessName -match 'powershell')
 }
 
+# A running lane that has written no heartbeat for this long is taken for hung. A healthy
+# one writes every minute while it runs or waits, and is silent only while it integrates.
+$HungLaneMinutes = 60
+
+function Get-OverdueLaneStep {
+    # What a coordinator whose patience has run out does about lane <n>, which has written
+    # no summary: 'wait' while its process runs, or is still starting, and it was started or
+    # wrote a heartbeat within $HungLaneMinutes; 'stop' a running one silent for longer; and
+    # 'leave' one whose process is gone, or that never started.
+    param([int]$N, [datetime]$StartedAt, [datetime]$Now = (Get-Date))
+    if (-not (Test-LaneAlive $N)) { return 'leave' }
+    $heard = $StartedAt
+    $beat = Get-LaneStatePath $N 'heartbeat.json'
+    if (Test-Path $beat) {
+        $written = (Get-Item $beat).LastWriteTime
+        if ($written -gt $heard) { $heard = $written }
+    }
+    if (($Now - $heard).TotalMinutes -lt $HungLaneMinutes) { return 'wait' }
+    if (Get-LaneState $N 'pid') { return 'stop' }
+    return 'leave'
+}
+
 function Test-TokensAvailable {
     # Asks Claude for one word. $true when it answers, $false when the usage limit (or any
     # API failure) refuses it. Used where a run failed without saying why.
@@ -3024,6 +3122,27 @@ if ($TestShiftEnd -and -not $Lane) {
         $trace | ForEach-Object { Write-Host "     $_" }
         $text = $trace -join "`n"
         Assert-ShiftEnd ($text -match 'shift +end \(time up\)' -and $text -notmatch ' claim ') 'a lane started after the end claims nothing and ends (time up)'
+
+        # The handover: lane 4 is a sleeping process standing for a lane that still holds a task.
+        $held = Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-Command', 'Start-Sleep -Seconds 120' -WindowStyle Hidden -PassThru
+        try {
+            $started = Get-Date
+            $step = Get-OverdueLaneStep -N 4 -StartedAt $started
+            Assert-ShiftEnd ($step -eq 'wait') "a lane still starting, with no process recorded, is waited for: $step"
+            $step = Get-OverdueLaneStep -N 4 -StartedAt $started -Now $started.AddMinutes($HungLaneMinutes + 1)
+            Assert-ShiftEnd ($step -eq 'leave') "a lane that never started is not waited for: $step"
+            Set-Content -Path (Get-LaneStatePath 4 'pid') -Value $held.Id -Encoding ASCII
+            Set-Content -Path (Get-LaneStatePath 4 'heartbeat.json') -Value '{}' -Encoding ASCII
+            $step = Get-OverdueLaneStep -N 4 -StartedAt $started.AddHours(-9)
+            Assert-ShiftEnd ($step -eq 'wait') "a running lane with a fresh heartbeat is waited for: $step"
+            $step = Get-OverdueLaneStep -N 4 -StartedAt $started.AddHours(-9) -Now (Get-Date).AddMinutes($HungLaneMinutes + 1)
+            Assert-ShiftEnd ($step -eq 'stop') "a running lane silent for over $HungLaneMinutes minutes is stopped: $step"
+        } finally {
+            Stop-Process -Id $held.Id -Force -Confirm:$false -ErrorAction SilentlyContinue
+            $held.WaitForExit()
+        }
+        $step = Get-OverdueLaneStep -N 4 -StartedAt $started
+        Assert-ShiftEnd ($step -eq 'leave') "a lane whose process has gone is not waited for: $step"
     } finally { Remove-Item $LogDir -Recurse -Force -ErrorAction SilentlyContinue }
     exit $(if ($failures) { 1 } else { 0 })
 }
@@ -3055,11 +3174,8 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     if ($ShiftBranch) { $moved = Restore-ShiftBranch -Branch $ShiftBranch; if ($moved) { Write-Trace '-' 'branch' $moved 'Red' } }
     $branch = (git -C $Root rev-parse --abbrev-ref HEAD).Trim()
     if ($branch -in 'master', 'main') { Write-Trace '-' 'refuse' "on $branch; switch to a feature branch" 'Red'; exit 1 }
-    if (Get-Dirty) { Write-Trace '-' 'refuse' 'working tree not clean; commit or stash first' 'Red'; exit 1 }
-    git -C $Root fetch -q origin $branch
-    if ((git -C $Root rev-parse HEAD).Trim() -ne (git -C $Root rev-parse "origin/$branch").Trim()) {
-        Write-Trace '-' 'refuse' "$branch differs from origin/$branch; push or pull first" 'Red'; exit 1
-    }
+    $notReady = Sync-ShiftCheckout -Branch $branch
+    if ($notReady) { Write-Trace '-' 'refuse' $notReady 'Red'; exit 1 }
     # Tasks in Doing are only allowed when a previous shift's lane holds each of them and that
     # lane is dead - a shift stopped mid-task, or killed while waiting for tokens. Those lanes
     # are adopted: their worktrees are left as they are and they resume the task.
@@ -3135,6 +3251,8 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     Publish-ShiftEnd $shiftEnd
     $procs = @()
     $laneTabs = @{}
+    # When each lane was last started, for a lane that has written no heartbeat yet.
+    $laneStartedAt = @{}
     $summaries = Join-Path $LogDir "lanes-$Stamp"
     # The lanes running now; scaling adds and retires lanes, so it changes size mid-shift.
     $activeLanes = New-Object System.Collections.Generic.List[int]
@@ -3167,6 +3285,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
         $started = Start-Detached -Label (Get-LaneTabLabel $N $Label) -Dir $dir -ScriptArgs (Get-LaneArguments -N $N -Branch $branch -Until $shiftEnd)
         $script:procs += $started
         $laneTabs[$N] = $started.Tab
+        $laneStartedAt[$N] = Get-Date
         $closedTabs.Remove($N)
         if (-not $startedLanes.Contains($N)) { $startedLanes.Add($N) }
         if ($started.Tab) { return "herdr tab $($started.Tab)" }
@@ -3280,15 +3399,17 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     }
     $restarts = @{}
     # A lane is finished once it has written its summary. A herdr tab has no process to
-    # watch, so the summaries are the signal; a lane that dies without one is given up on
-    # after the shift's length plus one task's time limit.
+    # watch, so the summaries are the signal. Past the shift's length plus one task's time
+    # limit the coordinator gives up on the lanes that are dead or hung, and goes on waiting
+    # for the rest: ending beside a running lane made the next shift refuse to start (BL-1985).
     $giveUp = $shiftEnd.AddMinutes($TaskMinutes + 30)
+    $nextOverdueTrace = Get-Date
     $tick = Get-Date
     $nextAutoStep = (Get-Date).AddMinutes(15)
     # Frozen pull requests left by earlier shifts merge as soon as their CI passes.
     $nextMergeCheck = Get-Date
     $masterAtShiftStart = Get-MasterSha
-    while ((Get-Date) -lt $giveUp) {
+    while ($true) {
         # The coordinator announces the usage limit for every lane, and adds the wait for a
         # new session to the shift's end, which its lanes follow, and to its own patience.
         Update-LimitNotice
@@ -3341,6 +3462,24 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
         Publish-BoardStatusIfDue -Branch $branch
         $running = @($procs | Where-Object { $_.Tab -or -not $_.Process.HasExited }).Count
         if ($running -eq 0) { break }
+        if ((Get-Date) -ge $giveUp) {
+            $awaited = @()
+            foreach ($n in @($activeLanes | Where-Object { $finished -notcontains $_ })) {
+                $step = Get-OverdueLaneStep -N $n -StartedAt $laneStartedAt[$n]
+                if ($step -eq 'leave') { continue }
+                if ($step -eq 'stop') {
+                    # The next pass restarts it like any dead lane, or the next shift adopts it.
+                    Write-Trace '-' 'lane' "lane $n silent for $HungLaneMinutes minutes; stopping it" 'Red'
+                    taskkill /PID ([int](Get-LaneState $n 'pid')) /T /F 2>&1 | Out-Null
+                }
+                $awaited += "lane $n $(Get-LaneState $n 'task')".Trim()
+            }
+            if (-not $awaited.Count) { break }
+            if ((Get-Date) -ge $nextOverdueTrace) {
+                Write-Trace '-' 'shift' "past its end; waiting for $($awaited -join ', ') to stop" 'Yellow'
+                $nextOverdueTrace = (Get-Date).AddMinutes(30)
+            }
+        }
         Start-Sleep -Seconds 5
     }
 

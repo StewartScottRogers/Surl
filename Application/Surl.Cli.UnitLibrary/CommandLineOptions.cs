@@ -88,8 +88,10 @@ internal static class CommandLineOptions
 
     private const string SelfSignedExplanation =
         "Serves a throwaway self-signed certificate, made at start, for a listen URL of a scheme that starts "
-        + "with TLS (such as https) when no --cert is given; without it, and without --cert, such a URL is "
-        + "refused at start. A test uses it to serve a secure scheme without a certificate file; curl then needs "
+        + "with TLS (such as https) when no --cert is given; without it, without --cert and without TLS-SRP "
+        + "(--tlsauthtype SRP or --tlsuser), such a URL is refused at start. TLS-SRP secures TCP only, so a "
+        + "webtransport or DNS over QUIC URL, or a coaps one with no account, needs --cert or --self-signed "
+        + "even then. A test uses it to serve a secure scheme without a certificate file; curl then needs "
         + "-k. It is not the default because no client can verify the certificate, so a client cannot tell surl "
         + "from anyone else on the path. It cannot be used with --cert. surl warns when it makes the certificate, "
         + "from the info log level up.";
@@ -177,7 +179,7 @@ internal static class CommandLineOptions
         WithArgument<string>("proxy-user-file", null, OptionArgumentReader.Path, (c, v) => c with { ProxyUserFile = v },
             new("<file>", "Read proxy accounts from a file", ["auth", "proxy", "socks"], IsInShortList: false, Default: "none")),
         WithArgument<ProxyAllowedOrigin>("proxy-allow-origin", null, OptionArgumentReader.AllowedOrigin, (c, v) => c with { ProxyAllowedOrigins = [.. c.ProxyAllowedOrigins, v] },
-            new("<address>", "Let the proxy reach more origins", ["proxy", "security"], IsInShortList: false, Default: "loopback only")),
+            new("<address>", "Let the proxy reach more origins", ["proxy", "security", "socks"], IsInShortList: false, Default: "loopback only")),
         WithArgument<IReadOnlyList<string>>("proxy-auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenProxyAuthenticationMethods = v },
             new("<methods>", "Methods the proxy accepts", ["auth", "proxy"], IsInShortList: false, Default: "digest,basic")),
         WithArgument<string>("unix-socket", null, OptionArgumentReader.Path,
@@ -236,7 +238,7 @@ internal static class CommandLineOptions
         WithArgument<TimeSpan>("max-time", 'm', OptionArgumentReader.Seconds, (c, v) => c with { MaxTime = v },
             new("<seconds>", "Longest time one exchange may take", ["limits"], IsInShortList: false, Default: "3600")),
         WithArgument<TimeSpan>("head-timeout", null, OptionArgumentReader.Seconds, (c, v) => c with { Limits = c.Limits with { HeadTimeout = v } },
-            new("<seconds>", "Time to send a request head", ["amqp1", "dict", "ftp", "gopher", "http", "imap", "ldap", "limits", "mqtt", "nats", "oci", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: false, Default: "30")),
+            new("<seconds>", "Time to send a request head", ["amqp1", "dict", "ftp", "gopher", "http", "imap", "ldap", "limits", "mqtt", "nats", "oci", "pop3", "rtsp", "s3", "smb", "smtp", "socks", "ssh", "stomp", "websocket"], IsInShortList: false, Default: "30")),
         WithArgument<long>("max-request-head", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxRequestHeadBytes = v } },
             new("<bytes>", "Largest HTTP or RTSP request head", ["http", "limits", "oci", "rtsp", "s3", "websocket"], IsInShortList: false, Default: "100k")),
         WithArgument<long>("max-line", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxLineBytes = v } },
@@ -320,7 +322,7 @@ internal static class CommandLineOptions
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
             new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap", "socks"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
-            new(null, "Accept any login, or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "off",
+            new(null, "Accept most logins or none (warns)", ["amqp", "amqp1", "auth", "azure-storage", "coap", "dns", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "testing", "websocket", "webtransport", "xmpp"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),
         Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
             new(null, "Accept passwords in clear (warns)", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "security", "signalr", "smtp", "socketio", "socks", "stomp", "testing", "websocket", "xmpp"], IsInShortList: false, Default: "off",

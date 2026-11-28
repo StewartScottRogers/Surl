@@ -37,9 +37,9 @@ namespace Surl.Protocol.Imap;
 /// <para>
 /// <b>TLS.</b> <c>STARTTLS</c> is offered and answered only on a plaintext connection of a server
 /// that can upgrade, before a login: every byte the client sent after its line is discarded unrun,
-/// then the connection is upgraded (ADR-0010). <c>imaps</c> is implicit TLS, which
-/// <c>Surl.Console</c> wraps round this server; the session tells the two apart by
-/// <see cref="IConnection.TlsSession"/>, never by the scheme (ADR-0055, decision 11).
+/// then the connection is upgraded (ADR-0010). <c>imaps</c> is implicit TLS, for which
+/// <c>Surl.Composition</c> wraps this server in an <c>ImplicitTlsSchemeServer</c>; the session tells
+/// the two apart by <see cref="IConnection.TlsSession"/>, never by the scheme (ADR-0055, decision 11).
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command, its lines and literals together, longer than
@@ -69,6 +69,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
     private readonly bool isTlsUpgradeAvailable;
+    private readonly bool isSpecialUseOffered;
 
     /// <summary>
     /// Creates an IMAP server that serves <paramref name="mailStore"/>.
@@ -77,14 +78,23 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <param name="mailAuthenticationPolicy">
     /// Says which SASL mechanisms are offered on a connection in its TLS state and whether the
     /// clear-password login is, and runs each <c>AUTHENTICATE</c> exchange (ADR-0049, section 6).
-    /// <c>Surl.Console</c> passes the same object as <paramref name="authenticationPolicy"/>.
+    /// <c>Surl.Composition</c> passes the <c>imap</c> scheme's one <c>AuthenticationPolicy</c> both
+    /// here and as <paramref name="authenticationPolicy"/>.
     /// </param>
-    /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
+    /// <param name="mailStore">
+    /// The mail store the SMTP, IMAP and POP3 servers share, already made or loaded: whether it holds
+    /// a folder use now (<see cref="MailboxStore.HoldsAnyFolderUse"/>) decides, for this server's whole
+    /// life, whether it offers <c>SPECIAL-USE CREATE-SPECIAL-USE</c> and accepts <c>CREATE</c> with
+    /// <c>USE</c> (ADR-0055, Amendment 2).
+    /// </param>
     /// <param name="isTlsUpgradeAvailable">
-    /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
-    /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so the
-    /// capabilities advertise it and <c>STARTTLS</c> is answered <c>OK</c> and upgraded; when
-    /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>BAD STARTTLS not available</c>
+    /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>.
+    /// <c>Surl.Composition</c> passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>,
+    /// <see langword="true"/> when a server certificate is configured (<c>--cert</c> or
+    /// <c>--self-signed</c>) or TLS-SRP is served (ADR-0122, decision 5). When
+    /// <see langword="true"/>, the capabilities advertise <c>STARTTLS</c> before a login on a
+    /// plaintext connection and it is answered <c>OK</c> and upgraded; when
+    /// <see langword="false"/>, it is answered <c>BAD STARTTLS not available</c>
     /// (ADR-0055, decision 11).
     /// </param>
     public ImapProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable = false)
@@ -97,6 +107,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
         this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
+        isSpecialUseOffered = mailStore.HoldsAnyFolderUse;
     }
 
     /// <summary>
@@ -111,9 +122,14 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     internal MailUpstreamTestCaseReplies? UpstreamTestCaseReplies { get; init; }
 
     /// <summary>
-    /// Creates the redactor that writes the password of <c>LOGIN</c> and every <c>AUTHENTICATE</c>
-    /// secret as <c>****</c> in the exchange log, leaving literals such as an <c>APPEND</c> message
-    /// unchanged (ADR-0183, decision 5 as amended by BL-1430).
+    /// Creates the redactor that writes the password of <c>LOGIN</c>, sent as an atom, a quoted
+    /// string or a literal, and every <c>AUTHENTICATE</c> secret as <c>****</c> in the exchange log.
+    /// Other literals, an <c>APPEND</c> message included, are logged unchanged apart from the 64 KiB
+    /// case (ADR-0183, decision 5 as amended by BL-1430): a run of more than
+    /// <see cref="LineBytesRedactor.DefaultMaxHeldBytes"/> (64 KiB) bytes with no CR LF is written
+    /// as <c>****</c> whatever it holds, and the rest of that line is dropped up to its CR LF
+    /// (ADR-0182, decision 6). <c>ImapLineRedactionRule</c> says what more is withheld from lines the
+    /// server may refuse.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A line redactor for the connection, used by that exchange alone.</returns>
@@ -133,7 +149,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, UpstreamTestCaseReplies).RunAsync();
+        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, isSpecialUseOffered, UpstreamTestCaseReplies).RunAsync();
     }
 
     /// <summary>

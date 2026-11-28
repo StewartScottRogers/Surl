@@ -16,7 +16,7 @@ public sealed class SmtpStartTlsTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public async Task ServeAsync_EhloOnPlaintextWithACertificate_AdvertisesStartTlsLast()
+    public async Task ServeAsync_EhloOnPlaintextWithTlsUpgradeAvailable_AdvertisesStartTlsLast()
     {
         var connection = await ServeStartTlsAsync(new InMemoryConnection(Ascii("EHLO c\r\n")));
 
@@ -24,7 +24,7 @@ public sealed class SmtpStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_EhloWithoutACertificate_DoesNotAdvertiseStartTls()
+    public async Task ServeAsync_EhloWithTlsUpgradeUnavailable_DoesNotAdvertiseStartTls()
     {
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Ascii("EHLO c\r\n"));
@@ -72,7 +72,7 @@ public sealed class SmtpStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StartTlsWithoutACertificate_Answers454AndStaysPlaintext()
+    public async Task ServeAsync_StartTlsWithTlsUpgradeUnavailable_Answers454AndStaysPlaintext()
     {
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Ascii("STARTTLS\r\n", "NOOP\r\n"));

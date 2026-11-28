@@ -9,7 +9,8 @@
   [ADR-0021](ADR-0021-a-lingering-close-for-every-tcp-connection.md) (the lingering close),
   [ADR-0141](ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md) (command-stage drop).
 - **Amended by:** amendment 4 below (2026-11-26, BL-1794; decision 3: the engine's `Accept`-stage drop event carries
-  how the connection was closed) and amendment 5 (2026-11-26, BL-1801; decision 2's HTTP/3 row is built).
+  how the connection was closed), amendment 5 (2026-11-26, BL-1801; decision 2's HTTP/3 row is built) and amendment 6
+  (2026-11-27, BL-1815; DNS over QUIC and WebTransport close gracefully too).
 
 ## Context
 
@@ -223,7 +224,8 @@ event it publishes, and it says how the engine ended the exchange, not what the 
 - The event is still published once per exchange, and both exchange-log notes of decision 3 are unchanged.
 
 *Amended by amendment 5 (BL-1801):* a graceful cut of an HTTP/3 flow is `Graceful`; the table's datagram row holds for
-every other datagram flow.
+every other datagram flow. *Amended by amendment 6 (BL-1815):* a graceful cut of a DNS-over-QUIC or WebTransport flow
+is `Graceful` too.
 
 **Why.** Surl is a stand-in for tests (ADR-0124): "Observable" asks that what the server did reaches a test on the event
 stream, not only in a log, and "Configuration as data" lets the event grow by a field without repurposing one.
@@ -239,7 +241,8 @@ not make: it silenced every datagram flow, QUIC included, and the event said `Re
    `IGracefulCutDatagramProtocolServer`. Under an `Accept`-stage drop with `after-bytes` and `close=graceful` the engine
    hands it an `IGracefullyCutDatagramFlow`, writes the graceful note and publishes `FaultAppliedEvent` with
    `Close = Graceful` when the count is reached. Today only `Http3ProtocolServer` implements it. The seam is a marker and
-   a flow interface, so a server opts in with no central switch.
+   a flow interface, so a server opts in with no central switch. *Amended by amendment 6 (BL-1815):* DNS over QUIC,
+   WebTransport and `surl`'s `dns` datagram router implement it too, and the marker has one member.
 2. **What "after N bytes" means over datagrams.** N counts the bytes of the UDP datagram payloads surl sends (QUIC
    framing included). No datagram is split, since a cut QUIC packet would not open: datagrams are sent whole while the
    total stays within N, and the first that would pass it, and every later one, is discarded. The client so receives at
@@ -252,7 +255,10 @@ not make: it silenced every datagram flow, QUIC included, and the event said `Re
    (section 10.2). No `GOAWAY` is sent, as decision 2 invents none for HTTP/2. HTTP/3's `H3_NO_ERROR` application close
    was not chosen: before the handshake it would turn into `APPLICATION_ERROR`, and it is not the transport's.
 4. `close=reset` over HTTP/3, and TFTP, DNS over QUIC, WebTransport and every other datagram flow, are unchanged: the
-   flow stops being heard and the event says `Reset`.
+   flow stops being heard and the event says `Reset`. *Amended by amendment 6 (BL-1815):* under `close=graceful`, DNS
+   over QUIC and WebTransport now close as HTTP/3 does. The datagram flows that close gracefully are HTTP/3, DNS over
+   QUIC and WebTransport; TFTP, plain UDP DNS, CoAP (`coap` and `coaps`) and every other datagram flow only stop being
+   heard, and under `close=reset` every datagram flow does.
 
 **Measured** with the pinned static upstream curl 8.21.0 Windows build (ADR-0082; ngtcp2 1.23.0, nghttp3 1.16.0),
 `--http3-only`, a 10 MiB file, `--max-time` set, by `UpstreamCurlFetchesFromSurlOverHttp3Tests` (`Integration`). No Curl
@@ -267,3 +273,29 @@ port output is used. Linux and macOS are not measured.
 So over HTTP/3 upstream curl does not report the cut-off download as partial file (18), although a `content-length` was
 declared: a closed QUIC connection is a failed receive to it. The graceful cut is still told from the reset one: curl
 learns of it at once, where a silenced flow leaves it waiting for a timeout.
+
+## Amendment 6 — DNS over QUIC and WebTransport close gracefully too (2026-11-27, BL-1815)
+
+Decided by Claude under Stewart's delegation. Amendment 5 left two QUIC servers only silencing a cut flow, although
+`Surl.Quic`, which runs them, already closes one: a test could not cut a DNS-over-QUIC or WebTransport answer cleanly.
+
+**Decision.**
+
+1. `DnsOverQuicProtocolServer` and `WebTransportProtocolServer` implement `IGracefulCutDatagramProtocolServer`. Amendment
+   5's decisions 2 and 3 hold for them unchanged: N counts UDP datagram payload bytes, no datagram is split, and the
+   close is `CONNECTION_CLOSE` type `0x1c` `NO_ERROR`. The application protocol's own close is not sent in its place:
+   no `DOQ_NO_ERROR` application close, no `WT_CLOSE_SESSION` and no `GOAWAY`, since decision 2 invents none and a close
+   of the transport's is what "after N bytes" cuts.
+2. `surl` serves both `dns` datagram transports through one router, and the engine picks one datagram server per
+   scheme, so a marker alone cannot tell DNS over QUIC from plain UDP. `IGracefulCutDatagramProtocolServer` gains
+   `ClosesCutFlowsGracefully(ListenUrl)`, a default member answering `true`; the engine hands over the
+   `IGracefullyCutDatagramFlow`, and publishes `Graceful`, only when it answers `true` for the flow's listen URL. The
+   router answers `true` exactly for the DNS-over-QUIC listen URL (`ListenUrl.IsImplicitTls`), so a plain UDP DNS flow
+   is silenced and its event says `Reset`, as before.
+
+**Why this seam.** It adds one member with a default, so no existing server changes, and a later server that mixes a
+protocol with a close and one without opts in the same way, with no central switch. Registering two `dns` datagram
+servers would have meant the engine picking by listen URL for every scheme, a larger change for the same answer.
+
+**Not measured.** Upstream curl speaks neither DNS over QUIC nor WebTransport (ADR-0083, ADR-0092). Unit tests over
+in-memory datagram flows pin the close frame, written from RFC 9000 sections 19.19 and 20.1.

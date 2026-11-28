@@ -156,7 +156,7 @@ public sealed partial class MessageBus
     }
 
     private static BusQueueSnapshot SnapshotOf(NamedQueue queue) =>
-        new(queue.Name, queue.Flags, [.. queue.Filters], [.. queue.AllMessages.Select(queued => (queued.Message, queued.HandedOut))], queue.SubscriptionDescription);
+        new(queue.Name, queue.Flags, [.. queue.Filters], [.. queue.AllMessages.Select(queued => (queued.Message, queued.HandedOut))], queue.SubscriptionDescription, queue.ExcludedPublisherName);
 
     private MessageBusOutcome SeedInto(NamedQueue queue, BusMessage published, DateTimeOffset now)
     {
@@ -254,6 +254,7 @@ public sealed partial class MessageBus
         {
             queue.ReplaceBindings(filters);
             queue.SubscriptionDescription = target.SubscriptionDescription;
+            queue.ExcludedPublisherName = target.ExcludedPublisherName;
         }
 
         foreach (var (message, redelivered) in target.Messages)

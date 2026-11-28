@@ -74,8 +74,10 @@ public enum MessageBusOutcome
     StorageFailed,
 
     /// <summary>The configured <c>--topic-access</c> grants do not let the caller do this
-    /// (ADR-0102, decision 3.4), or a client tried to delete a declared queue (decision 3.2);
-    /// nothing changed. The same answer whether or not the topic or queue exists.</summary>
+    /// (ADR-0102, decision 3.4), or a client tried to delete a declared queue (decision 3.2), or to
+    /// delete or purge a subscription queue without <c>sub</c> on its filters (ADR-0146,
+    /// Amendment 2); nothing changed. A grant refusal is the same answer whether or not the topic
+    /// or queue exists, except that last one, which judges the queue found.</summary>
     AccessDenied,
 
     /// <summary>A delete asked only if unused found consumers still taking deliveries from the
@@ -98,8 +100,9 @@ public enum MessageBusOutcome
     /// did not take it.</summary>
     NoReadyConsumer,
 
-    /// <summary>A declare gave a subscription description, and the queue exists with another one
-    /// or none (ADR-0146, decision 3.2): it is not that subscription's queue, or the subscription
-    /// changed. The queue is unchanged.</summary>
+    /// <summary>A declare, a subscription queue consume or a delete by description gave a subscription
+    /// description, and the queue exists with another one or none; or a delete asked for a queue with
+    /// none, and it carries one (ADR-0146, decisions 3.2 and 3.4): it is not that subscription's queue,
+    /// or the subscription changed. The queue is unchanged.</summary>
     QueueDescriptionDiffers,
 }

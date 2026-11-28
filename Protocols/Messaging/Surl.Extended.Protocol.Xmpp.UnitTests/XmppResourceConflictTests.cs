@@ -174,7 +174,7 @@ public sealed class XmppResourceConflictTests
         var connection = new UnitTestXmppClientConnection();
         var log = new RecordingExchangeLog();
         connection.Send(ClientHeader);
-        var serving = new XmppServer(NoCertificateOptions()).ServeAsync(connection, Context(log, clock, ExchangeLimits.Default));
+        var serving = new XmppServer(TlsUpgradeUnavailableOptions()).ServeAsync(connection, Context(log, clock, ExchangeLimits.Default));
         await WaitUntilAsync(() => connection.Written.Contains("</stream:features>", StringComparison.Ordinal));
 
         clock.Advance(ExchangeLimits.Default.HeadTimeout * 2);
@@ -189,7 +189,7 @@ public sealed class XmppResourceConflictTests
         var clock = new ManualTimeProvider();
         var connection = new UnitTestXmppClientConnection();
         connection.Send(ClientHeader);
-        var serving = new XmppServer(NoCertificateOptions()).ServeAsync(connection, Context(new RecordingExchangeLog(), clock, ExchangeLimits.Default));
+        var serving = new XmppServer(TlsUpgradeUnavailableOptions()).ServeAsync(connection, Context(new RecordingExchangeLog(), clock, ExchangeLimits.Default));
         await WaitUntilAsync(() => connection.Written.Contains("</stream:features>", StringComparison.Ordinal));
         clock.Advance(ExchangeLimits.Default.HeadTimeout * 1.5);
         connection.Send(Auth("PLAIN", PlainUserPencil));
@@ -208,7 +208,7 @@ public sealed class XmppResourceConflictTests
         var connection = new UnitTestXmppClientConnection();
         connection.Send(ClientHeader);
         var limits = ExchangeLimits.Default with { HeadTimeout = Timeout.InfiniteTimeSpan };
-        var serving = new XmppServer(NoCertificateOptions()).ServeAsync(connection, Context(new RecordingExchangeLog(), clock, limits));
+        var serving = new XmppServer(TlsUpgradeUnavailableOptions()).ServeAsync(connection, Context(new RecordingExchangeLog(), clock, limits));
         await WaitUntilAsync(() => connection.Written.Contains("</stream:features>", StringComparison.Ordinal));
 
         clock.Advance(TimeSpan.FromDays(1));
@@ -219,7 +219,7 @@ public sealed class XmppResourceConflictTests
         Assert.IsFalse(connection.Written.Contains("policy-violation", StringComparison.Ordinal));
     }
 
-    private static XmppServerOptions NoCertificateOptions() => new()
+    private static XmppServerOptions TlsUpgradeUnavailableOptions() => new()
     {
         RandomSource = new CountingRandomSource(),
         AuthenticationPolicy = new UnitTestXmppSaslPolicy(["PLAIN"], ["PLAIN"])
@@ -232,7 +232,7 @@ public sealed class XmppResourceConflictTests
         },
     };
 
-    private static XmppServer NewServer() => new(NoCertificateOptions());
+    private static XmppServer NewServer() => new(TlsUpgradeUnavailableOptions());
 
     private ExchangeContext Context(RecordingExchangeLog log, TimeProvider clock, ExchangeLimits limits) => new(
         1,

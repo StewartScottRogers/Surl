@@ -16,6 +16,8 @@
   the `--aihelp <topic>` row to decision 2's option table and short list (re-pinning the
   `--help`, `--help all` and `--help surl` pages of decision 3), gives decision 1's categories
   their schemes, and adds `surl --aihelp` to decision 6's `SEE ALSO`.
+- **Amended:** decision 2's `--allow-anonymous` description by BL-1958 (2026-11-27), recorded in
+  decision 2.
 
 ## Context
 
@@ -266,6 +268,13 @@ empty.
   option table, so `-s`, `-S`, `--log-level`, `--trace`, `--trace-ascii`, `--trace-time` and
   `--log-file` join with BL-104, the ADR-0032 options with BL-108, and `-M` with BL-123. No
   help page names an option `surl` would refuse.
+
+**Amended** (2026-11-27, BL-1958, decided by Claude under Stewart's delegation): the
+description of `--allow-anonymous` is now `Accept most logins or none (warns)`, here and on every
+page that lists it. `Accept any login, or none (warns)` was not true: some checks and refusals
+stay under the option (ADR-0032 section 9's BL-1918 amendment), and the option's page lists them.
+The new text says `most`, as the start-up warning does, and is 34 characters, within the limit
+above.
 
 ### 3. The layouts
 

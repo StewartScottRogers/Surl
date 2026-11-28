@@ -33,6 +33,7 @@ internal sealed partial class ImapSession
     private readonly MailboxStore mailStore;
     private readonly CrlfLineReader lineReader;
     private readonly bool isTlsUpgradeAvailable;
+    private readonly bool isSpecialUseOffered;
     private readonly Dictionary<string, (ImapCommandState State, Func<ImapArguments, ValueTask<bool>> Answer)> commands;
     private readonly Dictionary<string, Func<ImapArguments, ValueTask<bool>>> uidCommands;
     private readonly MailUpstreamTestCaseReplies? caseReplies;
@@ -49,6 +50,7 @@ internal sealed partial class ImapSession
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
         bool isTlsUpgradeAvailable,
+        bool isSpecialUseOffered,
         MailUpstreamTestCaseReplies? caseReplies = null)
     {
         this.caseReplies = caseReplies;
@@ -60,6 +62,7 @@ internal sealed partial class ImapSession
         this.mailStore = mailStore;
         this.lineReader = lineReader;
         this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
+        this.isSpecialUseOffered = isSpecialUseOffered;
         commands = new(StringComparer.Ordinal)
         {
             ["CAPABILITY"] = (ImapCommandState.Any, arguments => RespondAsync(Capability(arguments))),
@@ -113,7 +116,7 @@ internal sealed partial class ImapSession
 
     // Asked afresh each time: it changes with the login and with TLS (ADR-0055, decision 2).
     private string Capabilities =>
-        ImapCapabilities.List(view is null ? mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession) : null, context.Limits.MaxUploadBytes, CanUpgrade, mailStore.HoldsAnyFolderUse);
+        ImapCapabilities.List(view is null ? mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession) : null, context.Limits.MaxUploadBytes, CanUpgrade, isSpecialUseOffered);
 
     // STARTTLS is offered, and answered, only on a plaintext connection of a server that can
     // upgrade (ADR-0055, decision 11).

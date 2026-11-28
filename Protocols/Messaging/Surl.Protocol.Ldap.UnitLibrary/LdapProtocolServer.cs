@@ -43,14 +43,17 @@ namespace Surl.Protocol.Ldap;
 /// or the layer's maximum, or one the layer refuses, closes the connection with no reply.
 /// </para>
 /// <para>
-/// <b>TLS.</b> A server constructed with a certificate available offers <c>StartTLS</c> on a
+/// <b>TLS.</b> A server constructed with a TLS upgrade available offers <c>StartTLS</c> on a
 /// connection not yet TLS, listing it in the root DSE's <c>supportedExtension</c>: answered
 /// <c>success</c> with its name, every byte read past the request discarded, then the connection
-/// upgraded; on a connection already TLS, during a SASL bind or inside a security layer it is
-/// <c>operationsError</c> (1). Without a certificate it is an unknown extended operation,
-/// <c>protocolError</c> with no name. The server tells TLS by <see cref="IConnection.TlsSession"/>,
-/// never by the scheme, so it serves <c>ldaps</c> when registered for it through the engine's
-/// implicit TLS.
+/// upgraded; during a SASL bind or inside a security layer it is <c>operationsError</c> (1), as
+/// it is on a connection already TLS whether or not an upgrade is available. Only when no
+/// upgrade is available is it, on a connection not yet TLS, an unknown extended operation,
+/// <c>protocolError</c> with no name. <c>Surl.Composition</c> says an upgrade is available when a
+/// certificate is configured (<c>--cert</c>, <c>--self-signed</c>) or TLS-SRP is served
+/// (<c>ServerTlsComposition.IsTlsUpgradeAvailable</c>; ADR-0122 decision 5). The server tells TLS
+/// by <see cref="IConnection.TlsSession"/>, never by the scheme, so it serves <c>ldaps</c> when
+/// registered for it through the engine's implicit TLS.
 /// </para>
 /// <para>
 /// <b>Operations.</b> A search other than the root DSE's needs a bound connection, or
@@ -99,7 +102,7 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>
     /// <param name="saslAuthenticationPolicy">Offers the SASL mechanisms and runs every SASL and Sicily bind.</param>
     /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>StartTLS</c> can upgrade the connection.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether a TLS upgrade is available (a certificate is configured or TLS-SRP is served), so <c>StartTLS</c> can upgrade a plaintext connection; when not, <c>StartTLS</c> on one is an unknown extended operation.</param>
     /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">A policy is <see langword="null"/>.</exception>
     public LdapProtocolServer(IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy saslAuthenticationPolicy, TimeProvider timeProvider, bool isTlsUpgradeAvailable = false, ISurlEventPublisher? events = null)
@@ -113,7 +116,7 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     /// <param name="directory">The entries searches and compares read.</param>
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>
     /// <param name="saslAuthenticationPolicy">Offers the SASL mechanisms and runs every SASL and Sicily bind.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>StartTLS</c> can upgrade the connection.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether a TLS upgrade is available (a certificate is configured or TLS-SRP is served), so <c>StartTLS</c> can upgrade a plaintext connection; when not, <c>StartTLS</c> on one is an unknown extended operation.</param>
     internal LdapProtocolServer(
         LdapDirectory directory,
         IAuthenticationPolicy authenticationPolicy,
@@ -139,7 +142,7 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>
     /// <param name="saslAuthenticationPolicy">Offers the SASL mechanisms and runs every SASL and Sicily bind.</param>
     /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>StartTLS</c> can upgrade the connection.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether a TLS upgrade is available (a certificate is configured or TLS-SRP is served), so <c>StartTLS</c> can upgrade a plaintext connection; when not, <c>StartTLS</c> on one is an unknown extended operation.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <returns>The server.</returns>
@@ -193,12 +196,17 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     }
 
     /// <summary>
-    /// Adds LDIF content records to the directory, all or none (ADR-0158 decision 3).
+    /// Adds LDIF content records to the directory, all or none (ADR-0158 decision 3). A seed is lost by
+    /// <see cref="ResetDirectory"/> unless <paramref name="keepOnReset"/> is set.
     /// </summary>
     /// <param name="ldif">LDIF content records.</param>
+    /// <param name="keepOnReset">Whether <see cref="ResetDirectory"/> returns to a set holding these entries too; they must then be addable to that set too, and an entry with a parent among the live entries needs that parent in that set.</param>
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add.</exception>
-    public void SeedDirectoryEntries(string ldif) => directory.SeedEntries(ldif);
+    /// <exception cref="InvalidOperationException">
+    /// The text is not LDIF content the directory, or for a kept seed the set <see cref="ResetDirectory"/> returns to,
+    /// can add. Neither set changes and nothing is published.
+    /// </exception>
+    public void SeedDirectoryEntries(string ldif, bool keepOnReset = false) => directory.SeedEntries(ldif, keepOnReset);
 
     /// <summary>
     /// Writes the directory as LDIF (ADR-0164 decision 9): publishes nothing, asks no fault rule, omits every
@@ -208,7 +216,8 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     public string ExportDirectoryLdif() => directory.ExportLdif();
 
     /// <summary>
-    /// Returns the directory to the entries it was built with (ADR-0158 decision 4).
+    /// Returns the directory to its configured entries - those the server was built with, then every kept seed's -
+    /// and drops every other (ADR-0158 decision 4).
     /// </summary>
     public void ResetDirectory() => directory.Reset();
 

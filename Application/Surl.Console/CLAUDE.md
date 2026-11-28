@@ -4,6 +4,11 @@ The composition root: the `surl` executable (assembly name `surl`), published na
 ahead-of-time as a single file. Every object is constructed explicitly here - never
 assembly scanning or reflection-based dependency injection, which native AOT forbids.
 
+`dotnet pack` makes a framework-dependent .NET tool package instead, `Surly.Surl.Console` with
+the command `surl` (ADR-0191): the csproj turns `PublishAot` off while packing, and `README.md`
+here is the package's README. `.github/workflows/release.yml` packs it, installs it and runs
+`surl --version`, and on a `v*` tag attaches it to the GitHub release and pushes it to nuget.org.
+
 - `Program.Main` registers Ctrl+C (SIGINT) and SIGTERM to cancel a token and calls
   `Program.RunAsync(args, output, error, cancellationToken)`, the internal entry point the
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
@@ -169,8 +174,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   status lines once the last listener, connection or datagram, has bound, hands the bound
   listen URLs to `SurlServingOutputs.AllListenersBound` (`surl` ignores them), and keeps a bind
   failure for the `(45)` or `(6)` message.
-- `ServerTlsComposition` builds the process's `ServerTlsSettings` when at least one listen
-  URL needs TLS (`NeedsTls`), which is any of these:
+- `ServerTlsComposition` builds the server start's `ServerTlsSettings`, at most one for each
+  start, when at least one listen URL needs TLS (`NeedsTls`), which is any of these:
   - it requires a certificate: it is TLS from the first byte (`ListenUrl.IsImplicitTls`,
     which `--s3-plaintext`, `--oci-plaintext`, `--az-plaintext` and `--gs-plaintext` set to
     `false` for their scheme); its scheme is in `UpgradeRequiredSchemes` (`natss`,

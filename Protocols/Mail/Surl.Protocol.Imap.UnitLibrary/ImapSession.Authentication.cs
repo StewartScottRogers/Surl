@@ -19,8 +19,9 @@ internal sealed partial class ImapSession
         [SaslContinuationOutcome.NotBase64] = ImapResponses.CannotDecodeResponse,
     };
 
-    // STARTTLS: refused once the connection is TLS, or when the server has no certificate, in
-    // which case it was never advertised (ADR-0055, decision 11).
+    // STARTTLS: refused once the connection is TLS, or when no TLS upgrade is available (neither
+    // a certificate nor TLS-SRP; ADR-0122, decision 5), in which case it was never advertised
+    // (ADR-0055, decision 11).
     private async ValueTask<bool> AnswerStartTlsAsync(ImapArguments arguments)
     {
         var refusal = !arguments.IsAtEnd ? ImapResponses.InvalidArguments

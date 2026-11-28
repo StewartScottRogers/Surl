@@ -9,14 +9,14 @@ public sealed class OciTokenBookTests
     private static readonly Dictionary<string, OciActions> AppPull = new() { ["app"] = OciActions.Pull };
 
     [TestMethod]
-    public void Issue_Token_Is32RandomBytesInBase64UrlAndIsFoundWithItsGrants()
+    public void Issue_Token_Is32BytesOfTheRandomSourceInBase64UrlAndIsFoundWithItsGrants()
     {
         var clock = new FixedTimeProvider(OciRegistryServerHarness.Now);
-        var book = new OciTokenBook(clock);
+        var book = new OciTokenBook(clock, new CountingRandomNumberGenerator());
 
-        var text = book.Issue("tester", AppPull, new CountingIdentifierRandom());
+        var text = book.Issue("tester", AppPull);
 
-        Assert.AreEqual(CountingIdentifierRandom.TokenOf(1), text);
+        Assert.AreEqual(CountingRandomNumberGenerator.TokenOf(1), text);
         Assert.AreEqual(43, text!.Length);
         var token = book.Find(text);
         Assert.IsNotNull(token);
@@ -31,8 +31,8 @@ public sealed class OciTokenBookTests
     public void Find_ExpiredToken_IsNullAndDropped()
     {
         var clock = new FixedTimeProvider(OciRegistryServerHarness.Now);
-        var book = new OciTokenBook(clock, maxLiveTokens: 1);
-        var text = book.Issue(null, AppPull, new CountingIdentifierRandom())!;
+        var book = new OciTokenBook(clock, new CountingRandomNumberGenerator(), maxLiveTokens: 1);
+        var text = book.Issue(null, AppPull)!;
         clock.UtcNow += OciTokenBook.Lifetime;
 
         var token = book.Find(text);
@@ -45,7 +45,7 @@ public sealed class OciTokenBookTests
     [TestMethod]
     public void Find_UnknownText_IsNull()
     {
-        var book = new OciTokenBook(new FixedTimeProvider(OciRegistryServerHarness.Now));
+        var book = new OciTokenBook(new FixedTimeProvider(OciRegistryServerHarness.Now), new CountingRandomNumberGenerator());
 
         Assert.IsNull(book.Find("unknown"));
     }
@@ -54,20 +54,19 @@ public sealed class OciTokenBookTests
     public void Issue_PastTheBound_IsNullUntilATokenExpires()
     {
         var clock = new FixedTimeProvider(OciRegistryServerHarness.Now);
-        var book = new OciTokenBook(clock, maxLiveTokens: 2);
-        var random = new CountingIdentifierRandom();
-        book.Issue(null, AppPull, random);
+        var book = new OciTokenBook(clock, new CountingRandomNumberGenerator(), maxLiveTokens: 2);
+        book.Issue(null, AppPull);
         clock.UtcNow += TimeSpan.FromSeconds(10);
-        var second = book.Issue(null, AppPull, random)!;
+        var second = book.Issue(null, AppPull)!;
 
-        var refused = book.Issue(null, AppPull, random);
+        var refused = book.Issue(null, AppPull);
         clock.UtcNow += OciTokenBook.Lifetime - TimeSpan.FromSeconds(10);
-        var afterFirstExpired = book.Issue(null, AppPull, random);
+        var afterFirstExpired = book.Issue(null, AppPull);
 
         Assert.IsNull(refused);
-        Assert.AreEqual(CountingIdentifierRandom.TokenOf(4), afterFirstExpired);
+        Assert.AreEqual(CountingRandomNumberGenerator.TokenOf(4), afterFirstExpired);
         Assert.IsNotNull(book.Find(second));
-        Assert.IsNull(book.Find(CountingIdentifierRandom.TokenOf(1)));
+        Assert.IsNull(book.Find(CountingRandomNumberGenerator.TokenOf(1)));
     }
 
     [TestMethod]

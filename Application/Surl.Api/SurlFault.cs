@@ -54,9 +54,9 @@ public sealed record SurlFault
     /// <summary>
     /// How a <see cref="DropConnection"/> ends the connection (<c>close</c>, ADR-0188 decision 4): <see cref="FaultClose.Reset"/>,
     /// the default, aborts it; <see cref="FaultClose.Graceful"/> closes it so the peer sees an ordinary end of stream.
-    /// Over HTTP/3, <c>Reset</c> only stops answering and <c>Graceful</c> closes the QUIC connection with
-    /// <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c>; every other datagram protocol only stops answering (ADR-0188,
-    /// amendment 5).
+    /// Over HTTP/3, DNS over QUIC and <c>webtransport</c>, <c>Reset</c> only stops answering and <c>Graceful</c>
+    /// closes the QUIC connection with <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c>; every other datagram protocol, plain
+    /// UDP DNS included, only stops answering (ADR-0188, amendments 5 and 6).
     /// </summary>
     public FaultClose Close { get; init; } = FaultClose.Reset;
 

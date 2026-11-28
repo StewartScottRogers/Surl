@@ -5,7 +5,7 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// </summary>
 public sealed record Amqp1SecurityNegotiationOptions
 {
-    /// <summary>The options with every allowance off: SASL required, no TLS header answered.</summary>
+    /// <summary>The options with every allowance off: SASL required, no TLS upgrade.</summary>
     public static Amqp1SecurityNegotiationOptions Default { get; } = new();
 
     /// <summary>
@@ -15,8 +15,10 @@ public sealed record Amqp1SecurityNegotiationOptions
     public bool AllowsAnonymous { get; init; }
 
     /// <summary>
-    /// <see langword="true"/> when the listener has a certificate (<c>--cert</c> or
-    /// <c>--self-signed</c>), so a TLS header on a plaintext connection is answered and upgraded.
+    /// <see langword="true"/> when a TLS upgrade is available, so a TLS header on a plaintext
+    /// connection is answered and upgraded: a certificate is configured (<c>--cert</c> or
+    /// <c>--self-signed</c>) or TLS-SRP is served (ADR-0122 decision 5). <c>Surl.Composition</c>
+    /// passes <c>ServerTlsComposition.IsTlsUpgradeAvailable</c>.
     /// </summary>
     public bool CanUpgradeToTls { get; init; }
 }

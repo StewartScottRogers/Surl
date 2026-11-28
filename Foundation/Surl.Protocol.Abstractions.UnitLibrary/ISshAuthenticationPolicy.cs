@@ -2,10 +2,11 @@ namespace Surl.Protocol.Abstractions;
 
 /// <summary>
 /// Who may log in to the SSH server, and how (ADR-0051, section 7). It sits beside
-/// <see cref="IAuthenticationPolicy"/>; <c>Surl.Console</c> passes the same object to the SSH
-/// server as this interface. The server owns the RFC 4252 framing, the method list, the attempt
-/// count, the fixed user and service, and the public-key signature check; the policy owns which
-/// accounts and keys exist, every comparison, ADR-0032 section 8's delay and the login note.
+/// <see cref="IAuthenticationPolicy"/>; <c>Surl.Composition</c> passes the <c>scp</c> and
+/// <c>sftp</c> servers, as this interface, objects that implement both: each its own scheme's
+/// policy. The server owns the RFC 4252 framing, the method list, the attempt count, the fixed
+/// user and service, and the public-key signature check; the policy owns which accounts and keys
+/// exist, every comparison, ADR-0032 section 8's delay and the login note.
 /// </summary>
 public interface ISshAuthenticationPolicy
 {

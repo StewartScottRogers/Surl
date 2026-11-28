@@ -40,8 +40,8 @@ Where it stands:
   decision records.
 - **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS before anything
   merges to `master`.
-- **Releases.** `v0.1.0` was tagged on 2026-11-16. The latest release on 2026-11-26 is
-  `v0.1.11`, with binaries for six platforms and both NuGet packages (see
+- **Releases.** `v0.1.0` was tagged on 2026-11-16. The latest release on 2026-11-27 is
+  `v0.1.12`, with binaries for six platforms and both NuGet packages (see
   [Download](#download)).
 
 ### What is built
@@ -117,9 +117,13 @@ curl --cacert server.pem https://127.0.0.1:8443/hello.txt
 ```
 
 Here `site` is a directory holding `hello.txt`, and `server.pem` and `server.key` are a
-certificate for `127.0.0.1` and its private key. A secure listen URL needs a certificate:
-without `--cert`, surl ends with exit code 58 before it listens, unless `--self-signed`
-asks for a throwaway certificate that no client can verify, so curl must skip verification:
+certificate for `127.0.0.1` and its private key. A secure listen URL needs a certificate,
+unless it is a TCP one that TLS-SRP secures (`--tlsuser` and `--tlspassword`, or
+`--srp-verifiers` and `--srp-groups`;
+[ADR-0122](Documentation/Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md)).
+Without TLS-SRP and without `--cert`, surl ends with exit code 58 before it listens, unless
+`--self-signed` asks for a throwaway certificate that no client can verify, so curl must skip
+verification:
 
 ```
 surl --directory site --self-signed https://127.0.0.1:8443/
@@ -191,8 +195,9 @@ or mechanism on a connection without TLS, and refuse one sent anyway. An SSH pas
 sent in clear.
 
 Five *loosening options* turn a secure default off for a test, and each writes a
-`surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept every request and login
-unchecked), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
+`surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept most requests and
+logins without checking credentials; `surl --help --allow-anonymous` lists the checks and refusals that
+stay), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
 (the HTTP, SASL and SMB methods accepted), `--self-signed` and `--throwaway-hostkey`.
 `surl --help testing` says what each loosens and why none is the default.
 
@@ -209,7 +214,8 @@ curl ftp://127.0.0.1:2121/hello.txt
 ```
 
 With an account, protect the password with TLS: `AUTH TLS` on `ftp://` (curl's `--ssl-reqd`),
-or implicit TLS on `ftps://`. Either needs `--cert` or `--self-signed`. Listings need
+or implicit TLS on `ftps://`. Either needs `--cert`, `--self-signed` or TLS-SRP (`--tlsuser`
+and `--tlspassword`, or `--srp-verifiers` and `--srp-groups`). Listings need
 `--list-directories`, and uploads and `-Q` commands `--allow-uploads`:
 
 ```
@@ -290,10 +296,11 @@ curl -u alice:s3cret pop3://127.0.0.1:1110/1
 
 The first IMAP command lists the mailboxes and the second searches `INBOX`; `curl -T <file>
 imap://.../INBOX` appends a message, and `-X` sends any other command (`-X 'STORE 1 +FLAGS
-\Deleted'`, `-X EXPUNGE`, `-X UIDL` or `-X 'DELE 1'` over POP3). With `--cert` or
-`--self-signed`, `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS` (curl's
-`--ssl-reqd`), and `smtps`, `imaps` and `pop3s` are TLS from the first byte; over TLS `PLAIN`,
-`LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP `LOGIN` and POP3 `USER`/`PASS` are offered too:
+\Deleted'`, `-X EXPUNGE`, `-X UIDL` or `-X 'DELE 1'` over POP3). With `--cert`,
+`--self-signed` or TLS-SRP, `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS`
+(curl's `--ssl-reqd`), and `smtps`, `imaps` and `pop3s` are TLS from the first byte; over TLS
+`PLAIN`, `LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP `LOGIN` and POP3 `USER`/`PASS` are offered
+too:
 
 ```
 surl --self-signed --user alice:s3cret smtp://127.0.0.1:2525/ imaps://127.0.0.1:9930/ pop3s://127.0.0.1:9950/
@@ -322,8 +329,8 @@ curl -o hello.txt ws://127.0.0.1:8081/hello.txt
 ```
 
 A path that is not there is refused `404 Not Found`, and curl exits 22, as it does for any answer
-but `101`. `wss` is TLS from the first byte, so it needs `--cert` or `--self-signed`; there,
-curl's `-u` Basic login is checked rather than refused as a password in clear. curl answers no
+but `101`. `wss` is TLS from the first byte, so it needs `--cert`, `--self-signed` or TLS-SRP;
+over it, curl's `-u` Basic login is checked rather than refused as a password in clear. curl answers no
 `401` on an upgrade, so it logs in only with what it sends unasked: Basic (`-u`), Bearer
 (`--oauth2-bearer`) and AWS Signature Version 4 (`--aws-sigv4`):
 
@@ -364,16 +371,16 @@ surl --directory site --auth ntlm --user alice:s3cret ldap://127.0.0.1:3389/
 curl --ntlm -u alice:s3cret "ldap://127.0.0.1:3389/dc=example,dc=com"
 ```
 
-With `--cert` or `--self-signed`, `ldap://` offers `StartTLS`, and `ldaps` is TLS from the first
-byte; Windows curl checks an `ldaps` certificate itself and ignores `-k`, so it cannot search an
-`ldaps` listener whose certificate Windows does not trust.
+With `--cert`, `--self-signed` or TLS-SRP, `ldap://` offers `StartTLS`, and `ldaps` is TLS from
+the first byte; Windows curl checks an `ldaps` certificate itself and ignores `-k`, so it cannot
+search an `ldaps` listener whose certificate Windows does not trust.
 
 The SMB server answers `smb` and `smbs`
 ([ADR-0073](Documentation/Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)).
 Each top-level directory under `--directory` is a share, so `smb://host/docs/readme.txt` is the
 file `http://host/docs/readme.txt` serves. curl logs in to SMB with NTLMv1 only, a weak method
-that `--auth ntlmv1` must name; uploads (`-T`) need `--allow-uploads`, and `smbs` needs `--cert`
-or `--self-signed`. Here `site/docs/readme.txt` exists, and curl is a build that lists `smb`
+that `--auth ntlmv1` must name; uploads (`-T`) need `--allow-uploads`, and `smbs` needs `--cert`,
+`--self-signed` or TLS-SRP. Here `site/docs/readme.txt` exists, and curl is a build that lists `smb`
 (the Git for Windows build does not):
 
 ```
@@ -532,14 +539,16 @@ Every property is a spelling of a `surl` option, and a start `surl` would refuse
 `SurlServerStartException`. With `RecordExchanges` set, `server.Exchanges` holds each exchange's
 bytes, its listen URL and its scheme. The [package's README](Application/Surl.Api/README.md) covers
 the rest: queries and waits, fault rules, hooks, seeding, reset and snapshots, and a test's own
-protocol server. Each GitHub release from `v0.1.10` carries the NuGet package `Surly.Surl.Api`
-as a `.nupkg` file; it is not on nuget.org yet (2026-11-26, see [Download](#download)).
+protocol server. The NuGet package `Surly.Surl.Api` is on nuget.org from 0.1.12
+(`dotnet add package Surly.Surl.Api`), and each GitHub release from `v0.1.10` carries it as a
+`.nupkg` file too (see [Download](#download)).
 
 **From an AI agent: `Surl.Mcp`.** `surl-mcp` is an MCP server on standard input and output. An MCP
 client starts it as a stdio server, for example with the `surl-mcp` binary from a release
 archive, which needs no .NET runtime. It is also packed as the NuGet package `Surly.Surl.Mcp`,
-a .NET tool of type `McpServer` that each GitHub release from `v0.1.10` carries. The package is
-not on nuget.org yet (2026-11-26), so `dnx Surly.Surl.Mcp` cannot fetch it from there. It
+a .NET tool of type `McpServer` that is on nuget.org from 0.1.12: install it with
+`dotnet tool install -g Surly.Surl.Mcp` and start `surl-mcp`, or run it with
+`dnx Surly.Surl.Mcp`. Each GitHub release from `v0.1.10` carries it as a `.nupkg` file too. It
 registers these tools:
 
 | To | Tools |
@@ -639,8 +648,26 @@ irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1
 
 A release also holds `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
 server, and `SHA256SUMS`. From `v0.1.10` it holds the NuGet packages `Surly.Surl.Api` and
-`Surly.Surl.Mcp` as `.nupkg` files too. From `v0.1.11` the release workflow is written to push
-both to nuget.org, but no version of either is there yet (2026-11-26).
+`Surly.Surl.Mcp` as `.nupkg` files too. Both packages are on nuget.org from 0.1.12:
+
+```
+dotnet add package Surly.Surl.Api
+dotnet tool install -g Surly.Surl.Mcp    # or run it with: dnx Surly.Surl.Mcp
+```
+
+From the first release after `v0.1.12`, the `surl` command line is to be on nuget.org too, as the
+.NET tool `Surly.Surl.Console`, and that release is to hold its `.nupkg` file; no release has
+pushed it yet (2026-11-27). It needs the .NET 10 SDK:
+
+```
+dotnet tool install -g Surly.Surl.Console            # installs the surl command
+dotnet dnx Surly.Surl.Console -- <options> <url>     # or runs surl without that install
+```
+
+`surl`'s arguments go after `--`. A script or a test harness should install the tool rather than
+run it through `dnx`: run from `cmd.exe`, `dnx` exited 0 when `surl` exited 2 (measured on
+Windows with the .NET 10.0.404 SDK). The GitHub release's native `surl` binary needs no .NET, and
+you can also build `surl` from source.
 
 ## Build and test
 

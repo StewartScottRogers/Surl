@@ -413,6 +413,42 @@ public sealed partial class ServingEngineTests
         CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 dropped after 5 bytes sent by fault rule f1.");
         Assert.AreEqual(FaultClose.Reset, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
     }
+
+    [TestMethod]
+    [DataRow(true, FaultClose.Graceful)]
+    [DataRow(false, FaultClose.Reset)]
+    public async Task ServeAsync_GracefulDropRuleOnADatagramServer_ClosesGracefullyOnlyOnAListenUrlTheServerSaysItDoes(
+        bool isImplicitTls, FaultClose expected)
+    {
+        var factory = new FakeListenerFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Scheme = "tftp", AfterBytes = 5, Close = FaultClose.Graceful });
+        var flowsHandedOver = new List<bool>();
+        var server = new FakeImplicitTlsOnlyGracefulCutDatagramProtocolServer(
+            async (flow, context) =>
+            {
+                flowsHandedOver.Add(flow is IGracefullyCutDatagramFlow);
+                await flow.SendAsync("data"u8.ToArray(), context.CancellationToken);
+                await flow.SendAsync("more"u8.ToArray(), context.CancellationToken);
+            },
+            "tftp");
+        var engine = CreateFaultingEngine(factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), stream, plan, server);
+        var listenUrl = Tftp69 with { IsImplicitTls = isImplicitTls };
+        var flow = new FakeDatagramFlow("rrq"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([listenUrl], stop.Token);
+
+        factory.DatagramListenerFor(listenUrl).Open(flow);
+        await flow.WhenDisposed.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        CollectionAssert.AreEqual(new[] { isImplicitTls }, flowsHandedOver);
+        Assert.AreEqual(expected, ((FaultAppliedEvent)Drain(subscription).Single()).Close);
+    }
+
     [TestMethod]
     public async Task ServeAsync_DropRuleAfterMoreBytesThanTheServerSends_EndsTheExchangeAsUsual()
     {

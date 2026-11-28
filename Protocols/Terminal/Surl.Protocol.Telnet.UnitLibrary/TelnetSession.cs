@@ -41,7 +41,8 @@ internal sealed class TelnetSession
     /// <param name="maxLineBytes">The most bytes a line or a subnegotiation may hold; 0 means no limit.</param>
     /// <param name="echoesVerbatim">
     /// Echo-and-close mode (<see cref="TelnetUpstreamTestCaseReplies"/>): no banner, and every data byte
-    /// is echoed as it comes, with no line handling and no <c>quit</c>.
+    /// is echoed as it comes, with no line handling and no <c>quit</c>, except that an LF is held back
+    /// until more data follows it, so a final LF is never echoed.
     /// </param>
     public TelnetSession(IExchangeLog log, long maxLineBytes, bool echoesVerbatim = false)
     {
@@ -60,7 +61,8 @@ internal sealed class TelnetSession
     /// <summary>
     /// Whether the session is over, so the server closes the connection: the client sent
     /// <c>quit</c> and has answered every <c>SEND</c> the server made, or a line or
-    /// subnegotiation was too long, or a line was answered with a chosen error.
+    /// subnegotiation was too long, or a line was answered with a chosen error, or a drop rule
+    /// ended the session in place of a line's answer.
     /// </summary>
     public bool IsOver => cutShort || (quitReceived && unansweredSends == 0);
 

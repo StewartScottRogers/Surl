@@ -10,9 +10,15 @@ namespace Surl.Extended.Protocol.Redis;
 /// <remarks>
 /// A composition that owns the keyspace builds it, hands it to a <see cref="RedisServer"/> and
 /// prepares it between tests (ADR-0158 decisions 3 to 5): <see cref="SeedKey"/> writes a string key
-/// the way <c>SET</c> does but never consults the fault plan, <see cref="Reset"/> empties every
-/// database, and <see cref="TakeSnapshot(long)"/> and <see cref="Restore(RedisKeyspaceSnapshot)"/> copy
-/// the databases out and back. Each publishes its change on the event publisher it was given.
+/// the way <c>SET</c> does but never consults the fault plan, <see cref="Reset"/> returns to the
+/// configured state, and <see cref="TakeSnapshot(long)"/> and <see cref="Restore(RedisKeyspaceSnapshot)"/> copy
+/// the databases out and back. Seed, reset and restore publish their change on the event publisher it
+/// was given.
+/// <para>
+/// The configured state a reset returns to is exactly the keys seeded with <c>keepOnReset</c>, with
+/// their seeded values and their expiries measured again from the reset; with no such seed, all 16
+/// databases are empty. No client command, unkept seed, snapshot or restore changes it.
+/// </para>
 /// </remarks>
 public sealed class RedisKeyspace
 {
@@ -36,6 +42,7 @@ public sealed class RedisKeyspace
     private readonly long maxByteCount;
     private readonly TimeProvider timeProvider;
     private readonly ISurlEventPublisher events;
+    private readonly RedisKeptSeeds keptSeeds = new();
 
     /// <summary>Creates an empty keyspace with ADR-0106 decision 6's bounds, for tests of the server.</summary>
     internal RedisKeyspace()
@@ -99,54 +106,42 @@ public sealed class RedisKeyspace
     /// Seeds one string key as <c>SET</c> writes it - replacing a key that exists and clearing its
     /// expiry - but never consulting the fault plan, then publishes <see cref="StoreChange.Seeded"/>
     /// naming <c>&lt;database&gt;/&lt;key&gt;</c>. A key found already expired is removed first and
-    /// published as <see cref="StoreChange.Deleted"/>.
+    /// published as <see cref="StoreChange.Deleted"/>, also when the seed is then refused. A seed
+    /// is lost by <see cref="Reset"/> unless <paramref name="keepOnReset"/> is set (ADR-0158
+    /// decision 4).
     /// </summary>
     /// <param name="database">The database, 0 to 15.</param>
     /// <param name="key">The key, at least 1 byte.</param>
     /// <param name="value">The value.</param>
     /// <param name="expiry">How long the key lives, measured on the keyspace's clock from now, or
     /// <see langword="null"/> for a key that never expires; 1 millisecond to <see cref="MaxSeedExpiry"/>.</param>
+    /// <param name="keepOnReset">Whether <see cref="Reset"/> writes this key back too, with this value and
+    /// <paramref name="expiry"/> measured from the reset. It replaces an earlier kept seed of the same
+    /// database and key.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
     /// <exception cref="InvalidOperationException">The key and value together hold more than
-    /// <see cref="MaxSeedByteCount"/> bytes, or the keyspace is full; nothing is written.</exception>
-    public void SeedKey(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry = null)
+    /// <see cref="MaxSeedByteCount"/> bytes, the keyspace is full, or <paramref name="keepOnReset"/> is set
+    /// and the kept keys have reached the keyspace's bounds; nothing is written or kept.</exception>
+    public void SeedKey(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry = null, bool keepOnReset = false)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(database);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(database, RedisSession.DatabaseCount);
-        if (key.IsEmpty)
-        {
-            throw new ArgumentException("A key has at least 1 byte.", nameof(key));
-        }
-
-        if (expiry is { } lifetime)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(lifetime, TimeSpan.FromMilliseconds(1), nameof(expiry));
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, MaxSeedExpiry, nameof(expiry));
-        }
-
-        if ((long)key.Length + value.Length > MaxSeedByteCount)
-        {
-            throw new InvalidOperationException($"A seeded key and value hold at most {MaxSeedByteCount} bytes together.");
-        }
-
+        ThrowIfSeedOutOfRange(database, key, value, expiry);
+        var seed = new RedisKeptSeed(database, RedisKeys.Name(key.ToArray()), new RedisStringValue(value.ToArray()), expiry);
         var nowMilliseconds = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
         lock (SyncRoot)
         {
-            if (IsFullOfLiveKeys(nowMilliseconds))
+            ThrowIfNoRoomToSeed(nowMilliseconds, keepOnReset);
+            // Finding the key removes it if it has expired, so its removal is published before the write.
+            databases[database].Find(seed.Key, nowMilliseconds);
+            PublishDeletionsOfExpiredKeys();
+            Write(seed, nowMilliseconds);
+            Journal.Drain();
+            if (keepOnReset)
             {
-                throw new InvalidOperationException("The Redis keyspace is full, so the key was not seeded.");
+                keptSeeds.Keep(seed);
             }
 
-            var keyName = RedisKeys.Name(key.ToArray());
-            var entry = databases[database].Put(keyName, new RedisStringValue(value.ToArray()), nowMilliseconds);
-            entry.ExpiresAtMilliseconds = expiry is { } lives ? nowMilliseconds + (long)lives.TotalMilliseconds : null;
-            foreach (var change in Journal.Drain().Where(change => change.Change == StoreChange.Deleted))
-            {
-                Publish(change.Change, change.Name, null);
-            }
-
-            Publish(StoreChange.Seeded, RedisKeyspaceChange.NameOf(database, keyName), value.Length);
+            Publish(StoreChange.Seeded, RedisKeyspaceChange.NameOf(database, seed.Key), value.Length);
         }
     }
 
@@ -209,14 +204,26 @@ public sealed class RedisKeyspace
         entry.ExpiresAtMilliseconds is { } deadline ? DateTimeOffset.FromUnixTimeMilliseconds(deadline) : null);
 
     /// <summary>
-    /// Empties every database and publishes one <see cref="StoreChange.Reset"/> with an empty name and
-    /// 0 bytes. Connections stay and keep their selected database.
+    /// Returns every database to the configured state - empty but for the keys
+    /// <see cref="SeedKey"/> was told to keep, each with its seeded value and its expiry measured
+    /// again from now - and publishes one <see cref="StoreChange.Reset"/> with an empty name and
+    /// 0 bytes, and nothing for the keys written back. Connections stay and keep their selected
+    /// database.
     /// </summary>
     public void Reset()
     {
+        var nowMilliseconds = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
         lock (SyncRoot)
         {
             ReplaceAll(Enumerable.Repeat(RedisDatabaseSnapshot.Empty, databases.Length));
+            foreach (var seed in keptSeeds.InOrderFirstKept)
+            {
+                // The reset is the one change published, so what each write journals is dropped at once,
+                // which also keeps the journal's search of its entries from growing with every key.
+                Write(seed, nowMilliseconds);
+                Journal.Drain();
+            }
+
             Publish(StoreChange.Reset, string.Empty, 0);
         }
     }
@@ -306,6 +313,58 @@ public sealed class RedisKeyspace
     {
         KeyCount += keys;
         ByteCount += bytes;
+    }
+
+    private static void ThrowIfSeedOutOfRange(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(database);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(database, RedisSession.DatabaseCount);
+        if (key.IsEmpty)
+        {
+            throw new ArgumentException("A key has at least 1 byte.", nameof(key));
+        }
+
+        if (expiry is { } lifetime)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(lifetime, TimeSpan.FromMilliseconds(1), nameof(expiry));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, MaxSeedExpiry, nameof(expiry));
+        }
+
+        if ((long)key.Length + value.Length > MaxSeedByteCount)
+        {
+            throw new InvalidOperationException($"A seeded key and value hold at most {MaxSeedByteCount} bytes together.");
+        }
+    }
+
+    private void ThrowIfNoRoomToSeed(long nowMilliseconds, bool keepOnReset)
+    {
+        if (IsFullOfLiveKeys(nowMilliseconds))
+        {
+            PublishDeletionsOfExpiredKeys();
+            throw new InvalidOperationException("The Redis keyspace is full, so the key was not seeded.");
+        }
+
+        if (keepOnReset && keptSeeds.HaveReached(maxKeyCount, maxByteCount))
+        {
+            PublishDeletionsOfExpiredKeys();
+            throw new InvalidOperationException("The keys a Redis keyspace reset writes back are at the keyspace's bounds, so the key was not seeded.");
+        }
+    }
+
+    /// <summary>Writes <paramref name="seed"/> to its database, its lifetime measured from <paramref name="nowMilliseconds"/>.</summary>
+    private void Write(RedisKeptSeed seed, long nowMilliseconds)
+    {
+        var entry = databases[seed.Database].Put(seed.Key, seed.Value, nowMilliseconds);
+        entry.ExpiresAtMilliseconds = seed.Lifetime is { } lifetime ? nowMilliseconds + (long)lifetime.TotalMilliseconds : null;
+    }
+
+    /// <summary>Publishes the journalled removals of expired keys. Called while the journal holds nothing else.</summary>
+    private void PublishDeletionsOfExpiredKeys()
+    {
+        foreach (var change in Journal.Drain())
+        {
+            Publish(change.Change, change.Name, null);
+        }
     }
 
     private void ReplaceAll(IEnumerable<RedisDatabaseSnapshot> contents)

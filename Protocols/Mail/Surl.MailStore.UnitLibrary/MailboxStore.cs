@@ -182,7 +182,11 @@ public sealed partial class MailboxStore
     /// missing index is an empty store; leftover temporary files, and message files the index
     /// does not name, are ignored. Owners the index holds that are no longer accounts are kept,
     /// unreached. Every owner reached that lacks an <c>INBOX</c> gets one, which counts as a
-    /// change, so the first <see cref="SaveChangesAsync"/> writes the index.
+    /// change, so the first <see cref="SaveChangesAsync"/> writes the index. Each mailbox keeps
+    /// the RFC 6154 use the index holds, except that a use configured by
+    /// <paramref name="mailDomains"/> is given to its folder, replacing that folder's use and
+    /// leaving any other mailbox of the owner that held it with none; that too counts as a change
+    /// (ADR-0192).
     /// </summary>
     /// <param name="files">The files the store is read from now and written to after each change.</param>
     /// <param name="accountNames">The configured accounts' names, as the constructor takes them.</param>
@@ -1562,8 +1566,9 @@ public sealed partial class MailboxStore
     }
 
     /// <summary>
-    /// Sets each mailbox's quota and creates each of its configured folders it lacks, after its
-    /// <c>INBOX</c> (ADR-0102, decision 1.4).
+    /// Sets each mailbox's quota, creates each of its configured folders it lacks, after its
+    /// <c>INBOX</c> (ADR-0102, decision 1.4), and gives each folder configured with a use that use,
+    /// taking it from any other folder of the mailbox that holds it (ADR-0192, decision 2).
     /// </summary>
     /// <exception cref="InvalidOperationException">A folder would pass <see cref="MaxMailboxes"/>.</exception>
     private void ApplyMailboxSettings(IEnumerable<MailboxSettings> settings)
@@ -1580,7 +1585,7 @@ public sealed partial class MailboxStore
             var uses = mailbox.FolderUses!;
             foreach (var folder in mailbox.Folders.Concat(uses.Keys))
             {
-                AddConfiguredMailbox(owner, folder, uses.GetValueOrDefault(folder));
+                ApplyConfiguredMailbox(owner, folder, uses.GetValueOrDefault(folder));
             }
         }
     }
@@ -1607,29 +1612,59 @@ public sealed partial class MailboxStore
         foreach (var folder in sharedFolders)
         {
             sharedFolderMembers.Add(folder.Name, new HashSet<string>(folder.Members, StringComparer.Ordinal));
-            AddConfiguredMailbox(owner, folder.Name);
+            ApplyConfiguredMailbox(owner, folder.Name);
         }
     }
 
     /// <summary>
-    /// Creates mailbox <paramref name="name"/> of <paramref name="owner"/> at start unless it
-    /// exists; <c>INBOX</c> always does.
+    /// Makes mailbox <paramref name="name"/> of <paramref name="owner"/> hold what is configured
+    /// for it at start: creates it unless it exists (<c>INBOX</c> always does), and gives it its
+    /// configured <paramref name="use"/>, if any (ADR-0192, decision 2). Counts one change when
+    /// either alters the store.
     /// </summary>
-    /// <exception cref="InvalidOperationException">It would pass <see cref="MaxMailboxes"/>.</exception>
-    private void AddConfiguredMailbox(OwnerMailboxes owner, string name, string? use = null)
+    /// <exception cref="InvalidOperationException">Creating it would pass <see cref="MaxMailboxes"/>.</exception>
+    private void ApplyConfiguredMailbox(OwnerMailboxes owner, string name, string? use = null)
     {
-        if (owner.Find(name) is not null)
+        var mailbox = owner.Find(name);
+        if (mailbox is not null && (use is null || mailbox.Use == use))
         {
             return;
         }
 
+        mailbox ??= AddEmptyConfiguredMailbox(owner, name);
+        if (use is not null)
+        {
+            MoveUse(owner, mailbox, use);
+        }
+
+        changeCount++;
+    }
+
+    private StoredMailbox AddEmptyConfiguredMailbox(OwnerMailboxes owner, string name)
+    {
         if (mailboxCount >= MaxMailboxes)
         {
             throw new InvalidOperationException($"The configured mailbox {name} of {owner.Name} would pass the store's {MaxMailboxes} mailboxes.");
         }
 
-        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1) { Use = use });
-        changeCount++;
+        var mailbox = new StoredMailbox(name, IssueUidValidity(), 1);
+        AddMailbox(owner, mailbox);
+        return mailbox;
+    }
+
+    /// <summary>
+    /// Gives <paramref name="mailbox"/> <paramref name="use"/>, replacing any use it holds, and
+    /// leaves every other mailbox of <paramref name="owner"/> that held <paramref name="use"/>
+    /// with none.
+    /// </summary>
+    private static void MoveUse(OwnerMailboxes owner, StoredMailbox mailbox, string use)
+    {
+        foreach (var holder in owner.Mailboxes.Values.Where(held => held.Use == use))
+        {
+            holder.Use = null;
+        }
+
+        mailbox.Use = use;
     }
 
     /// <summary>
@@ -1743,9 +1778,9 @@ public sealed partial class MailboxStore
     }
 
     /// <summary>
-    /// Whether any mailbox of any owner holds an RFC 6154 use right now. IMAP advertises
-    /// <c>SPECIAL-USE</c> only while this is true (ADR-0055, Amendment 1), and the answer does not
-    /// depend on a login.
+    /// Whether any mailbox of any owner holds an RFC 6154 use right now. The IMAP server reads this
+    /// once, when it is constructed, to decide whether it offers <c>SPECIAL-USE</c> for its whole
+    /// life (ADR-0055, Amendment 2). The answer does not depend on a login.
     /// </summary>
     public bool HoldsAnyFolderUse
     {

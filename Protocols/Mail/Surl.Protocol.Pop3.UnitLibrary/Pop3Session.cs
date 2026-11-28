@@ -10,7 +10,9 @@ namespace Surl.Protocol.Pop3;
 /// <summary>
 /// One POP3 connection's session (ADR-0056): the greeting, then every command line answered in
 /// order, in the AUTHORIZATION state until a login opens the maildrop and in the TRANSACTION
-/// state after it, until <c>QUIT</c>, the peer's close, or a limit.
+/// state after it, until <c>QUIT</c>, the peer's close, a limit, a <see cref="FaultKind.Drop"/>
+/// fault, or the client leaving (a half-close or a reset) during a <see cref="FaultKind.Delay"/>
+/// fault's hold (ADR-0141).
 /// </summary>
 internal sealed partial class Pop3Session
 {
@@ -462,9 +464,11 @@ internal sealed partial class Pop3Session
         }
     }
 
-    // A maildrop command before any login asks the policy once about the login with no
-    // credentials, and only --allow-anonymous opens the anonymous owner's maildrop (ADR-0056,
-    // decision 7).
+    // A maildrop command before any login asks the policy about the login with no credentials,
+    // and the session keeps the answer until an STLS upgrade drops it: after STLS the next such
+    // command asks, again after a refusal, or for the first time when none had asked. Only
+    // --allow-anonymous opens the anonymous owner's maildrop (ADR-0056, decision 7), and it is
+    // opened before the command's fault is looked up.
     private async ValueTask<bool> WithMaildropAsync(Pop3CommandLine command, Func<Pop3Maildrop, string[], ValueTask<bool>> answer)
     {
         if (maildrop is null && await OpenAnonymousMaildropAsync(command.Verb) is { } refusal)
@@ -561,8 +565,10 @@ internal sealed partial class Pop3Session
         return true;
     }
 
-    // A multi-line reply built only from numbers and fixed words, written whole: the status
-    // line, each content line, then the lone "." (RFC 1939, section 3).
+    // A multi-line reply written whole: the status line, each content line, then the lone "."
+    // (RFC 1939, section 3). Its lines hold only numbers, fixed words, unique-ids and the offered
+    // SASL mechanisms, except under an upstream test case, where CAPA lists the case's
+    // capabilities and SASL mechanisms.
     private async ValueTask<bool> WriteMultiLineAsync(string status, IEnumerable<string> lines)
     {
         var reply = new StringBuilder(status).Append("\r\n");

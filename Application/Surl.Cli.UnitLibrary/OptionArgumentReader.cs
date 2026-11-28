@@ -470,7 +470,8 @@ internal static class OptionArgumentReader
     /// <summary>
     /// Reads an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name list (ADR-0066): comma-separated
     /// names kept as given, in the order given; an empty argument is blank and an empty item is
-    /// refused. Whether surl offers each name is <c>Surl.Console</c>'s to check.
+    /// refused. Whether surl offers each name is checked at start, by <c>Surl.Composition</c>'s
+    /// <c>SshAlgorithmComposition</c>.
     /// </summary>
     /// <param name="argument">The argument as given.</param>
     /// <param name="value">The names, as given.</param>

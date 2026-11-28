@@ -5,9 +5,10 @@ namespace Surl.Protocol.Abstractions;
 /// it): the <see cref="ISaslAuthenticationPolicy"/> SMTP's <c>AUTH</c>, IMAP's <c>AUTHENTICATE</c>
 /// and POP3's <c>AUTH</c> run, with the mail-only offer and POP3's <c>APOP</c>. It sits beside
 /// <see cref="IAuthenticationPolicy"/>, which still judges IMAP's <c>LOGIN</c> and POP3's
-/// <c>USER</c>/<c>PASS</c>; <c>Surl.Console</c> passes the same object to the mail servers as both.
-/// The server owns the framing (base64, <c>=</c>, <c>*</c>, the line limits and when a login is
-/// allowed); the policy owns every mechanism.
+/// <c>USER</c>/<c>PASS</c>; <c>Surl.Composition</c> passes each of the <c>imap</c>, <c>pop3</c>
+/// and <c>smtp</c> servers one object, its scheme's policy, as both. The server owns the framing
+/// (base64, <c>=</c>, <c>*</c>, the line limits and when a login is allowed); the policy owns
+/// every mechanism.
 /// </summary>
 public interface IMailAuthenticationPolicy : ISaslAuthenticationPolicy
 {

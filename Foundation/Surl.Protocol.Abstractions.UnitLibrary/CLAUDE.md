@@ -56,9 +56,15 @@ What it holds:
   login, `PasswordLogin` judged as a `PasswordLoginVerdict`, one
   `IHttpAuthenticationSession` per HTTP connection, whose `CreateChallenges`, a default interface member
   returning an empty list, gives the `WWW-Authenticate` values the connection's own `401` would offer,
-  judging no request (BL-1699), and `NamesAccount`, a default interface member
-  matching nothing, which says whether a name is a named account's so the Azure Storage server can
-  read a path-style target, ADR-0109 decision 2, BL-725), `HttpAuthenticationRequest` and
+  judging no request (BL-1699), `NamesAccount`, a default interface member
+  matching nothing, which says whether a name is a named account's: the path-style check is its
+  question, asked by the Azure Storage server to read a target (ADR-0109 decision 2, BL-725), and
+  `HonoursTokenIssuedTo`, a default interface member returning `NamesAccount`'s answer, so the
+  token of a removed account is refused: the check of a token when it is used is its question,
+  which ADR-0167 Amendment 3 gives to the OCI registry and MCP servers, and under which a policy
+  may also honour a directory user's token; it judges no login, publishes no event and asks no
+  fault rule (BL-2018)),
+  `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
   the body, `IHttpRequestBodyCheck`, asked with the body's SHA-256 once it is read,
   ADR-0045), a refused verdict's `HttpAuthenticationRefusal` and a request's
@@ -89,7 +95,9 @@ What it holds:
   started from a `SaslExchangeStart`), each step a `SaslLoginStep` with its
   `SaslLoginOutcome`, and an accepted step's `ISaslSecurityLayer` when the server said it
   `CanCarrySecurityLayer` and the mechanism negotiated one, with any data its success carries
-  (`AdditionalSuccessData`, such as LDAP `DIGEST-MD5`'s `rspauth`). `IMailAuthenticationPolicy`
+  (`AdditionalSuccessData`, such as LDAP `DIGEST-MD5`'s `rspauth`), which a server asks for with
+  `CanCarrySecurityLayer` or, to be offered no security layer, with
+  `CanCarryAdditionalSuccessData` (BL-2015; ADR-0125's amendment). `IMailAuthenticationPolicy`
   extends it with the mail-only members: the `MailLoginOffer` a mail server advertises and
   POP3's `ApopLogin`. The server owns the framing (base64, and the security layer's 4-byte
   lengths); the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements it
@@ -154,9 +162,12 @@ What it holds:
   point's, ordinally; never spends `Times`; records every point asked). `Surl.Core`'s
   `SurlEventStream` and `FaultPlan` implement them (BL-787, BL-792).
 
-- The graceful cut of a datagram flow (ADR-0188, amendment 5; BL-1801): a datagram server whose connections have a
-  graceful close of their own implements the marker `IGracefulCutDatagramProtocolServer` (today only HTTP/3's). Under a
-  `close=graceful` drop with `after-bytes` the engine hands it an `IGracefullyCutDatagramFlow`: once `IsCut`,
+- The graceful cut of a datagram flow (ADR-0188, amendments 5 and 6; BL-1801, BL-1815): a datagram server whose
+  connections have a graceful close of their own implements `IGracefulCutDatagramProtocolServer` (today HTTP/3's, DNS
+  over QUIC's, WebTransport's and `Surl.Composition`'s `dns` datagram router). Its default member
+  `ClosesCutFlowsGracefully(ListenUrl)` answers `true`; one that also serves a protocol with no close answers `false`
+  for that listen URL (the router, for plain UDP DNS). Under a `close=graceful` drop with `after-bytes` on a listen URL
+  it answers `true` for, the engine hands it an `IGracefullyCutDatagramFlow`: once `IsCut`,
   `SendAsync` discards, and the server closes its connection. Every datagram that closes a connection, and each repeat,
   goes through `SendClosingDatagramAsync`, which counts and discards nothing. `Surl.Quic`'s `QuicApplicationConnection` does this for any protocol over QUIC.
 

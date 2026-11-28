@@ -34,14 +34,14 @@ internal sealed class LdapDirectory
     private readonly int maxEntries;
     private readonly long maxTotalBytes;
     private readonly ISurlEventPublisher events;
-    private readonly LdapDirectoryContents configured;
     private readonly Lock changeLock = new();
+    private LdapDirectoryContents configured;
     private volatile LdapDirectoryContents contents;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LdapDirectory"/> class.
     /// </summary>
-    /// <param name="entries">The entries, in their source's order; what <see cref="Reset"/> returns to.</param>
+    /// <param name="entries">The entries, in their source's order; <see cref="Reset"/> returns to them and every kept seed.</param>
     /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
     /// <param name="maxEntries">The most entries the directory holds.</param>
     /// <param name="maxTotalBytes">The most bytes of DNs, descriptions and values the directory holds.</param>
@@ -80,12 +80,17 @@ internal sealed class LdapDirectory
 
     /// <summary>
     /// Adds the content records of LDIF text (ADR-0158 decision 3), all or none, and publishes
-    /// <see cref="StoreChange.Seeded"/> for each. It never consults the fault plan.
+    /// <see cref="StoreChange.Seeded"/> for each. It never consults the fault plan. A seed is lost by
+    /// <see cref="Reset"/> unless <paramref name="keepOnReset"/> is set (ADR-0158 decision 4).
     /// </summary>
     /// <param name="ldif">LDIF content records, at most <see cref="MaxSeedBytes"/> bytes of UTF-8.</param>
+    /// <param name="keepOnReset">Whether <see cref="Reset"/> returns to a set holding these entries too; they must then be addable to that set too, and an entry with a parent among the live entries needs that parent in that set.</param>
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add; the message is <c>line &lt;n&gt;: &lt;what&gt;</c>.</exception>
-    public void SeedEntries(string ldif)
+    /// <exception cref="InvalidOperationException">
+    /// The text is not LDIF content the directory, or for a kept seed the set <see cref="Reset"/> returns to, can add.
+    /// A refused record's message is <c>line &lt;n&gt;: &lt;what&gt;</c>. Neither set changes and nothing is published.
+    /// </exception>
+    public void SeedEntries(string ldif, bool keepOnReset = false)
     {
         ArgumentNullException.ThrowIfNull(ldif);
         var bytes = Encoding.UTF8.GetBytes(ldif);
@@ -107,7 +112,9 @@ internal sealed class LdapDirectory
         lock (changeLock)
         {
             var added = records.Select(record => record.Entry).ToArray();
-            contents = SeededContents(records, added);
+            var seeded = SeededContents(contents, records, added);
+            configured = keepOnReset ? KeptContents(seeded, records, added) : configured;
+            contents = seeded;
             foreach (var entry in added)
             {
                 Publish(StoreChange.Seeded, entry.Dn.Text, LdapDirectoryContents.SizeOf(entry));
@@ -123,7 +130,8 @@ internal sealed class LdapDirectory
     public string ExportLdif() => LdifWriter.Write(contents.Entries);
 
     /// <summary>
-    /// Returns the directory to the entries it was built with and publishes <see cref="StoreChange.Reset"/>.
+    /// Returns the directory to its configured entries - those it was built with, then every kept seed's - drops
+    /// every other, and publishes <see cref="StoreChange.Reset"/>.
     /// </summary>
     public void Reset()
     {
@@ -301,9 +309,21 @@ internal sealed class LdapDirectory
         _ => current.Entries.Where(entry => entry.Dn.IsWithin(baseEntry.Dn, levelsBelow: null)),
     };
 
-    private LdapDirectoryContents SeededContents(IReadOnlyList<LdifRecord> records, LdapEntry[] added)
+    // A kept entry with no superior in the configured set is a naming context to the contents' own rules; it is
+    // refused when it has a parent now, so that a reset never leaves behind a child of a dropped entry.
+    private LdapDirectoryContents KeptContents(LdapDirectoryContents seeded, IReadOnlyList<LdifRecord> records, LdapEntry[] added)
     {
-        var existing = contents.Entries;
+        var kept = SeededContents(configured, records, added);
+        var orphan = Array.FindIndex(added, entry => seeded.FindNearestSuperior(entry.Dn) is not null && kept.FindNearestSuperior(entry.Dn) is null);
+        return orphan < 0
+            ? kept
+            : throw new InvalidOperationException(
+                new LdifFormatException(records[orphan].Line, LdifFaultText.Of(LdapDirectoryFault.ParentNotInDirectory)).Message);
+    }
+
+    private LdapDirectoryContents SeededContents(LdapDirectoryContents held, IReadOnlyList<LdifRecord> records, LdapEntry[] added)
+    {
+        var existing = held.Entries;
         try
         {
             return new LdapDirectoryContents([.. existing, .. added], maxEntries, maxTotalBytes);

@@ -40,7 +40,7 @@ internal static class SmtpTestExchange
     public static SmtpProtocolServer Server(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), NoSaslMechanisms(), store);
 
     /// <summary>
-    /// A server with a certificate, so <c>STARTTLS</c> upgrades.
+    /// A server with a TLS upgrade available, so <c>STARTTLS</c> upgrades.
     /// </summary>
     public static SmtpProtocolServer StartTlsServer(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), NoSaslMechanisms(), store, isTlsUpgradeAvailable: true);
 

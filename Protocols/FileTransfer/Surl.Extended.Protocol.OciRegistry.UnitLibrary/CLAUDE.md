@@ -70,8 +70,11 @@ Token authentication (BL-438, ADR-0115 decision 4 and Amendment 1):
   other resource types, names off the grammar and scopes past 16 are dropped. Bad or missing credentials
   `401 UNAUTHORIZED` with `WWW-Authenticate: Basic realm="surl", charset="UTF-8"`; credentials the policy
   refuses over plain text `403 DENIED`; another `service` `400 UNSUPPORTED`; `POST` `405` with `Allow: GET`;
-  10000 live tokens `429`. Tokens are 32 bytes from `ExchangeContext.Identifiers`, base64url, kept in memory
-  for 300 seconds on the `TimeProvider`.
+  10000 live tokens `429`. Tokens are 32 bytes from `RandomNumberGenerator`, base64url, kept in memory
+  for 300 seconds on the `TimeProvider`. A token grants access, so `--random-seed` never decides it
+  (ADR-0124 decision 6); the upload session UUID, which grants nothing, does follow
+  `ExchangeContext.Identifiers` (ADR-0163). A test passes the internal constructor its own
+  `RandomNumberGenerator` to know each token.
 - Every `/v2/` request then needs `Authorization: Bearer <token>`: none `401 UNAUTHORIZED` with
   `Bearer realm="<http|https>://<host>:<port>/token",service="surl",scope="repository:<name>:<pull|pull,push|delete>"`
   (no scope on `/v2/`); an unknown or expired token or another scheme the same with `error="invalid_token"`; a
@@ -105,4 +108,4 @@ written from the specifications through `InMemoryConnection` on an `InMemoryCont
 
 Fault rules (BL-1189, ADR-0124 decisions 4 and 9): `OciRequestFaults` asks `ExchangeContext.Faults` at the command stage for each `/v2/` request once the token is accepted (account is the token's, `path` the request path without its query, `command` the method). `delay` holds it, `drop` aborts with no bytes, `error` answers `<status 400-599> <OCI error code>` with the specification's JSON error body. `/token` is not faulted: it is the server's login, not a registry operation.
 
-Reset and accounts (BL-1232, ADR-0167 decisions 2 and 4): `AbortOpenUploadsAsync` disposes every open upload session (a later request naming one is `404 BLOB_UPLOAD_UNKNOWN`; a session a request holds at that moment returns when the request ends) and `RevokeTokens` clears the token book (each earlier token is `401` with `error="invalid_token"`). `OciAccessCheck` also asks `IAuthenticationPolicy.NamesAccount` for every token issued to an account on each use: a removed account's token is refused as unknown; an anonymous token is not checked.
+Reset and accounts (BL-1232 and BL-2019, ADR-0167 decisions 2 and 4 and Amendment 3): `AbortOpenUploadsAsync` disposes every open upload session (a later request naming one is `404 BLOB_UPLOAD_UNKNOWN`; a session a request holds at that moment returns when the request ends) and `RevokeTokens` clears the token book (each earlier token is `401` with `error="invalid_token"`). `OciAccessCheck` also asks `IAuthenticationPolicy.HonoursTokenIssuedTo` on each use of an account's token: a token no longer honoured, such as a removed account's, is refused as unknown; the policy may honour a directory user's token although the account book does not name the user; an anonymous token is not checked.

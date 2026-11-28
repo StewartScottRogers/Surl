@@ -21,8 +21,9 @@ namespace Surl.Composition;
 /// without <c>--directory</c>. <c>surl</c> passes <see cref="DataDirectoryProbe.CanOpen"/>.
 /// </param>
 /// <param name="TakeDataDirectoryLock">
-/// Takes the data directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data directory as
-/// given with <c>--directory</c>; never called without <c>--directory</c>. <c>surl</c> passes
+/// Takes a directory's <c>.surl/lock</c> (ADR-0031, decision 7), given its path as given: the data
+/// directory of <c>--directory</c>, then each <c>--share</c> path that is not read-only, in
+/// command-line order; never called with neither. <c>surl</c> passes
 /// <see cref="DataDirectoryLock.Take"/>.
 /// </param>
 /// <param name="TimeProvider">The one clock every exchange runs on.</param>

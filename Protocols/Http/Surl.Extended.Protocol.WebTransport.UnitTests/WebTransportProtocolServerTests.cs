@@ -144,6 +144,37 @@ public sealed class WebTransportProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_FlowCutByAGracefulDropFault_ClosesTheConnectionWithNoErrorInPlaceOfTheEcho()
+    {
+        using var client = new Http3TestQuicClient();
+        var certificate = new WebTransportServerCertificate([client.SelfSignedCertificate()], client.Key);
+        var server = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => certificate, TimeSpan.Zero);
+        var cut = new UnitTestGracefullyCutDatagramFlow(client.Flow, long.MaxValue);
+        _ = server.ServeAsync(cut, NewContext(new ManualTimeProvider(Now), Token));
+        await client.OpenAsync(Token, UnitTestWebTransport.WebTransportSettings);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        cut.BytesLeft = 0;
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "64617461"), fin: true);
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
+
+        var closes = client.OneRttFrames<QuicConnectionCloseFrame>().Select(frame => (frame.IsApplicationError, frame.ErrorCode)).Distinct();
+        Assert.AreEqual((false, (ulong)QuicTransportErrorCode.NoError), closes.Single());
+        Assert.IsEmpty(client.StreamSent(4).Data);
+        Assert.IsTrue(cut.IsCut);
+        Assert.IsNotEmpty(cut.ClosingDatagrams);
+    }
+
+    [TestMethod]
+    public void Server_HasAGracefulCloseOfItsOwnForACutFlow()
+    {
+        IGracefulCutDatagramProtocolServer server = Assert.IsInstanceOfType<IGracefulCutDatagramProtocolServer>(
+            new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero));
+
+        Assert.IsTrue(server.ClosesCutFlowsGracefully(new ListenUrl("webtransport", "127.0.0.1", 18050)));
+    }
+
+    [TestMethod]
     [DataRow(ConnectionRefusal.TooManyConnections)]
     [DataRow(ConnectionRefusal.TooManyConnectionsFromAddress)]
     public async Task WriteRefusalAsync_AVersion1Initial_SendsOneInitialPacket(ConnectionRefusal refusal)

@@ -306,6 +306,15 @@ public sealed class AccountBook
     internal bool HoldsAccountNamed(string userName) => store.Current.PasswordHashes.ContainsKey(userName);
 
     /// <summary>
+    /// Whether the whole book, whatever scheme a view leaves it out of, holds an account of exactly
+    /// <paramref name="userName"/> or has held one since it was built; a removal, reset or restore
+    /// forgets no name. A directory user's token is refused for such a name (ADR-0167, Amendment 3).
+    /// </summary>
+    /// <param name="userName">The name, compared ordinally.</param>
+    /// <returns><see langword="true"/> when the book holds or has held an account of that name.</returns>
+    internal bool HasEverHeldAccountNamed(string userName) => store.HasEverHeld(userName);
+
+    /// <summary>
     /// The account a Digest <c>username</c> names, as received (one character per byte). A name
     /// is found by the UTF-8 bytes of an account's name, with that account's user hashes over
     /// UTF-8; or, for an account whose name and password are all ISO-8859-1, by those bytes,

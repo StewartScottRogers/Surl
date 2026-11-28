@@ -12,8 +12,10 @@ namespace Surl.Cli;
 /// </summary>
 /// <remarks>
 /// Hand-written rather than built on <see cref="Uri"/>, which unescapes, normalises hosts and
-/// fills default ports its own way. Whether a registered protocol server claims the scheme
-/// (rule 3) is checked later by <c>Surl.Console</c>, not here.
+/// fills default ports its own way. Rule 3, refusing a scheme no registered protocol server claims,
+/// is applied here: <see cref="Parse(string, IReadOnlyCollection{string})"/> accepts only a
+/// <see cref="SchemeDefaultPorts"/> scheme, for each of which <c>Surl.Composition</c> registers a
+/// server, or one of the extended schemes the caller passes in.
 /// </remarks>
 public static class ListenUrlParser
 {

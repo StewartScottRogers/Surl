@@ -17,7 +17,9 @@ public sealed record AuthorizedKeysLineFailure(int LineNumber, AuthorizedKeysLin
     /// <summary>
     /// The refusal as ADR-0051 section 6 words it after the path: <c>line &lt;n&gt;: &lt;reason&gt;</c>,
     /// with the key type escaped as ADR-0006 section 3 escapes a peer's bytes. It never holds a
-    /// key. <c>Surl.Console</c> writes <c>surl: (2) Authorized keys &lt;path&gt;, </c> before it.
+    /// key. <c>Surl.Composition</c> builds the start's refusal message by putting
+    /// <c>(2) Authorized keys &lt;path&gt;, </c> before it, and <c>surl</c> writes that message
+    /// after <c>surl: </c>.
     /// </summary>
     /// <returns>For example <c>line 3: key type sk-ssh-ed25519@openssh.com is not supported</c>.</returns>
     public string Describe() => $"line {LineNumber}: {DescribeRefusal()}";

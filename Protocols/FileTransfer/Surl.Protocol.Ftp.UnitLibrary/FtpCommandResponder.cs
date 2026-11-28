@@ -70,7 +70,12 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     /// <param name="reader">The control connection's line reader, whose buffered bytes <c>AUTH</c> throws away.</param>
     /// <param name="contentStore">Where <c>CWD</c> looks for directories and <c>RETR</c> for files.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>AUTH</c> can upgrade the connection.</param>
+    /// <param name="isTlsUpgradeAvailable">
+    /// Whether a TLS upgrade is available - in <c>surl</c>, a certificate or TLS-SRP
+    /// (<c>ServerTlsComposition.IsTlsUpgradeAvailable</c>; ADR-0122, decision 5) - so
+    /// <c>AUTH TLS</c> can upgrade the connection; only when none is available is it
+    /// <c>534 TLS is not available</c>.
+    /// </param>
     /// <param name="upstreamTestCaseReplies">An upstream test case's reply to play, or <see langword="null"/> for the shipped server.</param>
     public FtpCommandResponder(
         IConnection connection,

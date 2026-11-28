@@ -59,8 +59,8 @@ internal static class ExitCodeGuidanceTable
             ["listen-urls"]),
         new(
             SurlExitCode.CertificateProblem,
-            "A secure listen URL has no certificate, or the --cert or --key file cannot be used",
-            "Give --cert and --key files that load, with --pass when the key needs one, or --self-signed in a test",
+            "A secure listen URL has no certificate and TLS-SRP does not secure it, or the --cert or --key file cannot be used",
+            "Give --cert and --key files that load, with --pass when the key needs one, or --self-signed in a test; TLS-SRP (see the tls topic) secures a TCP listen URL with no certificate",
             ["tls"]),
         new(
             SurlExitCode.CaCertificateBadFile,

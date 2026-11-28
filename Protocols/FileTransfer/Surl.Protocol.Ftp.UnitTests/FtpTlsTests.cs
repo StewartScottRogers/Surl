@@ -44,7 +44,7 @@ public sealed class FtpTlsTests
     [DataRow("AUTH TLS")]
     [DataRow("AUTH SSL")]
     [DataRow("auth tls")]
-    public async Task Auth_WithACertificate_Answers234AndUpgradesWithNoNote(string command)
+    public async Task Auth_WithTlsUpgradeAvailable_Answers234AndUpgradesWithNoNote(string command)
     {
         var log = new RecordingExchangeLog();
         var control = new InMemoryConnection(Ascii(command + "\r\n"));
@@ -69,7 +69,7 @@ public sealed class FtpTlsTests
     }
 
     [TestMethod]
-    public async Task Auth_WithNoCertificate_Answers534AndPassStaysRefusedAsPlainText()
+    public async Task Auth_WithTlsUpgradeUnavailable_Answers534AndPassStaysRefusedAsPlainText()
     {
         var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted) { RefuseWithoutTls = true };
         var control = new InMemoryConnection(Ascii("AUTH TLS\r\nUSER tester\r\nPASS secret\r\n"));
@@ -160,7 +160,7 @@ public sealed class FtpTlsTests
     }
 
     [TestMethod]
-    public async Task Feat_WithACertificate_AlsoListsAuthTlsPbszAndProt()
+    public async Task Feat_WithTlsUpgradeAvailable_AlsoListsAuthTlsPbszAndProt()
     {
         var control = new InMemoryConnection(Ascii("FEAT\r\n"));
 

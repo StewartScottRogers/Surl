@@ -12,6 +12,11 @@
     <ProjectReference Include="..\Surl.Extended.Protocol.DnsQuery.UnitLibrary\Surl.Extended.Protocol.DnsQuery.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!-- The flow a close=graceful drop fault hands a server, as Surl.Quic.UnitTests fakes it. -->
+  <ItemGroup>
+    <Compile Include="..\..\Http\Surl.Quic.UnitTests\UnitTestGracefullyCutDatagramFlow.cs" Link="UnitTestGracefullyCutDatagramFlow.cs" />
+  </ItemGroup>
+
   <!--
     The Initial datagrams pinned upstream curl sent, recorded once in Surl.Protocol.Http.UnitTests
     (its Fixtures/README.md says how) and embedded here too: the DNS over QUIC tests open their

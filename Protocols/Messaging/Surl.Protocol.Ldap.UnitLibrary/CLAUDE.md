@@ -30,20 +30,24 @@ attributes returned.
 On top of both is the server (BL-308 and BL-309, ADR-0072 decisions 2 to 7): the public
 `LdapProtocolServer` answers `ldap` - its public constructor over an empty directory (in-memory
 mode), its public `LoadAsync` over the directory read from an `LdapDirectoryFile`, each taking
-the `IAuthenticationPolicy`, the `ISaslAuthenticationPolicy` and `isTlsUpgradeAvailable` - and
-runs one `LdapSession` per connection. `LdapBindJudge` decides each bind into an
+the `IAuthenticationPolicy`, the `ISaslAuthenticationPolicy`, a `TimeProvider`, the optional
+`isTlsUpgradeAvailable` and an optional `ISurlEventPublisher` the directory publishes its changes
+to - and runs one `LdapSession` per connection. `LdapBindJudge` decides each bind into an
 `LdapBindAnswer`: simple binds through `IAuthenticationPolicy.CheckPasswordLoginAsync`, the
 name mapped by `LdapBindNames`; SASL binds and `WinLDAP`'s Sicily binds
 (`LdapSicilyAuthentication`, `LdapSicilyChoice`) through `LdapSaslBindJudge`, which runs the
 policy's `ISaslExchange` and holds the exchange in progress between binds. The session answers
-searches (the root DSE with the policy's `supportedSASLMechanisms` and, with a certificate,
-`StartTLS`), compares, writes (refused), `StartTLS` (the upgrade, after discarding what
-`LdapMessageFrameReader` read past the request), other extended operations, abandon and unbind;
-once a bind installs an `ISaslSecurityLayer` every message both ways is one 4-byte-length buffer
-the layer protects. It sends the Notice of Disconnection for what it cannot read
-(`LdapDiagnostics`) and for a limit, and notes each decision (`LdapLogText`). `ldaps` is the
-same exchange inside the engine's implicit TLS: `Surl.Console` registers the server a second
-time behind `ImplicitTlsSchemeServer` (BL-310). Its tests replay request bytes recorded from the
+searches (the root DSE with the policy's `supportedSASLMechanisms` and, on a connection not
+yet TLS while a TLS upgrade is available - a certificate is configured or TLS-SRP is served,
+`Surl.Composition`'s `ServerTlsComposition.IsTlsUpgradeAvailable` - `StartTLS` in
+`supportedExtension`), compares, writes (refused), `StartTLS` (the upgrade, after discarding
+what `LdapMessageFrameReader` read past the request), other extended operations, abandon and
+unbind; once a bind installs an `ISaslSecurityLayer` every message both ways is one
+4-byte-length buffer the layer protects. It sends the Notice of Disconnection for what it
+cannot read (`LdapDiagnostics`) and for a limit, and notes each decision (`LdapLogText`). `ldaps` is the
+same exchange inside the engine's implicit TLS: `Surl.Composition`'s
+`ProtocolServerRegistrations.Original` registers the server a second time behind
+`ImplicitTlsSchemeServer` (`ProtocolServerRegistration.ImplicitTls`; BL-310). Its tests replay request bytes recorded from the
 pinned Windows build (`Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`), the SASL policy and
 security layer faked.
 
@@ -59,21 +63,42 @@ session. A reply that does not fit, or another kind, is noted and not applied.
 The directory's file (BL-307, ADR-0072 decision 1): the public `LdapDirectoryFile` names
 `directory.ldif` in the state folder it is given (`<path>/.surl/ldap`) and reads it once
 through `Surl.Content`'s `IContentFileSystem`; a missing file is an empty directory, and the
-directory is never written. `LdifReader` reads RFC 2849 LDIF content records into
+file is never written. `LdifReader` reads RFC 2849 LDIF content records into
 `LdifRecord`s; a file it or `LdapDirectory` refuses, or one that cannot be read, ends in the
 public `LdapDirectoryLoadException` carrying the file path and `line <n>: <what>` (the texts in
-`LdifFaultText`) or the read failure's message, which `Surl.Console` turns into
-`CouldNotReadFile` (37) before any listener binds (BL-310).
+`LdifFaultText`) or the read failure's message, which `Surl.Composition`'s
+`SurlServerComposition.LoadLdapServerAsync` turns into `(37) Could not read <file>: <message>`,
+and its start into `CouldNotReadFile` (37), before any listener binds (BL-310).
 
-What this library does not hold: the SASL mechanisms, the NTLM and `DIGEST-MD5` security layers
-and the password check live in `Surl.Authentication`, reached only through the
-`Surl.Protocol.Abstractions` contracts. Kerberos inside `GSS-SPNEGO` is answered with NTLM
-selected (ADR-0040's rule); BL-327 is to decide and build Kerberos there.
+LDAP operations cannot change the directory (writes are refused); the host can, in memory only
+(ADR-0158). `LdapProtocolServer.SeedDirectoryEntries` adds LDIF content records, all or none;
+`ResetDirectory` returns to the configured entries - those the server was built with (the file's
+as read by `LoadAsync`, none from the public constructor) plus those of every seed made with
+`keepOnReset: true` - dropping other seeded ones. A kept seed must be addable to the live entries
+and to the configured ones (parent present, no second DN, bounds), and an entry that has a parent
+only among the live entries is refused. A refusal changes neither set. `TakeDirectorySnapshot`
+copies the live entries and `RestoreDirectory` puts a snapshot of this server's back; neither
+changes the configured entries. A seed the directory cannot add, or another server's snapshot, is
+an `InvalidOperationException`. Seed, reset and restore publish `StoreChange.Seeded` (one per
+entry), `Reset` and `Restored`.
+
+What this library does not hold: the SASL mechanisms, the NTLM, `DIGEST-MD5` and Kerberos
+security layers and the password check live in `Surl.Authentication`, reached only through the
+`Surl.Protocol.Abstractions` contracts. That includes Kerberos inside `GSS-SPNEGO` (ADR-0072
+Amendment 1): with `--keytab`, a bind whose token selects Kerberos is accepted in one leg by
+`GssSpnegoSaslExchange` for the service `ldap` - Kerberos must be the client's first mechanism
+and the AP-REQ its optimistic token, the ticket good, and its principal an account unless
+`--allow-anonymous` - with an RFC 4121 security layer (`KerberosSaslSecurityLayer`) when the
+client asks for confidentiality or integrity; without `--keytab` such a token is answered by
+ADR-0040's rule, NTLM selected.
 
 `UpstreamCurlSearchesSurlOverLdapTests` in `Surl.Conformance.UnitTests` proves the server against
-the pinned Windows build over `WinLDAP` (ADR-0072 decision 10). Nothing yet proves it against the
-OpenLDAP-backed build ADR-0076 pins - `STARTTLS`, the root-DSE SASL discovery, SASL binds and
-the anonymous bind; that is BL-312's.
+the pinned Windows build over `WinLDAP` (ADR-0072 decision 10), and
+`UpstreamCurlBindsToSurlOverLdapWithKerberosTests` there proves the Kerberos bind and a search
+through its sealed layer against that build. `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests`,
+also there, proves the server against the OpenLDAP-backed build ADR-0076 pins - `STARTTLS`,
+`ldaps`, the root-DSE SASL discovery, SASL binds and the anonymous bind. That build is pinned
+for `linux-x64` only; elsewhere those tests are Inconclusive.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`
 (for `IContentFileSystem`), one of the horizontal libraries in ADR-0002 decision 3's table, as

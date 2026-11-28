@@ -8,16 +8,22 @@ namespace Surl.Protocol.Abstractions;
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/>, every HTTP request
 /// <see cref="HttpAuthenticationOutcome.Proceed"/>s with no <c>WWW-Authenticate</c> values and
 /// no account, and every SASL login ends <see cref="SaslLoginOutcome.AcceptedUnchecked"/>, with no
-/// security layer - the behaviour of <c>--allow-anonymous</c>. Every scheme is offered the SASL
-/// mechanism <c>PLAIN</c> alone, a mail server the clear-password login too but not <c>APOP</c>,
-/// and any SASL mechanism is accepted on its initial
+/// security layer - much as <c>Surl.Authentication</c>'s policy answers under
+/// <c>--allow-anonymous</c>, though that one still checks some logins, such as an S3 request's
+/// signature. Every scheme is offered the SASL mechanism <c>PLAIN</c> alone, a mail server the
+/// clear-password login too but not <c>APOP</c>, and any SASL mechanism is accepted on its initial
 /// response, or on whatever answers one empty challenge when none was sent. Every SSH
 /// <c>none</c>, password and signed public-key login is
 /// <see cref="SshLoginOutcome.AcceptedUnchecked"/> and every public-key query
 /// <see cref="SshLoginOutcome.KeyAcceptable"/>, with no note, so upstream curl completes its login
 /// in one <c>none</c> request. Every SMB NTLMv1 session setup is
-/// <see cref="SmbLoginOutcome.AcceptedUnchecked"/>, with no note. It is the test double protocol
-/// tests share, and the policy a server's policy-less constructor passes until BL-117 composes the real one.
+/// <see cref="SmbLoginOutcome.AcceptedUnchecked"/>, with no note. Protocol tests share it as a
+/// test double. In production code it is the policy <c>HttpProxyProtocolServer</c>'s one-argument
+/// constructor passes; the initial value of <c>XmppServerOptions.AuthenticationPolicy</c> and of
+/// <c>Surl.Composition</c>'s <c>ComposedAuthentication.ProxyPolicy</c> and
+/// <c>ComposedProtocolServices.ProxyAuthenticationPolicy</c>; what <c>Surl.Composition</c>'s
+/// <c>NoAccountProxyAuthenticationPolicy</c> answers password logins and HTTP sessions with; and
+/// the policy type the SMTP, IMAP and POP3 upstream test case servers' constructors take.
 /// </summary>
 public sealed class AnonymousAuthenticationPolicy :
     IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy, ISmbAuthenticationPolicy

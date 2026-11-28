@@ -16,6 +16,8 @@
 - **Amended (2026-11-27, BL-1896):** decision 8's registration seam (`IControllableStore`,
   `ProtocolServerRegistration.ControlledStore`) is superseded by the one the code has; see Amendment 3, decided
   by Claude under Stewart's delegation.
+- **Amended (2026-11-27, BL-2028):** the keys decision 4's keyspace reset writes back are bounded; see
+  Amendment 4, decided by Claude under Stewart's delegation.
 - **Acted on by:** BL-1157, BL-1158, BL-1159, BL-1160, BL-1161, BL-1162, BL-1163, BL-1164, BL-1165,
   BL-1166, BL-1167, BL-1168 and BL-1169.
 
@@ -414,3 +416,23 @@ So a new store a server holds joins reset, snapshot and restore by a `StoreKind`
 A typed seed or read method is still a member of `ComposedStores`, which must then be given the store, so decision
 8's "`ComposedStores` is not edited" holds for the registration alone. Stores stay not replaceable by a test: no
 member lets a server a test supplies name a store.
+
+## Amendment 4 (2026-11-27, BL-2028): which keyspace seeds a reset returns to, and their bound
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-2028. Adds to decisions 3
+and 4.
+
+`RedisKeyspace.SeedKey` takes `keepOnReset`, `false` by default, the name `DnsZoneSet.SeedZone` uses. A reset
+writes back exactly the keys seeded with it, in the order each database and key was first kept, and a later kept
+seed of the same database and key replaces the earlier one.
+
+**The kept keys are held to the keyspace's own bounds** (ADR-0106 decision 6): a kept seed is refused with
+`InvalidOperationException`, writing and keeping nothing, when the kept keys already number 1,000,000 or their key
+and value bytes already reach 256 MiB, as a seed is refused when the keyspace is full. The keyspace's own check is
+not enough: a client's `DEL` or an expiry frees room in the keyspace but leaves the key kept, so repeated kept
+seeds would hold memory without limit and a reset could fill the keyspace past its bounds. A host's start-time
+seeds, applied before any client connects, meet the keyspace's bound first, so nothing changes for them unless a
+seeded key's expiry passes while they are still being applied; a later kept seed may then be refused by this bound.
+
+Rejected: no bound on the kept keys, for the reason above; and bounding at reset by leaving keys out, because a
+reset that silently returns less than the configured state is not deterministic to a test.

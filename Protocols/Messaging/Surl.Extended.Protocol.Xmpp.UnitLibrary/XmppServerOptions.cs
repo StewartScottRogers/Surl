@@ -9,8 +9,9 @@ namespace Surl.Extended.Protocol.Xmpp;
 public sealed record XmppServerOptions
 {
     /// <summary>
-    /// The options when nothing is given: no mail domains, the cryptographic random source, no
-    /// certificate, plain-text logins refused, and the policy that lets everyone in.
+    /// The options when nothing is given: no mail domains, the cryptographic random source, no TLS
+    /// upgrade available, <see cref="AllowPlaintextAuthentication"/> and <see cref="OffersAnonymous"/>
+    /// off, and the policy that lets everyone in.
     /// </summary>
     public static XmppServerOptions Default { get; } = new();
 
@@ -23,16 +24,18 @@ public sealed record XmppServerOptions
     public IXmppRandomSource RandomSource { get; init; } = CryptographicXmppRandomSource.Instance;
 
     /// <summary>
-    /// Whether a certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so an
-    /// <c>xmpp</c> stream offers STARTTLS and answers <c>&lt;starttls/&gt;</c> with
-    /// <c>&lt;proceed/&gt;</c> (ADR-0114 decision 2). <see langword="false"/> unless given.
+    /// Whether a TLS upgrade is available - a certificate is configured (<c>--cert</c> or
+    /// <c>--self-signed</c>) or TLS-SRP is served - so an <c>xmpp</c> stream not yet TLS offers
+    /// STARTTLS and answers <c>&lt;starttls/&gt;</c> with <c>&lt;proceed/&gt;</c> (ADR-0114 decision 2;
+    /// ADR-0122 decision 5). <see langword="false"/> unless given.
     /// </summary>
     public bool IsTlsUpgradeAvailable { get; init; }
 
     /// <summary>
     /// Whether <c>--allow-plaintext-auth</c> was given, so STARTTLS is offered without
     /// <c>&lt;required/&gt;</c> beside the plain-text SASL mechanisms (ADR-0114 decision 2).
-    /// <see langword="false"/> unless given: with a certificate, STARTTLS is required.
+    /// <see langword="false"/> unless given: when <see cref="IsTlsUpgradeAvailable"/>, STARTTLS is then
+    /// required before TLS.
     /// </summary>
     public bool AllowPlaintextAuthentication { get; init; }
 

@@ -487,3 +487,13 @@ Decided by Stewart, 2026-11-26. On a `v*` tag the release job pushes `Surly.Surl
 decision 7's package, to nuget.org beside `Surly.Surl.Api` (ADR-0099, amendment 2026-11-26 (2), which holds
 the mechanism: trusted publishing for the account `StewartScottRogers`, no stored key, `--skip-duplicate`).
 This replaces Amendment 4's "still not pushed to any feed".
+
+## Amendment 6 — the nuget.org account is StewartRogers86 (BL-1988)
+
+Recorded by Claude, 2026-11-27. The account named in Amendment 5 is wrong: the trusted publishing policy belongs
+to the nuget.org user `StewartRogers86`, who created it, and `StewartScottRogers` is the GitHub name. The
+repository the policy names is still `StewartScottRogers/Surl`.
+
+The `v0.1.11` release job logged in under the GitHub name and got HTTP 401, no matching trust policy. Commit
+`c65ad0895` changed the `user:` line of `.github/workflows/release.yml` to `StewartRogers86`, and the `v0.1.12`
+release (run 46064723943, 2026-11-27) pushed `Surly.Surl.Mcp` to nuget.org (BL-1797).

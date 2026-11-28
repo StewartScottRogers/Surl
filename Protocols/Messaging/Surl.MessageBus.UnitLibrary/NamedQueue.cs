@@ -36,6 +36,17 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     /// <see langword="null"/> for none. Opaque text to the bus.</summary>
     public string? SubscriptionDescription { get; set; }
 
+    /// <summary>The <see cref="BusConnection.PublisherName"/> whose topic publishes are never copied
+    /// into the queue (ADR-0146, Amendment 3); <see langword="null"/> for none. Opaque text to the
+    /// bus, and only a queue with a <see cref="SubscriptionDescription"/> has one.</summary>
+    public string? ExcludedPublisherName { get; set; }
+
+    /// <summary>Whether a topic publish made through <paramref name="publisher"/>
+    /// (<see langword="null"/> for none) is copied into the queue: a binding matches the topic and the
+    /// publisher is not the excluded one.</summary>
+    public bool TakesCopyOf(string[] topicLevels, BusConnection? publisher) =>
+        IsBoundTo(topicLevels) && !Excludes(publisher?.PublisherName);
+
     /// <summary>Whether a consumer could take <paramref name="message"/> now: one has room and
     /// accepts it.</summary>
     public bool HasConsumerWithRoomFor(BusMessage message) => consumers.Any(consumer => consumer.HasRoomFor(message));
@@ -78,8 +89,15 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         RemoveAllReady();
     }
 
-    public bool IsBoundTo(string[] topicLevels) =>
+    /// <summary>Whether <paramref name="filter"/> is the queue's one binding.</summary>
+    public bool IsBoundToExactly(string filter) => bindings.Count == 1 && bindings.ContainsKey(filter);
+
+    private bool IsBoundTo(string[] topicLevels) =>
         bindings.Values.Any(filterLevels => CanonicalTopicName.FilterMatches(filterLevels, topicLevels));
+
+    // A queue excluding nobody excludes no publish, not even one with no publisher name.
+    private bool Excludes(string? publisherName) =>
+        ExcludedPublisherName is { } excluded && string.Equals(excluded, publisherName, StringComparison.Ordinal);
 
     /// <summary>Whether the queue outlives the process: durable, and neither exclusive nor
     /// auto-delete (ADR-0100, decision 3.7).</summary>

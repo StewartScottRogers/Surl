@@ -16,9 +16,12 @@ namespace Surl.Extended.Protocol.WebTransport;
 /// path. QUIC's <c>max_idle_timeout</c> is the <c>--idle-timeout</c> it is given, and the TLS handshake
 /// must complete within the exchange's head timeout. A flow past a connection limit is refused as
 /// <see cref="QuicConnectionRefusal"/> refuses it: one Initial packet holding <c>CONNECTION_CLOSE</c>
-/// <c>CONNECTION_REFUSED</c> for a version 1 Initial, and no bytes for any other first datagram.
+/// <c>CONNECTION_REFUSED</c> for a version 1 Initial, and no bytes for any other first datagram. A flow a
+/// <c>close=graceful</c> drop fault cuts (<see cref="IGracefullyCutDatagramFlow"/>) ends with the QUIC
+/// <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c> of type <c>0x1c</c>, which <c>Surl.Quic</c> sends, with no
+/// <c>WT_CLOSE_SESSION</c> or <c>GOAWAY</c> (ADR-0188, amendment 6).
 /// </remarks>
-public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter, IExchangeBytesRedactingServer
+public sealed class WebTransportProtocolServer : IGracefulCutDatagramProtocolServer, IDatagramRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>The scheme the server answers.</summary>
     public const string Scheme = "webtransport";

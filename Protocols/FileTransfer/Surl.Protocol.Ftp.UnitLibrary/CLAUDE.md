@@ -1,9 +1,9 @@
 # Surl.Protocol.Ftp.UnitLibrary
 
 Phase 2. The FTP server, built as
-[ADR-0052](../Documentation/Planning/Decisions/ADR-0052-how-the-ftp-server-answers-and-the-ftp-data-connection-seam.md)
+[ADR-0052](../../../Documentation/Planning/Decisions/ADR-0052-how-the-ftp-server-answers-and-the-ftp-data-connection-seam.md)
 decides, with
-[ADR-0059](../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
+[ADR-0059](../../../Documentation/Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
 for how it tells a limit from shutdown. Terms (control connection, data connection, passive
 and active mode, explicit and implicit FTPS, protection level) are the glossary's, section
 "FTP".

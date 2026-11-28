@@ -37,6 +37,15 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     public Action<BusMessage>? AfterMessageDelivered { get; set; }
 
+    /// <summary>
+    /// The name of the client publishing through the connection, opaque text to the bus;
+    /// <see langword="null"/> unless the server sets it. A queue declared excluding this name takes no
+    /// copy of the connection's topic publishes (ADR-0146, Amendment 3). A server that sets it starts
+    /// it with its own scheme family and <c>:</c>, as <c>amqp1:&lt;container-id&gt;</c>, so another
+    /// protocol's name never matches, and sets it before the client publishes.
+    /// </summary>
+    public string? PublisherName { get; set; }
+
     internal int SubscriptionCount { get; set; }
 
     internal bool IsClosed { get; set; }
@@ -145,18 +154,51 @@ public sealed class BusConnection : IDisposable
     /// <param name="subscriptionDescription">Opaque text kept beside the queue, as the AMQP 1.0
     /// container keeps a durable subscription's address and filters (ADR-0146, decision 3.2):
     /// persisted, reset, snapshotted and restored with the queue and answered by
-    /// <see cref="InspectQueue"/>. <see langword="null"/> makes a queue with none and, on an existing
-    /// queue, checks nothing.</param>
+    /// <see cref="InspectQueue"/>. A queue made with one takes no direct send
+    /// (<see cref="MessageBus.PublishToQueue(string, BusMessage, string?)"/> answers
+    /// <see cref="MessageBusOutcome.UnknownQueue"/>); topic publishes reach it through its bindings.
+    /// <see langword="null"/> makes a queue with none and, on an existing queue, checks nothing.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.InvalidQueueName"/>,
     /// <see cref="MessageBusOutcome.TooManyQueues"/>, <see cref="MessageBusOutcome.QueueLocked"/>,
     /// <see cref="MessageBusOutcome.QueueFlagsDiffer"/> or
     /// <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when refused - and the queue's counts.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default, string? subscriptionDescription = null)
+    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default, string? subscriptionDescription = null) =>
+        DeclareQueue(name, flags, subscriptionDescription, excludedPublisherName: null);
+
+    /// <summary>
+    /// Declares a named queue as <see cref="DeclareQueue(string, BusQueueFlags, string?)"/> does, and
+    /// keeps one publisher's messages out of it (ADR-0146, Amendment 3): a topic publish through a
+    /// connection whose <see cref="PublisherName"/> equals <paramref name="excludedPublisherName"/>,
+    /// ordinally, is not copied into the queue. Such a publish counts in none of the
+    /// <see cref="BusPublishResult"/>'s queue counts, counts against no queue bound, publishes no
+    /// store change for the queue and does not ask the fault plan about it. A publish with no
+    /// connection or no publisher name is never withheld. The name is persisted, reset, snapshotted and
+    /// restored with the queue.
+    /// </summary>
+    /// <param name="name">The queue's name; not empty.</param>
+    /// <param name="flags">Its flags.</param>
+    /// <param name="subscriptionDescription">As <see cref="DeclareQueue(string, BusQueueFlags, string?)"/>'s;
+    /// not <see langword="null"/> when a publisher is excluded.</param>
+    /// <param name="excludedPublisherName">The publisher to exclude. On an existing queue that passes
+    /// every other check it replaces the one the queue has, and what is already queued stays.
+    /// <see langword="null"/> makes a queue excluding none and, on an existing queue, changes
+    /// nothing.</param>
+    /// <returns>As <see cref="DeclareQueue(string, BusQueueFlags, string?)"/>'s.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="excludedPublisherName"/> is given with no
+    /// <paramref name="subscriptionDescription"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags, string? subscriptionDescription, string? excludedPublisherName)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return bus.RunAs(Exchange, () => bus.DeclareQueue(this, name, flags, subscriptionDescription));
+        if (excludedPublisherName is not null && subscriptionDescription is null)
+        {
+            throw new ArgumentException("Only a queue with a subscription description excludes a publisher.", nameof(excludedPublisherName));
+        }
+
+        return bus.RunAs(Exchange, () => bus.DeclareQueue(this, name, flags, subscriptionDescription, excludedPublisherName));
     }
 
     /// <summary>
@@ -199,7 +241,10 @@ public sealed class BusConnection : IDisposable
     /// <param name="queueName">The queue's name.</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
     /// or <see cref="MessageBusOutcome.QueueLocked"/>; <see cref="MessageBusOutcome.AccessDenied"/>
-    /// for a declared queue, which no client may delete (ADR-0102, decision 3.2).</returns>
+    /// for a declared queue, which no client may delete (ADR-0102, decision 3.2), and for a queue
+    /// carrying a subscription description unless the configured grants give <see cref="Account"/>
+    /// <c>sub</c> covering every filter it is bound to - one bound to none is refused whenever any
+    /// grant is configured (ADR-0146, Amendment 2).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
     public MessageBusOutcome DeleteQueue(string queueName) => DeleteQueue(queueName, ifUnused: false, ifEmpty: false).Outcome;
@@ -223,6 +268,33 @@ public sealed class BusConnection : IDisposable
     }
 
     /// <summary>
+    /// Deletes a queue with every message in it, as <see cref="DeleteQueue(string)"/> does, only while
+    /// it still carries <paramref name="subscriptionDescription"/>: a caller that judged a queue by its
+    /// description deletes that one, never one declared under its name since with another (ADR-0146,
+    /// decision 3.4). The checks and the delete happen under one hold of the bus's lock. Unlike
+    /// <see cref="DeleteQueue(string)"/>, it asks for no grant: its caller judges access on the
+    /// description.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="subscriptionDescription">The description the queue must carry, or
+    /// <see langword="null"/> for a queue that must carry none.</param>
+    /// <param name="ifUnused">Whether to refuse while a consumer still takes deliveries from it.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>;
+    /// <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when the queue carries another
+    /// description, or carries one where none was given, or none where one was;
+    /// <see cref="MessageBusOutcome.QueueInUse"/> when <paramref name="ifUnused"/> failed; otherwise
+    /// <see cref="MessageBusOutcome.UnknownQueue"/> or <see cref="MessageBusOutcome.QueueLocked"/> as
+    /// <see cref="DeleteQueue(string)"/>'s, and <see cref="MessageBusOutcome.AccessDenied"/> for a
+    /// declared queue. Nothing is deleted unless it succeeded.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome DeleteQueueIfDescribed(string queueName, string? subscriptionDescription, bool ifUnused = false)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.RunAs(Exchange, () => bus.DeleteQueueIfDescribed(this, queueName, subscriptionDescription, ifUnused));
+    }
+
+    /// <summary>
     /// Looks a queue up without creating it (AMQP 0-9-1 <c>queue.declare</c> with <c>passive</c>).
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
@@ -241,8 +313,10 @@ public sealed class BusConnection : IDisposable
     /// (AMQP 0-9-1 <c>queue.purge</c>).
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
-    /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/> or
-    /// <see cref="MessageBusOutcome.QueueLocked"/> when refused - and how many messages it removed.</returns>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
+    /// <see cref="MessageBusOutcome.QueueLocked"/>, or <see cref="MessageBusOutcome.AccessDenied"/> for a
+    /// queue carrying a subscription description, on <see cref="DeleteQueue(string)"/>'s terms, when
+    /// refused - and how many messages it removed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
     public BusQueueRemovalResult PurgeQueue(string queueName)
@@ -335,6 +409,41 @@ public sealed class BusConnection : IDisposable
         ArgumentNullException.ThrowIfNull(deliver);
         ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
         return bus.RunAs(Exchange, () => bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive, accepts));
+    }
+
+    /// <summary>
+    /// Makes a consumer of a subscription queue as <see cref="Consume"/> does of any queue, but asks
+    /// for <c>sub</c> on the subscription's topic filter instead of on <c>$queue/&lt;name&gt;</c>
+    /// (ADR-0146, decision 3.7). It consumes only a queue carrying
+    /// <paramref name="subscriptionDescription"/> and bound to <paramref name="topicFilter"/> and
+    /// nothing else; the checks and the consume happen under one hold of the bus's lock.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="subscriptionDescription">The description the queue was declared with
+    /// (<see cref="DeclareQueue(string, BusQueueFlags, string?)"/>).</param>
+    /// <param name="topicFilter">The canonical topic filter the queue is bound to.</param>
+    /// <param name="deliver">As <see cref="Consume"/>'s.</param>
+    /// <param name="maxUnacknowledged">As <see cref="Consume"/>'s.</param>
+    /// <param name="exclusive">As <see cref="Consume"/>'s.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.AccessDenied"/> when the grants give
+    /// <see cref="Account"/> no <c>sub</c> covering the filter, or the queue is not bound to exactly
+    /// that filter; <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when it carries another
+    /// description or none; <see cref="MessageBusOutcome.UnknownQueue"/>,
+    /// <see cref="MessageBusOutcome.QueueLocked"/>, <see cref="MessageBusOutcome.ExclusiveConsumeRefused"/>
+    /// or <see cref="MessageBusOutcome.TooManySubscriptions"/> as <see cref="Consume"/>'s - and the
+    /// consumer.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusConsumeResult ConsumeSubscriptionQueue(
+        string queueName, string subscriptionDescription, string topicFilter, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0, bool exclusive = false)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        ArgumentNullException.ThrowIfNull(subscriptionDescription);
+        ArgumentNullException.ThrowIfNull(topicFilter);
+        ArgumentNullException.ThrowIfNull(deliver);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
+        return bus.RunAs(Exchange, () => bus.ConsumeSubscriptionQueue(this, queueName, subscriptionDescription, topicFilter, deliver, maxUnacknowledged, exclusive));
     }
 
     /// <summary>

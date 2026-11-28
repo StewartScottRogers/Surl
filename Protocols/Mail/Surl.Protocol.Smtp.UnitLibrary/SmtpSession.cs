@@ -186,7 +186,8 @@ internal sealed partial class SmtpSession
         return capabilities.Select((capability, index) => (index == capabilities.Count - 1 ? "250 " : "250-") + capability).ToList();
     }
 
-    // STARTTLS is offered only on a plaintext connection of a server with a certificate (RFC 3207).
+    // STARTTLS is offered only on a plaintext connection of a server that can upgrade, one with a
+    // certificate or serving TLS-SRP (RFC 3207; ADR-0122, decision 5).
     private bool CanUpgrade => isTlsUpgradeAvailable && connection.TlsSession is null;
 
     private async ValueTask<bool> AnswerMailAsync(byte[]? argument)
@@ -290,15 +291,17 @@ internal sealed partial class SmtpSession
 
     // The trace fields, then the body as it is unstuffed, are streamed into a pending message;
     // every path that does not deliver it deletes its pending file (ADR-0050, decision 7).
-    // With the store's DeliveredToEnabled and a recipient to deliver to, each owner's copy has its own
-    // pending message with its own Delivered-To lines (ADR-0053 Amendment 1, decisions 2 to 5).
+    // Each owner is delivered to as its own recipient, recording only the paths that resolved to it, which its
+    // delivery event names. With the store's DeliveredToEnabled and an owner to deliver to, each owner also has its
+    // own pending message with Delivered-To lines for those paths alone (ADR-0053 Amendment 1, decisions 2 to 5 and 7).
     private async ValueTask<bool> ReceiveMessageAsync(SmtpMailTransaction accepted)
     {
         transaction = null;
         var receivedAt = context.TimeProvider.GetUtcNow();
-        var perOwner = mailStore.DeliveredToEnabled && accepted.Deliverable.Count > 0;
+        var owners = accepted.DeliverablePerOwner();
+        var perOwner = mailStore.DeliveredToEnabled && owners.Count > 0;
         IReadOnlyList<IReadOnlyList<string>?> deliveredToPerMessage = perOwner
-            ? [.. accepted.Deliverable.Select(accepted.PathsReaching)]
+            ? [.. owners.Select(owner => owner.DeliveredFor)]
             : [null];
         await WriteLineAsync(SmtpReplies.StartData, CancellationToken);
 
@@ -312,7 +315,7 @@ internal sealed partial class SmtpSession
                 await pending.Body.WriteAsync(SmtpTraceFields.Build(accepted.ReversePath, heloDomain!, connection.RemoteEndPoint, ReceivedProtocol, receivedAt, deliveredTo), CancellationToken);
             }
 
-            return await ReadAndDeliverAsync(accepted, pendings, perOwner);
+            return await ReadAndDeliverAsync(accepted, owners, pendings, perOwner);
         }
         finally
         {
@@ -320,7 +323,7 @@ internal sealed partial class SmtpSession
         }
     }
 
-    private async ValueTask<bool> ReadAndDeliverAsync(SmtpMailTransaction accepted, List<PendingMessage> pendings, bool perOwner)
+    private async ValueTask<bool> ReadAndDeliverAsync(SmtpMailTransaction accepted, IReadOnlyList<MailRecipient> owners, List<PendingMessage> pendings, bool perOwner)
     {
         using var tee = new SmtpTeeStream(pendings.ConvertAll(pending => pending.Body));
         var read = await reader.ReadDotStuffedBodyAsync(tee, CancellationToken);
@@ -338,18 +341,18 @@ internal sealed partial class SmtpSession
             return false;
         }
 
-        return await ReplyAsync(await DeliverAsync(accepted, pendings, perOwner));
+        return await ReplyAsync(await DeliverAsync(accepted, owners, pendings, perOwner));
     }
 
     // --max-filesize bounds the trace fields and the body together; 0 is no limit (ADR-0053, decision 6).
     private bool IsPastMaxFilesize(long messageBytes) =>
         context.Limits.MaxUploadBytes > 0 && messageBytes > context.Limits.MaxUploadBytes;
 
-    private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, List<PendingMessage> pendings, bool perOwner)
+    private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, IReadOnlyList<MailRecipient> owners, List<PendingMessage> pendings, bool perOwner)
     {
         var outcome = perOwner
-            ? await mailStore.DeliverAsync([.. accepted.Deliverable.Select((recipient, index) => new MailOwnerCopy(recipient, pendings[index]))], CancellationToken, context)
-            : await mailStore.DeliverAsync(accepted.Deliverable, pendings[0], CancellationToken, context);
+            ? await mailStore.DeliverAsync([.. owners.Select((owner, index) => new MailOwnerCopy(owner, pendings[index]))], CancellationToken, context)
+            : await mailStore.DeliverAsync(owners, pendings[0], CancellationToken, context);
         if (outcome != MailStoreOutcome.Succeeded)
         {
             return RefuseMessage(outcome, pendings.FirstOrDefault(pending => pending.StorageFailure is not null) ?? pendings[0]);

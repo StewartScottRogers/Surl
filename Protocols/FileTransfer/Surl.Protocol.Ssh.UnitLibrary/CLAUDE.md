@@ -2,16 +2,16 @@
 
 Phase 2. The SSH server for upstream curl's `scp://` and `sftp://` requests: the transport,
 host keys and user authentication as
-[ADR-0051](../Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md)
+[ADR-0051](../../../Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md)
 decides (amended by
-[ADR-0058](../Documentation/Planning/Decisions/ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
-[ADR-0060](../Documentation/Planning/Decisions/ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md)
+[ADR-0058](../../../Documentation/Planning/Decisions/ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
+[ADR-0060](../../../Documentation/Planning/Decisions/ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md)
 and
-[ADR-0061](../Documentation/Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)),
+[ADR-0061](../../../Documentation/Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)),
 and SCP and SFTP as
-[ADR-0054](../Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)
+[ADR-0054](../../../Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)
 decides.
-[ADR-0062](../Documentation/Planning/Decisions/ADR-0062-surl-keeps-ks-canonical-mpint-though-libssh2-1-11-1-on-wincng-fails-1-exchange-in-256.md)
+[ADR-0062](../../../Documentation/Planning/Decisions/ADR-0062-surl-keeps-ks-canonical-mpint-though-libssh2-1-11-1-on-wincng-fails-1-exchange-in-256.md)
 records why the exchange hash keeps K's canonical `mpint`. Terms (host key, algorithm offer,
 weak SSH algorithm, strict key exchange, key re-exchange, session channel, SCP command, SFTP
 subsystem) are the glossary's, section "SSH, SCP and SFTP".
@@ -29,8 +29,8 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
   `SshHmac`), zlib compression, and key re-exchange (`SshReExchangeLimits`).
 - **Host keys** (`SshHostKey`, `SshHostKeySet`, `SshHostKeyFile`): RSA, ECDSA, Ed25519 and DSA
   keys, read from OpenSSH (encrypted ones too), PKCS #8, PKCS #1 and SEC 1 files, each refusal
-  typed as an `SshHostKeyRefusal`. Reading the files (and the `--hostcert` files) from disk is
-  `Surl.Console`'s.
+  typed as an `SshHostKeyRefusal`. Reading the files (and the `--hostcert` files) is
+  `Surl.Composition`'s (`SshHostKeyComposition`), from disk unless the host gives another reader.
 - **User authentication** (`SshUserAuthentication`, `SshUserKeySignature`): `none`, `password`,
   `keyboard-interactive` and `publickey`, each credential judged by `ISshAuthenticationPolicy`.
 - **The connection protocol** (`SshConnectionProtocol`, `SshSessionChannel`): session channels,
@@ -45,8 +45,9 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
   session or an SCP command with no answer (BL-909, ADR-0135 amendment 1, through `CommandStageFaults`); a reply
   that does not fit is noted and not applied.
 - **The weak algorithms** of ADR-0051 decision 2 and ADR-0061, offered only when
-  `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`, as `Surl.Console` does under
-  `--allow-weak-ssh-algorithms`. `SshAlgorithmOffer.Narrowed` narrows an offer's ciphers and MACs
+  `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`, as `Surl.Composition`'s
+  `SshAlgorithmComposition` does under `--allow-weak-ssh-algorithms`.
+  `SshAlgorithmOffer.Narrowed` narrows an offer's ciphers and MACs
   to the names given, in the order given (`--ssh-ciphers`, `--ssh-macs`, ADR-0066).
 - **Host certificates** (`SshHostCertificate`, `SshCertifiedHostKey`): the OpenSSH
   `*-cert.pub` host certificates of `--hostcert`, each refusal typed as an

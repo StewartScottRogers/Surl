@@ -12,7 +12,8 @@ public enum FaultKind
     Delay,
 
     /// <summary>
-    /// Abort the connection, or stop answering a datagram flow.
+    /// End the exchange: abort the connection or close it gracefully, as <see cref="FaultRule.Close"/> says; a
+    /// datagram flow with no graceful close of its own only stops being answered.
     /// </summary>
     Drop,
 

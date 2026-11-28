@@ -34,7 +34,15 @@ internal sealed class UnitTestAuthenticationPolicy : IAuthenticationPolicy
         return ValueTask.FromResult(Judge(login));
     }
 
+    /// <summary>
+    /// What <see cref="HonoursTokenIssuedTo"/> answers for every name; <see langword="null"/>
+    /// answers as <see cref="NamesAccount"/> does.
+    /// </summary>
+    public bool? HonoursTokens { get; set; }
+
     public bool NamesAccount(string name) => Accounts.ContainsKey(name);
+
+    public bool HonoursTokenIssuedTo(string accountName) => HonoursTokens ?? NamesAccount(accountName);
 
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession) => throw new NotSupportedException();
 

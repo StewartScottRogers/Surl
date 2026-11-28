@@ -9,9 +9,9 @@ namespace Surl.Console;
 /// <summary>
 /// How <see cref="CommandLineRunner"/> composes the IMAP server (BL-208): <c>imap</c> and, through
 /// <see cref="ImplicitTlsSchemeServer"/>, <c>imaps</c> (ADR-0055 decision 11), <c>STARTTLS</c>
-/// offered once a certificate is configured, and the one mail store the SMTP server delivers
-/// into, so mail sent over <c>smtp</c> is read over <c>imap</c> in the same run. No test here
-/// touches the disk or the network.
+/// offered once a certificate is configured or TLS-SRP is served, and the one mail store the
+/// SMTP server delivers into, so mail sent over <c>smtp</c> is read over <c>imap</c> in the same
+/// run. No test here touches the disk or the network.
 /// </summary>
 [TestClass]
 public sealed class CommandLineRunnerImapTests

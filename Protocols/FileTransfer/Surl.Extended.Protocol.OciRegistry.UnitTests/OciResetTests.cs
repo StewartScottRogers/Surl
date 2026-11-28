@@ -3,8 +3,9 @@ using H = Surl.Extended.Protocol.OciRegistry.OciRegistryServerHarness;
 namespace Surl.Extended.Protocol.OciRegistry;
 
 /// <summary>
-/// Aborting every open upload session, revoking every token, and judging a token against the account
-/// book, as a whole-instance reset or restore and a removed account need (ADR-0167, decisions 2 and 4; BL-1232).
+/// Aborting every open upload session, revoking every token, and asking the policy whether it still
+/// honours a token issued to an account, as a whole-instance reset or restore, a removed account and a
+/// directory user need (ADR-0167, decisions 2 and 4 and Amendment 3; BL-1232, BL-2019).
 /// </summary>
 [TestClass]
 public sealed class OciResetTests
@@ -86,6 +87,32 @@ public sealed class OciResetTests
         var response = await harness.SendAsync("GET", "/v2/app/tags/list", $"Authorization: Bearer {token}");
 
         StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+    }
+
+    [TestMethod]
+    public async Task CheckAsync_TokenThePolicyHonoursForANameThatIsNoAccount_ServesV2()
+    {
+        var harness = Registry();
+        var token = await harness.FetchTokenAsync("repository:app:pull");
+        harness.Policy.Accounts.Remove(UnitTestAuthenticationPolicy.UserName);
+        harness.Policy.HonoursTokens = true;
+
+        var response = await harness.SendAsync("GET", "/v2/", $"Authorization: Bearer {token}");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+    }
+
+    [TestMethod]
+    public async Task CheckAsync_TokenOfANamedAccountThePolicyDoesNotHonour_IsAnswered401WithTheInvalidTokenChallenge()
+    {
+        var harness = Registry();
+        var token = await harness.FetchTokenAsync("repository:app:pull");
+        harness.Policy.HonoursTokens = false;
+
+        var response = await harness.SendAsync("GET", "/v2/", $"Authorization: Bearer {token}");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 401 Unauthorized\r\n");
+        StringAssert.Contains(response, "error=\"invalid_token\"");
     }
 
     private static H Registry()

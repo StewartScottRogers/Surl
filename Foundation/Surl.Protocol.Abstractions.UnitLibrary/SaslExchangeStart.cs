@@ -16,13 +16,22 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="CanCarrySecurityLayer">
 /// Whether the server can carry an <see cref="ISaslSecurityLayer"/> after the login, so the
 /// mechanism may offer and negotiate one: <see langword="false"/> for the mail servers, whose
-/// challenges stay as ADR-0049 says, and <see langword="true"/> for LDAP.
+/// challenges stay as ADR-0049 says, and <see langword="true"/> for LDAP. A server that sets it
+/// can also carry <see cref="SaslLoginStep.AdditionalSuccessData"/>, whatever
+/// <paramref name="CanCarryAdditionalSuccessData"/> says.
 /// </param>
 /// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
+/// <param name="CanCarryAdditionalSuccessData">
+/// Whether the server can send data with an accepted login's success (RFC 4422 section 3.6), so the
+/// mechanism puts its last message in <see cref="SaslLoginStep.AdditionalSuccessData"/>, such as
+/// <c>SCRAM</c>'s <c>server-final-message</c>, instead of sending it as a challenge. It asks for
+/// no security layer: only <paramref name="CanCarrySecurityLayer"/> lets a mechanism offer one.
+/// </param>
 public sealed record SaslExchangeStart(
     string Scheme,
     string Mechanism,
     ReadOnlyMemory<byte>? InitialResponse,
     TlsSession? TlsSession,
     bool CanCarrySecurityLayer = false,
-    LoginExchange? Exchange = null);
+    LoginExchange? Exchange = null,
+    bool CanCarryAdditionalSuccessData = false);

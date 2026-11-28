@@ -10,10 +10,10 @@ namespace Surl.Console;
 /// <summary>
 /// How <see cref="CommandLineRunner"/> composes the SMTP server (BL-207): <c>smtp</c> and, through
 /// <see cref="ImplicitTlsSchemeServer"/>, <c>smtps</c> (ADR-0053 decision 5), <c>STARTTLS</c>
-/// offered once a certificate is configured, and the one mail store it delivers into - kept in
-/// <c>&lt;data directory&gt;/.surl/mail</c> and loaded before any listener binds with
-/// <c>--directory</c>, in memory only without it (ADR-0050, decision 7). No test here touches the
-/// disk or the network.
+/// offered once a certificate is configured or TLS-SRP is served, and the one mail store it
+/// delivers into - kept in <c>&lt;data directory&gt;/.surl/mail</c> and loaded before any listener
+/// binds with <c>--directory</c>, in memory only without it (ADR-0050, decision 7). No test here
+/// touches the disk or the network.
 /// </summary>
 [TestClass]
 public sealed class CommandLineRunnerSmtpTests

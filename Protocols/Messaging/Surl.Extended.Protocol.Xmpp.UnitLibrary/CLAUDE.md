@@ -1,7 +1,8 @@
 # Surl.Extended.Protocol.Xmpp.UnitLibrary
 
 An extended server (ADR-0083) for the `xmpp` scheme the Curl port adds, which upstream curl
-does not have; the composition registers it in BL-540, so `surl` does not serve it yet.
+does not have; `ExtendedProtocolServers.Registrations` in `Surl.Composition` registers it for
+`xmpp` and `xmpps`, so `surl` serves both unless `SURL_EXTENSIONS=0`.
 ADR-0114 decides how. It is judged by RFC 6120 and the specifications ADR-0114 lists, never
 by the Curl port's output, and its unit tests replay streams written by hand from RFC 6120's
 sections and examples. `Documentation/Conformance/Extended/Xmpp.md` traces each requirement to
@@ -43,17 +44,18 @@ Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 
 
 STARTTLS (BL-537, ADR-0114 decision 2):
 
-- `XmppServerOptions.IsTlsUpgradeAvailable` (a certificate is configured) and
+- `XmppServerOptions.IsTlsUpgradeAvailable` (a certificate is configured or TLS-SRP is served;
+  the composition passes `ServerTlsComposition.IsTlsUpgradeAvailable`) and
   `AllowPlaintextAuthentication` (`--allow-plaintext-auth`) choose the features: before TLS with
-  a certificate, `<starttls><required/></starttls>` alone, or under the option a voluntary
-  `<starttls/>` beside the plain-text mechanisms; without a certificate, or after TLS, the
+  an upgrade available, `<starttls><required/></starttls>` alone, or under the option a voluntary
+  `<starttls/>` beside the plain-text mechanisms; with none available, or after TLS, the
   `<mechanisms/>` `AuthenticationPolicy` offers for the TLS state, ordered and filtered to
   SCRAM-SHA-256, SCRAM-SHA-1, PLAIN, then `ANONYMOUS` last, offered and served by the server itself (not the policy) only under `XmppServerOptions.OffersAnonymous` (`--allow-anonymous`; RFC 4505, a new `anon-` JID per login). STARTTLS is never offered once TLS is in force.
 - `<starttls/>` is answered `<proceed/>`, then `UpgradeToTlsAsync`; a new `XmppStreamReader`
   reads the restarted stream, so bytes pipelined after `<starttls/>` are dropped. A failed or
   unfinished handshake closes with no more bytes. The head timeout runs from `<proceed/>` to the
-  new header, handshake included. `<starttls/>` without a certificate or after TLS is the TLS
-  `<failure/>`, `</stream:stream>` and the close.
+  new header, handshake included. `<starttls/>` with no upgrade available or after TLS is the
+  TLS `<failure/>`, `</stream:stream>` and the close.
 - While TLS is required, `<auth/>` is `<failure><encryption-required/></failure>` and the stream
   is kept; a stanza is `not-authorized`, anything else `policy-violation`.
 

@@ -12,6 +12,22 @@
   "Not served yet").
 - **Amended by:** the BL-513 amendment below (decisions 5 and 6) and the BL-1884 amendment below
   (decisions 2 and 7: SASL frames over 512 bytes are read).
+- **Amended (2026-11-27, BL-1951):** decision 1's TLS header is also offered under TLS-SRP
+  ([ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) decision 5); see the note under
+  decision 1's table.
+- **Amended by (2026-11-27, BL-1959):**
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  (transactions, durable topic subscriptions and source filters: decision 4's `coordinator` refusal,
+  decision 5's "Not served yet" bullet and a "Consequences" bullet). The same task added notes on
+  decision 7's `amqp1s` bullet, pointing at
+  [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) and
+  [ADR-0010](ADR-0010-the-server-side-tls-contract.md), and on the `TftpTimeLimits` bullet under
+  "Consequences".
+- **Amended (2026-11-27, BL-1990):** notes under decision 0's second bullet, decision 3's `open`
+  table, decision 4's refused-attach table and `detach` bullet, decision 5's delivery states and
+  "From a topic" bullet, and the last "Alternatives considered" bullet, saying where
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  or the code differs from them.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -65,6 +81,24 @@ expected byte comes from it.
 - **State of its own** is per connection: the SASL state, the sessions with their windows and
   handles, the links with their credit, unsettled deliveries and partial transfers. Nothing of a
   connection outlives it; a link is never resumed (decision 5).
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 3.1 and 3.3 to 3.6:* a kept topic subscription is a bus queue, so something a link
+  made can outlive the link, and even its connection. A client receiver's topic source keeps one,
+  shared or not, when its `durable` is above `none` and its `expiry-policy` is not `link-detach`
+  (an absent or unknown policy is read as `session-end`).
+
+  - With `never` it outlives its link, session and connection, until a `detach` with `closed` true
+    destroys it or a later attach replaces it, and under `--directory` it is persisted with the bus.
+  - With `session-end` or `connection-close` it is a queue exclusive to the connection, so it never
+    outlives the connection. It outlives a link detached with `closed` false until its session ends
+    (`session-end`) or its connection ends (`connection-close`).
+  - A `shared` source with `durable` `none` or `link-detach` makes a live subscription, which ends
+    with its link.
+
+  A link is still never resumed (ADR-0146 decision 3.1).
+
 - The container acts only as the peer that **accepts** connections: it never opens one, never
   begins a session or attaches a link of its own accord, and answers each of the client's.
 
@@ -79,6 +113,17 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
 | `AMQP 2 1 0 0` (TLS) on `amqp1` with a certificate (`--cert` or `--self-signed`) | answered `AMQP 2 1 0 0`, then the TLS handshake (`IConnection.UpgradeToTlsAsync`, TLS 1.2 and 1.3); inside it the client starts again with a SASL or AMQP header, judged by this table | the same |
 | `AMQP 2 1 0 0` on `amqp1` without a certificate, or on `amqp1s` (already TLS), or after a TLS layer | answered `AMQP 3 1 0 0`, then closed | the same |
 | any other 8 bytes (another version, AMQP 0-9-1's `AMQP 0 0 9 1`, not `AMQP` at all) | answered `AMQP 3 1 0 0`, then closed | the same |
+
+*Amended 2026-11-27 (BL-1951), pointing at
+[ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) decision 5:* TLS-SRP, as well as a
+certificate, makes the TLS upgrade available. The third row also covers `amqp1` under TLS-SRP, and
+the fourth row's "on `amqp1` without a certificate" means with neither a certificate nor TLS-SRP.
+`ServerTlsComposition.IsTlsUpgradeAvailable` is true when `--cert` or `--self-signed` is given or
+TLS-SRP is served, and `Surl.Composition` passes it to the container as
+`Amqp1SecurityNegotiationOptions.CanUpgradeToTls`. Under TLS-SRP, with a certificate or without one,
+the handshake after the header is TLS-SRP's (ADR-0122 decision 5), which is TLS 1.2 only (its
+decision 2), not the third row's "TLS 1.2 and 1.3". ADR-0122 Amendment 4 accepts the TLS-SRP options
+when `amqp1://` is the only listen URL.
 
 - **After a successful SASL outcome** the client sends `AMQP 0 1 0 0` and the container answers it
   (Part 5 section 5.3.1); any other header there is answered `AMQP 0 1 0 0` and closed.
@@ -140,6 +185,13 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   | `outgoing-locales`, `incoming-locales` | absent (`en-US` implied) | error descriptions are English |
   | `offered-capabilities`, `desired-capabilities` | absent | none is served |
   | `properties` | `product` = `surl` | no version is sent (ADR-0006 section 3) |
+
+  *Amended 2026-11-27 (BL-1990):* the `container-id` row's source of digits differs in the code.
+  `Amqp1Container` draws them once, when it is created, from the `IIdentifierRandom` it is given,
+  and only when its options give no `container-id` (`Amqp1ContainerOptions.NewContainerId`).
+  `RandomNumberGenerator` is only the unseeded fallback it uses when given none,
+  `Amqp1UnseededIdentifierRandom`. `Surl.Composition` gives it none, so a container it composes
+  draws from that fallback even when the run is seeded.
 
 - **The client's `open`**: `hostname` is read and ignored (one container, no virtual hosts); its
   `max-frame-size` bounds every frame the container writes, which it splits transfers to fit
@@ -230,10 +282,44 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   The description is fixed text from the container's table (`no such node`, `not authorized`,
   `resource limit exceeded`, `transactions are not supported`), never the address. Access is denied
   the same way whether or not the node exists (ADR-0006 section 3).
+
+  *Amended 2026-11-27 (BL-1959), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decision 1:* the table's last row, the refusal of a `coordinator` target, is replaced, and the
+  replacement is built (BL-956). The container answers a `coordinator` target as a receiving link and
+  serves transactions on it, so it no longer writes the description `transactions are not supported`.
+  A `coordinator` as a source is refused with `amqp:not-allowed`.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 2.2 and 3.3 to 3.5:* these attaches are refused too, with the fixed description given.
+
+  - A client receiver's source carries a selector filter that is not a string or that the selector
+    parser refuses, its length and nesting bounds included: **`amqp:invalid-field`**,
+    `selector not valid`.
+  - A client receiver's attach with a source asks for a kept subscription that is held: a link
+    already consumes it and this attach is not shared or asks something else, or its queue is
+    exclusive to another connection: **`amqp:resource-locked`**, `subscription in use`.
+  - A source or target address names a `surl-subscription-` queue, as
+    `/queue/surl-subscription-...` or as the bare name: **`amqp:not-found`**, `no such node`.
+  - A client receiver's attach with no source has a link name that finds no kept subscription (one
+    in a queue exclusive to another connection is not found): **`amqp:not-found`**,
+    `no such node`.
 - **`detach`** from the client is answered with `detach` carrying the same `closed`; a link
   suspended (`closed` false) is ended all the same, since nothing of a link is kept for resumption.
   Either way a receiving client link's unsettled queue deliveries go back to the queue, marked
   redelivered.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 3.1 and 3.3 to 3.6:* "nothing of a link is kept for resumption" does not cover a kept
+  subscription (the note under decision 0). A `detach` with `closed` false leaves its queue: a
+  `never` subscription then outlasts the session and the connection too, a `session-end` or
+  `connection-close` one only until that event. While it lasts, a later attach that names it again,
+  asking the same address, filters, expiry policy and sharing, consumes what the queue holds. A
+  `detach` with `closed` true destroys it, deleting the queue and its messages, unless another link
+  still consumes it (a shared subscription goes with its last link). The link itself is still never
+  resumed: its unsettled deliveries go back to the queue as this bullet says.
 
 ### 5. Credit, settlement and delivery states (Part 2 sections 2.6.7, 2.6.12, 2.7.4, 2.7.6, 2.8.2, 2.8.3; Part 3 section 3.4)
 
@@ -262,6 +348,23 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   does: it stores or refuses. A pre-settled message that would have been rejected is dropped and the
   reason noted in the exchange log. `received` is never sent: the container does not resume
   deliveries.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 1.3 to 1.5 and 1.8:* `accepted` and `rejected` are no longer the only states the
+  container writes. It also writes:
+
+  - `declared`, carrying the new `txn-id`, as the state of the `disposition` answering a `declare`
+    on a coordinator link (decision 1.3);
+  - `transactional-state` with outcome `accepted` or `rejected`, answering a transfer posted in an
+    open transaction (decision 1.4); a `txn-id` naming no open transaction is answered with a plain
+    `rejected` and `amqp:transaction:unknown-id`;
+  - `transactional-state` with no outcome, on its own transfers on a link whose last `flow` carried
+    the `txn-id` of a transaction still open, which acquires them in it (decision 1.5).
+
+  Neither a `declare` the client sent settled (decision 1.8) nor a posting it sent settled gets an
+  answer.
+
 - **Quality of service on the bus** (ADR-0100 decision 3.4): an unsettled delivery is published at
   QoS 1, a pre-settled one at QoS 0.
 
@@ -277,6 +380,30 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
 - **From a topic** the link is one live bus subscription to the filter; messages published while it
   has no credit wait on the link, at most 1000 (decision 7), and a message arriving past that is
   dropped for this link and noted: fan-out is at most once (ADR-0100 decision 3.4).
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 1.5, 3.1, 3.2, 3.5 and 3.6:* this bullet, and "For a topic delivery every outcome only
+  settles it" below, hold for a live subscription only. A link on a kept subscription (the note
+  under decision 0), durable or shorter-lived, shared or not, consumes the subscription's bus
+  queue, bound to the filter, and what it is sent are queue deliveries. (An attach with no source
+  only looks the subscription up, and consumes nothing.)
+
+  - **Waiting bound.** Nothing is dropped at the link past 1000. Its consumer holds at most 1000
+    unacknowledged (`MaxWaitingDeliveries`), those still waiting for credit and those kept back as
+    `undeliverable-here` included, and the bus keeps the rest in the queue. The queue has the bus's
+    queue bounds (ADR-0100 decision 3.6): past them the copy of a publish into it is refused, while
+    the publish itself still succeeds.
+  - **Filters** run as a message leaves the queue: one they refuse, or one on a topic the client
+    cannot name, is acknowledged and not sent.
+  - **Outcomes** act on the queue as "The client's outcome" below says of a queue delivery:
+    `accepted` acknowledges, `rejected` drops, `released` and `modified` put the message back, and
+    `modified` with `undeliverable-here` keeps it from this link until the link ends. A delivery
+    sent settled is acknowledged as it is written, and one unsettled when the link ends goes back
+    to the queue. A transaction's commit applies a held outcome the same way, and its rollback
+    returns to the queue the deliveries acquired in it and not settled outside it: ADR-0146
+    decision 1.5's "Topic deliveries have nothing to return" does not hold for them.
+
 - **Settlement follows the client's `snd-settle-mode` request:** `settled` - every delivery is sent
   pre-settled and, from a queue, acknowledged to the bus as it is written; `unsettled` or `mixed` -
   every delivery is sent unsettled and settled by the client's `disposition`. The client's
@@ -299,6 +426,13 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   out of the container's source, which Part 3 section 3.5.3 defines as the filters not applied - the
   client decides whether to go on. A link is never resumed: a client's `unsettled` map is ignored
   and each delivery is new (Part 2 section 2.6.13).
+
+  *Amended 2026-11-27 (BL-1959), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md):*
+  that ADR replaces this "Not served yet" bullet, and what replaces it is built: transactions
+  (decision 1; BL-956 and BL-957), source filters (decision 2; BL-958 and BL-959) and durable and
+  shared topic subscriptions (decision 3; BL-960). The bullet's refusal and interim answers no longer
+  hold. Its last sentence still does: a link is never resumed (ADR-0146 decision 3.1).
 
 ### 6. Transfers, the message, and storage (Part 2 sections 2.6.12, 2.6.14, 2.7.5; Part 3 section 3.2)
 
@@ -359,6 +493,28 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   answered `AMQP 3 1 0 0` and closed. `amqp1` reaches the same container in clear text, or behind
   TLS after a TLS header (decision 1).
 
+  *Amended 2026-11-27 (BL-1959), pointing at
+  [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) decisions 2, 3 and 6 and Amendment 2,
+  and [ADR-0010](ADR-0010-the-server-side-tls-contract.md) section 5:*
+
+  - Under TLS-SRP `amqp1s` needs neither `--cert` nor `--self-signed`:
+    `ServerTlsComposition.FindListenUrlWithoutCertificate` does not report it. The handshake is
+    TLS 1.2 only (ADR-0122 decision 2). The listener's ALPN list is not consulted (Amendment 2,
+    "ALPN"): `Surl.TlsSrp` agrees `http/1.1` when the client offers it, refuses an ALPN list without
+    it with the alert `no_application_protocol` (120) (decision 3), and agrees none when the client
+    offers none. The same handshake follows `amqp1`'s TLS header. With a certificate and without
+    TLS-SRP, no ALPN is agreed, as the bullet says.
+  - "No client certificate asked for" holds only without `--cacert`. With it, every TLS handshake on
+    every listener requires a client certificate (ADR-0010 section 5), `amqp1s`'s and the one after
+    `amqp1`'s TLS header included. `--cacert` is refused beside TLS-SRP (ADR-0122 decision 6).
+
+  *Amended 2026-11-27 (BL-1959), pointing at
+  [ADR-0010](ADR-0010-the-server-side-tls-contract.md) section 2 and Amendment 1:* `amqp1s` is not
+  wrapped in `ImplicitTlsSchemeServer`, and neither is `mqtts`. `Surl.Composition` registers one
+  `Amqp1Container` for both `amqp1` and `amqp1s`. `TlsSchemes` lists `amqp1s`, so
+  `ListenUrl.IsImplicitTls` is true for it unless set otherwise, and `Surl.Core`'s `ServingEngine`
+  runs the implicit TLS handshake before the container sees the connection.
+
 | ADR-0006 limit or bound | How the container applies it | Answer when hit |
 | --- | --- | --- |
 | `--max-message` (1 MiB) | the `max-frame-size` the container offers is the smaller of 65536 and it; a frame's size field above the offered size (512 for `open` itself; in SASL the offered size, per the BL-1884 amendment) | `close` with `amqp:connection:framing-error` after `open`; before it, no bytes |
@@ -401,6 +557,13 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   them: each needs bus support (a transactional publish, a subscription without a connection,
   selector evaluation) that ADR-0100 does not have, and the decision is better made on its own.
 
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md):*
+  the deferral is over. BL-707 decided all three in that ADR on 2026-11-06, and they are built. The
+  bus gained a batch publish, a consumer predicate and a subscription description on a named queue
+  (its decisions 1.6, 2.4 and 3.2); selectors are evaluated by the AMQP 1.0 library, which the bus
+  knows nothing of (its "Alternatives considered").
+
 ## Consequences
 
 - `surl amqp1://127.0.0.1:0/` (with `--allow-anonymous`, or an account over TLS or with
@@ -409,6 +572,12 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   transfers, and a message keeps its AMQP sections from `amqp1` sender to `amqp1` receiver.
 - `Surl.MessageBus` gains the native form (BL-706); BL-513 depends on it.
 - Transactions, durable topic subscriptions and source filters wait for BL-707.
+
+  *Amended 2026-11-27 (BL-1959), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md):*
+  they no longer wait. ADR-0146, decided in BL-707, replaces this bullet, and all three are built
+  (BL-956 to BL-960).
+
 - The requirement matrix [`Amqp1.md`](../../Conformance/Extended/Amqp1.md) traces each server-side
   requirement of Parts 1, 2, 3 and 5 to BL-510 to BL-513; each task replaces its ID with the named
   test.
@@ -418,6 +587,10 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   `curl -sS -L -m 2 --proto-redir =tftp` and a first hop that answers 302 to a silent
   `tftp://` port after 1.5 seconds: exit 28,
   `Operation timed out after 2011 milliseconds with 0 bytes received` (BL-350 Notes).
+
+  *Amended 2026-11-27 (BL-1959):* the `TftpTimeLimits` bullet above is no part of this decision,
+  which is about AMQP 1.0, and it describes no Surl type: no code in this repository is named
+  `TftpTimeLimits`. Commit `08b010bb5` (BL-513) added it. Read nothing about `tftp://` from it.
 
 ## Amendment: how BL-513 reads decisions 5 and 6 (2026-11-05)
 

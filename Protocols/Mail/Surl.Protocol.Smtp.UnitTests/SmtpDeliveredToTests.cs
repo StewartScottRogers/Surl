@@ -19,7 +19,7 @@ public sealed class SmtpDeliveredToTests
 
     public TestContext TestContext { get; set; } = null!;
 
-    private static MailboxStore DomainStore(TimeProvider clock, bool enabled = true, long? annQuota = null) => new(
+    private static MailboxStore DomainStore(TimeProvider clock, bool enabled = true, long? annQuota = null, ISurlEventPublisher? events = null) => new(
         [],
         allowAnonymous: false,
         clock,
@@ -28,7 +28,8 @@ public sealed class SmtpDeliveredToTests
             [Ann, Bob, Cat],
             [new MailAlias("ann2@example.com", [Ann]), new MailAlias("team@example.com", [Ann, Bob]), new MailAlias("pair@example.com", [Bob, Cat])],
             [],
-            annQuota is { } quota ? [new MailboxSettings(Ann, quota, [])] : null))
+            annQuota is { } quota ? [new MailboxSettings(Ann, quota, [])] : null),
+        events: events)
     {
         DeliveredToEnabled = enabled,
     };
@@ -52,6 +53,51 @@ public sealed class SmtpDeliveredToTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RecipientThenAliasReachingAnotherOwner_NeitherCopyNamesTheOthersAddress()
+    {
+        var clock = new ManualTimeProvider();
+        var store = DomainStore(clock);
+
+        await ServeAsync(store, Session(Ann, "team@example.com"), clock, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new[] { Stored(Ann, "team@example.com") }, Inbox(store, Ann).ToList());
+        CollectionAssert.AreEqual(new[] { Stored("team@example.com") }, Inbox(store, Bob).ToList());
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task ServeAsync_RecipientThenAliasReachingAnotherOwner_EachDeliveredEventNamesOnlyItsOwnersPaths(bool enabled)
+    {
+        var clock = new ManualTimeProvider();
+        var events = new RecordingSurlEventPublisher();
+        var store = DomainStore(clock, enabled, events: events);
+
+        await ServeAsync(store, Session(Ann, "team@example.com"), clock, TestContext.CancellationToken);
+
+        var delivered = events.Events.OfType<StoreChangedEvent>().ToDictionary(change => change.Name, change => change.DeliveredFor!.ToList());
+        Assert.HasCount(2, delivered);
+        CollectionAssert.AreEqual(new[] { Ann, "team@example.com" }, delivered[MailStoreChangeName.ForMessage(Ann, "INBOX", 1)]);
+        CollectionAssert.AreEqual(new[] { "team@example.com" }, delivered[MailStoreChangeName.ForMessage(Bob, "INBOX", 1)]);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task ServeAsync_AnonymousOwner_EachDeliveredEventNamesItsRecipientsOwnPath(bool enabled)
+    {
+        var clock = new ManualTimeProvider();
+        var events = new RecordingSurlEventPublisher();
+        var store = new MailboxStore([], allowAnonymous: true, clock, events: events) { DeliveredToEnabled = enabled };
+
+        await ServeAsync(store, Session("p@y", "q@y"), clock, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(
+            new[] { "p@y", "q@y" },
+            events.Events.OfType<StoreChangedEvent>().Select(change => change.DeliveredFor!.Single()).ToList());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_TwoOwners_EachCopyNamesOnlyItsOwnAddresses()
     {
         var clock = new ManualTimeProvider();
@@ -64,14 +110,14 @@ public sealed class SmtpDeliveredToTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_PartlyOverlappingAliases_EachCopyNamesTheAddressesThatReachedItsOwners()
+    public async Task ServeAsync_PartlyOverlappingAliases_EachCopyNamesOnlyTheAddressesThatReachedItsOwner()
     {
         var clock = new ManualTimeProvider();
         var store = DomainStore(clock);
 
         await ServeAsync(store, Session("team@example.com", "pair@example.com"), clock, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new[] { Stored("team@example.com", "pair@example.com") }, Inbox(store, Ann).ToList());
+        CollectionAssert.AreEqual(new[] { Stored("team@example.com") }, Inbox(store, Ann).ToList());
         CollectionAssert.AreEqual(new[] { Stored("team@example.com", "pair@example.com") }, Inbox(store, Bob).ToList());
         CollectionAssert.AreEqual(new[] { Stored("pair@example.com") }, Inbox(store, Cat).ToList());
     }

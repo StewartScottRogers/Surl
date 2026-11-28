@@ -45,6 +45,7 @@ public sealed class MailAuthenticationContractTests
         Assert.IsNull(start.InitialResponse);
         Assert.IsNull(start.TlsSession);
         Assert.IsFalse(start.CanCarrySecurityLayer);
+        Assert.IsFalse(start.CanCarryAdditionalSuccessData);
     }
 
     [TestMethod]
@@ -53,6 +54,16 @@ public sealed class MailAuthenticationContractTests
         var start = new SaslExchangeStart("ldap", "DIGEST-MD5", null, null, CanCarrySecurityLayer: true);
 
         Assert.IsTrue(start.CanCarrySecurityLayer);
+        Assert.IsFalse(start.CanCarryAdditionalSuccessData);
+    }
+
+    [TestMethod]
+    public void SaslExchangeStart_CanCarryAdditionalSuccessData_KeepsItWithoutASecurityLayer()
+    {
+        var start = new SaslExchangeStart("xmpp", "SCRAM-SHA-256", null, null, CanCarryAdditionalSuccessData: true);
+
+        Assert.IsTrue(start.CanCarryAdditionalSuccessData);
+        Assert.IsFalse(start.CanCarrySecurityLayer);
     }
 
     [TestMethod]

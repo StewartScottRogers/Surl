@@ -104,17 +104,18 @@ public sealed partial class MessageBus
     }
 
     /// <summary>
-    /// The names of the queues bound to <paramref name="topic"/> whose <see cref="QueueChangeName"/> an
-    /// out-of-space rule matches, so each refuses only its own copy of a publish. Asked before the
-    /// bus's lock is taken, since the plan may run a test's code.
+    /// The names of the queues that would take a copy of a publish on <paramref name="topic"/> through
+    /// <paramref name="publisher"/> and whose <see cref="QueueChangeName"/> an out-of-space rule
+    /// matches, so each refuses only its own copy. A queue excluding the publisher is not asked about.
+    /// Asked before the bus's lock is taken, since the plan may run a test's code.
     /// </summary>
-    private List<string> BoundQueueNamesRefusedByFault(string topic, string? account)
+    private List<string> BoundQueueNamesRefusedByFault(string topic, BusConnection? publisher, string? account)
     {
         var topicLevels = CanonicalTopicName.SplitLevels(topic);
         string[] boundNames;
         lock (stateLock)
         {
-            boundNames = [.. queues.Values.Where(queue => queue.IsBoundTo(topicLevels)).Select(queue => queue.Name)];
+            boundNames = [.. queues.Values.Where(queue => queue.TakesCopyOf(topicLevels, publisher)).Select(queue => queue.Name)];
         }
 
         return [.. boundNames.Where(name => IsOutOfSpace(account, QueueChangeName(name)))];

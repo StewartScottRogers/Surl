@@ -49,14 +49,14 @@ internal sealed class OciRegistryServerHarness
     {
     }
 
-    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true, bool drawsSessionIds = false, IFaultPlan? storeFaults = null)
+    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true, bool drawsSessionIds = false, IFaultPlan? storeFaults = null, bool drawsTokens = false)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
         CountingFileSystem = new UnitTestCountingContentFileSystem(FileSystem);
         Store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, options, [.. shares.Select(share => share(FileSystem))], [], Events, storeFaults);
         MetadataIndex = keepsMetadataIndex ? new ObjectMetadataIndex(CountingFileSystem, InMemoryContentFileSystem.RootPath, persists: false) : null;
-        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, drawsSessionIds ? null : () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex);
+        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, drawsSessionIds ? null : () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex, drawsTokens ? null : new CountingRandomNumberGenerator());
     }
 
     /// <summary>
@@ -110,7 +110,7 @@ internal sealed class OciRegistryServerHarness
     public TlsSession? TlsSession { get; set; }
 
     /// <summary>
-    /// Where each exchange's random bytes, and so each token, come from.
+    /// Where each exchange's identifier bytes come from unless <see cref="IdentifierSource"/> is set.
     /// </summary>
     public CountingIdentifierRandom Random { get; } = new();
 
@@ -142,6 +142,12 @@ internal sealed class OciRegistryServerHarness
     /// A registry that allows uploads and draws upload session UUIDs from the exchange's identifier source, as production does.
     /// </summary>
     public static OciRegistryServerHarness DrawingSessionIds(Surl.Protocol.Abstractions.IIdentifierRandom? source = null) => new(OciTokenBook.MaxLiveTokens, new ContentExposureOptions { AllowUploads = true }, [], drawsSessionIds: true) { IdentifierSource = source };
+
+    /// <summary>
+    /// A registry whose token endpoint draws tokens from the source production uses, while its
+    /// exchanges draw identifiers from <paramref name="identifiers"/>.
+    /// </summary>
+    public static OciRegistryServerHarness DrawingTokens(Surl.Protocol.Abstractions.IIdentifierRandom identifiers) => new(OciTokenBook.MaxLiveTokens, new ContentExposureOptions(), [], drawsTokens: true) { IdentifierSource = identifiers };
 
     /// <summary>
     /// A registry that accepts uploads, with a read-only share <c>ro</c> already holding the
@@ -277,6 +283,11 @@ internal sealed class OciRegistryServerHarness
     public static string Sha256Of(byte[] bytes) => "sha256:" + Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     public static string Sha256Of(string text) => Sha256Of(Encoding.UTF8.GetBytes(text));
+
+    /// <summary>
+    /// The token in a token endpoint's answer, for a server whose tokens a test cannot know beforehand.
+    /// </summary>
+    public static string TokenIn(byte[] answer) => Encoding.UTF8.GetString(answer).Split("{\"token\":\"")[1].Split('"')[0];
 
     /// <summary>
     /// The error body the specification gives a code and message.

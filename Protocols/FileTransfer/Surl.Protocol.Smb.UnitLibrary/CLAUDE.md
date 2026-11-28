@@ -14,7 +14,8 @@ serving and receiving files through the content store.
 What exists (BL-290, BL-296 to BL-298, ADR-0073 decisions 1 to 8):
 
 - `SmbProtocolServer` - the public `IConnectionProtocolServer`, claiming `smb` and `smbs` itself
-  (`smbs` arrives already secured by the engine, so `Surl.Console` registers it once, with no
+  (`smbs` arrives already secured by the engine, so `Surl.Composition`'s
+  `ProtocolServerRegistrations.Original` registers it once for both, with no
   `ImplicitTlsSchemeServer`). Takes the `ContentStore`, the `ISmbAuthenticationPolicy` and an
   optional `ISmbChallengeSource` (`SmbSystemChallengeSource`, the operating system's generator,
   when none is given), and runs one `SmbExchange` per connection.

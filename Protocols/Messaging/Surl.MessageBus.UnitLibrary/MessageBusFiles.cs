@@ -27,8 +27,12 @@ namespace Surl.MessageBus;
 /// (<see cref="BusMessage.HighPriority"/>), no other bit. When any queue has a subscription
 /// description (ADR-0146, decision 3.2) the index starts with
 /// <see cref="QueueIndexWithDescriptionsHeader"/> instead, and each queue's name is followed by a
-/// byte, <c>0x00</c> for no description or <c>0x01</c> then the description; otherwise it is written
-/// as above, so a bus holding none writes what earlier builds read. A queue message file:
+/// byte, <c>0x00</c> for no description or <c>0x01</c> then the description; a bus holding none writes
+/// it as above, so it writes what earlier builds read. When any queue excludes a
+/// publisher (ADR-0146, Amendment 3) the index starts with
+/// <see cref="QueueIndexWithExcludedPublishersHeader"/>, and every queue's description byte and
+/// description are followed by <c>0x00</c> for no excluded publisher or <c>0x01</c> then its name;
+/// only a queue with a description excludes one. A queue message file:
 /// <see cref="QueueMessageHeader"/> and the message. A log file: <see cref="LogHeader"/>, the
 /// topic, the log start offset (8 bytes), then each held record's message in offset order.
 /// <see cref="OffsetsFileName"/> (ADR-0145, decision 4): <see cref="OffsetsHeader"/>, the entry
@@ -66,8 +70,8 @@ public sealed class MessageBusFiles
 
     private const byte RedeliveredMark = 0x01;
     private const byte HighPriorityMark = 0x02;
-    private const byte NoDescriptionMark = 0x00;
-    private const byte DescriptionMark = 0x01;
+    private const byte NoStringFollowsMark = 0x00;
+    private const byte StringFollowsMark = 0x01;
 
     /// <summary>The queue message files' folder name in <see cref="QueuesFolderName"/>: <c>messages</c>.</summary>
     public const string QueueMessagesFolderName = "messages";
@@ -93,6 +97,14 @@ public sealed class MessageBusFiles
     public const string MalformedMqttRetainedFileReason = "not a retained-message file";
 
     private readonly IContentFileSystem fileSystem;
+
+    // The queues/index forms, each holding what the one before holds and one field more per queue.
+    private enum QueueIndexForm
+    {
+        Plain,
+        WithDescriptions,
+        WithExcludedPublishers,
+    }
 
     /// <summary>
     /// Creates the bus's files under <paramref name="surlFolderPath"/>, read and written through
@@ -125,8 +137,13 @@ public sealed class MessageBusFiles
     public static ReadOnlySpan<byte> QueueIndexHeader => "SURL-BUS-QUEUES-1\n"u8;
 
     /// <summary>The 18 ASCII bytes <c>queues/index</c> starts with when any queue in it has a
-    /// subscription description (ADR-0146, decision 3.2): <c>SURL-BUS-QUEUES-2</c> and a line feed.</summary>
+    /// subscription description (ADR-0146, decision 3.2) and none excludes a publisher:
+    /// <c>SURL-BUS-QUEUES-2</c> and a line feed.</summary>
     public static ReadOnlySpan<byte> QueueIndexWithDescriptionsHeader => "SURL-BUS-QUEUES-2\n"u8;
+
+    /// <summary>The 18 ASCII bytes <c>queues/index</c> starts with when any queue in it excludes a
+    /// publisher (ADR-0146, Amendment 3): <c>SURL-BUS-QUEUES-3</c> and a line feed.</summary>
+    public static ReadOnlySpan<byte> QueueIndexWithExcludedPublishersHeader => "SURL-BUS-QUEUES-3\n"u8;
 
     /// <summary>The 19 ASCII bytes a queue message file starts with: <c>SURL-BUS-MESSAGE-1</c> and a line feed.</summary>
     public static ReadOnlySpan<byte> QueueMessageHeader => "SURL-BUS-MESSAGE-1\n"u8;
@@ -186,17 +203,13 @@ public sealed class MessageBusFiles
 
     internal static byte[] EncodeQueueIndex(IReadOnlyCollection<QueueIndexEntry> queues)
     {
-        var withDescriptions = queues.Any(queue => queue.SubscriptionDescription is not null);
-        var writer = new BusFileWriter(withDescriptions ? QueueIndexWithDescriptionsHeader : QueueIndexHeader);
+        var form = FormHolding(queues);
+        var writer = new BusFileWriter(HeaderOf(form));
         writer.WriteCount(queues.Count);
         foreach (var queue in queues.OrderBy(queue => queue.Name, StringComparer.Ordinal))
         {
             writer.WriteString(queue.Name);
-            if (withDescriptions)
-            {
-                WriteSubscriptionDescription(writer, queue.SubscriptionDescription);
-            }
-
+            WriteSubscriptionFields(writer, queue, form);
             writer.WriteCount(queue.Filters.Count);
             foreach (var filter in queue.Filters.Order(StringComparer.Ordinal))
             {
@@ -427,15 +440,15 @@ public sealed class MessageBusFiles
 
     private static List<QueueIndexEntry> DecodeQueueIndex(byte[] bytes)
     {
-        var withDescriptions = bytes.AsSpan().StartsWith(QueueIndexWithDescriptionsHeader);
-        var reader = new BusFileReader(bytes, withDescriptions ? QueueIndexWithDescriptionsHeader : QueueIndexHeader, MalformedFileReason);
+        var form = FormStarting(bytes);
+        var reader = new BusFileReader(bytes, HeaderOf(form), MalformedFileReason);
         var count = reader.ReadCount();
         var queues = new List<QueueIndexEntry>();
         var names = new HashSet<string>(StringComparer.Ordinal);
         var fileNumbers = new HashSet<ulong>();
         for (var index = 0; index < count; index++)
         {
-            var queue = DecodeQueueIndexEntry(reader, fileNumbers, withDescriptions);
+            var queue = DecodeQueueIndexEntry(reader, fileNumbers, form);
             if (!names.Add(queue.Name))
             {
                 throw reader.Malformed();
@@ -447,10 +460,10 @@ public sealed class MessageBusFiles
         return reader.AtEnd ? queues : throw reader.Malformed();
     }
 
-    private static QueueIndexEntry DecodeQueueIndexEntry(BusFileReader reader, HashSet<ulong> fileNumbers, bool withDescriptions)
+    private static QueueIndexEntry DecodeQueueIndexEntry(BusFileReader reader, HashSet<ulong> fileNumbers, QueueIndexForm form)
     {
         var name = reader.ReadString();
-        var description = withDescriptions ? ReadSubscriptionDescription(reader) : null;
+        var (description, excludedPublisherName) = ReadSubscriptionFields(reader, form);
         var filters = new string[reader.ReadCount()];
         for (var index = 0; index < filters.Length; index++)
         {
@@ -463,22 +476,60 @@ public sealed class MessageBusFiles
             messages[index] = DecodeQueueIndexMessage(reader, fileNumbers);
         }
 
-        return name.Length > 0 && filters.All(CanonicalTopicName.IsValidFilter) ? new(name, filters, messages, description) : throw reader.Malformed();
+        return name.Length > 0 && filters.All(CanonicalTopicName.IsValidFilter) ? new(name, filters, messages, description, excludedPublisherName) : throw reader.Malformed();
     }
 
-    private static void WriteSubscriptionDescription(BusFileWriter writer, string? description)
+    // The oldest index form that holds everything the queues have, so earlier builds read it.
+    private static QueueIndexForm FormHolding(IReadOnlyCollection<QueueIndexEntry> queues) =>
+        queues.Any(queue => queue.ExcludedPublisherName is not null) ? QueueIndexForm.WithExcludedPublishers
+        : queues.Any(queue => queue.SubscriptionDescription is not null) ? QueueIndexForm.WithDescriptions
+        : QueueIndexForm.Plain;
+
+    // Any other header reads as the plain form, whose reader then refuses it.
+    private static QueueIndexForm FormStarting(ReadOnlySpan<byte> bytes) =>
+        bytes.StartsWith(QueueIndexWithExcludedPublishersHeader) ? QueueIndexForm.WithExcludedPublishers
+        : bytes.StartsWith(QueueIndexWithDescriptionsHeader) ? QueueIndexForm.WithDescriptions
+        : QueueIndexForm.Plain;
+
+    private static ReadOnlySpan<byte> HeaderOf(QueueIndexForm form) =>
+        form == QueueIndexForm.WithExcludedPublishers ? QueueIndexWithExcludedPublishersHeader
+        : form == QueueIndexForm.WithDescriptions ? QueueIndexWithDescriptionsHeader
+        : QueueIndexHeader;
+
+    // What the form holds between a queue's name and its filters.
+    private static void WriteSubscriptionFields(BusFileWriter writer, QueueIndexEntry queue, QueueIndexForm form)
     {
-        writer.WriteByte(description is null ? NoDescriptionMark : DescriptionMark);
-        if (description is not null)
+        if (form >= QueueIndexForm.WithDescriptions)
         {
-            writer.WriteString(description);
+            WriteOptionalString(writer, queue.SubscriptionDescription);
+        }
+
+        if (form == QueueIndexForm.WithExcludedPublishers)
+        {
+            WriteOptionalString(writer, queue.ExcludedPublisherName);
         }
     }
 
-    private static string? ReadSubscriptionDescription(BusFileReader reader) => reader.ReadByte() switch
+    private static (string? Description, string? ExcludedPublisherName) ReadSubscriptionFields(BusFileReader reader, QueueIndexForm form)
     {
-        NoDescriptionMark => null,
-        DescriptionMark => reader.ReadString(),
+        var description = form >= QueueIndexForm.WithDescriptions ? ReadOptionalString(reader) : null;
+        var excludedPublisherName = form == QueueIndexForm.WithExcludedPublishers ? ReadOptionalString(reader) : null;
+        return excludedPublisherName is null || description is not null ? (description, excludedPublisherName) : throw reader.Malformed();
+    }
+
+    private static void WriteOptionalString(BusFileWriter writer, string? value)
+    {
+        writer.WriteByte(value is null ? NoStringFollowsMark : StringFollowsMark);
+        if (value is not null)
+        {
+            writer.WriteString(value);
+        }
+    }
+
+    private static string? ReadOptionalString(BusFileReader reader) => reader.ReadByte() switch
+    {
+        NoStringFollowsMark => null,
+        StringFollowsMark => reader.ReadString(),
         _ => throw reader.Malformed(),
     };
 
@@ -546,7 +597,7 @@ public sealed class MessageBusFiles
                 messages.Add(new(fileNumber, redelivered, message with { HighPriority = highPriority }));
             }
 
-            queues.Add(new(entry.Name, entry.Filters, messages, entry.SubscriptionDescription));
+            queues.Add(new(entry.Name, entry.Filters, messages, entry.SubscriptionDescription, entry.ExcludedPublisherName));
         }
 
         return queues;

@@ -32,8 +32,10 @@ namespace Surl.Protocol.Abstractions;
 /// The bytes an accepted login sends with its success (RFC 4422 section 5's additional data with
 /// success), before base64 where the server encodes it, such as <c>DIGEST-MD5</c>'s
 /// <c>rspauth=&lt;hex&gt;</c> as LDAP's <c>serverSaslCreds</c> (ADR-0072, decision 4); empty for
-/// none, and always when <see cref="SaslExchangeStart.CanCarrySecurityLayer"/> was
-/// <see langword="false"/>, since the mail servers send such data as a challenge.
+/// none, and always when <see cref="SaslExchangeStart.CanCarrySecurityLayer"/> and
+/// <see cref="SaslExchangeStart.CanCarryAdditionalSuccessData"/> were both
+/// <see langword="false"/>: the mechanism then sends such data as a challenge, as the mail
+/// servers need.
 /// </param>
 public sealed record SaslLoginStep(
     SaslLoginOutcome Outcome,

@@ -222,7 +222,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    [DataRow("--allow-anonymous", "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials")]
+    [DataRow("--allow-anonymous", "surl: warning: --allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)")]
     [DataRow("--allow-plaintext-auth", "surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections")]
     public async Task RunAsync_LooseningSwitch_WritesItsWarningLineToTheLogOnStart(string option, string warning)
     {
@@ -248,7 +248,7 @@ public sealed class CommandLineRunnerAuthenticationTests
             "--self-signed", "--auth", "basic", "--allow-plaintext-auth", "--allow-anonymous", "https://127.0.0.1:0/");
 
         Assert.AreEqual(
-            "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials" + NewLine
+            "surl: warning: --allow-anonymous: most requests and logins are accepted without checking credentials (see surl --help --allow-anonymous)" + NewLine
             + "surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections" + NewLine
             + "surl: warning: --auth: accepted methods are basic" + NewLine
             + "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)" + NewLine,

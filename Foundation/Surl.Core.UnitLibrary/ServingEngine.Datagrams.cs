@@ -117,14 +117,17 @@ public sealed partial class ServingEngine
         }
     }
 
-    // A close=graceful drop on a server with a graceful close of its own (HTTP/3) hands it a flow
-    // that tells it when to close (ADR-0188, amendment 5); every other drop with after-bytes only
-    // stops the flow being heard, and its event says Reset.
+    // A close=graceful drop on a server with a graceful close of its own (QUIC), on a listen URL
+    // it says carries one, hands it a flow that tells it when to close (ADR-0188, amendments 5
+    // and 6); every other drop with after-bytes only stops the flow being heard, and its event
+    // says Reset.
     private IDatagramFlow CutAfterBytes(
         IDatagramFlow flow, FaultRule drop, long afterBytes, AcceptedFlowRoute route, ExchangeDeadlines deadlines,
         ExchangeContext context)
     {
-        var graceful = drop.Close == FaultClose.Graceful && route.Server is IGracefulCutDatagramProtocolServer;
+        var graceful = drop.Close == FaultClose.Graceful
+            && route.Server is IGracefulCutDatagramProtocolServer cuttable
+            && cuttable.ClosesCutFlowsGracefully(route.ListenUrl);
         Action onCut = () => NoteAndPublishAfterBytes(drop, context, afterBytes, graceful);
 
         return graceful

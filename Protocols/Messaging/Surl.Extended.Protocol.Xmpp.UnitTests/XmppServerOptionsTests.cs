@@ -16,7 +16,7 @@ public sealed class XmppServerOptionsTests
     }
 
     [TestMethod]
-    public void Default_HasNoCertificateRefusesPlainTextAndLetsEveryoneIn()
+    public void Default_HasTlsUpgradeUnavailableRefusesPlainTextAndLetsEveryoneIn()
     {
         var options = XmppServerOptions.Default;
 

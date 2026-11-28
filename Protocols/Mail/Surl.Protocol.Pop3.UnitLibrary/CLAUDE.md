@@ -2,57 +2,78 @@
 
 Phase 3. The POP3 server (RFC 1939) that serves each owner's `INBOX` to upstream curl as a
 maildrop, built as
-[ADR-0056](../Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)
+[ADR-0056](../../../Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)
 decides, on the mail store, the maildrop lock and the line machinery of
-[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+[ADR-0050](../../../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
 with the logins of
-[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md).
+[ADR-0049](../../../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md).
 Terms (mail store, owner, anonymous owner, UID and UIDVALIDITY, maildrop, maildrop lock, view,
 CRLF line, reply line, dot-stuffing, STARTTLS discard, SASL mechanism, SASL exchange, APOP
 timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-**URL schemes answered:** `pop3`, and `pop3s` through `Surl.Console`'s
-`ImplicitTlsSchemeServer`: the server claims `pop3` only and tells implicit TLS apart by
-`IConnection.TlsSession`, never by the scheme.
+**URL schemes answered:** `pop3`, and `pop3s`, which `Surl.Composition` registers as an
+`ImplicitTlsSchemeServer` over the `pop3` server: the server claims `pop3` only and tells
+implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
-- `Pop3ProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`-ERR surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
+- `Pop3ProtocolServer`: `IConnectionProtocolServer`, `IConnectionRefusalWriter` and
+  `IExchangeBytesRedactingServer`. `WriteRefusalAsync` answers a refused plaintext `pop3`
+  connection (one past a connection limit) `-ERR surl Too many connections, closing`; a refused
+  `pop3s` connection is closed with no reply (ADR-0006, section 5). `CreateRedactor` returns a
+  `LineBytesRedactor` over `Pop3LineRedactionRule`, which masks the `PASS` argument, an `AUTH`
+  initial response and the answers to `+ ` continuations in the exchange log (ADR-0182,
+  ADR-0183). Its constructor takes the `IAuthenticationPolicy`, the
+  `IMailAuthenticationPolicy` (`Surl.Composition` passes the `pop3` scheme's one
   `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
-  `isTlsUpgradeAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given, and an
-  optional `RandomNumberGenerator` for the `APOP` timestamp.
+  `isTlsUpgradeAvailable`, which `Surl.Composition` sets when a certificate is configured
+  (`--cert` or `--self-signed`) or TLS-SRP is served (ADR-0122 decision 5), and an optional
+  `RandomNumberGenerator` for the `APOP` timestamp.
 - `Pop3Session`: one connection, in the AUTHORIZATION state until a login and the TRANSACTION
   state after it. It greets `+OK surl ready`, followed by an `APOP` timestamp only when the
-  offer's `IsApopOffered` holds as the connection opens (`--auth apop`), then answers each CRLF
-  line read with `CrlfLineReader`, split by `Pop3CommandLine`, from the fixed lines in
+  offer's `IsApopOffered` holds as the connection opens (`--auth apop`) - under an upstream test
+  case, its `REPLY welcome` replaces this greeting, on the case's first connection - then answers
+  each CRLF line read with `CrlfLineReader`, split by `Pop3CommandLine`, from the fixed lines in
   `Pop3Replies`, written with `ReplyLineWriter` (decisions 1 to 4): `CAPA`, `USER`, `PASS`,
   `APOP`, `AUTH`, `STLS`, `STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP` and
   `QUIT`.
+- Upstream test cases (ADR-0080 decision 2): `Pop3UpstreamTestCaseServer`, the POP3 server half
+  of one upstream curl test case, runs a `Pop3ProtocolServer` that plays the case's
+  `MailUpstreamTestCaseReplies`; `Pop3Session.UpstreamTestCase.cs` holds what the case changes in
+  a session: the greeting, `REPLY`'d lines, `CAPA`, logins that accept anyone and a maildrop
+  answered from the case's data with no login. The shipped `surl` never composes it.
 - Logins (decisions 6 and 7): `USER`/`PASS` through `IAuthenticationPolicy.CheckPasswordLoginAsync`,
   `USER` offered in `CAPA` only when the mail policy offers a clear password; `APOP` through
   `IMailAuthenticationPolicy.CheckApopLoginAsync` with the greeting's timestamp; `AUTH` frames
   `StartSaslExchange` (`+ ` continuations, base64, `=`, `*`), and bare `AUTH` lists the offered
   mechanisms. An accepted login takes the owner's maildrop lock (`MailboxStore.LockMaildrop`)
-  before its `+OK`; a locked maildrop is `-ERR [IN-USE]`. A maildrop command before any login
-  asks the policy once about the login with no credentials, and only `--allow-anonymous` lets
-  it on (`-ERR [AUTH] Authentication required` otherwise).
+  before its `+OK`; a locked maildrop is `-ERR [IN-USE]`. Outside an upstream test case, a
+  maildrop command before any login asks the policy about the login with no credentials, and only
+  `--allow-anonymous` lets it on (`-ERR [AUTH] Authentication required` otherwise). The session
+  keeps the answer until an `STLS` upgrade drops it, so after `STLS` the next maildrop command
+  before a login asks: again after a refusal, or for the first time when none had asked yet.
 - The maildrop (decision 5): `Pop3Maildrop` holds the view fixed at the login and the `DELE`
   marks; `RETR` and `TOP` write through `DotStuffedBodyWriter`, `Pop3TopSection` cutting what
   `TOP` sends; `UIDL` gives `<uidvalidity>.<uid>`. Only `QUIT` after a login removes the marked
   messages, and the lock is released however the session ends.
-- Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `Pop3Session.Faults.cs`): every recognized
+- Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `Pop3Session.Faults.cs`): a recognized
   command asks `ExchangeContext.Faults` at `FaultStage.Command` - a maildrop command only once
   its maildrop is open, so a fault never skips the login check - with its verb, the owner whose
   maildrop the session opened, and the listen URL as `Surl.Protocol.Abstractions`' `ReportedListenUrl` writes it; POP3 has no
-  path. An `Error` rule is answered `-ERR <reply>` in place of the command, the maildrop is
-  untouched, a note is logged and one `FaultAppliedEvent` (target: the verb) is published. A
+  path. Under an upstream test case, the maildrop commands answered by its replacement handlers
+  (`STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP`) ask no fault plan, and neither
+  does a `REPLY`'d line. An `Error` rule is answered `-ERR <reply>` in place of the command, which
+  is not run, a note is logged and one `FaultAppliedEvent` (target: the verb) is published. The
+  maildrop command that opens an anonymous session's maildrop - its first, unless an earlier one
+  was refused - has already opened it (lock taken, view fixed) before the plan is asked, so an
+  `Error` rule answers it with the maildrop open. A
   rule with no reply answers `-ERR Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). When the client half-closed or reset during a `Delay` hold, nothing is sent and the session ends, a reset aborting the connection (ADR-0141 amendment 3, BL-1546).
-- `STLS` (decision 8): `+OK Begin TLS negotiation`, then `CrlfLineReader.DiscardBuffered`, then
-  `IConnection.UpgradeToTlsAsync`, and the session starts over with the `USER` forgotten;
-  `-ERR STLS not available` without a certificate, `-ERR Already using TLS` on a TLS
-  connection.
+- `STLS` (decision 8) is refused with the first of these that applies: `-ERR Already logged in`
+  after a login, `-ERR Invalid arguments` with an argument, `-ERR Already using TLS` on a TLS
+  connection, `-ERR STLS not available` when no upgrade is available (`isTlsUpgradeAvailable`
+  false: neither a certificate nor TLS-SRP). Otherwise: `+OK Begin TLS negotiation`, then
+  `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`, and the session starts
+  over with the `USER` forgotten.
 - Limits (decision 9): `-ERR Command line too long, closing` past `--max-line` and
   `-ERR Timeout waiting for a command, closing` past `--head-timeout`, each written within
   `LimitReplyWriteDeadline`, then a close; the idle timeout and maximum duration close the

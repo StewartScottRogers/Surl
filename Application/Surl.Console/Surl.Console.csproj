@@ -22,9 +22,37 @@
       VerifyAotCompatibility target in Directory.Build.props, so incompatible code
       is caught at build time rather than here.
     -->
-    <PublishAot Condition=" '$(PublishAot)' == '' ">true</PublishAot>
+    <PublishAot Condition=" '$(PublishAot)' == '' And '$(_IsPacking)' != 'true' ">true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <!--
+    Packed as one framework-dependent .NET tool package, ID Surly.Surl.Console, command surl, for
+    `dotnet tool install -g Surly.Surl.Console` and `dotnet dnx Surly.Surl.Console` on every platform
+    dotnet runs on (ADR-0191, BL-1984). The native binary ships in the release's surl-<rid> archives
+    instead, which is why packing turns PublishAot off above. release.yml gives the package the tag's
+    version (-p:Version); on a v* tag it attaches the package to the GitHub release and pushes it to
+    nuget.org.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>surl</ToolCommandName>
+    <PackageId>Surly.Surl.Console</PackageId>
+    <Authors>Stewart Scott Rogers</Authors>
+    <Description>surl, the server-side mate of curl: for each request upstream curl makes, surl is the server that answers it. A command line of protocol servers for testing clients against.</Description>
+    <PackageTags>surl; curl; server; testing; cli; http; ftp; smtp; mqtt</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/StewartScottRogers/Surl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/StewartScottRogers/Surl</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Console.UnitTests" />

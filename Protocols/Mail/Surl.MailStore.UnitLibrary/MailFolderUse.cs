@@ -5,7 +5,10 @@ namespace Surl.MailStore;
 /// </summary>
 public static class MailFolderUse
 {
-    /// <summary>Every use in its canonical spelling, a backslash and the attribute's name.</summary>
+    /// <summary>
+    /// Every use in its canonical spelling, a backslash and the attribute's name. Append only: a
+    /// use's position here, counted from 1, is its byte in the mail store index (ADR-0192).
+    /// </summary>
     public static IReadOnlyList<string> All { get; } = [@"\All", @"\Archive", @"\Drafts", @"\Flagged", @"\Junk", @"\Sent", @"\Trash"];
 
     /// <summary>

@@ -17,7 +17,8 @@ internal static class ImapCapabilities
     /// <param name="maxUploadBytes"><c>--max-filesize</c>; 0 means no limit, and no <c>APPENDLIMIT</c>.</param>
     /// <param name="canUpgrade">Whether the connection is plaintext on a server that can upgrade
     /// it, so <c>STARTTLS</c> is offered before a login.</param>
-    /// <param name="isSpecialUseOffered">Whether the store holds a folder use, so <c>SPECIAL-USE CREATE-SPECIAL-USE</c> follow <c>MOVE</c> (ADR-0055, Amendment 1).</param>
+    /// <param name="isSpecialUseOffered">Whether <c>SPECIAL-USE CREATE-SPECIAL-USE</c> follow <c>MOVE</c>:
+    /// whether the store held a folder use when the server was constructed (ADR-0055, Amendment 2).</param>
     /// <returns>The capabilities, space-separated.</returns>
     public static string List(MailLoginOffer? loginOffer, long maxUploadBytes, bool canUpgrade, bool isSpecialUseOffered)
     {

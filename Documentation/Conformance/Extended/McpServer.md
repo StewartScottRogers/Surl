@@ -125,7 +125,7 @@ IDs are:
 | MCP:Surl-Http-1 | MUST | A session answers only the login that opened it; another login naming it gets `404`. | BL-466 |
 | MCP:Surl-Http-2 | MUST | An `initialize` carrying `Mcp-Session-Id` is `400`; one past 1000 sessions is `503` with `Retry-After: 60`. | BL-466 |
 | MCP:Surl-Http-3 | MUST | A body past `--max-message` is `413`, then close. | BL-466 |
-| MCP:Surl-Http-4 | MUST | `mcps` is implicit TLS 1.2 or 1.3 with ALPN `http/1.1`, and needs `--cert` or `--self-signed`. | `CommandLineRunnerExtendedProtocolTests.RunAsync_McpsWithSelfSigned_ListensAtItsDefaultPort`, `RunAsync_McpsWithoutACertificate_ExitsWithCertificateProblem`; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
+| MCP:Surl-Http-4 | MUST | `mcps` is implicit TLS 1.2 or 1.3 with ALPN `http/1.1`, and needs `--cert`, `--self-signed` or TLS-SRP, which is TLS 1.2 only ([ADR-0122](../../Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md) decisions 2 and 5). | `CommandLineRunnerExtendedProtocolTests.RunAsync_McpsWithSelfSigned_ListensAtItsDefaultPort443`, `RunAsync_McpsWithoutACertificate_ExitsWithCertificateProblem`; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
 | MCP:Surl-Http-5 | MUST | Checks run in decision 4.2's order: head, path, `Origin`, authorization, method, headers and session, body. | BL-466 |
 
 ## Authorization ("Base Protocol > Authorization", RFC 9728, RFC 6750)

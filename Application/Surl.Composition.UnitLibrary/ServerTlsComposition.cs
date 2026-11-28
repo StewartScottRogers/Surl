@@ -88,7 +88,12 @@ public sealed class ServerTlsComposition : IDisposable
     /// </summary>
     public QuicServerCertificate? QuicCertificate { get; }
 
-    /// <summary>The <c>--cacert</c> anchors a <c>coaps</c> client certificate must chain to; none when <c>--cacert</c> is not given.</summary>
+    /// <summary>
+    /// The <c>--cacert</c> anchors a client certificate must chain to on the <c>coaps</c> server's DTLS
+    /// handshake and on the HTTP/3 server's (<c>--http3</c>) QUIC handshake; the TCP listeners get the
+    /// same anchors through <see cref="Settings"/>. None when <c>--cacert</c> is not given, when no
+    /// listen URL needs TLS, and under TLS-SRP, which never reads it.
+    /// </summary>
     public IReadOnlyList<X509Certificate2> ClientTrustAnchors { get; }
 
     /// <summary>
