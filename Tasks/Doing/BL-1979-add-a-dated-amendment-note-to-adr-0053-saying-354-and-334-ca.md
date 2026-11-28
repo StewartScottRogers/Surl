@@ -47,3 +47,4 @@ decided it as Amendment 1 does. Recorded text is not rewritten.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
