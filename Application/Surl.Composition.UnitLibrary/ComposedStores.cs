@@ -12,7 +12,7 @@ namespace Surl.Composition;
 /// <summary>
 /// The stores of one composed instance, as a test controls them (ADR-0124, decision 3): the content
 /// store with its object metadata index, the mail store, the message bus and the account book, plus
-/// each further store the instance composes or serves. Seed through the path a protocol writes by;
+/// each further store the instance holds. Seed through the path a protocol writes by;
 /// reset, snapshot and restore one store or all of them together. <c>Surl.Api</c>, <c>Surl.Mcp</c>
 /// and the loopback control endpoint all drive this surface, so they behave alike.
 /// </summary>
@@ -20,10 +20,11 @@ namespace Surl.Composition;
 /// <para>
 /// Reset and snapshot of the whole instance run over every registered store, one at a time, in the
 /// order of <see cref="RegisteredStoreOrder"/>: content, mail, bus and accounts
-/// (<see cref="StoreOrder"/>), then, each only when composed or served, proxy accounts, TLS-SRP
+/// (<see cref="StoreOrder"/>), then, each only when the instance holds it, proxy accounts, TLS-SRP
 /// accounts, the Redis keyspace, the LDAP directory, AMQP 0-9-1 exchanges, Kafka producers,
-/// sessions, DNS zones and uploads. A restore puts back the stores the snapshot holds, in the order
-/// they were taken. The first store that refuses stops the operation with a
+/// sessions, DNS zones and uploads. The Redis keyspace, the LDAP directory and the DNS zones are
+/// held only when a listen URL serves them (ADR-0158, Amendment 1). A restore puts back the stores
+/// the snapshot holds, in the order they were taken. The first store that refuses stops the operation with a
 /// <see cref="ComposedStoreException"/> naming that store; in a reset or restore the stores before
 /// it are already reset or restored.
 /// </para>
@@ -470,8 +471,9 @@ public sealed partial class ComposedStores
     /// <param name="key">The key's bytes.</param>
     /// <returns><see cref="ComposedReadOutcome.Found"/> with the key (its value is <see langword="null"/> for a
     /// type other than string, which is listed and not read); <see cref="ComposedReadOutcome.NotFound"/> for an
-    /// absent or expired key or an instance with no Redis server; <see cref="ComposedReadOutcome.TooLarge"/> for a
-    /// string over <see cref="MaxReadBytes"/>; <see cref="ComposedReadOutcome.Refused"/> for a database outside 0 to 15.</returns>
+    /// absent or expired key, or when no <c>redis</c> or <c>rediss</c> listen URL is served;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> for a string over <see cref="MaxReadBytes"/>;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a database outside 0 to 15.</returns>
     public ComposedReadResult<RedisKeyContents> ReadKey(int database, ReadOnlyMemory<byte> key)
     {
         if (database is < 0 or >= 16)
@@ -500,7 +502,7 @@ public sealed partial class ComposedStores
     /// <param name="after">The last key seen; empty starts at the first.</param>
     /// <param name="limit">The most keys to return, 1 to 1000 (default 100).</param>
     /// <returns>The page; <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a database
-    /// outside 0 to 15; an empty page when the instance composes no Redis server.</returns>
+    /// outside 0 to 15; an empty page when no <c>redis</c> or <c>rediss</c> listen URL is served.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
     public ComposedReadResult<ComposedKeyPage> ListKeys(int database, string pattern, ReadOnlyMemory<byte> after = default, int limit = 100)
     {
@@ -526,8 +528,8 @@ public sealed partial class ComposedStores
     /// <returns>A task that completes once the key is written.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
-    /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full, or this
-    /// instance composes no Redis server.</exception>
+    /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full, or no
+    /// <c>redis</c> or <c>rediss</c> listen URL is served.</exception>
     public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken) =>
         SeedKeyAsync(database, key, value, expiry, keepOnReset: false, cancellationToken);
 
@@ -547,8 +549,8 @@ public sealed partial class ComposedStores
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
     /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full,
-    /// <paramref name="keepOnReset"/> is set and the kept keys have reached the keyspace's bounds, or this
-    /// instance composes no Redis server.</exception>
+    /// <paramref name="keepOnReset"/> is set and the kept keys have reached the keyspace's bounds, or no
+    /// <c>redis</c> or <c>rediss</c> listen URL is served.</exception>
     public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, bool keepOnReset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -566,7 +568,7 @@ public sealed partial class ComposedStores
     /// <param name="cancellationToken">Cancels the seed before it starts.</param>
     /// <returns>A task that completes once the zone is added.</returns>
     /// <exception cref="DnsZoneFileException">The text cannot be a zone, a zone with the apex is held, or the bounds would be passed.</exception>
-    /// <exception cref="InvalidOperationException">This instance composes no DNS server.</exception>
+    /// <exception cref="InvalidOperationException">No <c>dns</c> listen URL is served.</exception>
     public Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken) =>
         SeedZoneAsync(apex, zoneFileText, keepOnReset: false, cancellationToken);
 
@@ -582,7 +584,7 @@ public sealed partial class ComposedStores
     /// <param name="cancellationToken">Cancels the seed before it starts.</param>
     /// <returns>A task that completes once the zone is added.</returns>
     /// <exception cref="DnsZoneFileException">The text cannot be a zone, a zone with the apex is held, or the bounds would be passed.</exception>
-    /// <exception cref="InvalidOperationException">This instance composes no DNS server.</exception>
+    /// <exception cref="InvalidOperationException">No <c>dns</c> listen URL is served.</exception>
     public Task SeedZoneAsync(string apex, string zoneFileText, bool keepOnReset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -596,7 +598,7 @@ public sealed partial class ComposedStores
     /// <c>userPassword</c> value omitted. Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
     /// </summary>
     /// <returns><see cref="ComposedReadOutcome.Found"/> with the LDIF text;
-    /// <see cref="ComposedReadOutcome.NotFound"/> for an instance with no LDAP directory;
+    /// <see cref="ComposedReadOutcome.NotFound"/> when no <c>ldap</c> or <c>ldaps</c> listen URL is served;
     /// <see cref="ComposedReadOutcome.TooLarge"/> when the text is over <see cref="MaxReadBytes"/> bytes.</returns>
     public ComposedReadResult<string> ReadDirectoryLdif()
     {
@@ -616,7 +618,7 @@ public sealed partial class ComposedStores
     /// Lists the apexes of the DNS zones held, in the order they were added, each with its final dot
     /// (<c>example.com.</c>). Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
     /// </summary>
-    /// <returns>The apexes; none for an instance with no DNS zones.</returns>
+    /// <returns>The apexes; none when no <c>dns</c> listen URL is served.</returns>
     public IReadOnlyList<string> ListZoneApexes() =>
         dnsZones is null ? [] : [.. dnsZones.Apexes.Select(apex => apex.ToString())];
 
@@ -626,7 +628,7 @@ public sealed partial class ComposedStores
     /// </summary>
     /// <param name="apex">The zone's apex, with or without its final dot.</param>
     /// <returns><see cref="ComposedReadOutcome.Found"/> with the zone-file text;
-    /// <see cref="ComposedReadOutcome.NotFound"/> when no zone has the apex or the instance holds no DNS zones;
+    /// <see cref="ComposedReadOutcome.NotFound"/> when no zone has the apex or no <c>dns</c> listen URL is served;
     /// <see cref="ComposedReadOutcome.TooLarge"/> when the text is over <see cref="MaxReadBytes"/> bytes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="apex"/> is <see langword="null"/>.</exception>
     public ComposedReadResult<string> ReadZone(string apex)
@@ -653,8 +655,8 @@ public sealed partial class ComposedStores
     /// <param name="cancellationToken">Cancels the seed before it starts.</param>
     /// <returns>A task that completes once the entries are added.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add, or this
-    /// instance composes no LDAP directory.</exception>
+    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add, or no
+    /// <c>ldap</c> or <c>ldaps</c> listen URL is served.</exception>
     public Task SeedEntriesAsync(string ldif, CancellationToken cancellationToken) =>
         SeedEntriesAsync(ldif, keepOnReset: false, cancellationToken);
 
@@ -672,7 +674,7 @@ public sealed partial class ComposedStores
     /// <returns>A task that completes once the entries are added.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">The text is not LDIF content the directory, or for a kept seed
-    /// the directory a reset returns to, can add, or this instance composes no LDAP directory.</exception>
+    /// the directory a reset returns to, can add, or no <c>ldap</c> or <c>ldaps</c> listen URL is served.</exception>
     public Task SeedEntriesAsync(string ldif, bool keepOnReset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -62,7 +62,7 @@ public sealed class SurlServerZones
     /// added. Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
     /// </summary>
     /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The apexes; none when no DNS server is composed.</returns>
+    /// <returns>The apexes; none when no <c>dns</c> listen URL is served.</returns>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -79,7 +79,7 @@ public sealed class SurlServerZones
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The zone-file text.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="apex"/> is null.</exception>
-    /// <exception cref="SurlNotFoundException">No zone has the apex, or no DNS server is composed.</exception>
+    /// <exception cref="SurlNotFoundException">No zone has the apex, or no <c>dns</c> listen URL is served.</exception>
     /// <exception cref="SurlReadRefusedException">The text is past 16 MiB.</exception>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
     public Task<string> ReadAsync(string apex, CancellationToken cancellationToken = default)

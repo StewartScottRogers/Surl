@@ -24,7 +24,7 @@ public sealed class SurlServerDirectory
     /// </summary>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The LDIF text: <c>version: 1</c> then each entry, seeded and configured alike.</returns>
-    /// <exception cref="SurlNotFoundException">No LDAP server is composed.</exception>
+    /// <exception cref="SurlNotFoundException">No <c>ldap</c> or <c>ldaps</c> listen URL is served.</exception>
     /// <exception cref="SurlReadRefusedException">The LDIF is past 16 MiB.</exception>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
     public Task<string> ExportLdifAsync(CancellationToken cancellationToken = default)

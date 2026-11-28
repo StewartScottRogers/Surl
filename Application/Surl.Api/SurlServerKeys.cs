@@ -53,7 +53,8 @@ public sealed class SurlServerKeys
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The key: its string value, type, size and expiry (no value for another type).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="key"/> is null.</exception>
-    /// <exception cref="SurlNotFoundException">The key is absent or expired, or no Redis server is composed.</exception>
+    /// <exception cref="SurlNotFoundException">The key is absent or expired, or no <c>redis</c> or <c>rediss</c>
+    /// listen URL is served.</exception>
     /// <exception cref="SurlReadRefusedException">The database is outside 0 to 15, or the value is past 16 MiB.</exception>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
     public Task<SurlKeyContents> GetAsync(string key, int database = 0, CancellationToken cancellationToken = default)
@@ -70,7 +71,8 @@ public sealed class SurlServerKeys
     /// <param name="database">The database, 0 to 15.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The key: its string value, type, size and expiry (no value for another type).</returns>
-    /// <exception cref="SurlNotFoundException">The key is absent or expired, or no Redis server is composed.</exception>
+    /// <exception cref="SurlNotFoundException">The key is absent or expired, or no <c>redis</c> or <c>rediss</c>
+    /// listen URL is served.</exception>
     /// <exception cref="SurlReadRefusedException">The database is outside 0 to 15, or the value is past 16 MiB.</exception>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
     public Task<SurlKeyContents> GetAsync(ReadOnlyMemory<byte> key, int database = 0, CancellationToken cancellationToken = default)
@@ -94,7 +96,7 @@ public sealed class SurlServerKeys
     /// <param name="limit">The most keys to return, 1 to 1000.</param>
     /// <param name="database">The database, 0 to 15.</param>
     /// <param name="cancellationToken">Cancels the listing.</param>
-    /// <returns>The page; empty when no Redis server is composed.</returns>
+    /// <returns>The page; empty when no <c>redis</c> or <c>rediss</c> listen URL is served.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is null.</exception>
     /// <exception cref="SurlReadRefusedException">The limit is outside 1 to 1000 or the database outside 0 to 15.</exception>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>

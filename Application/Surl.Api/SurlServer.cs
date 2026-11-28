@@ -211,17 +211,20 @@ public sealed class SurlServer : IAsyncDisposable
 
     /// <summary>
     /// Returns every store the server holds to its state at start (ADR-0124, decision 3), one at a time in this
-    /// order: the content store, the mail store, the message bus and the accounts, then, each only when composed or
-    /// served, the proxy accounts, the TLS-SRP accounts, the Redis keyspace, the LDAP directory, the AMQP 0-9-1
-    /// exchanges, the Kafka producers, the sessions, the DNS zones and the uploads.
+    /// order: the content store, the mail store, the message bus and the accounts, then, each only when the server
+    /// holds it, the proxy accounts, the TLS-SRP accounts, the Redis keyspace, the LDAP directory, the AMQP 0-9-1
+    /// exchanges, the Kafka producers, the sessions, the DNS zones and the uploads. The server holds the Redis
+    /// keyspace, the LDAP directory and the DNS zones only when a listen URL serves them (ADR-0158, Amendment 1).
+    /// A server with a data directory (<see cref="SurlServerOptions.DataDirectory"/>) or a share on disk refuses the
+    /// reset and resets nothing.
     /// <para>
-    /// Afterwards the content store holds the files <see cref="SurlServerOptions.Files"/> gave and no others; the
+    /// After a reset the content store holds the files <see cref="SurlServerOptions.Files"/> gave and no others; the
     /// configured mailboxes hold no messages (each with a new <c>UIDVALIDITY</c>); the configured topics and queues
     /// hold no messages; the accounts, proxy accounts and TLS-SRP accounts are exactly those given at start; the
     /// Redis databases hold the keys <see cref="SurlServerOptions.RedisKeys"/> gave and no others, each expiry
-    /// measured again from the reset; the LDAP directory holds the entries read from the data directory at start and
-    /// those <see cref="SurlServerOptions.DirectoryLdif"/> gave; the DNS zones are those read from the data directory
-    /// at start and those <see cref="SurlServerOptions.DnsZones"/> gave; no client-declared AMQP 0-9-1
+    /// measured again from the reset; the LDAP directory holds the entries
+    /// <see cref="SurlServerOptions.DirectoryLdif"/> gave and no others; the DNS zones are those
+    /// <see cref="SurlServerOptions.DnsZones"/> gave and no others; no client-declared AMQP 0-9-1
     /// exchange or binding remains; and the Kafka brokers hold no producer state and no consumer group.
     /// </para>
     /// <para>
@@ -241,9 +244,11 @@ public sealed class SurlServer : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancels a wait for the content store or for an object server's uploads.</param>
     /// <returns>A task that completes once every store is reset.</returns>
-    /// <exception cref="InvalidOperationException">A store refused; the message names it, and the stores before it are
-    /// reset. A content store on disk (<see cref="SurlServerOptions.DataDirectory"/> or a share) refuses, as the
-    /// uploads then would; being first, it leaves every store as it was.</exception>
+    /// <exception cref="InvalidOperationException">A store refused; the message starts with its name, and the stores
+    /// before it are reset. A server with a data directory (<see cref="SurlServerOptions.DataDirectory"/>) or a share
+    /// on disk is refused by the content store (<c>Content: </c>), first in the order, so every store is as it was. The
+    /// mail store (<c>Mail: </c>), second, refuses when the clock (<see cref="SurlServerOptions.TimeProvider"/>) is so
+    /// near 2106-02-07T06:28:15Z that the mailboxes cannot all get a new <c>UIDVALIDITY</c>.</exception>
     public Task ResetAsync(CancellationToken cancellationToken = default) =>
         composedServing.Stores.ResetAsync(cancellationToken);
 
