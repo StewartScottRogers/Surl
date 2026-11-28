@@ -60,7 +60,8 @@ public enum MessageBusOutcome
     QueueFlagsDiffer,
 
     /// <summary>The consumer holds no unacknowledged delivery with that tag (AMQP 0-9-1
-    /// <c>406 precondition-failed</c>, "unknown delivery tag"); nothing changed.</summary>
+    /// <c>406 precondition-failed</c>, "unknown delivery tag"); nothing changed. One held under a
+    /// delivery credit and not yet claimed is answered so too.</summary>
     UnknownDeliveryTag,
 
     /// <summary>The log read asked for an offset below the topic's log start offset - retention
@@ -75,9 +76,10 @@ public enum MessageBusOutcome
 
     /// <summary>The configured <c>--topic-access</c> grants do not let the caller do this
     /// (ADR-0102, decision 3.4), or a client tried to delete a declared queue (decision 3.2), or to
-    /// delete or purge a subscription queue without <c>sub</c> on its filters (ADR-0146,
-    /// Amendment 2); nothing changed. A grant refusal is the same answer whether or not the topic
-    /// or queue exists, except that last one, which judges the queue found.</summary>
+    /// get from, consume, delete or purge a subscription queue by name without <c>sub</c> on its
+    /// filters (ADR-0146, Amendments 2 and 5); nothing changed. A grant refusal is the same answer
+    /// whether or not the topic or queue exists, except that last one, which judges the queue
+    /// found.</summary>
     AccessDenied,
 
     /// <summary>A delete asked only if unused found consumers still taking deliveries from the

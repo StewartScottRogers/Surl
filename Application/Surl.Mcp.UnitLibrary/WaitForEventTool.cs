@@ -62,10 +62,10 @@ public static class WaitForEventTool
     }
 
     /// <summary>The refusal of a <c>timeout_ms</c> outside the range.</summary>
-    /// <param name="timeoutMilliseconds">The value given.</param>
+    /// <param name="timeoutAsWritten">The number given, as the caller wrote it.</param>
     /// <returns>The refusal's text.</returns>
-    internal static string TimeoutOutOfRange(long timeoutMilliseconds) =>
-        $"timeout_ms must be {MinTimeoutMilliseconds} to {MaxTimeoutMilliseconds}, not {timeoutMilliseconds}";
+    internal static string TimeoutOutOfRange(string timeoutAsWritten) =>
+        $"timeout_ms must be {MinTimeoutMilliseconds} to {MaxTimeoutMilliseconds}, not {timeoutAsWritten}";
 
     private static async Task<McpToolResult> WaitAsync(RunningSurlServers servers, JsonElement arguments, CancellationToken cancellationToken)
     {
@@ -89,10 +89,11 @@ public static class WaitForEventTool
     private static string? TryReadWait(JsonElement arguments, out EventToolFilter? filter, out TimeSpan timeout)
     {
         filter = null;
-        var timeoutMilliseconds = arguments.TryGetProperty("timeout_ms", out var given) ? given.GetInt64() : DefaultTimeoutMilliseconds;
+        // No schema bound keeps timeout_ms in a long's range, so its range is checked before it is converted.
+        var timeoutMilliseconds = arguments.TryGetProperty("timeout_ms", out var given) ? given.GetDouble() : DefaultTimeoutMilliseconds;
         var isInRange = timeoutMilliseconds is >= MinTimeoutMilliseconds and <= MaxTimeoutMilliseconds;
         timeout = isInRange ? TimeSpan.FromMilliseconds(timeoutMilliseconds) : TimeSpan.Zero;
-        return isInRange ? EventToolFilter.TryRead(arguments, out filter) : TimeoutOutOfRange(timeoutMilliseconds);
+        return isInRange ? EventToolFilter.TryRead(arguments, out filter) : TimeoutOutOfRange(given.GetRawText());
     }
 
     private static void WriteFound(Utf8JsonWriter writer, SurlEvent? found)

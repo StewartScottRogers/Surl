@@ -143,9 +143,11 @@ public sealed class ManualTextTests
             "",
             "    The LDAP server reads its directory from",
             "    <path>/.surl/ldap/directory.ldif, LDIF content records, once at start;",
-            "    a missing file is an empty directory, and a file that cannot be read or",
-            "    is not LDIF the directory can hold exits 37. Without --directory, the",
-            "    directory is empty.",
+            "    with a missing file the directory is empty at start, and a file that",
+            "    cannot be read or is not LDIF the directory can hold exits 37. Without",
+            "    --directory, the directory is empty at start. While surl runs with",
+            "    --control, the endpoint's POST /v1/directory can add entries in memory;",
+            "    the file is never written.",
             "",
             "IN-MEMORY MODE",
             "",
@@ -201,7 +203,12 @@ public sealed class ManualTextTests
             "    or @ and a group's name. Once one is given, every publish and subscribe",
             "    needs a grant. The member @everyone grants every caller, anonymous ones",
             "    included, and is warned. A Kafka consumer group is named $group/<id>",
-            "    and needs sub.",
+            "    and needs sub. A queue is named as the filter $queue/<name>. A queue",
+            "    keeping an AMQP 1.0 durable or shared subscription (surl-subscription-...)",
+            "    needs more: a get, consume, delete or purge of it by name also needs sub",
+            "    on every topic filter it is bound to (a get or consume still needs its",
+            "    $queue/<name> grant), and once any grant is given, one bound to no filter",
+            "    is refused.",
             "",
             "    A topic, a queue, a topic map source or a --topic-access filter given",
             "    twice exits 2 as the command line is read (\"topic <filter> is given",
@@ -258,7 +265,19 @@ public sealed class ManualTextTests
             "    with \"surl: (2) --user-ldap plaintext needs --allow-plaintext-auth\". A %",
             "    in the URL is written %25. A malformed URL, a missing bind password file,",
             "    and an unreadable CA file exit 2, 37 and 77. A group member naming no",
-            "    account is taken as a directory account.",
+            "    account is taken as a directory account. An OCI or MCP token issued to a",
+            "    directory user is honoured, within the token's own lifetime, for at most",
+            "    one hour after the name's last directory login that server accepted:",
+            "    refreshing an MCP token is not a login, so it never extends the hour, and",
+            "    a refused login neither ends nor renews it. Disabling or deleting the user",
+            "    in the directory ends no token already issued. A reset of the sessions",
+            "    ends them all, and so does a restore: on the --control endpoint",
+            "    POST /v1/reset resets the sessions with every other store, but with",
+            "    --directory or --share it is refused and ends none. A name the accounts",
+            "    have held, on any scheme, while surl runs is refused such tokens: its",
+            "    token is honoured only while the accounts name it for that server's",
+            "    scheme, so removing the account refuses its tokens even when the directory",
+            "    knows the name too.",
             "",
             "    --keytab <file> reads Kerberos service keys from an MIT keytab file when",
             "    surl starts, before any listener binds: the version 0x0502 format ktutil,",
@@ -429,11 +448,12 @@ public sealed class ManualTextTests
             "LDAP OPTIONS",
             "",
             "    The LDAP server answers ldap and ldaps listen URLs with LDAPv3: curl's",
-            "    searches are answered from one read-only directory, every search but the",
-            "    root DSE's after a bind. A simple bind over ldap without StartTLS needs",
-            "    --allow-plaintext-auth; the Windows curl's NTLM and DIGEST-MD5 binds need",
-            "    --auth and an account. StartTLS and ldaps need --cert, --self-signed or",
-            "    TLS-SRP. surl --aihelp ldap says how each request is answered.",
+            "    searches are answered from one directory that LDAP clients cannot change,",
+            "    every search but the root DSE's after a bind. A simple bind over ldap",
+            "    without StartTLS needs --allow-plaintext-auth; the Windows curl's NTLM and",
+            "    DIGEST-MD5 binds need --auth and an account. StartTLS and ldaps need",
+            "    --cert, --self-signed or TLS-SRP. surl --aihelp ldap says how each request",
+            "    is answered.",
             "",
             "MCP OPTIONS",
             "",
@@ -903,6 +923,17 @@ public sealed class ManualTextTests
         StringAssert.Contains(words, "amqp for the schemes amqp, amqps, amqp1 and amqp1s,");
         StringAssert.Contains(words, "the SASL GSSAPI logins of the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1 and AMQP 1.0 servers use them too,");
         StringAssert.Contains(words, "The AMQP servers' service is amqp, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before connection.tune-ok, and 65536 for an AMQP 1.0 SASL frame (--max-message when smaller, never below 512; --max-message 0 leaves 65536), so a larger one closes the connection unchecked.");
+    }
+
+    [TestMethod]
+    public void Text_SaysHowLongADirectoryUsersOciOrMcpTokenIsHonoured()
+    {
+        var words = string.Join(' ', ManualText.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        StringAssert.Contains(words, "An OCI or MCP token issued to a directory user is honoured, within the token's own lifetime, for at most one hour after the name's last directory login that server accepted: refreshing an MCP token is not a login, so it never extends the hour, and a refused login neither ends nor renews it.");
+        StringAssert.Contains(words, "Disabling or deleting the user in the directory ends no token already issued.");
+        StringAssert.Contains(words, "A reset of the sessions ends them all, and so does a restore: on the --control endpoint POST /v1/reset resets the sessions with every other store, but with --directory or --share it is refused and ends none.");
+        StringAssert.Contains(words, "A name the accounts have held, on any scheme, while surl runs is refused such tokens: its token is honoured only while the accounts name it for that server's scheme, so removing the account refuses its tokens even when the directory knows the name too.");
     }
 
     [TestMethod]

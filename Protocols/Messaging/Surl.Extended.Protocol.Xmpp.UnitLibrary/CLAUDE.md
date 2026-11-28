@@ -64,9 +64,11 @@ SASL and resource binding (BL-538, ADR-0114 decisions 3 and 4):
 - `XmppSaslLogin` runs one stream's SASL: `<auth/>` must name a mechanism the features offered
   (`malformed-request` without one, `invalid-mechanism` otherwise), its text is base64, `=` for an
   empty initial response and no text for none (`incorrect-encoding` when it does not decode). The
-  policy's `ISaslExchange` runs the mechanism, started with `CanCarrySecurityLayer: true` so SCRAM's
-  server-final message comes back as additional success data and goes in `<success/>` (RFC 6120
-  6.3.10); an empty challenge or success is an empty element. `RefusedCredentials` is
+  policy's `ISaslExchange` runs the mechanism, started with `CanCarryAdditionalSuccessData: true` so
+  SCRAM's server-final message comes back as additional success data and goes in `<success/>` (RFC
+  6120 6.3.10). The server carries no SASL security layer, so it leaves `CanCarrySecurityLayer`
+  `false` and no mechanism offers or grants one (ADR-0125's BL-2015 amendment). An empty challenge or
+  success is an empty element. `RefusedCredentials` is
   `not-authorized`, `RefusedPlaintext` `encryption-required`, `RefusedMechanism`
   `invalid-mechanism`. `<abort/>` is `aborted` and not counted; the third other failure on a stream
   (`encryption-required` before TLS included) is answered, then ends it with `policy-violation`.

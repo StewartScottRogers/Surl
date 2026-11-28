@@ -6,10 +6,13 @@ using System.Text;
 namespace Surl.Protocol.Smtp;
 
 /// <summary>
-/// The two trace fields the server writes ahead of a stored message (ADR-0053, decision 6; RFC
+/// The trace fields the server writes ahead of a stored message (ADR-0053, decision 6; RFC
 /// 5321 section 4.4): <c>Return-Path: &lt;reverse-path&gt;</c> and <c>Received: from
 /// &lt;ehlo-domain&gt; (&lt;address-literal&gt;) by surl with &lt;protocol&gt;;
-/// &lt;date-time&gt;</c>, each ending CRLF.
+/// &lt;date-time&gt;</c>, each ending CRLF. When <see cref="Build"/> is given a list of
+/// delivered-to addresses (the SMTP session gives one only with <c>--mail-delivered-to</c>), it
+/// also writes one <c>Delivered-To: &lt;address&gt;</c> line for each, ending CRLF, ahead of
+/// <c>Return-Path</c> (ADR-0053, Amendment 1).
 /// </summary>
 internal static class SmtpTraceFields
 {
@@ -21,8 +24,12 @@ internal static class SmtpTraceFields
     /// <param name="remoteEndPoint">The peer's end point.</param>
     /// <param name="protocol">RFC 3848's word for the session: <c>SMTP</c>, <c>ESMTP</c>, <c>ESMTPS</c> and so on.</param>
     /// <param name="receivedAt">When the <c>354</c> was sent.</param>
-    /// <returns>The two lines, CRLF after each.</returns>
     /// <param name="deliveredTo">The envelope addresses to write as <c>Delivered-To</c> lines ahead of <c>Return-Path</c>, as sent (RFC 9228); <see langword="null"/> writes none.</param>
+    /// <returns>
+    /// The lines, CRLF after each: when <paramref name="deliveredTo"/> is given, one
+    /// <c>Delivered-To</c> line for each of its addresses, in its order, ahead of
+    /// <c>Return-Path</c>; then the <c>Return-Path</c> line and the <c>Received</c> line.
+    /// </returns>
     public static byte[] Build(string reversePath, byte[] heloDomain, EndPoint remoteEndPoint, string protocol, DateTimeOffset receivedAt, IReadOnlyList<string>? deliveredTo = null)
     {
         var date = receivedAt.UtcDateTime.ToString("ddd, dd MMM yyyy HH:mm:ss +0000", CultureInfo.InvariantCulture);

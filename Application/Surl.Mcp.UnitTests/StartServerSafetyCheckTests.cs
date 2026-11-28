@@ -82,13 +82,16 @@ public sealed class StartServerSafetyCheckTests
     }
 
     [TestMethod]
-    public void FindRefusal_AConfigFileAfterAWordSurlRefuses_IsStillRefused()
+    [DataRow("-Ksurl.conf")]
+    [DataRow("--config")]
+    [DataRow("--config=surl.conf")]
+    public void FindRefusal_AConfigFileAfterAWordSurlRefuses_IsStillRefused(string word)
     {
         var check = new StartServerSafetyCheck(new SurlMcpHostSettings(), new PathConfinement(null));
 
         Assert.AreEqual(
             StartServerSafetyCheck.ConfigFileRule,
-            check.FindRefusal(["http://127.0.0.1:0", "--no-such-option", "-Ksurl.conf"]));
+            check.FindRefusal(["http://127.0.0.1:0", "--no-such-option", word]));
     }
 
     [TestMethod]

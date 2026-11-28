@@ -6,7 +6,10 @@ namespace Surl.Protocol.Dict;
 
 /// <summary>
 /// The DICT server (RFC 2229): greets the client, then answers its command lines one after
-/// another until it sends <c>QUIT</c> or closes the connection. ADR-0011 records the answers.
+/// another until <c>QUIT</c> is answered <c>221 bye</c>, the client closes the connection, a
+/// line is too long or late, a <c>drop</c> fault rule aborts the connection, or a definition
+/// cannot be sent. ADR-0011 records the server's own answers, and ADR-0138 the chosen-error
+/// reply of an <c>error</c> fault rule.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -37,6 +40,15 @@ namespace Surl.Protocol.Dict;
 /// <c>QUIT</c> is answered <c>221 bye</c> and the connection is closed.
 /// </para>
 /// <para>
+/// <b>Fault rules.</b> Each recognized command, <c>QUIT</c> included, first asks the
+/// exchange's fault plan (<see cref="DictCommandFaults"/>; ADR-0124 decision 4, ADR-0138,
+/// ADR-0141). A <c>delay</c> rule holds the command for its <c>ms</c>, or until the client
+/// closes or resets the connection, and the command is then answered as usual. A <c>drop</c>
+/// rule aborts the connection, with nothing written for the command. The status line of an
+/// <c>error</c> rule whose reply fits (<see cref="DictCommandFaults.Fits"/>) answers the
+/// command in place of its own reply, <c>QUIT</c>'s included, and the connection stays open.
+/// </para>
+/// <para>
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/>, its
 /// line ending included, is answered <c>500 line too long</c> and the connection is closed
 /// without reading the rest (ADR-0006, sections 1 and 5). A command line not complete within
@@ -48,8 +60,8 @@ namespace Surl.Protocol.Dict;
 /// connection is never aborted for a limit. A connection past a connection limit is answered
 /// <c>420 server temporarily unavailable</c> by <see cref="WriteRefusalAsync"/>. A client that
 /// closes the connection part way through a line gets no reply. If a definition's file cannot
-/// be read once its <c>151</c> line is sent, the connection is aborted, because the reply can
-/// no longer be completed truthfully.
+/// be read, or its bytes cannot be written, once its <c>151</c> line is sent, the connection
+/// is aborted, because the reply can no longer be completed truthfully.
 /// </para>
 /// </remarks>
 public sealed class DictProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
@@ -82,8 +94,10 @@ public sealed class DictProtocolServer : IConnectionProtocolServer, IConnectionR
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["dict"]);
 
     /// <summary>
-    /// Sends the banner, then answers every command line on <paramref name="connection"/>
-    /// until the client quits or closes it, or a line is too long or late.
+    /// Sends the banner, then answers the command lines on <paramref name="connection"/> until
+    /// <c>QUIT</c> is answered <c>221 bye</c>, the client closes the connection, a line is too
+    /// long or late, a <c>drop</c> fault rule aborts the connection, or a definition cannot be
+    /// read, or its bytes cannot be written, while it is sent (the connection is then aborted).
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>

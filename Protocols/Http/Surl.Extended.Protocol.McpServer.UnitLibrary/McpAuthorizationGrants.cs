@@ -12,9 +12,10 @@ namespace Surl.Extended.Protocol.McpServer;
 /// <param name="randomSource">Where every identifier comes from: <see cref="RandomNumberGenerator" /> in production.</param>
 /// <param name="timeProvider">The clock expiry is measured on.</param>
 /// <param name="accounts">
-/// The policy asked, on each use of an access or refresh token, whether it still honours a token issued to the token's
-/// account (<see cref="IAuthenticationPolicy.HonoursTokenIssuedTo" />): by default a removed account's token is refused
-/// (ADR-0167 decision 4), and a directory user's token may be honoured (ADR-0167 Amendment 3).
+/// The policy asked, on each use of an access or refresh token, whether it honours a token issued to the token's
+/// account (<see cref="IAuthenticationPolicy.HonoursTokenIssuedTo" />): by default only the token of an account the
+/// policy names is honoured, so a removed account's token is refused (ADR-0167 decision 4), as is the token of a name
+/// it never named; a policy may also honour a directory user's token (ADR-0167 Amendment 3).
 /// </param>
 internal sealed class McpAuthorizationGrants(RandomNumberGenerator randomSource, TimeProvider timeProvider, IAuthenticationPolicy accounts)
 {
@@ -92,14 +93,14 @@ internal sealed class McpAuthorizationGrants(RandomNumberGenerator randomSource,
 
     /// <summary>Uses a refresh token, which is then gone: a new one is issued in its place.</summary>
     /// <param name="refreshToken">The refresh token.</param>
-    /// <returns>What it grants, or <see langword="null" /> when it is unknown, used or expired, or the policy no longer honours its account's tokens.</returns>
+    /// <returns>What it grants, or <see langword="null" /> when it is unknown, used or expired, or the policy does not honour a token issued to its account (by default, an account the policy does not name).</returns>
     public McpIssuedToken? RedeemRefreshToken(string refreshToken) =>
         _refreshTokens.Take(refreshToken) is { } token && accounts.HonoursTokenIssuedTo(token.Account) ? token : null;
 
     /// <summary>The account a live access token acts as, when it is bound to the resource it is used at.</summary>
     /// <param name="accessToken">The token the request carried.</param>
     /// <param name="resource">The resource the request reached, <c>&lt;scheme&gt;://&lt;authority&gt;&lt;endpoint&gt;</c>.</param>
-    /// <returns>The account, or <see langword="null" /> when the token is not live, is bound to another resource, or the policy no longer honours its account's tokens.</returns>
+    /// <returns>The account, or <see langword="null" /> when the token is not live, is bound to another resource, or the policy does not honour a token issued to its account (by default, an account the policy does not name).</returns>
     public string? AccountOf(string accessToken, string resource) =>
         _accessTokens.Find(accessToken) is { } token && token.Resource == resource && accounts.HonoursTokenIssuedTo(token.Account) ? token.Account : null;
 }

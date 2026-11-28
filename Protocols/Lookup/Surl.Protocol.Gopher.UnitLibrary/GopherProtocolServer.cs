@@ -6,7 +6,10 @@ namespace Surl.Protocol.Gopher;
 /// <summary>
 /// The Gopher server (RFC 1436): answers the one selector a client sends with a file from the
 /// content store, a menu of a directory, or an error menu, then closes the connection, whose
-/// close marks the end of the reply. ADR-0012 records the answers below.
+/// close marks the end of the reply. A fault rule can hold that answer (<c>delay</c>), replace
+/// it with an error menu carrying the rule's text (<c>error</c>) or abort the connection with
+/// nothing written (<c>drop</c>). ADR-0012 records the server's own answers, and ADR-0138 and
+/// ADR-0141 what fault rules do.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -18,9 +21,12 @@ namespace Surl.Protocol.Gopher;
 /// percent-encoded (<c>%2e%2e</c>), is refused there.
 /// </para>
 /// <para>
-/// Before the content store is asked, the exchange's fault plan is (<see cref="GopherSelectorFaults"/>):
-/// a chosen-error rule for the selector's path is answered with an error menu carrying the rule's
-/// text (ADR-0124 decision 4, ADR-0138).
+/// Before the content store is asked, the exchange's fault plan is (<see cref="GopherSelectorFaults"/>;
+/// ADR-0124 decision 4, ADR-0138, ADR-0141). A <c>delay</c> rule holds the selector for its
+/// <c>ms</c>, or until the client closes or resets the connection, and the selector is then
+/// answered as usual. A <c>drop</c> rule aborts the connection, with nothing written. An
+/// <c>error</c> rule whose reply fits (<see cref="GopherSelectorFaults.Fits"/>) is answered with
+/// an error menu carrying the rule's text, in place of the selector's content.
 /// </para>
 /// <para>
 /// A file is sent as its bytes exactly, with no <c>.</c> line after them and no line-ending
@@ -88,7 +94,8 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["gopher", "gophers"]);
 
     /// <summary>
-    /// Reads the client's selector and answers it, then closes the connection.
+    /// Reads the client's selector and answers it, then closes the connection; a <c>drop</c>
+    /// fault rule aborts the connection with no answer.
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>

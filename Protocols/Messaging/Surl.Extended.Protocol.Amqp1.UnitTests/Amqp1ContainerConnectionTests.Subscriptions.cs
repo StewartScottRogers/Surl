@@ -11,7 +11,9 @@ namespace Surl.Extended.Protocol.Amqp1.UnitTests;
 /// </summary>
 public sealed partial class Amqp1ContainerConnectionTests
 {
-    private static readonly string DurableQueue = Amqp1KeptSubscription.QueueNameFor("client", "durable", isShared: false, isGlobal: false);
+    private static readonly string DurableQueue = Amqp1SubscriptionQueue.QueueNameFor("client", "durable", isShared: false, isGlobal: false);
+
+    private static readonly string SharedDurableQueue = Amqp1SubscriptionQueue.QueueNameFor("client", "durable", isShared: true, isGlobal: false);
 
     [TestMethod]
     public async Task ServeAsync_DurableAttach_IsAnsweredConfigurationAndNeverAndKeepsWhatIsPublishedWhileDetached()
@@ -157,7 +159,7 @@ public sealed partial class Amqp1ContainerConnectionTests
     {
         var bus = Bus();
         await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "connection-close")), BusFrame(new Amqp1Detach(0)));
-        var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "connection-close" }, "news", null);
+        var plan = Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "connection-close" }, "news", null);
         var other = bus.Connect("bob");
         other.DeclareQueue(DurableQueue, new BusQueueFlags(Exclusive: true), plan.Description);
 
@@ -208,7 +210,7 @@ public sealed partial class Amqp1ContainerConnectionTests
     public async Task ServeAsync_ClosedDetachOfASharedLink_DeletesTheSubscriptionOnlyWhenItIsTheLast()
     {
         var bus = Bus();
-        var shared = Amqp1KeptSubscription.QueueNameFor("client", "group|1", isShared: true, isGlobal: false);
+        var shared = Amqp1SubscriptionQueue.QueueNameFor("client", "group|1", isShared: true, isGlobal: false);
         var held = new List<MessageBusOutcome>();
 
         await ServeOnBusAsync(
@@ -329,6 +331,300 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_OneOfTwoSessionsHoldingASharedSessionEndSubscriptionEnds_TheOtherStillReceivesWhatIsPublished()
+    {
+        var (written, _) = await ServeOnBusAsync(
+            Bus(),
+            Open(),
+            Begin(),
+            BusFrame(SharedSessionEndAttach(0, "durable|1")),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+            BusFrame(new Amqp1End()),
+            ChannelOneFrame(SenderAttach(1, "/topic/news")),
+            ChannelOneFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "after")),
+            ChannelOneFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("after", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndWhileADetachedLinksSessionStillHoldsTheSharedSubscription_KeepsItAndWhatIsPublished()
+    {
+        var (written, _) = await ServeOnBusAsync(
+            Bus(),
+            Open(),
+            Begin(),
+            BusFrame(SharedSessionEndAttach(0, "durable|1")),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+            BusFrame(new Amqp1Detach(0)),
+            ChannelOneFrame(new Amqp1End()),
+            BusFrame(SenderAttach(1, "/topic/news")),
+            BusFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "kept")),
+            BusFrame(SharedSessionEndAttach(0, "durable|1")),
+            BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("kept", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndOfTheSessionThatResumedAnUnsharedSessionEndSubscription_KeepsItForTheSessionThatMadeIt()
+    {
+        var (written, _) = await ServeOnBusAsync(
+            Bus(),
+            Open(),
+            Begin(),
+            BusFrame(DurableAttach(0, "/topic/news", "session-end")),
+            BusFrame(new Amqp1Detach(0)),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(DurableAttach(0, "/topic/news", "session-end")),
+            ChannelOneFrame(new Amqp1End()),
+            BusFrame(SenderAttach(1, "/topic/news")),
+            BusFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "kept")),
+            BusFrame(DurableAttach(0, "/topic/news", "session-end")),
+            BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("kept", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    [DataRow((ushort)0, (ushort)1, DisplayName = "the first session first")]
+    [DataRow((ushort)1, (ushort)0, DisplayName = "the second session first")]
+    public async Task ServeAsync_BothSessionsHoldingASharedSessionEndSubscriptionEnd_DeletesIt(ushort endedFirst, ushort endedLast)
+    {
+        var bus = Bus();
+        var connection = new InMemoryConnection(
+            [
+                Open(),
+                Begin(),
+                BusFrame(SharedSessionEndAttach(0, "durable|1")),
+                ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                Amqp1Frame.Carrying(endedFirst, new Amqp1End()).Encode(),
+                Amqp1Frame.Carrying(endedLast, new Amqp1End()).Encode(),
+            ],
+            peerHalfClosesWhenExhausted: false);
+
+        var afterBoth = await InspectOnceWrittenAsync(
+            bus, connection, frame => frame is Amqp1End, 2, () => bus.Connect("alice").InspectQueue(SharedDurableQueue));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterBoth.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndAfterAClosedDetachDestroyedTheSharedSubscriptionAnotherSessionHeld_DeletesTheNewOne()
+    {
+        var bus = Bus();
+        var connection = new InMemoryConnection(
+            [
+                Open(),
+                Begin(),
+                BusFrame(SharedSessionEndAttach(0, "durable|1")),
+                BusFrame(new Amqp1Detach(0)),
+                ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                ChannelOneFrame(new Amqp1Detach(0) { Closed = true }),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                ChannelOneFrame(new Amqp1End()),
+            ],
+            peerHalfClosesWhenExhausted: false);
+
+        var afterSessionEnd = await InspectOnceWrittenAsync(
+            bus, connection, frame => frame is Amqp1End, 1, () => bus.Connect("alice").InspectQueue(SharedDurableQueue));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterSessionEnd.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndAfterTheSharedSubscriptionAnotherSessionHeldWasReplacedAndMadeAgain_DeletesIt()
+    {
+        var bus = Bus();
+        var connection = new InMemoryConnection(
+            [
+                Open(),
+                Begin(),
+                BusFrame(SharedSessionEndAttach(0, "durable|1")),
+                BusFrame(new Amqp1Detach(0)),
+                ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+                ChannelOneFrame(DurableAttach(0, "/topic/weather", "session-end", "durable|2", null, "shared")),
+                ChannelOneFrame(new Amqp1Detach(0)),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                ChannelOneFrame(new Amqp1End()),
+            ],
+            peerHalfClosesWhenExhausted: false);
+
+        var afterSessionEnd = await InspectOnceWrittenAsync(
+            bus, connection, frame => frame is Amqp1End, 1, () => bus.Connect("alice").InspectQueue(SharedDurableQueue));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterSessionEnd.Outcome);
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "unshared, resumed")]
+    [DataRow(true, DisplayName = "shared")]
+    public async Task ServeAsync_SessionEndWhileAnotherSessionsLinkConsumesTheSessionEndSubscription_LeavesItUntilThatSessionEnds(bool shared)
+    {
+        var bus = Bus();
+        var queue = shared ? SharedDurableQueue : DurableQueue;
+        var attach = shared ? SharedSessionEndAttach(0, "durable|1") : DurableAttach(0, "/topic/news", "session-end");
+        byte[][] firstSessionEnds =
+        [
+            Open(),
+            Begin(),
+            BusFrame(attach),
+            BusFrame(new Amqp1Detach(0)),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(attach),
+            BusFrame(new Amqp1End()),
+        ];
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. firstSessionEnds,
+                ChannelOneFrame(SenderAttach(1, "/topic/news")),
+                ChannelOneFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "after")),
+                ChannelOneFrame(Credit(0, deliveryCount: 0, credit: 10)),
+            ]);
+        byte[][] bothSessionsEnd = [.. firstSessionEnds, ChannelOneFrame(new Amqp1End())];
+        var afterBoth = await InspectOnceWrittenAsync(
+            bus,
+            new InMemoryConnection(bothSessionsEnd.Select(frame => (ReadOnlyMemory<byte>)frame), peerHalfClosesWhenExhausted: false),
+            frame => frame is Amqp1End,
+            2,
+            () => bus.Connect("alice").InspectQueue(queue));
+
+        Assert.AreEqual("after", DataOf(Transfers(written).Single().Payload));
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterBoth.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_StaleSubscriptionThatGainsAConsumerBeforeItIsReplaced_IsRefusedResourceLockedAndStays()
+    {
+        var clock = new UnitTestActingOnceTimeProvider();
+        var bus = new MessageBus.MessageBus(clock);
+        var other = bus.Connect("alice");
+        var stale = DurableDescription("/topic/weather", "weather");
+        other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), stale);
+        other.BindQueue(DurableQueue, "weather");
+
+        // The container reads the bus's clock while it judges access: after it inspected the queue, before it deletes it.
+        clock.Act = () => other.ConsumeSubscriptionQueue(DurableQueue, stale, "weather", _ => { }, maxUnacknowledged: 0, exclusive: true);
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 1, stale), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "with another description")]
+    [DataRow(true, DisplayName = "exclusive to the other connection")]
+    public async Task ServeAsync_StaleSubscriptionRedeclaredBeforeItIsReplaced_IsRefusedResourceLockedAndStays(bool exclusive)
+    {
+        var clock = new UnitTestActingOnceTimeProvider();
+        var bus = new MessageBus.MessageBus(clock);
+        var other = bus.Connect("alice");
+        other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), DurableDescription("/topic/weather", "weather"));
+        var redeclared = DurableDescription("/topic/sport", "sport");
+
+        // The container reads the bus's clock while it judges access: after it inspected the queue, before it deletes it.
+        clock.Act = () =>
+        {
+            other.DeleteQueue(DurableQueue);
+            other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: !exclusive, Exclusive: exclusive), redeclared);
+        };
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, redeclared), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SubscriptionAnotherLinkConsumesBetweenTheInspectAndTheConsume_IsRefusedResourceLockedAndStays()
+    {
+        var planned = DurableDescription("/topic/news", "news");
+
+        var (written, other) = await ServeDurableAttachRacedByAsync(other =>
+        {
+            other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), planned);
+            other.BindQueue(DurableQueue, "news");
+            other.ConsumeSubscriptionQueue(DurableQueue, planned, "news", _ => { }, maxUnacknowledged: 0, exclusive: true);
+        });
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 1, planned), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "with the flags the attach asks")]
+    [DataRow(false, DisplayName = "with other flags")]
+    public async Task ServeAsync_SubscriptionDeclaredWithAnotherDescriptionBetweenTheInspectAndTheDeclare_IsRefusedResourceLockedAndStays(bool durable)
+    {
+        var another = DurableDescription("/topic/weather", "weather");
+
+        var (written, other) = await ServeDurableAttachRacedByAsync(
+            other => other.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: durable), another));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, another), other.InspectQueue(DurableQueue));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SubscriptionAnotherConnectionDeclaresExclusiveBetweenTheInspectAndTheDeclare_IsRefusedResourceLockedAndStays()
+    {
+        var planned = DurableDescription("/topic/news", "news");
+
+        var (written, other) = await ServeDurableAttachRacedByAsync(
+            other => other.DeclareQueue(DurableQueue, new BusQueueFlags(Exclusive: true), planned));
+
+        AssertRefusedSubscriptionInUse(written);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, planned), other.InspectQueue(DurableQueue));
+    }
+
+    // A durable attach on /topic/news while no queue of its name exists, with another connection acting
+    // after the container inspected the name and before it declares the queue.
+    private async Task<(List<(Amqp1Performative? Performative, byte[] Payload)> Written, BusConnection Other)> ServeDurableAttachRacedByAsync(Action<BusConnection> act)
+    {
+        var clock = new UnitTestActingOnceTimeProvider();
+        var bus = new MessageBus.MessageBus(clock);
+        var other = bus.Connect("alice");
+
+        // The container reads the bus's clock while it judges access.
+        clock.Act = () => act(other);
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
+        return (written, other);
+    }
+
+    private static void AssertRefusedSubscriptionInUse(List<(Amqp1Performative? Performative, byte[] Payload)> written) =>
+        Assert.AreEqual(
+            new Amqp1Detach(0) { Closed = true, Error = new(Amqp1ErrorCondition.ResourceLocked) { Description = "subscription in use" } },
+            written[3].Performative);
+
+    /// <summary>Calls <see cref="Act"/>, once, the next time the clock is read after it is set.</summary>
+    private sealed class UnitTestActingOnceTimeProvider : TimeProvider
+    {
+        public Action? Act { get; set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            var act = Act;
+            Act = null;
+            act?.Invoke();
+            return DateTimeOffset.UnixEpoch;
+        }
+    }
+
+    private static Amqp1Attach SharedSessionEndAttach(uint handle, string name) =>
+        DurableAttach(handle, "/topic/news", "session-end", name, null, "shared");
+
+    private static byte[] ChannelOneFrame(Amqp1Performative performative, ReadOnlyMemory<byte> payload = default) =>
+        Amqp1Frame.Carrying(1, performative, payload).Encode();
+
+    [TestMethod]
     public async Task ServeAsync_DurableAttachOverAQueueWithNoDescriptionUnderTheSubscriptionsName_ReplacesIt()
     {
         var bus = Bus();
@@ -342,7 +638,7 @@ public sealed partial class Amqp1ContainerConnectionTests
 
     // The description of the durable subscription the link "durable" of the container "client" keeps.
     private static string DurableDescription(string address, string topicFilter) =>
-        Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus(address, false, false) { ExpiryPolicy = "never" }, topicFilter, null).Description;
+        Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus(address, false, false) { Durable = 1, ExpiryPolicy = "never" }, topicFilter, null).Description;
 
     [TestMethod]
     [DataRow("link-detach")]
@@ -425,7 +721,7 @@ public sealed partial class Amqp1ContainerConnectionTests
                 new TopicAccessGrant("weather", "alice", TopicAccessRights.Subscribe),
             ],
         });
-        var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never" }, "news", null);
+        var plan = Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "never" }, "news", null);
         var owner = bus.Connect("bob");
         owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), plan.Description);
         owner.BindQueue(DurableQueue, "news");
@@ -482,7 +778,7 @@ public sealed partial class Amqp1ContainerConnectionTests
 
         if (bound == 2)
         {
-            var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never" }, "news", null);
+            var plan = Amqp1SubscriptionQueue.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { Durable = 1, ExpiryPolicy = "never" }, "news", null);
             bus.Connect().DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true, AutoDelete: true), plan.Description);
         }
 
@@ -511,23 +807,23 @@ public sealed partial class Amqp1ContainerConnectionTests
     [TestMethod]
     public void FromDescription_TextThatIsNotADescription_IsNull()
     {
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", null));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", "not hex"));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode("a string"))));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "only", "two" }))));
-        Assert.IsNull(Amqp1KeptSubscription.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "a", "b", 5, "never", false, false }))));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", null));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", "not hex"));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode("a string"))));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "only", "two" }))));
+        Assert.IsNull(Amqp1SubscriptionQueue.FromDescription("q", Convert.ToHexStringLower(Amqp1Encoder.Encode(new object?[] { "a", "b", 5, "never", false, false }))));
     }
 
     [TestMethod]
     public void QueueNamesFor_ANameWithABar_IsOneNamePerWayOfSharingIt()
     {
-        var names = Amqp1KeptSubscription.QueueNamesFor("client", "group|1");
+        var names = Amqp1SubscriptionQueue.QueueNamesFor("client", "group|1");
 
         Assert.HasCount(3, names);
-        Assert.AreEqual(Amqp1KeptSubscription.QueueNameFor("client", "group|1", false, false), names[0]);
-        Assert.AreEqual(Amqp1KeptSubscription.QueueNameFor("client", "group", true, false), names[1]);
-        Assert.AreEqual(Amqp1KeptSubscription.QueueNameFor("anyone", "group|9", true, true), names[2]);
-        Assert.HasCount(2, Amqp1KeptSubscription.QueueNamesFor("client", "plain").Distinct());
+        Assert.AreEqual(Amqp1SubscriptionQueue.QueueNameFor("client", "group|1", false, false), names[0]);
+        Assert.AreEqual(Amqp1SubscriptionQueue.QueueNameFor("client", "group", true, false), names[1]);
+        Assert.AreEqual(Amqp1SubscriptionQueue.QueueNameFor("anyone", "group|9", true, true), names[2]);
+        Assert.HasCount(2, Amqp1SubscriptionQueue.QueueNamesFor("client", "plain").Distinct());
     }
 
     private static Amqp1Attach DurableAttach(uint handle, string address, string? policy = null, string name = "durable", Amqp1Map? filters = null, params string[] capabilities) =>

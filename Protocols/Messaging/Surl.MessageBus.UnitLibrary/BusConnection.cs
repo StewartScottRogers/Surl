@@ -334,7 +334,8 @@ public sealed class BusConnection : IDisposable
     /// <param name="queueName">The queue's name.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
     /// <see cref="MessageBusOutcome.QueueLocked"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
-    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c> - the
+    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, or, for a
+    /// queue carrying a subscription description, on <see cref="DeleteQueue(string)"/>'s terms - the
     /// delivery, or none when no message was ready, and how many messages are still ready.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
@@ -385,7 +386,11 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="deliver">Called with each delivery, on the same terms as a subscription's
-    /// callback (<see cref="Subscribe"/>). It may acknowledge or reject.</param>
+    /// callback (<see cref="Subscribe"/>). It may acknowledge or reject. A call for a delivery
+    /// assigned while the consumer has a delivery credit
+    /// (<see cref="BusQueueConsumer.SetDeliveryCredit"/>) says only that a delivery was held, to be
+    /// claimed with <see cref="BusQueueConsumer.TryClaimDelivery"/> before it is settled; the one it
+    /// was given may by then have gone back or been claimed.</param>
     /// <param name="maxUnacknowledged">The most deliveries the consumer holds unacknowledged at
     /// once; 0 for no limit.</param>
     /// <param name="exclusive">Whether it must be the queue's only consumer still taking
@@ -398,7 +403,8 @@ public sealed class BusConnection : IDisposable
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
     /// <see cref="MessageBusOutcome.QueueLocked"/>, <see cref="MessageBusOutcome.ExclusiveConsumeRefused"/>,
     /// <see cref="MessageBusOutcome.TooManySubscriptions"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
-    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, when
+    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, or, for a
+    /// queue carrying a subscription description, on <see cref="DeleteQueue(string)"/>'s terms, when
     /// refused - and the consumer.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
@@ -412,9 +418,9 @@ public sealed class BusConnection : IDisposable
     }
 
     /// <summary>
-    /// Makes a consumer of a subscription queue as <see cref="Consume"/> does of any queue, but asks
-    /// for <c>sub</c> on the subscription's topic filter instead of on <c>$queue/&lt;name&gt;</c>
-    /// (ADR-0146, decision 3.7). It consumes only a queue carrying
+    /// Makes a consumer of a subscription queue as <see cref="Consume"/> does of a queue, but asks
+    /// for <c>sub</c> on the subscription's topic filter alone, with no <c>$queue/&lt;name&gt;</c>
+    /// grant (ADR-0146, decision 3.7). It consumes only a queue carrying
     /// <paramref name="subscriptionDescription"/> and bound to <paramref name="topicFilter"/> and
     /// nothing else; the checks and the consume happen under one hold of the bus's lock.
     /// </summary>
@@ -448,8 +454,9 @@ public sealed class BusConnection : IDisposable
 
     /// <summary>
     /// Ends every subscription and consumer the connection holds - each consumer's
-    /// unacknowledged deliveries go back to their queues, marked redelivered - and deletes the
-    /// queues exclusive to it; it can make no more. Disposing it again does nothing.
+    /// unacknowledged deliveries go back to their queues, marked redelivered (one held and not yet
+    /// claimed with the mark it had before it was assigned) - and deletes the queues exclusive to
+    /// it; it can make no more. Disposing it again does nothing.
     /// </summary>
     public void Dispose() => bus.RunAs(Exchange, () => bus.Disconnect(this));
 }

@@ -1,5 +1,6 @@
 using System.Text;
 using Surl.Authentication;
+using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
 using Surl.MailStore;
@@ -196,6 +197,47 @@ public sealed class ComposedStoresTests
     }
 
     [TestMethod]
+    public async Task Stores_WithDirectory_ResettingTheDirectoryAndZonesLeavesTheLoadedContentsAndKeptSeedsAndTheFilesUnchanged()
+    {
+        const string Zone = "$TTL 3600\n@ IN SOA ns.loaded.test. host.loaded.test. 1 7200 3600 1209600 300\nwww IN A 192.0.2.1\n";
+        var disk = new InMemoryContentFileSystem(TimeProvider.System);
+        var state = Path.Join(Path.GetFullPath("served"), ".surl");
+        var ldifFile = await WriteStateFileAsync(
+            disk, Path.Join(state, "ldap"), "directory.ldif", "dn: dc=loaded,dc=test\nobjectClass: domain\ndc: loaded\n");
+        var zoneFile = await WriteStateFileAsync(disk, Path.Join(state, "dns"), "loaded.test.zone", Zone);
+        var ldifBefore = await ReadAllBytesAsync(disk, ldifFile);
+        var zoneBefore = await ReadAllBytesAsync(disk, zoneFile);
+        var start = await SurlServerComposition.ComposeAsync(
+            CommandLineParser.Parse(["--allow-anonymous", "--directory", "served", "ldap://127.0.0.1:0/", "dns://127.0.0.1:5300/"], ["dns"]).CommandLine!,
+            new StartTestSeams().Seams with { DataDirectoryFileSystem = disk, AreExtensionsTurnedOn = true },
+            TestContext.CancellationToken);
+        Assert.IsNull(start.Failure);
+        await using var serving = start.Serving!;
+        var stores = serving.Stores;
+        await stores.SeedEntriesAsync(
+            "dn: ou=kept,dc=loaded,dc=test\nobjectClass: organizationalUnit\nou: kept\n", keepOnReset: true, TestContext.CancellationToken);
+        await stores.SeedEntriesAsync(
+            "dn: ou=dropped,dc=loaded,dc=test\nobjectClass: organizationalUnit\nou: dropped\n", TestContext.CancellationToken);
+        await stores.SeedZoneAsync(
+            "kept.test", Zone.Replace("loaded.test", "kept.test", StringComparison.Ordinal), keepOnReset: true, TestContext.CancellationToken);
+        await stores.SeedZoneAsync(
+            "dropped.test", Zone.Replace("loaded.test", "dropped.test", StringComparison.Ordinal), TestContext.CancellationToken);
+
+        await stores.ResetAsync(StoreKind.Directory, TestContext.CancellationToken);
+        await stores.ResetAsync(StoreKind.Zones, TestContext.CancellationToken);
+
+        var ldif = stores.ReadDirectoryLdif().Value!;
+        StringAssert.Contains(ldif, "dn: dc=loaded,dc=test\n");
+        StringAssert.Contains(ldif, "dn: ou=kept,dc=loaded,dc=test\n");
+        Assert.IsFalse(ldif.Contains("ou=dropped", StringComparison.Ordinal));
+        CollectionAssert.AreEqual(new[] { "loaded.test.", "kept.test." }, stores.ListZoneApexes().ToArray());
+        CollectionAssert.AreEqual(ldifBefore, await ReadAllBytesAsync(disk, ldifFile));
+        CollectionAssert.AreEqual(zoneBefore, await ReadAllBytesAsync(disk, zoneFile));
+        CollectionAssert.AreEqual(new[] { "directory.ldif" }, disk.EnumerateDirectoryEntryNames(Path.Join(state, "ldap")).ToArray());
+        CollectionAssert.AreEqual(new[] { "loaded.test.zone" }, disk.EnumerateDirectoryEntryNames(Path.Join(state, "dns")).ToArray());
+    }
+
+    [TestMethod]
     public async Task Stores_RestoreAsync_RefusesAnotherInstancesSnapshotAndNone()
     {
         await using var first = await ComposeStoresAsync();
@@ -359,6 +401,23 @@ public sealed class ComposedStoresTests
     {
         using var reader = bus.Connect();
         return reader.Subscribe("#", _ => { }, includeRetained: true).RetainedMessages.Count;
+    }
+
+    private async Task<string> WriteStateFileAsync(InMemoryContentFileSystem files, string folder, string name, string text)
+    {
+        files.CreateDirectory(folder);
+        var path = Path.Join(folder, name);
+        await using var stream = files.CreateFileForAsyncWrite(path);
+        await stream.WriteAsync(Encoding.UTF8.GetBytes(text), TestContext.CancellationToken);
+        return path;
+    }
+
+    private async Task<byte[]> ReadAllBytesAsync(InMemoryContentFileSystem files, string path)
+    {
+        await using var stream = files.OpenFileForAsyncRead(path);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, TestContext.CancellationToken);
+        return buffer.ToArray();
     }
 
     private async Task<ContentUploadResult> SeedTextFileAsync(ComposedStores stores, string requestPath, string text)

@@ -75,7 +75,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
   the AMQP 1.0 container for `amqp1` and `amqp1s` (BL-514) - one `Amqp1Container` over the one
   `MessageBus`, `AuthenticationPolicyFor("amqp1")`, an `Amqp1ContainerOptions` of `IdleTimeout` and an
-  `Amqp1SecurityNegotiationOptions` of the policy's `AllowAnonymous` and `IsTlsUpgradeAvailable`;
+  `Amqp1SecurityNegotiationOptions` of the policy's `AllowAnonymous` and `IsTlsUpgradeAvailable`, and
+  `IdentifiersForServer("amqp1")`, which its `container-id` is drawn from (BL-2036);
   `amqp1s` is in `TlsSchemes` as `mqtts` is, and `amqp1` is one of `ServerTlsComposition`'s
   upgradable schemes for its TLS header (ADR-0107 decisions 1 and 7) -
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
@@ -166,7 +167,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   taken); `ResetAsync` and `TakeSnapshotAsync` also take one `StoreKind`. `ComposedStores.StoreOrder` is only its
   first four (content, mail, bus, accounts); others can follow them, each only when composed or served, in this
   order: proxy accounts, TLS-SRP accounts, Redis keyspace, LDAP directory, AMQP 0-9-1 exchanges, Kafka producers,
-  sessions, DNS zones, uploads. The
+  sessions, DNS zones, uploads. The Redis keyspace, the LDAP directory and the DNS zones are held only when a
+  listen URL serves them (`redis` or `rediss`, `ldap` or `ldaps`, `dns`; ADR-0158 Amendment 1). The
   first refusal stops a whole-instance operation with a `ComposedStoreException`
   (an `InvalidOperationException` whose `Store` names the store, the store's own refusal inner). A
   `ComposedSnapshot` holds one snapshot per store, `ByteCount` together, refused past
@@ -176,8 +178,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   a whole-instance reset or snapshot stops at `Content` (a `--share` on disk makes the content store and the
   uploads refuse too); seeding content, mail and the bus is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
-- The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed and a `redis` or `rediss` listen URL is served (never with `SURL_EXTENSIONS=0`; ADR-0158 Amendment 1, BL-1410) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. Tests: `RedisKeyspaceStoreTests`.
-- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed and a `dns` listen URL is served (never with `SURL_EXTENSIONS=0`; BL-1410) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, after the broker stores (which already follow the directory) and before the uploads entry (`StoreKind.Uploads`), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. The LDAP directory likewise is held and registered only when an `ldap` or `ldaps` listen URL is served; a seed of an unserved store is an `InvalidOperationException` (BL-1410). Tests: `DnsZoneStoreTests`, `ServedStoresTests`.
+- The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed and a `redis` or `rediss` listen URL is served (never with `SURL_EXTENSIONS=0`; ADR-0158 Amendment 1, BL-1410) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. A reset drops it unless it was seeded through the overload with `keepOnReset: true` (BL-2030), and then writes it back, its expiry measured again from the reset. Tests: `RedisKeyspaceStoreTests`.
+- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed and a `dns` listen URL is served (never with `SURL_EXTENSIONS=0`; BL-1410) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, after the broker stores (which already follow the directory) and before the uploads entry (`StoreKind.Uploads`), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): a reset returns to them plus every zone seeded with `keepOnReset: true` (BL-2030), drops every other, and writes no file. The LDAP directory likewise is held and registered only when an `ldap` or `ldaps` listen URL is served, and `ComposedStores.SeedEntriesAsync` seeds it: a reset returns to the entries loaded at start plus every seed made with `keepOnReset: true`, writing no file. A seed of an unserved store is an `InvalidOperationException` (BL-1410). The control endpoint seeds through the signatures without the flag, so a reset drops what it seeds. Tests: `DnsZoneStoreTests`, `LdapDirectoryStoreTests`, `ServedStoresTests`, `ComposedStoresTests`.
 - The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
   `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
   `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a
@@ -207,7 +209,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   server-life source for per-server fixes (BL-850); no static state, so instances never share one.
   BL-1001: the start also sets `ComposedProtocolServices.IdentifiersForServer` (the same derivation), which the
   Kafka `KafkaMetadataAnswerer` (`ComposeKafkaMetadataAnswerer`, name `kafka`) and the `NatsServer` (name `nats`) draw
-  their cluster ID and `server_id` from, so a seeded instance repeats them. Tests: `ServerLifeIdentifiersCompositionTests`.
+  their cluster ID and `server_id` from, so a seeded instance repeats them. The `Amqp1Container` (name `amqp1`)
+  draws its `container-id` the same way (BL-2036). Tests: `ServerLifeIdentifiersCompositionTests`.
 
 - CoAP access rules (ADR-0097 decision 6, ADR-0149 amendment 2, BL-1669):
   `ExtendedProtocolServers.CoapAccessRulesFor` counts `coap` private when
@@ -348,7 +351,7 @@ the start compositions are also exercised through `CommandLineRunner` in
 
 - Reading the message bus back (ADR-0164, BL-1198): `ComposedStores.BrowseQueue` (ready messages in delivery order, `afterPosition` cursor, limit 1 to 1000, ready and in-flight counts), `ReadRetainedMessage` and `ReadLog` (records from an offset, `NextOffset`, `HighWatermark`, limit 1 to 1000). An unknown queue, a topic with no retained message and a topic with no log are `NotFound`; an offset outside the log or a bad limit is `Refused`. Nothing is consumed, acknowledged, published or fault-checked. Tests: `ComposedStoresBusReadTests`.
 
-- Reading the Redis keyspace back (ADR-0164 decision 9, BL-1218): `ComposedStores.ReadKey` (database, key bytes; type, size, expiry and a string's value; over `MaxReadBytes` is `TooLarge`) and `ListKeys` (database, `KEYS` glob, `after` cursor, limit 1 to 1000), from `RedisKeyspace.ReadKey`/`ListKeys`, which remove no expired key and publish nothing. No Redis server is `NotFound` for a key and an empty page for a listing. Tests: `ComposedStoresKeyReadTests`, `ComposedControlTargetKeyReadTests`.
+- Reading the Redis keyspace back (ADR-0164 decision 9, BL-1218): `ComposedStores.ReadKey` (database, key bytes; type, size, expiry and a string's value; over `MaxReadBytes` is `TooLarge`) and `ListKeys` (database, `KEYS` glob, `after` cursor, limit 1 to 1000), from `RedisKeyspace.ReadKey`/`ListKeys`, which remove no expired key and publish nothing. When no `redis` or `rediss` listen URL serves the keyspace (with `SURL_EXTENSIONS=0` nothing does), a key is `NotFound` and a listing an empty page. Tests: `ComposedStoresKeyReadTests`, `ComposedControlTargetKeyReadTests`.
 
 - The S3 server's open multipart uploads (ADR-0167, BL-1229): when an `s3` server is composed (never with `SURL_EXTENSIONS=0`) `S3UploadStoreRegistration` joins `StoreKind.Uploads` to the order, last. Reset and restore abort every open upload through `S3ProtocolServer.AbortOpenUploadsAsync` (temporary files deleted, slots freed) and publish one `StoreChangedEvent` named `s3`; snapshot holds 0 bytes. A disk-backed content store (`ContentStore.IsControllable` false) refuses with `InvalidOperationException`. Tests: `S3UploadStoreTests`.
 
@@ -360,8 +363,8 @@ the start compositions are also exercised through `CommandLineRunner` in
 
 - The MCP server's OAuth state and HTTP sessions (ADR-0167, BL-1233): `McpSessionStoreRegistration` joins `StoreKind.Sessions` after the OCI tokens: reset and restore call `McpProtocolServer.ResetOAuthAndSessions` and publish one event named `mcp`; snapshot holds 0 bytes; it never refuses. Tests: `McpSessionStoreTests`.
 
-- Reading the LDAP directory back (ADR-0164 decision 9, BL-1219): `ComposedStores.ReadDirectoryLdif` is `LdapProtocolServer.ExportDirectoryLdif` (`LdifWriter`: `version: 1`, each entry in order, `userPassword` omitted, over 16 MiB `TooLarge`, no LDAP server `NotFound`). Nothing is published or fault-checked. Tests: `ComposedStoresDirectoryReadTests`.
+- Reading the LDAP directory back (ADR-0164 decision 9, BL-1219): `ComposedStores.ReadDirectoryLdif` is `LdapProtocolServer.ExportDirectoryLdif` (`LdifWriter`: `version: 1`, each entry in order, `userPassword` omitted, over 16 MiB `TooLarge`, `NotFound` when no `ldap` or `ldaps` listen URL serves the directory). Nothing is published or fault-checked. Tests: `ComposedStoresDirectoryReadTests`.
 
-- Reading the DNS zones back (ADR-0164 decision 9, BL-1220): `ComposedStores.ListZoneApexes` (each apex with its final dot, in the order added; none without a DNS server) and `ReadZone(apex)` (`DnsZoneSet.ExportZone`: master-file text, a record a line with absolute names, a TTL and class `IN`, RDATA as `DnsZoneFileWriter` writes it; over 16 MiB `TooLarge`, no such zone or no DNS server `NotFound`). Nothing is published or fault-checked. Tests: `ComposedStoresZoneReadTests`, `DnsZoneSetExportZoneTests`.
+- Reading the DNS zones back (ADR-0164 decision 9, BL-1220): `ComposedStores.ListZoneApexes` (each apex with its final dot, in the order added; an empty list when no `dns` listen URL serves the zones, as with `SURL_EXTENSIONS=0`) and `ReadZone(apex)` (`DnsZoneSet.ExportZone`: master-file text, a record a line with absolute names, a TTL and class `IN`, RDATA as `DnsZoneFileWriter` writes it; over 16 MiB `TooLarge`, `NotFound` for no such zone or when no `dns` listen URL serves the zones). Nothing is published or fault-checked. Tests: `ComposedStoresZoneReadTests`, `DnsZoneSetExportZoneTests`.
 
 - Seeded mail and `DeliveredFor` (BL-1515): `ComposedStores.SeedMailAsync` goes through `MailboxStore.Seed`, so each `Seeded` event carries `DeliveredFor` holding the seeded recipient address (brackets removed). `ComposedStores.MailDeliveredToEnabled` reports whether `--mail-delivered-to` is on (the mail store's `DeliveredToEnabled`), so a host reads it instead of copying the option. Tests: `ComposedStoresMailOwnerTests`.

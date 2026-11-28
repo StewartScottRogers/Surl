@@ -36,10 +36,12 @@ public sealed partial class MessageBus
         Publish(message, account: null, publisher: null, onlyToConsumedQueues: false, seed: true);
 
     /// <summary>
-    /// Seeds <paramref name="message"/> into one named queue exactly as
+    /// Seeds <paramref name="message"/> into one named queue as
     /// <see cref="PublishToQueue(string, BusMessage)"/> puts it there - handed to a consumer with room
     /// at once, within the bus's bounds - but never refused by the access grants or the fault plan,
-    /// and then publishes <see cref="StoreChange.Seeded"/> naming <see cref="QueueChangeName"/>.
+    /// and also into a queue carrying a subscription description, which takes no direct send
+    /// (ADR-0146, Amendment 6). It then publishes <see cref="StoreChange.Seeded"/> naming
+    /// <see cref="QueueChangeName"/>.
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
@@ -95,7 +97,8 @@ public sealed partial class MessageBus
     /// Copies the bus's contents into a <see cref="MessageBusSnapshot"/>: the retained messages,
     /// every topic log with its start offset and records, and every queue not exclusive to a
     /// connection with its flags, bindings and messages - an unacknowledged one as it would be
-    /// redelivered. Changes nothing and publishes nothing.
+    /// redelivered, one held and not yet claimed with the redelivered mark it had before it was
+    /// assigned. Changes nothing and publishes nothing.
     /// </summary>
     /// <param name="maxBytes">The most bytes the snapshot may hold (<see cref="MessageBusSnapshot.ByteCount"/>);
     /// at least 0.</param>
@@ -128,9 +131,15 @@ public sealed partial class MessageBus
 
     /// <summary>
     /// Replaces the bus's contents with <paramref name="snapshot"/>'s: its retained messages, its
-    /// logs at the offsets they had, and its queues with their bindings and messages, a message
-    /// then unacknowledged now ready and marked redelivered. Live subscriptions stay and consumers
-    /// are handed the restored messages; a queue the snapshot does not hold is treated as
+    /// logs at the offsets they had, and its queues with their flags, bindings and messages, a
+    /// message then unacknowledged now ready and marked redelivered (one then held and not yet
+    /// claimed with the mark it had before it was assigned). A queue the snapshot holds is
+    /// exclusive to no connection afterwards, whatever live queue held its name. Live
+    /// subscriptions stay, and a queue's consumers are handed its restored messages, unless the
+    /// restore changes the queue's flags or its subscription description (gives it one, takes it
+    /// away or replaces it): then its consumers and get holders end first, receiving nothing
+    /// more, and the messages stay ready (ADR-0146, Amendments 8 and 9). A queue the snapshot
+    /// does not hold is treated as
     /// <see cref="Reset"/> treats one, and every unacknowledged delivery is dropped. Publishes one
     /// <see cref="StoreChange.Restored"/> named <see cref="WholeBusChangeName"/>.
     /// </summary>
@@ -252,6 +261,8 @@ public sealed partial class MessageBus
 
         if (target.Filters is { } filters)
         {
+            EndConsumersIfQueueBecomesAnother(queue, target);
+            queue.BecomeUnownedWith(target.Flags);
             queue.ReplaceBindings(filters);
             queue.SubscriptionDescription = target.SubscriptionDescription;
             queue.ExcludedPublisherName = target.ExcludedPublisherName;
@@ -264,5 +275,19 @@ public sealed partial class MessageBus
         }
 
         Dispatch(queue, now);
+    }
+
+    // A consumer was let onto the queue on what it then was - its description (ADR-0146, Amendment 5)
+    // and, for an exclusive one, its owner - so it is not handed the messages of a queue that has
+    // become another: its consumers and get holders end, and the restored messages wait for a caller
+    // judged on the restored queue (Amendments 8 and 9). Only an exclusive queue has an owner and a
+    // snapshot holds none, so an owned queue always differs in its flags.
+    private void EndConsumersIfQueueBecomesAnother(NamedQueue queue, BusQueueSnapshot target)
+    {
+        if (queue.Flags != target.Flags
+            || !string.Equals(queue.SubscriptionDescription, target.SubscriptionDescription, StringComparison.Ordinal))
+        {
+            EndConsumersDroppingTheirMessages(queue);
+        }
     }
 }

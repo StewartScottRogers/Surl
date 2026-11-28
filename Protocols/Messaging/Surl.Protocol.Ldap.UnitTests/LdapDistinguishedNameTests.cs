@@ -111,6 +111,19 @@ public sealed class LdapDistinguishedNameTests
     }
 
     [TestMethod]
+    [DataRow("", true)]
+    [DataRow(" ", true)]
+    [DataRow("   ", true)]
+    [DataRow("\t", false)]
+    [DataRow(" o=x", false)]
+    [DataRow(" ,", false)]
+    public void NamesTheRootDse_IsTrueExactlyForTheTextsThatParseToTheEmptyDn(string text, bool namesIt)
+    {
+        Assert.AreEqual(namesIt, LdapDistinguishedName.NamesTheRootDse(text));
+        Assert.AreEqual(namesIt, LdapDistinguishedName.TryParse(text, out var dn) && dn.IsRoot);
+    }
+
+    [TestMethod]
     [DataRow("cn")]
     [DataRow("cn=a,")]
     [DataRow("cn=a+")]

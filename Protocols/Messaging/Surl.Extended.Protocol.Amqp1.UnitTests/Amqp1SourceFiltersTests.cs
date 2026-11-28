@@ -44,7 +44,7 @@ public sealed class Amqp1SourceFiltersTests
 
         foreach (var source in sources)
         {
-            var filters = Amqp1SourceFilters.Read(source, isTopic: true)!;
+            var filters = Amqp1SourceFilters.Read(source, appliesNoLocal: true)!;
 
             Assert.IsNull(filters.Applied);
             Assert.IsFalse(filters.NoLocal);
@@ -57,7 +57,7 @@ public sealed class Amqp1SourceFiltersTests
     public void Read_EntriesNotApplied_AreLeftOut()
     {
         var filters = Read(
-            isTopic: false,
+            appliesNoLocal: false,
             ("plain", "not described"),
             ("unknown", new Amqp1Described(new Amqp1Symbol("apache.org:xquery-filter:string"), "/a")),
             ("no-local", Filter(Amqp1SourceFilters.NoLocalFilter, new List<object?>())),
@@ -77,7 +77,7 @@ public sealed class Amqp1SourceFiltersTests
     {
         var entry = Filter(new Amqp1Symbol("apache.org:no-local-filter:list"), new List<object?>());
 
-        var filters = Read(isTopic: true, ("nl", entry));
+        var filters = Read(appliesNoLocal: true, ("nl", entry));
 
         Assert.IsTrue(filters.NoLocal);
         Assert.AreEqual(entry, filters.Applied!.Entries.Single().Value);
@@ -91,13 +91,13 @@ public sealed class Amqp1SourceFiltersTests
     {
         var source = Source(("s", Filter(Amqp1SourceFilters.SelectorFilter, (object?)selector ?? 7L)));
 
-        Assert.IsNull(Amqp1SourceFilters.Read(source, isTopic: false));
+        Assert.IsNull(Amqp1SourceFilters.Read(source, appliesNoLocal: false));
     }
 
     [TestMethod]
     public void Accepts_Selector_SelectsByTheMessagesProperties()
     {
-        var filters = Read(isTopic: false, ("s", Filter(Amqp1SourceFilters.SelectorFilter, "color = 'red'")));
+        var filters = Read(appliesNoLocal: false, ("s", Filter(Amqp1SourceFilters.SelectorFilter, "color = 'red'")));
 
         Assert.IsTrue(filters.Accepts(Message("news", ("color", "red")), null));
         Assert.IsFalse(filters.Accepts(Message("news", ("color", "blue")), null));
@@ -108,7 +108,7 @@ public sealed class Amqp1SourceFiltersTests
     public void Accepts_SeveralFilters_MustAllAccept()
     {
         var filters = Read(
-            isTopic: true,
+            appliesNoLocal: true,
             ("s", Filter(Amqp1SourceFilters.SelectorFilter, "color = 'red'")),
             ("d", Filter(Amqp1SourceFilters.DirectBinding, "news")));
 
@@ -121,7 +121,7 @@ public sealed class Amqp1SourceFiltersTests
     [TestMethod]
     public void Accepts_DirectBinding_MatchesTheSubjectElseTheTopicAsARoutingKey()
     {
-        var filters = Read(isTopic: false, ("d", Filter(Amqp1SourceFilters.DirectBinding, "sensors.temp")));
+        var filters = Read(appliesNoLocal: false, ("d", Filter(Amqp1SourceFilters.DirectBinding, "sensors.temp")));
 
         Assert.IsTrue(filters.Accepts(Message("sensors/temp"), null));
         Assert.IsTrue(filters.Accepts(WithSubject("orders", "sensors.temp"), "orders"));
@@ -131,8 +131,8 @@ public sealed class Amqp1SourceFiltersTests
     [TestMethod]
     public void Accepts_MessageSentStraightToTheQueueWithoutSubject_HasNoRoutingKey()
     {
-        var direct = Read(isTopic: false, ("d", Filter(Amqp1SourceFilters.DirectBinding, "orders")));
-        var topic = Read(isTopic: false, ("t", Filter(Amqp1SourceFilters.TopicBinding, "#")));
+        var direct = Read(appliesNoLocal: false, ("d", Filter(Amqp1SourceFilters.DirectBinding, "orders")));
+        var topic = Read(appliesNoLocal: false, ("t", Filter(Amqp1SourceFilters.TopicBinding, "#")));
 
         Assert.IsFalse(direct.Accepts(Message("orders"), "orders"));
         Assert.IsFalse(topic.Accepts(Message("orders"), "orders"));
@@ -152,7 +152,7 @@ public sealed class Amqp1SourceFiltersTests
     [DataRow("a", "b", false)]
     public void Accepts_TopicBinding_MatchesAsAnAmqp091TopicPattern(string pattern, string routingKey, bool matches)
     {
-        var filters = Read(isTopic: true, ("t", Filter(Amqp1SourceFilters.TopicBinding, pattern)));
+        var filters = Read(appliesNoLocal: true, ("t", Filter(Amqp1SourceFilters.TopicBinding, pattern)));
 
         Assert.AreEqual(matches, filters.Accepts(WithSubject("news", routingKey), null));
     }
@@ -160,7 +160,7 @@ public sealed class Amqp1SourceFiltersTests
     [TestMethod]
     public void Accepts_TopicBindingAndATopicWithNoRoutingKey_DoesNotMatch()
     {
-        var filters = Read(isTopic: true, ("t", Filter(Amqp1SourceFilters.TopicBinding, "#")));
+        var filters = Read(appliesNoLocal: true, ("t", Filter(Amqp1SourceFilters.TopicBinding, "#")));
 
         // A level holding "." cannot be written as an AMQP 0-9-1 word.
         Assert.IsFalse(filters.Accepts(Message("a.b/c"), null));
@@ -169,7 +169,7 @@ public sealed class Amqp1SourceFiltersTests
     [TestMethod]
     public void Accepts_HeadersBindingAll_MatchesEveryEntryButReservedOnes()
     {
-        var filters = Read(isTopic: true, ("h", Filter(Amqp1SourceFilters.HeadersBinding, Arguments(("color", "red"), ("size", null), ("x-other", "ignored"), (5L, "ignored")))));
+        var filters = Read(appliesNoLocal: true, ("h", Filter(Amqp1SourceFilters.HeadersBinding, Arguments(("color", "red"), ("size", null), ("x-other", "ignored"), (5L, "ignored")))));
 
         Assert.IsTrue(filters.Accepts(Message("news", ("color", "red"), ("size", "big")), null));
         Assert.IsFalse(filters.Accepts(Message("news", ("color", "red")), null));
@@ -182,7 +182,7 @@ public sealed class Amqp1SourceFiltersTests
     public void Accepts_HeadersBindingAny_MatchesOneEntry(bool asString)
     {
         object match = asString ? "any" : new Amqp1Symbol("any");
-        var filters = Read(isTopic: true, ("h", Filter(Amqp1SourceFilters.HeadersBinding, Arguments(("x-match", match), ("color", "red"), ("size", "big")))));
+        var filters = Read(appliesNoLocal: true, ("h", Filter(Amqp1SourceFilters.HeadersBinding, Arguments(("x-match", match), ("color", "red"), ("size", "big")))));
 
         Assert.IsTrue(filters.Accepts(Message("news", ("color", "red")), null));
         Assert.IsFalse(filters.Accepts(Message("news", ("color", "blue")), null));
@@ -204,10 +204,10 @@ public sealed class Amqp1SourceFiltersTests
     }
 
     private static Amqp1SourceFilters Headers(params (object Key, object? Value)[] arguments) =>
-        Read(isTopic: true, ("h", Filter(Amqp1SourceFilters.HeadersBinding, Arguments(arguments))));
+        Read(appliesNoLocal: true, ("h", Filter(Amqp1SourceFilters.HeadersBinding, Arguments(arguments))));
 
-    private static Amqp1SourceFilters Read(bool isTopic, params (string Key, object? Value)[] entries) =>
-        Amqp1SourceFilters.Read(Source(entries), isTopic)!;
+    private static Amqp1SourceFilters Read(bool appliesNoLocal, params (string Key, object? Value)[] entries) =>
+        Amqp1SourceFilters.Read(Source(entries), appliesNoLocal)!;
 
     private static Amqp1Described Source(params (string Key, object? Value)[] entries) => new(
         Amqp1Descriptor.Source,

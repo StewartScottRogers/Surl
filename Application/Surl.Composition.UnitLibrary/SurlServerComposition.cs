@@ -17,8 +17,9 @@ namespace Surl.Composition;
 /// The one place protocol servers are composed (ADR-0099, decision 1): every original server
 /// <c>surl</c> registers, with its <see cref="ImplicitTlsSchemeServer"/> second registrations, the
 /// extended servers behind <c>SURL_EXTENSIONS</c>, the content store they serve, the service state
-/// they keep across connections and the connection limits the serving engine enforces. Each host
-/// (<c>surl</c> today) calls it instead of composing them itself.
+/// they keep across connections and the connection limits the serving engine enforces. The hosts
+/// <c>surl</c> (<c>Surl.Console</c>) and <c>Surl.Api</c> call it instead of composing them
+/// themselves; <c>surl-mcp</c> (<c>Surl.Mcp</c>) reaches it through <c>Surl.Api</c>.
 /// </summary>
 /// <remarks>
 /// Public because more than one host calls it, but not a supported programming interface: it may
@@ -586,8 +587,9 @@ public static partial class SurlServerComposition
     /// <summary>
     /// Chooses where the LDAP server's directory is read from: its <see cref="LdapDirectoryFile"/>
     /// in <c>&lt;data directory's full path&gt;/.surl/ldap</c>, read through
-    /// <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so the directory is
-    /// empty (ADR-0072, decision 1).
+    /// <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so no entry comes
+    /// from a file (ADR-0072, decision 1), and the directory is empty only while the host has seeded
+    /// none (ADR-0158, decision 3).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="fileSystem">The file system the content store serves.</param>

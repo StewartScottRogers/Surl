@@ -8,9 +8,11 @@ namespace Surl.Authentication;
 /// SASL <c>EXTERNAL</c>, RFC 4422 appendix A (ADR-0049, sections 4 and 5): one empty challenge
 /// when no initial response was sent, then the response, the authorization identity, possibly
 /// empty. The client is its verified TLS client certificate, named by the certificate's subject
-/// simple name; the login is accepted when an account of exactly that name exists, its password
-/// unused, and the authorization identity is empty or that name as UTF-8 bytes (ordinal): Surl
-/// grants no proxy rights. The policy starts it only on a connection with a client certificate.
+/// simple name; a checked login is accepted when an account of exactly that name exists, its
+/// password unused, and the authorization identity is empty or that name as UTF-8 bytes
+/// (ordinal): Surl grants no proxy rights. Under <c>--allow-anonymous</c> the login is unchecked:
+/// the response is accepted without the account or authorization identity match. The policy starts
+/// the exchange only on a connection with a client certificate.
 /// </summary>
 internal sealed class ExternalSaslExchange(SaslExchangeContext context) : SaslMechanismExchange(context)
 {

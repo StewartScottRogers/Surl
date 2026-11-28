@@ -6,16 +6,18 @@ namespace Surl.Protocol.Dict;
 /// <summary>
 /// Asks the exchange's fault plan, at each DICT command it recognizes, whether to hold it, drop the
 /// connection or answer it with a chosen status line (ADR-0124, decision 4; ADR-0138): the point
-/// names the scheme, the command in capitals and the path (<see cref="PathOf"/>). DICT has no
-/// login, so the point names no account.
+/// names the exchange ID, the listen URL (as <see cref="ReportedListenUrl"/> formats it), the
+/// scheme, the command in capitals and the path (<see cref="PathOf"/>), when the command has one.
+/// DICT has no login, so the point names no account.
 /// </summary>
 /// <remarks>
-/// A <see cref="FaultKind.Delay"/> rule holds the command for its <c>ms</c> and the command is then
-/// answered as usual; a <see cref="FaultKind.Drop"/> rule aborts the connection; a
-/// <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="Fits"/>) is answered in place of
-/// the command. Each publishes one <see cref="FaultAppliedEvent"/> naming the path, or the command
-/// when there is none. A rule of any other kind, or a reply that does not fit, is noted as not
-/// applied and the command is answered as without it.
+/// A <see cref="FaultKind.Delay"/> rule holds the command for its <c>ms</c>, or until the client
+/// closes or resets the connection, and the command is then answered as usual; a
+/// <see cref="FaultKind.Drop"/> rule aborts the connection; a <see cref="FaultKind.Error"/> rule
+/// whose reply fits (<see cref="Fits"/>) is answered in place of the command. Each publishes one
+/// <see cref="FaultAppliedEvent"/> naming the path, or the command when there is none. A rule of any
+/// other kind, or a reply that does not fit, is noted as not applied and the command is answered as
+/// without it.
 /// </remarks>
 internal static class DictCommandFaults
 {

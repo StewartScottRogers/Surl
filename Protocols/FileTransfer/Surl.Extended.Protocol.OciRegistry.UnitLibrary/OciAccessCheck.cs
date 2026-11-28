@@ -13,14 +13,13 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <list type="table">
 /// <item><description>No token, where one is needed: <c>401 UNAUTHORIZED</c>, the Bearer challenge with the scope needed.</description></item>
 /// <item><description>An unknown or expired token, a token issued to an account that <see cref="IAuthenticationPolicy.HonoursTokenIssuedTo"/> no longer honours (a directory user's token may be honoured, ADR-0167 Amendment 3), or another scheme: <c>401 UNAUTHORIZED</c>, the challenge with <c>error="invalid_token"</c>.</description></item>
-/// <item><description>A Bearer token over plain text without <c>--allow-plaintext-auth</c>: <c>403 DENIED</c>, "credentials over plain text are refused".</description></item>
-/// <item><description>A Bearer token over plain text without <c>--allow-plaintext-auth</c>: <c>403 DENIED</c>, "credentials over plain text are refused".</description></item>
+/// <item><description>A Bearer token over plain text without <c>--allow-plaintext-auth</c> or <c>--allow-anonymous</c>: <c>403 DENIED</c>, "credentials over plain text are refused", before the token is looked up.</description></item>
 /// <item><description>A token not granting the action: <c>403 DENIED</c>, the challenge with <c>error="insufficient_scope"</c>.</description></item>
 /// </list>
 /// A request that carries a token is checked even under <c>--allow-anonymous</c>; a bad token is
 /// never served as anonymous.
 /// </remarks>
-/// <param name="policy">Says whether anonymous logins are allowed, whether plain-text secrets are refused, and, through <see cref="IAuthenticationPolicy.HonoursTokenIssuedTo"/>, whether an account's token is still honoured.</param>
+/// <param name="policy">Asked, through <see cref="IAuthenticationPolicy.CheckPasswordLoginAsync"/>, whether a read with no <c>Authorization</c> is served as anonymous and, by a probe login, whether a Bearer token over plain text is refused; and, through <see cref="IAuthenticationPolicy.HonoursTokenIssuedTo"/>, whether the token issued to an account is still honoured.</param>
 /// <param name="tokens">The server's tokens.</param>
 /// <param name="tlsSession">The connection's TLS session, or <see langword="null"/> on plain text.</param>
 /// <param name="context">The exchange: the realm's listen URL and local endpoint.</param>

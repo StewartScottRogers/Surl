@@ -120,6 +120,17 @@ but its flags and bindings.
    acquired in the transaction, and a rollback returns them to their queue (marked redelivered)
    unless the link retired them outside it. Topic deliveries have nothing to return: their
    outcomes only settle them (ADR-0107 decision 6), in or out of a transaction.
+
+   *Amended 2026-11-28 (BL-2044), pointing at
+   [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 5 and this
+   ADR's decision 3 and Amendment 4:* "Topic deliveries have nothing to return: their outcomes only
+   settle them" holds for a live subscription only, and the reference there is to ADR-0107 decision
+   **5** (its "The client's outcome" bullet), not decision 6. A topic link that consumes a
+   subscription's bus queue, for a kept subscription (decisions 3.1 to 3.6) or a non-durable shared
+   one (Amendment 4), is sent queue deliveries. Their outcomes act on the queue, one stated in a
+   transaction being held until the commit, and a rollback returns to the queue, marked
+   redelivered, those acquired in the transaction that the link has not retired outside it.
+
 6. **Discharge (4.3, 4.5.3, 4.5.8).** A transfer on a coordinator link holding a `discharge`
    (`0x32`):
    - with **`fail` true** rolls the transaction back: held messages are dropped, held outcomes are
@@ -138,6 +149,16 @@ but its flags and bindings.
    that declared it detaches, when that link's session ends, and when the connection ends. There is
    no transaction time-out: `amqp:transaction:timeout` is never sent, and the 100-transaction and
    `--max-filesize` bounds keep what a transaction holds finite.
+
+   *Amended 2026-11-28 (BL-2064), pointing at
+   [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) and
+   [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 7:* under
+   `--max-filesize 0`, which is no limit, what a transaction holds has no byte bound, so the two
+   bounds named above do not keep it finite then. The 100-transaction limit
+   (`MaxOpenTransactions`) bounds only how many transactions are open at once on a connection:
+   under 0 nothing caps the number of messages one of them holds or their bytes. The bus judges its
+   own bounds on those messages only at the commit (decision 1.6), after they have been held.
+
 8. **Pre-settled control messages.** A `declare` or `discharge` the client sends pre-settled is
    still applied; per Part 2 section 2.6.12 nothing answers it, so the client never learns the id
    or the result, which is its choice.
@@ -228,7 +249,11 @@ but its flags and bindings.
    subscription's queue is deleted with its messages. A `detach` with `closed` false, the session's
    end or the connection's end leaves it. An address naming a `surl-subscription-` queue directly
    (`/queue/surl-subscription-...`) is refused with `amqp:not-found`, so only the subscriber reaches
-   it.
+   it. *(2026-11-27: of the AMQP 1.0 address only. Other protocols may delete and purge the queue by
+   name as [Amendment 2](#amendment-2-bl-2027-2026-11-27-who-may-delete-or-purge-a-subscription-queue-by-name)
+   says, and get from and consume it by name as
+   [Amendment 5](#amendment-5-bl-2047-2026-11-27-who-may-get-from-or-consume-a-subscription-queue-by-name)
+   says.)*
 5. **Shared subscriptions.** A source whose `capabilities` include **`shared`** names a subscription
    several links consume at once, competing as queue consumers do (ADR-0100 decision 3.3): its key
    is the link name up to the first `|` (the suffix a JMS client adds to tell the links of one shared
@@ -242,6 +267,17 @@ but its flags and bindings.
    `durable` `none`. The container answers the policy it applied, `durable` `configuration` for the
    first two and `none` for `link-detach`, and `timeout` 0: it removes the terminus at the event
    itself.
+
+   *Amended 2026-11-28 (BL-2073), recording what BL-2043 decided. Decided by Claude under
+   Stewart's delegation:* for `session-end`, "that event" is the end of the **last** session of the
+   connection that consumed the subscription. It is deleted then, shared or not, whether or not a
+   link of that session still consumes it. Several sessions can hold one: a shared one, or one
+   resumed in another session after a detach. An earlier session's end leaves it, because deleting
+   it then would take the queue from a session that still holds it, even while a link of that session
+   consumes it. One rule for shared and unshared subscriptions is the simplest. Once a `closed`
+   detach (decisions 3.4 and 3.5) or a replacement (decision 3.3) deletes the queue, no session holds
+   that subscription, so a session that held it cannot keep alive a later one made under the same
+   name.
 7. **Who may.** A durable or shared subscription needs the `Subscribe` right on its topic filter
    under `--topic-access` (ADR-0102 decision 3.4), judged at every attach, resumed ones included;
    refused, the attach gets `amqp:unauthorized-access` as ADR-0107 decision 4 says.
@@ -424,3 +460,366 @@ still receives its own publishes.
 - **Leaving it out of every kept subscription.** Honest, but a JMS durable subscriber asking
   `noLocal` is a real use of the stand-in, and root `CLAUDE.md` says nothing is left out because it is
   hard.
+
+## Amendment 4 (BL-2040, 2026-11-27): how a non-durable shared subscription is held
+
+Decided by Claude under Stewart's delegation.
+
+Decision 3.5 does not limit `shared` to durable sources, and a JMS `createSharedConsumer` is
+non-durable, but decision 3 does not say how such a subscription is held. Until BL-2041 builds this
+amendment, each such link is its own live subscription: every link gets every message and no capability
+is echoed. Read for this: **Jakarta Messaging 3.1** section 8.3.2 (shared non-durable subscriptions): a
+subscription is identified by its name and the client identifier if set; it exists only while a consumer
+is active on it; it is deleted, with its undelivered messages, when its last consumer is closed; and an
+additional consumer asking another topic or message selector while one is active is an exception.
+Sections 8.3.3 and 8.3.4 allow a durable subscription and a shared non-durable one the same name, and
+8.3.3 calls them completely separate.
+
+1. **Which links.** A client receiver's **topic** source whose `capabilities` include `shared` and that
+   asks no kept subscription: `durable` `none` (whatever its `expiry-policy`), or any `durable` with
+   `expiry-policy` `link-detach`. A queue link is unchanged and echoes no capability, since a queue's
+   consumers already compete. `global` without `shared` shares nothing.
+2. **What holds it.** A bus named queue with the flags **auto-delete** only (not durable, not exclusive),
+   carrying a subscription description (decision 3.2), bound to the topic filter, and consumed by every
+   link through `ConsumeSubscriptionQueue`, not exclusively, with the 1000 unacknowledged of any queue
+   link. So links of one connection or of several compete, each message goes to one of them, and what a
+   link leaves unsettled or waiting when it ends goes back to the queue for the others, marked
+   redelivered, as `released` and `modified` outcomes put a delivery back. The queue's bounds
+   replace a live topic link's drop past 1000. Filters run as a message leaves the queue, one they
+   refuse being acknowledged (decision 3.2). `Surl.MessageBus` needs no change.
+3. **Name.** `surl-subscription-nondurable-` and the lowercase hex of the SHA-256 of decision 3.5's key:
+   the link name up to the first `|`, after the `container-id` (empty under `global`) and a zero byte. No
+   kept subscription's name, 64 hex digits after `surl-subscription-`, can equal it, so a non-durable
+   attach never joins, replaces or deletes a durable subscription of the same link name. It keeps the
+   `surl-subscription-` prefix, so its `/queue/` address is refused (decision 3.4), and it takes no
+   direct send. The description records the policy `link-detach` whatever the client asked, so links
+   differing only in the `durable` or `expiry-policy` they asked share one subscription.
+4. **Other filters.** While a link consumes from it, an attach under the name with another address or
+   other applied filters is refused with **`amqp:resource-locked`** (`subscription in use`), as section
+   8.3.2 has it. A queue found under the name with another description and no consumer is replaced
+   (decision 3.3).
+5. **Ending.** The bus's auto-delete removes the queue, with its messages, when its last consumer ends:
+   a `detach`, `closed` or not, the session's end, the connection's end or the container's own detach.
+   The container asks for no delete then and records nothing for the session's end. One of several links
+   ending leaves it to the others. An attach refused after the container declared the queue deletes it
+   with `DeleteQueueIfDescribed(name, description, ifUnused: true)`, so nothing is left behind. When the
+   bind or the consume answers `UnknownQueue` (the last other link ended between the container's calls),
+   the container declares, binds and consumes once more; a second `UnknownQueue` refuses the attach with
+   `amqp:not-found`. An attach with no source never finds a non-durable subscription: the lookup is for
+   unsubscribing a durable one, and with no durable one of the name it is `amqp:not-found`.
+6. **Who may.** Decision 3.7 unchanged: `sub` on the topic filter at every attach, a subscription found
+   under the name judged on its own filter too, and no right on `$queue/...`. Amendment 2 governs a
+   client's delete or purge of the queue by name. Its consumers count against the bus's subscription
+   bound and the queue against its queue bound (`amqp:resource-limit-exceeded`).
+7. **No-local** (Amendment 3, item 8) is not applied: it is left out of the echoed source and of the
+   description, the queue excludes nobody and no link's own publishes are withheld. This ends Amendment 3
+   item 1's treatment of a `shared` link with `durable` `none` or `link-detach` as a live subscription;
+   the live topic link of its items 1 and 9 is now an unshared one only.
+8. **The echo.** The container's source carries the client's address, no `durable` (so `none`),
+   `expiry-policy` **`link-detach`**, no `timeout`, `distribution-mode` `copy`, the applied filters and
+   the capabilities applied, `shared`, with `global` when asked. A refused attach has a null source as
+   ever.
+9. **Stand-in.** The queue is on the shared bus, so a message any protocol publishes is shared out the
+   same way, and its changes are on the instance's event stream. It is never persisted. Reset and
+   snapshot treat it as any queue that is not exclusive, so restoring a snapshot taken while links were
+   attached, after they have gone, brings the queue back with no consumer: the next link under the name
+   with the same description takes its messages, and it goes when that link ends.
+
+### Alternatives considered (Amendment 4)
+
+- **The bus's fan-out group** (`BusConnection.Subscribe(..., group:)`). A message waiting on a link
+  that ends is lost, and one `released` cannot reach another link. Group names are one namespace with
+  MQTT 5's shared subscriptions and NATS queue groups, so a matching name and filter would let another
+  protocol's member take the messages. Two links asking different bus filters would silently form two
+  groups instead of being refused. It has no advantage in link credit: neither it nor a queue consumer
+  is chosen by credit.
+- **The kept subscription's name.** A non-durable attach would replace, or join, a durable subscription
+  of the same name, which sections 8.3.3 and 8.3.4 keep separate.
+- **An exclusive queue.** Only one connection could consume it, and JMS shared consumers are commonly on
+  several.
+- **Deleting at a `closed` detach, as a kept subscription is.** A non-closing detach, a session's end
+  and a lost connection would each need the container to delete; auto-delete covers them all.
+- **The filters in the queue's name**, so differing links get separate subscriptions. Section 8.3.2
+  makes that an error while a consumer is active.
+- **Refusing at once on `UnknownQueue`.** A test closing one shared consumer while opening another would
+  fail now and then; one more try removes that. An atomic declare, bind and consume on the bus would
+  close the window completely, but is a bus operation for this one race.
+- **Echoing the `expiry-policy` the client asked.** The terminus goes with its last link, so
+  `link-detach` is the policy applied (decision 3.6), and Part 3 section 3.5.3 has the source say what
+  is in force.
+- **Leaving non-durable `shared` unserved and unechoed.** Part 3 allows it, but a JMS shared consumer
+  would then receive duplicates, and root `CLAUDE.md` says nothing is left out because it is hard.
+
+## Amendment 5 (BL-2047, 2026-11-27): who may get from or consume a subscription queue by name
+
+Decided by Claude under Stewart's delegation.
+
+Amendment 2 asks for `sub` on a subscription queue's filters before a delete or purge by name, but a
+get or consume by name asked only for the `$queue/<name>` grant. A caller with `sub` on `$queue/#`
+and none on a subscription's filter could so take its messages: AMQP 0-9-1 `basic.get`,
+`basic.consume` with `no-ack`, `basic.reject` without requeue, or a STOMP `SUBSCRIBE` to
+`/queue/surl-subscription-...`.
+
+- `Surl.MessageBus`'s get and consume by name, on a queue carrying a subscription description, need
+  **both** the `$queue/<name>` grant, as on any queue, **and** `sub` covering **every** filter the
+  queue is bound to. Otherwise they are `AccessDenied` (AMQP 0-9-1 answers `403`), nothing is taken
+  and no consumer is added. A `$queue` grant that names the queue exactly is no exception.
+- A described queue bound to **no** filter is refused whenever any grant is configured, as in
+  Amendment 2. With no grant, everyone may.
+- The `$queue` grant is judged first, whether or not the queue exists. The filters are judged on the
+  queue found, after `UnknownQueue` and `QueueLocked`, under the lock the message is taken under, and
+  before any refusal that tells of the queue's consumers.
+- `ConsumeSubscriptionQueue` (decision 3.7) is unchanged: `sub` on the topic filter and no `$queue`
+  grant. A queue with no description is read as before. The test host's own reads (ADR-0164's browse)
+  ask for no grant.
+- The bindings are judged when the call is made. A consumer already added keeps receiving, and the
+  binding swap Amendment 2 names also opens a get and a consume; keeping other clients' bindings off a
+  described queue stays BL-2011. Amendment 8 says what a test host's restore that changes the queue's
+  description does to its consumers.
+
+### Alternatives considered (Amendment 5)
+
+- **Letting an explicit `$queue/<name>` grant allow it.** A grant's filter may be a wildcard
+  (`$queue/#`) written for ordinary queues, and telling an exact grant from a wildcard one is a second
+  rule for a narrow gain. An account that should read a subscription is given `sub` on its filter,
+  which says what it may see; secure by default.
+- **Asking only for `sub` on the filters, without the `$queue` grant.** That would widen who may take a
+  queue's messages by name; the subscriber already has `ConsumeSubscriptionQueue`.
+- **Refusing every get and consume by name of a described queue.** A test reading a kept subscription
+  from AMQP 0-9-1 or STOMP is a real use of the stand-in.
+
+## Amendment 6 (BL-2012, 2026-11-27): a subscription queue takes no direct send
+
+Decided by Claude under Stewart's delegation, while working BL-1992.
+
+Decision 3.7 admits a subscriber on `sub` on its topic filter alone. A direct send is judged by no
+right on that filter, and binding a queue to an AMQP 0-9-1 exchange other than `amq.topic` asks for no
+grant, so a subscriber could bind its queue to such an exchange and be handed direct sends that its
+right does not cover.
+
+- A queue carrying a subscription description takes no direct send from a client, with or without
+  `--topic-access` grants: `Surl.MessageBus`'s `PublishToQueue` and a batch's `ToQueue` entry answer
+  `UnknownQueue`, as for a queue that does not exist, even for a message already expired. Nothing is
+  queued and the queue's out-of-space fault is not asked for. `MessageTooLarge` and the `AccessDenied`
+  of `pub` on `$queue/<name>` are judged first, as for any queue. Decision 3.2's queue so takes what
+  its bindings copy in, and Amendment 4's "takes no direct send" is this rule.
+- A batch holding such an entry publishes nothing (decision 1.6, whose list of refusals gains this
+  one).
+- What a client sees follows from the protocol it sends with:
+  - **AMQP 0-9-1**, through any exchange but `amq.topic` (the default exchange, and direct, fanout,
+    headers and declared topic exchanges): the queue is not routed to. Other queues the publish chose
+    still take it. When none counts as routed, the message is returned with `312 NO_ROUTE` if
+    `mandatory` or `immediate` is set, and otherwise dropped and noted in the exchange log.
+  - **STOMP** `SEND` to `/queue/<name>`: ERROR `message:Resource limit exceeded`, then close, its
+    answer to `UnknownQueue` (ADR-0100 decision 3.6).
+  - **AMQP 1.0**: decision 3.4 already refuses the attach to a `surl-subscription-` address with
+    `amqp:not-found`. For a described queue under another name, which no Surl server declares, a
+    transfer would be `rejected` with `amqp:not-found`, and a commit with `amqp:transaction:rollback`.
+- **Seeding is unchanged.** The test host's `SeedEnqueue` (`Surl.Api`'s `Messages.EnqueueAsync` and
+  the control endpoint use it) still puts a message into a subscription queue, whatever its topic.
+- Amendment 3 item 2's "Every other publish reaches it" is of topic publishes and the seed: a direct
+  send from another protocol does not reach a subscription queue.
+- A topic publish still reaches the queue through whatever it is bound to (Amendment 3's excluded
+  publisher apart). This rule does not keep other clients' bindings off a described queue; that is
+  BL-2011.
+
+### Alternatives considered (Amendment 6)
+
+- **Checking each message's topic against the subscription's filter at consume time.** A direct
+  send's topic is the sender's own label, which no topic grant judged: AMQP 0-9-1 takes it from the
+  routing key, which through a fanout or headers exchange can be any text, so a message could pass the
+  check without the right the check stands for. It would also run on every message taken, and a sender
+  would be answered as if a message the subscriber never receives had been taken.
+
+## Amendment 7 (BL-2048, 2026-11-28): a queue's messages go only to links that can send them
+
+Decided by Claude under Stewart's delegation.
+
+A queue link consumes with 1000 unacknowledged (`MaxWaitingDeliveries`), and the bus chooses among a
+queue's consumers by that room and their predicates alone (`NamedQueue.NextConsumerWithRoomFor`). So a
+link with no credit takes its round-robin share, which waits on it until it grants credit or ends. A
+temporary MSTest test in `Surl.Extended.Protocol.Amqp1.UnitTests`, run on 2026-11-28 and not kept,
+showed it, each case on one connection with two links on one queue:
+
+- With link 1 granted credit 10, link 0 granted none and four messages then published, link 1 was sent
+  `two` and `four` and link 0 nothing, on a `/queue/` address, on a shared kept subscription and on a
+  non-durable shared one.
+- With four messages queued before either `/queue/` link attached, link 1, granted credit 10, was sent
+  nothing: the queue counted two consumers and no ready message, and all four were ready again once the
+  connection ended.
+- A link whose credit went back to 0, withdrawn by a `flow` or used up by a drain, still took `one` and
+  `three`.
+
+Part 2 section 2.6.7 (link flow control) limits what a sender may send on one link by that link's
+credit, and has `drain` use the credit up or give it back. Which of several links a queue's message goes
+to is the node's choice, and this is Surl's. BL-2071 builds the bus part and BL-2072 the container part;
+until both are done the code behaves as the test showed.
+
+1. **The rule.** A message of a queue or subscription queue never waits on a link that cannot send it.
+   A link can send when it has link credit, its session's remote `incoming-window` is above 0 and it
+   holds fewer than 1000 unsettled deliveries. A message no consumer can take stays **ready** in the
+   queue. Among the consumers that can, those of other protocols with room included, round robin runs as
+   before among those whose predicate accepts the message (decision 2.4). It is one rule for every link
+   that consumes a bus queue: `/queue/` and dynamic nodes, and kept subscriptions, shared or not, and
+   non-durable shared ones, even while a queue has one consumer. A live topic link is unchanged: it has
+   its own copy, nothing competes for it, and up to 1000 wait on it (ADR-0107 decision 5).
+2. **What `Surl.MessageBus` adds (BL-2071): a consumer's delivery credit.**
+   - `BusQueueConsumer.SetDeliveryCredit(uint)` sets the most deliveries the bus holds for the consumer
+     that it has not yet claimed. A consumer never given a credit behaves exactly as before.
+   - The bus assigns a message to such a consumer only while it has room as before **and** holds fewer
+     than its credit, and calls its callback as before, which tells the caller only that a delivery is
+     held. A held delivery counts as unacknowledged, is not marked handed out, publishes no `Delivered`
+     change and cannot yet be acknowledged or rejected (`UnknownDeliveryTag`).
+   - `BusQueueConsumer.TryClaimDelivery` takes the held delivery assigned first: it lowers the credit by
+     one, marks the message handed out, publishes `Delivered`, and answers `false` when none is held.
+     From then on the delivery is settled as any other.
+   - Lowering the credit below the number held puts those assigned last back at their places, with no
+     change published, and dispatches the queue again. A held delivery that goes back, for that or
+     because the consumer ends or recovers, keeps the redelivered mark it had before it was assigned,
+     and one persisted or snapshotted is saved with that mark.
+   - `PublishToQueue(..., onlyWhenConsumed: true)` and `PublishToConsumedQueues` count a consumer only
+     when it could be assigned the message, so one with no credit left is not ready.
+3. **What the container does (BL-2072).**
+   - Each queue and subscription-queue consumer is given credit 0 before it starts. Whenever the link's
+     credit, its session's window or its count of unsettled deliveries changes, its consumer is given
+     the link's credit, or 0 while the window is 0 or the link holds 1000 unsettled. (The bus's
+     `maxUnacknowledged` does not cover the last: a delivery the client has stated an outcome for but
+     not settled has left the bus and still counts on the link.)
+   - A delivery is claimed only as the container starts writing it, so a queue delivery no longer waits
+     in `Amqp1Link.Waiting`, which serves live topic links only. The one partly written when the window
+     closes has been claimed and is finished as the window opens.
+   - On a subscription queue the filters run on the claimed delivery (decision 3.2). One they refuse, or
+     the client cannot name, is acknowledged, uses no link credit, and the consumer is given the link's
+     credit again. Such a message so stays in the queue until a link able to send reaches it.
+   - **Drain.** Setting the credit assigns, under the bus's lock, what the queue has ready for the link
+     up to that credit, and the container claims and sends until none is held, so a drain cannot answer
+     ahead of a delivery still on its way from another thread. It then gives back what credit is left and
+     sets the consumer's to 0. As today, a drain while the link cannot send gives the credit back; the
+     messages stay ready.
+   - The `available` field of the container's `flow` for such a link is the queue's ready message count
+     (`InspectQueue`), a hint that counts messages the link's filters would refuse.
+4. **What does not change.** Settlement and outcomes, and `released`, `modified` and a rollback returning
+   a sent delivery marked redelivered. Transactional acquisition (decision 1.5) takes a delivery as it is
+   sent, which is the claim: a held one is in no transaction. A queue source is answered
+   `distribution-mode` `move` whatever was asked, so no link browses. AMQP 0-9-1 and STOMP set no
+   credit, so a queue only they consume behaves as before. Exclusive consumes, `ifUnused`, auto-delete
+   and consumer counts count a link with no credit as a consumer.
+5. **What other callers now see** on a queue an AMQP 1.0 link consumes without being able to send: the
+   messages are ready, so `basic.get` takes them, `queue.purge` removes them, a declare's message count
+   includes them and they expire as any ready message does; `basic.publish` `immediate` (ADR-0112
+   decision 6) no longer counts that link as able to take a message. A client that grants credit and
+   stops reading its socket still holds at most that credit's worth.
+6. **This amends** decision 2.4 (round robin is among the consumers that accept the message **and** can
+   take it), decision 3.2 (when a refused message is acknowledged), Amendment 4 item 2 (what has not been
+   sent waits in the queue, not on a link, and is not marked redelivered when a link ends) and ADR-0107
+   decision 5's "From a queue" bullet with its BL-1990 note (no delivery waits for credit on a queue
+   link). ADR-0107 points here once BL-2072 edits it.
+7. **Stand-in.** A test with two consumers of one queue gets every message on the one that is receiving,
+   as it would from a broker. What nobody can take stays visible on the shared bus, where a test can
+   browse it or another protocol take it; `Delivered` on the event stream means claimed for sending.
+   Nothing new is random: the same frames in the same order give the same assignment, and a backlog goes
+   first to the link that grants credit first. No new option or fault.
+
+### Alternatives considered (Amendment 7)
+
+- **Leaving messages to wait on a link with no credit.** The sender has broken no rule of Part 2, but a
+  second consumer waits for ever for a message the queue was given, which a test cannot tell from a lost
+  one.
+- **The link rejecting with requeue what it cannot send.** The bus still sees room on that link and may
+  hand the message straight back, it comes back marked redelivered though never sent, and `Delivered` is
+  published for each round.
+- **A credit the bus counts down as it hands deliveries over, with no claim.** Credit withdrawn, or a
+  window closed, after the hand-over leaves the message on the link; and a drain can answer before the
+  delivering thread has brought the message, telling the client the queue was empty.
+- **The link pulling one message when it can send, as a get does.** Which link got a message would depend
+  on which connection's sender ran first, one link could empty the queue before the next was asked, and
+  the bus could not tell whether a consumer is ready for `immediate`.
+- **Setting `maxUnacknowledged` from the link credit.** It bounds unsettled deliveries, which credit does
+  not: one already sent and unsettled would use up room a new credit grants, and the race of the
+  hand-over stays.
+- **A predicate that refuses while the link has no credit.** A predicate must be pure, the bus is not
+  told when its answer changes, so nothing is dispatched again, and it cannot count down within one
+  dispatch.
+- **Link credit alone, ignoring the session window.** A link with credit in a session whose window is 0
+  would keep messages from the other links in the same way.
+- **The rule only while a queue has several consumers.** Another consumer, or a `basic.get`, can come at
+  any time, and a second path would hold messages out of its reach until then.
+
+## Amendment 8 (BL-2051, 2026-11-28): a restore that changes a queue's description ends its consumers
+
+Decided by Claude under Stewart's delegation.
+
+Amendment 5 judges a get or consume by name when the call is made. A test host's `Restore` keeps a queue
+that has consumers and gives it the snapshot's description and bindings, so a consumer let onto a queue
+with no description, on its `$queue/<name>` grant alone, was handed the messages of the subscription
+queue restored over it, though its `sub` on that subscription's filters was never asked.
+
+- When a restore gives a live queue a subscription description other than the one it has (one where it
+  had none, none where it had one, or other text), every consumer and get holder of the queue ends
+  before the snapshot's messages go in. The bus hands a consumer so ended nothing more (a server may
+  still write what it was handed before), it cannot be started, claim or settle anything, and it no
+  longer counts against its connection's subscription bound. What it held is already dropped, as any
+  restore drops unacknowledged deliveries. The restored messages stay ready for a caller judged on the
+  restored queue.
+- The queue stays, an auto-delete one included, with no consumer, as the snapshot holds it
+  (Amendment 4, item 9). A non-durable shared link that was consuming it therefore no longer takes the
+  queue with it when it ends: an exception to Amendment 4, item 5. The next attach under the name
+  resumes or replaces the queue (Amendment 4, item 4).
+- Amendment 9 says what a restore does with the flags and owner of the live queue, and ends consumers
+  for changed flags too.
+- The bus tells nobody, and no server tells its client: unlike an AMQP 0-9-1 `queue.delete`, which the
+  broker announces with `basic.cancel` (ADR-0112 decision 5), a restore sends none.
+- A restore that leaves the description and the flags (Amendment 9) as they were keeps the queue's
+  consumers, which are handed the restored messages as before. A reset changes no queue's description
+  or flags, so it ends no consumer.
+- Descriptions are compared ordinally. A restore that changes only the bindings under the same
+  description ends nobody; keeping other clients' bindings off a described queue stays BL-2011.
+
+### Alternatives considered (Amendment 8)
+
+- **Judging each consumer again on the restored filters.** A consumer made by
+  `ConsumeSubscriptionQueue` and one made by `Consume` are admitted by different rules, so the bus
+  would have to keep how each was let in, to spare consumers in a case only a test's restore reaches.
+  A queue that has become another subscription, or none, is not the one they asked for.
+- **Ending them only when the queue gains a description.** A subscription consumer, admitted with no
+  `$queue` grant, would then be handed an ordinary queue's messages, or another subscription's.
+- **Keeping the consumers and offering them nothing.** They would count as consumers, holding off an
+  `ifUnused` delete and an auto-delete queue's end, while never receiving.
+- **Refusing the restore.** A reset or restore between tests must not fail because a client is still
+  attached (ADR-0124).
+
+## Amendment 9 (BL-2095, 2026-11-28): a restored queue has the snapshot's flags and no owner
+
+Decided by Claude under Stewart's delegation.
+
+A restore reused a live queue of a snapshot queue's name and kept its owning connection and flags. A
+snapshot holds no exclusive queue, so a connection that declared the name exclusive before a restore
+kept the restored queue locked to itself (`QueueLocked`; an AMQP 1.0 subscriber
+`amqp:resource-locked`), and its end deleted the queue with the restored messages. A live auto-delete
+queue likewise stayed auto-delete over a snapshot's durable one.
+
+- A queue the snapshot holds takes the snapshot's flags and belongs to no connection, whatever live
+  queue held its name. The former owner is then a caller like any other, and its end leaves the queue
+  and its messages. Declaring it with the snapshot's flags is not refused for its flags; with former
+  ones that differ from them it is `QueueFlagsDiffer`.
+- When the live queue's flags differ from the snapshot's, its consumers and get holders end as
+  Amendment 8 ends them for a changed description: nothing more is handed to them, nobody is told, an
+  auto-delete queue stays, and Amendment 4 item 5's exception covers this too. Only an exclusive queue
+  has an owner, so an owned live queue always differs.
+- The live queue itself is kept and changed, so its delivery tags keep rising and a stale get tag
+  settles no later delivery. Ending its consumers and changing its flags publish no `Deleted` change.
+- A restore that leaves the flags and description as they were keeps the consumers, even if it changes
+  the bindings or the excluded publisher.
+- A queue the snapshot does not hold keeps its flags and owner, as on a reset, which changes neither.
+
+### Alternatives considered (Amendment 9)
+
+- **Replacing the queue object.** The new one would have to be given the old one's delivery tag count,
+  or a stale get tag could settle a new delivery; changing the one object needs no copy.
+- **Ending consumers only on an owned queue.** A queue with other flags is another queue, as a
+  redeclare's `QueueFlagsDiffer` treats it, and a consumer of a durable queue restored as auto-delete,
+  if kept, would delete it and its messages when it ended.
+- **Keeping the owner's consumers.** They were let onto a queue only their connection could consume,
+  and would go on taking the messages of one every caller shares.
+- **Refusing the restore.** A reset or restore between tests must not fail because a client is still
+  attached (ADR-0124).

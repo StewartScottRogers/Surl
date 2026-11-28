@@ -26,7 +26,7 @@ public static class SetKeyTool
         + "Answers the key as read_key and list_keys spell it (key, or key_base64 for a key that is not UTF-8 or that "
         + "holds a control character other than tab, CR and LF), the database, "
         + "event_name (<database>/<key>, the name a wait_for_event on the store watches) and byte_count. "
-        + "A server with no redis listen URL refuses it.";
+        + "A server with no redis or rediss listen URL refuses it.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -57,26 +57,19 @@ public static class SetKeyTool
 
     private static async Task<McpToolResult> SetAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
-        byte[]? value = null;
-        if ((SeededContent.TryRead(arguments, "key", "key_base64", out var key) ?? SeededContent.TryRead(arguments, "value", "value_base64", out value)) is { } refusal)
+        if (RedisKeyArguments.TryRead(arguments, out var seed) is { } refusal)
         {
             return McpToolResult.FromFailure(refusal);
         }
 
-        if (key!.Length == 0)
-        {
-            return McpToolResult.FromFailure("key_base64: a key needs at least one byte");
-        }
-
-        var database = arguments.TryGetProperty("database", out var databaseValue) ? databaseValue.GetInt32() : 0;
-        TimeSpan? expiry = arguments.TryGetProperty("expire_ms", out var expireValue) ? TimeSpan.FromMilliseconds(expireValue.GetInt64()) : null;
-        await running.Server.Keys.SetAsync(key, value!, expiry, database, cancellationToken);
+        await running.Server.Keys.SetAsync(seed!.Key, seed.Value, seed.Expiry, seed.Database, cancellationToken);
+        var key = seed.Key.ToArray();
         return ToolResults.FromObject(writer =>
         {
             ReadBackJson.WriteBytes(writer, key, "key", "key_base64");
-            writer.WriteNumber("database", database);
-            writer.WriteString("event_name", NameOf(database, key));
-            writer.WriteNumber("byte_count", value!.Length);
+            writer.WriteNumber("database", seed.Database);
+            writer.WriteString("event_name", NameOf(seed.Database, key));
+            writer.WriteNumber("byte_count", seed.Value.Length);
         });
     }
 

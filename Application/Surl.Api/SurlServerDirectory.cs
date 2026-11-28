@@ -24,7 +24,7 @@ public sealed class SurlServerDirectory
     /// </summary>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The LDIF text: <c>version: 1</c> then each entry, seeded and configured alike.</returns>
-    /// <exception cref="SurlNotFoundException">No LDAP server is composed.</exception>
+    /// <exception cref="SurlNotFoundException">No <c>ldap</c> or <c>ldaps</c> listen URL is served.</exception>
     /// <exception cref="SurlReadRefusedException">The LDIF is past 16 MiB.</exception>
     /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
     public Task<string> ExportLdifAsync(CancellationToken cancellationToken = default)
@@ -37,7 +37,9 @@ public sealed class SurlServerDirectory
     /// <summary>
     /// Adds LDIF content records (RFC 2849), all or none; the fault plan is not consulted. Publishes a
     /// <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for <see cref="StoreKind.Directory"/>
-    /// per entry.
+    /// per entry. A reset drops the entries added here and keeps those <see cref="SurlServerOptions.DirectoryLdif"/>
+    /// gave; a server with a <see cref="SurlServerOptions.DataDirectory"/> or a share on disk refuses the reset
+    /// (<see cref="SurlServer.ResetAsync"/>).
     /// </summary>
     /// <param name="ldif">The LDIF text, at most 16 MiB. A <c>changetype:</c> record and a value read from a file
     /// or URL are refused.</param>
@@ -45,13 +47,23 @@ public sealed class SurlServerDirectory
     /// <returns>A task that completes once the entries are added.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is null.</exception>
     /// <exception cref="SurlSeedRefusedException">The directory refused the text: not LDIF content, a missing
-    /// parent, an existing name, a bound passed, or no LDAP server is composed.</exception>
-    public async Task AddEntriesAsync(string ldif, CancellationToken cancellationToken = default)
+    /// parent, an existing name, a bound passed, or no <c>ldap</c> or <c>ldaps</c> listen URL is served.</exception>
+    public Task AddEntriesAsync(string ldif, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ldif);
+        return SeedAsync(stores, ldif, keepOnReset: false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Seeds LDIF content records into <paramref name="stores"/>' directory, saying whether a reset returns to them,
+    /// and turns the directory's refusal into the exception a test sees.
+    /// </summary>
+    /// <exception cref="SurlSeedRefusedException">The directory refused the text.</exception>
+    internal static async Task SeedAsync(ComposedStores stores, string ldif, bool keepOnReset, CancellationToken cancellationToken)
+    {
         try
         {
-            await stores.SeedEntriesAsync(ldif, cancellationToken);
+            await stores.SeedEntriesAsync(ldif, keepOnReset, cancellationToken);
         }
         catch (InvalidOperationException refused)
         {

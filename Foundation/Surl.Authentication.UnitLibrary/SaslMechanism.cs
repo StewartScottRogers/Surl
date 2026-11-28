@@ -3,8 +3,9 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// One SASL mechanism the mail servers can check: its registered name, the <c>--auth</c> method
-/// that accepts it, and how an exchange of it starts (ADR-0049, sections 1 and 5).
+/// One SASL mechanism the policy can check, for whichever protocol server starts it: its
+/// registered name, the <c>--auth</c> method that accepts it, and how an exchange of it starts
+/// (ADR-0049, sections 1 and 5).
 /// </summary>
 /// <param name="Name">The registered name, upper case, as offered and as the login note's method.</param>
 /// <param name="Method">The method <c>--auth</c> accepts it by.</param>
@@ -15,7 +16,8 @@ internal sealed record SaslMechanism(
     Func<SaslExchangeContext, ISaslExchange> Start)
 {
     /// <summary>
-    /// Every mechanism this build checks, in ADR-0049 section 2's offer order.
+    /// Every mechanism this build checks but <see cref="GssSpnego"/>, in ADR-0049 section 2's offer
+    /// order.
     /// </summary>
     public static IReadOnlyList<SaslMechanism> InOfferOrder { get; } =
     [
@@ -38,7 +40,8 @@ internal sealed record SaslMechanism(
     /// a security layer: a SPNEGO token selecting Kerberos is checked against <c>--keytab</c>, and
     /// a bare NTLM message, as <c>WinLDAP</c> sends it for an address, is answered as <c>NTLM</c>
     /// is (ADR-0072, decision 4, and its Amendment 1). It is not in <see cref="InOfferOrder"/>,
-    /// since the mail servers never offer it.
+    /// since only <c>ldap</c> and <c>ldaps</c> offer it
+    /// (<see cref="AuthenticationPolicy.GetSaslMechanisms"/>).
     /// </summary>
     public static SaslMechanism GssSpnego { get; } =
         new("GSS-SPNEGO", AuthenticationMethod.Negotiate, context => new GssSpnegoSaslExchange(context));

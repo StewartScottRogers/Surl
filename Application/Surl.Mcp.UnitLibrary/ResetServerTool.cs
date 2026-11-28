@@ -3,9 +3,11 @@ using Surl.McpServing;
 namespace Surl.Mcp;
 
 /// <summary>
-/// The <c>reset_server</c> tool (ADR-0124 decisions 3 and 8): returns a running server's content store, mail store,
-/// message bus and accounts to their state at start, through <c>Surl.Api</c>'s <c>SurlServer.ResetAsync</c>. Result
-/// <c>{"server_id"}</c>; a store that refuses, such as one on disk, is an <c>isError</c> result naming it.
+/// The <c>reset_server</c> tool (ADR-0124 decisions 3 and 8): returns a running server's stores to their state at
+/// start, <c>start_server</c>'s seeds included (ADR-0158 decision 4), through <c>Surl.Api</c>'s
+/// <c>SurlServer.ResetAsync</c>, which also discards open uploads and ends OCI tokens, MCP OAuth state and MCP HTTP
+/// sessions (ADR-0167 decision 2). Result <c>{"server_id"}</c>; a store that refuses, such as one on disk, is an
+/// <c>isError</c> result naming it.
 /// </summary>
 public static class ResetServerTool
 {
@@ -14,8 +16,14 @@ public static class ResetServerTool
 
     /// <summary>The tool's description.</summary>
     internal const string Description =
-        "Return a running Surl server's files, mail, messages and accounts to their state at start. Open connections "
-        + "stay and see the new contents on their next command. A store on disk refuses.";
+        "Return a running Surl server's files, mail, messages, accounts, proxy accounts, TLS-SRP accounts, Redis keys, "
+        + "LDAP directory, AMQP 0-9-1 exchanges and bindings, and DNS zones to their state at start, what "
+        + "`start_server` seeded included. It also clears Kafka producer state and consumer groups, and MQTT 5 sessions "
+        + "kept with no connection, pending Wills, queued deliveries and unacknowledged publishes. It discards every open "
+        + "or staged object upload (S3, Azure Storage, Google Cloud Storage, OCI) and Azure Storage's remembered "
+        + "committed block lists, and ends every OCI registry token, all MCP server OAuth state (clients, codes and "
+        + "tokens) and every MCP HTTP session. Open connections stay open and see the new contents on their next "
+        + "command. A store on disk refuses.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """

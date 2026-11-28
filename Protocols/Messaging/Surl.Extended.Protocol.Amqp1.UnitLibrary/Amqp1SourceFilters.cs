@@ -55,7 +55,11 @@ internal sealed class Amqp1SourceFilters
     /// <summary>No filter: every message is let through, and nothing is echoed.</summary>
     public static Amqp1SourceFilters None { get; } = new();
 
-    /// <summary>Whether no-local was applied: the link is kept from messages its own connection publishes.</summary>
+    /// <summary>
+    /// Whether no-local was applied: a live topic link is kept from what its own connection publishes, a
+    /// kept subscription from what any connection with its <c>container-id</c> publishes (ADR-0146
+    /// Amendment 3).
+    /// </summary>
     public bool NoLocal { get; private set; }
 
     /// <summary>The applied entries, under the client's keys and as the client sent them; <see langword="null"/> when none was.</summary>
@@ -65,15 +69,16 @@ internal sealed class Amqp1SourceFilters
     /// Reads the <c>filter</c> map of a client receiver's source.
     /// </summary>
     /// <param name="source">The source as the <c>attach</c> carried it.</param>
-    /// <param name="isTopic">Whether the link's node is a topic, where no-local applies.</param>
+    /// <param name="appliesNoLocal">Whether this link applies no-local: its node is a topic and it is not
+    /// a shared subscription, kept or not. When false the entry is left out.</param>
     /// <returns>The filters applied; <see langword="null"/> when a selector entry is refused (not a
     /// string, or one <see cref="Amqp1Selector.Parse"/> refuses), which refuses the attach.</returns>
-    public static Amqp1SourceFilters? Read(object? source, bool isTopic)
+    public static Amqp1SourceFilters? Read(object? source, bool appliesNoLocal)
     {
         var filters = new Amqp1SourceFilters();
         foreach (var entry in FilterEntries(source))
         {
-            if (entry.Value is Amqp1Described described && !filters.TryApply(entry, described, isTopic))
+            if (entry.Value is Amqp1Described described && !filters.TryApply(entry, described, appliesNoLocal))
             {
                 return null;
             }
@@ -98,7 +103,7 @@ internal sealed class Amqp1SourceFilters
     };
 
     // False only for a selector refused; an entry not applied is left out.
-    private bool TryApply(KeyValuePair<object?, object?> entry, Amqp1Described described, bool isTopic)
+    private bool TryApply(KeyValuePair<object?, object?> entry, Amqp1Described described, bool appliesNoLocal)
     {
         var code = CodeOf(described.Descriptor);
         if (code == SelectorFilter)
@@ -108,7 +113,7 @@ internal sealed class Amqp1SourceFilters
 
         Func<Amqp1BusSelectorMessage, string?, bool>? predicate = code switch
         {
-            NoLocalFilter when isTopic => NoLocalPredicate(),
+            NoLocalFilter when appliesNoLocal => NoLocalPredicate(),
             DirectBinding when described.Value is string key => (_, routingKey) => routingKey == key,
             TopicBinding when described.Value is string pattern && AmqpTopicExchangeNames.ToCanonicalFilter(pattern).IsMapped => TopicPredicate(pattern),
             HeadersBinding when described.Value is Amqp1Map arguments => HeadersPredicate(arguments),
@@ -143,7 +148,7 @@ internal sealed class Amqp1SourceFilters
 
     private Func<Amqp1BusSelectorMessage, string?, bool> NoLocalPredicate()
     {
-        // The bus keeps the connection's own publishes from the subscription.
+        // The bus withholds the publishes: from a live subscription, or at copy-in to a kept one's queue.
         NoLocal = true;
         return Everything;
     }

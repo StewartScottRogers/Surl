@@ -100,6 +100,19 @@ public sealed partial class Amqp1ContainerConnectionTests
         Assert.HasCount(4, written);
     }
 
+    // Part 2 section 2.7.3: a max-message-size of zero imposes no maximum, as --max-filesize 0 does (ADR-0006).
+    [TestMethod]
+    public async Task ServeAsync_AttachAsSenderUnderMaxFilesizeZero_IsAnsweredWithMaxMessageSizeZero()
+    {
+        var limits = ExchangeLimits.Default with { MaxUploadBytes = 0 };
+
+        var (written, _) = await ServeWithLimitsAsync(Bus(), limits, Open(), Begin(), BusFrame(SenderAttach(0, "orders")));
+
+        var answer = (Amqp1Attach)written[2].Performative!;
+        Assert.IsTrue(answer.IsReceiver);
+        Assert.AreEqual(0ul, answer.MaxMessageSize);
+    }
+
     [TestMethod]
     [DataRow("/topic/news", "/topic/news", "copy", DisplayName = "a topic")]
     [DataRow("queue/orders", "/queue/orders", "move", DisplayName = "a queue")]

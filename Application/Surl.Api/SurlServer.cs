@@ -211,14 +211,20 @@ public sealed class SurlServer : IAsyncDisposable
 
     /// <summary>
     /// Returns every store the server holds to its state at start (ADR-0124, decision 3), one at a time in this
-    /// order: the content store, the mail store, the message bus and the accounts, then, each only when composed or
-    /// served, the proxy accounts, the TLS-SRP accounts, the Redis keyspace, the LDAP directory, the AMQP 0-9-1
-    /// exchanges, the Kafka producers, the sessions, the DNS zones and the uploads.
+    /// order: the content store, the mail store, the message bus and the accounts, then, each only when the server
+    /// holds it, the proxy accounts, the TLS-SRP accounts, the Redis keyspace, the LDAP directory, the AMQP 0-9-1
+    /// exchanges, the Kafka producers, the sessions, the DNS zones and the uploads. The server holds the Redis
+    /// keyspace, the LDAP directory and the DNS zones only when a listen URL serves them (ADR-0158, Amendment 1).
+    /// A server with a data directory (<see cref="SurlServerOptions.DataDirectory"/>) or a share on disk refuses the
+    /// reset and resets nothing.
     /// <para>
-    /// Afterwards the content store holds the files <see cref="SurlServerOptions.Files"/> gave and no others; the
+    /// After a reset the content store holds the files <see cref="SurlServerOptions.Files"/> gave and no others; the
     /// configured mailboxes hold no messages (each with a new <c>UIDVALIDITY</c>); the configured topics and queues
     /// hold no messages; the accounts, proxy accounts and TLS-SRP accounts are exactly those given at start; the
-    /// Redis databases and the LDAP directory are empty and there is no DNS zone; no client-declared AMQP 0-9-1
+    /// Redis databases hold the keys <see cref="SurlServerOptions.RedisKeys"/> gave and no others, each expiry
+    /// measured again from the reset; the LDAP directory holds the entries
+    /// <see cref="SurlServerOptions.DirectoryLdif"/> gave and no others; the DNS zones are those
+    /// <see cref="SurlServerOptions.DnsZones"/> gave and no others; no client-declared AMQP 0-9-1
     /// exchange or binding remains; and the Kafka brokers hold no producer state and no consumer group.
     /// </para>
     /// <para>
@@ -238,9 +244,11 @@ public sealed class SurlServer : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancels a wait for the content store or for an object server's uploads.</param>
     /// <returns>A task that completes once every store is reset.</returns>
-    /// <exception cref="InvalidOperationException">A store refused; the message names it, and the stores before it are
-    /// reset. A content store on disk (<see cref="SurlServerOptions.DataDirectory"/> or a share) refuses, as the
-    /// uploads then would; being first, it leaves every store as it was.</exception>
+    /// <exception cref="InvalidOperationException">A store refused; the message starts with its name, and the stores
+    /// before it are reset. A server with a data directory (<see cref="SurlServerOptions.DataDirectory"/>) or a share
+    /// on disk is refused by the content store (<c>Content: </c>), first in the order, so every store is as it was. The
+    /// mail store (<c>Mail: </c>), second, refuses when the clock (<see cref="SurlServerOptions.TimeProvider"/>) is so
+    /// near 2106-02-07T06:28:15Z that the mailboxes cannot all get a new <c>UIDVALIDITY</c>.</exception>
     public Task ResetAsync(CancellationToken cancellationToken = default) =>
         composedServing.Stores.ResetAsync(cancellationToken);
 
@@ -272,8 +280,9 @@ public sealed class SurlServer : IAsyncDisposable
     /// runs goes, even if it began before the snapshot was taken: every open or staged object upload (S3, Azure
     /// Storage, Google Cloud Storage, OCI) is discarded, with the Azure Storage server's remembered committed block
     /// lists; every OCI registry token is revoked; every MCP server OAuth client, code and token is deleted and every
-    /// MCP HTTP session ended; every Kafka consumer group is dropped; and the MQTT 5 brokers' pending Wills, queued
-    /// deliveries and unacknowledged publishes are discarded.
+    /// MCP HTTP session ended; every Kafka consumer group is dropped; the MQTT 5 brokers' pending Wills, queued
+    /// deliveries and unacknowledged publishes are discarded; and the messages of queues exclusive to a connection are
+    /// dropped, while the queues themselves are kept.
     /// </para>
     /// <para>
     /// Each store publishes one <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Restored"/>, except
@@ -318,7 +327,9 @@ public sealed class SurlServer : IAsyncDisposable
 
     /// <summary>
     /// Starts a server on every listen URL in <paramref name="options"/> and returns once every
-    /// listener has bound.
+    /// listener has bound. Before any binds, its stores hold the start-time seeds
+    /// <see cref="SurlServerOptions.RedisKeys"/>, <see cref="SurlServerOptions.DirectoryLdif"/> and
+    /// <see cref="SurlServerOptions.DnsZones"/> give, applied in that order.
     /// </summary>
     /// <param name="options">What to serve.</param>
     /// <param name="cancellationToken">Cancels the start only; a started server ignores it.</param>
@@ -326,6 +337,8 @@ public sealed class SurlServer : IAsyncDisposable
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
     /// <exception cref="ArgumentException">The options are misused (<see cref="SurlServerOptions"/> says how).</exception>
     /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the start; nothing is left bound or locked.</exception>
+    /// <exception cref="SurlSeedRefusedException">A store refused a start-time seed, or no listen URL serves it; nothing
+    /// is left bound or locked.</exception>
     /// <exception cref="OperationCanceledException">The start was cancelled before every listener bound.</exception>
     public static Task<SurlServer> StartAsync(SurlServerOptions options, CancellationToken cancellationToken = default) =>
         StartAsync(options, SurlServerHostSeams.Production, cancellationToken);
@@ -384,7 +397,25 @@ public sealed class SurlServer : IAsyncDisposable
         var record = options.RecordExchanges
             ? new ExchangeRecordSubscriber(start.Serving!.Events, timeProvider, ExchangeRecordBounds.Of(options))
             : null;
+        await ApplyStartTimeSeedsAsync(start.Serving!, options, record, cancellationToken);
         return await ServeUntilBoundAsync(commandLine, start.Serving!, options, custom, record, cancellationToken);
+    }
+
+    // After the recording subscribed, so it holds each Seeded event; before serving, so no client sees a store unseeded.
+    // Not try/catch: an await in a catch block compiles to a rethrow branch no test can reach.
+    private static async Task ApplyStartTimeSeedsAsync(
+        ComposedServing composedServing, SurlServerOptions options, ExchangeRecordSubscriber? record, CancellationToken cancellationToken)
+    {
+        var seeding = StartTimeSeeds.ApplyAsync(composedServing.Stores, options, cancellationToken);
+        await seeding.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+        if (!seeding.IsCompletedSuccessfully)
+        {
+            await StopRecordingAsync(record);
+            await composedServing.DisposeAsync();
+        }
+
+        // Throws the refusal, or the cancellation, once nothing is left recording or locked.
+        await seeding;
     }
 
     /// <summary>The exchange log <c>surl</c> would write at the command line's level, to <paramref name="log"/>.</summary>

@@ -23,10 +23,12 @@ it with request bytes measured from pinned upstream curl, with no network.
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
 
-**Chosen-error fault** (ADR-0138, BL-798): `DictCommandResponder` asks `ExchangeContext.Faults`
+**Command faults** (ADR-0138, BL-798; ADR-0141, BL-914): `DictCommandResponder` asks `ExchangeContext.Faults`
 through `DictCommandFaults` once per recognized command, at the `Command` stage, with the command in
 capitals and the word (`DEFINE`, `MATCH`) or database (`SHOW INFO`) as the path; a matching `error`
 rule's status line answers the command and the connection stays open, publishing `FaultAppliedEvent`.
-A reply that does not fit, or a rule of another kind, is noted and not applied. A `delay` rule holds the answer for its
-`ms` on `ExchangeContext.TimeProvider` with the idle clock paused, and a `drop` rule aborts the connection with nothing
-written for the command, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (BL-914).
+A `delay` rule holds the answer for its `ms` on `ExchangeContext.TimeProvider` with the idle clock paused (the hold ends
+early if the client closes or resets the connection), and a `drop` rule aborts the connection with nothing written for
+the command, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-914). Only
+an `error` rule whose reply does not fit, or a rule of a kind other than `error`, `delay` or `drop`, is noted and not
+applied.

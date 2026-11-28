@@ -74,6 +74,14 @@ measures it by name.
   `ComposedStores`, whose `ComposedStoreException` is the `InvalidOperationException` a refused
   reset or snapshot throws. `Files.DeleteAsync` (BL-954) is `ComposedStores.DeleteFileAsync` over `ContentStore.DeleteFileForTheTest`: no fault plan, publishes `Deleted`; no file there is `Absent`. Tests bring clients in
   on one listener of several with `FakeListenerFactory.Accept(scheme, connection)`.
+- Start-time seeds (BL-2031, ADR-0158 decisions 3, 4 and 9): `SurlServerOptions.RedisKeys` (`SurlRedisKey`s),
+  `DirectoryLdif` and `DnsZones` (`SurlDnsZone`s) add no word. `SurlServerArguments.ThrowIfMisused` refuses a null
+  item, an empty key, a database outside 0 to 15, an expiry outside 1 millisecond to 365 days and a null apex or
+  zone text. After `ComposeAsync` and the `ExchangeRecordSubscriber`, before serving, `StartTimeSeeds` applies them
+  (keys, directory, zones) through `SurlServerKeys`', `SurlServerDirectory`'s and `SurlServerZones`' internal
+  `SeedAsync` with `keepOnReset: true`, so `ResetAsync` returns to them and drops every runtime seed. A refusal (a
+  store no listen URL serves included) disposes the recording and the composed serving and throws
+  `SurlSeedRefusedException` from `StartAsync`, so nothing is bound or locked.
 - Removing the last server account does not open the server (ADR-0132 amendment 5, BL-1866): without
   `--allow-anonymous` it still asks for a login wherever it did, until `ResetAsync` or `RestoreAsync` returns what
   held at start or at the snapshot. `Accounts.Remove` then writes

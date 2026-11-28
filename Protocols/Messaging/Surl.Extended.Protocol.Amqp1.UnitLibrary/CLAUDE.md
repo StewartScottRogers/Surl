@@ -36,8 +36,10 @@ The type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
   or any field of the wrong type is `amqp:decode-error`. A `symbol` field with `multiple="true"`
   reads a single symbol or an array, and writes one symbol as itself and more as an array.
   `source`, `target` and delivery states are kept as the described values read; `Amqp1Terminus` reads source,
-  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` (and, for BL-956, `declared` and `transactional-state`) and reads
-  each delivery state as an `Amqp1Outcome` (BL-513).
+  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` (and, for BL-956, `declared` and `transactional-state`).
+  It reads `received`, `accepted`, `rejected`, `released` and `modified` as the `Amqp1Outcome` of that
+  name (BL-513), and every other value, `declared` and `transactional-state` included, as
+  `Amqp1Outcome.None`.
 - `Amqp1MessageSection.ReadAll` splits a message into its Part 3 section 3.2 sections, each with its
   bytes exactly as they arrived; `Amqp1Header` and `Amqp1Properties` read the two sections that are
   described lists.
@@ -99,13 +101,39 @@ BL-513 amendment):
   bus's. `Amqp1BusNodeDirectory` is the `IAmqp1NodeDirectory` it uses: a `/topic/` address maps through
   `MessageBus.Names` (`amqp1`, so `--topic-map` aliases apply), a sender needing `pub` on the topic; a
   queue needs `pub` or `sub` on `$queue/<q>` and is declared durable on first attach; a dynamic node is
-  a `surl-dynamic-` queue exclusive to the connection and auto-deleted. A client receiver's link is a
-  bus subscription (topic) or a consumer with 1000 unacknowledged (queue); the bus refusing it
+  a `surl-dynamic-` queue exclusive to the connection and auto-deleted. A dynamic queue is deleted
+  (`IAmqp1NodeDirectory.DeleteDynamicNode`) when the link whose attach made it ends - the client's
+  `detach`, closing or not, the container's, its session's `end` or the connection's end - or as that
+  attach is refused (a chosen-error fault, the bus refusing the consume), whoever else consumes it
+  then. A link that attached to it by its address never deletes it by that rule; the bus still deletes
+  it when its last consumer ends, whichever link that is, and a queue declared under the name after
+  that is not the dynamic node's and stays. When the container deletes one, every other link of the
+  connection still consuming it is detached, closing, with `amqp:resource-deleted` (`the node was
+  deleted`; Part 2 section 2.8.15), after the frame that deleted it is answered; no `detach` is written
+  for a link ending with the node, as every link of an ending session or connection is. A link sending
+  to it by its address consumes nothing and stays, and what it sends afterwards is judged as any send to
+  a queue of that name (an unsettled transfer outside a transaction is `rejected` with `amqp:not-found`
+  while there is none). A queue deleted any other way detaches nothing. A client receiver's link is a live bus subscription (a
+  topic link with no subscription queue) or a consumer with 1000 unacknowledged (a queue link, and a
+  topic link on the bus queue of a kept or non-durable shared subscription, under durable and shared
+  topic subscriptions below); an attach with no source that finds a kept subscription is neither and
+  consumes nothing. For a live subscription or a queue link, the bus refusing it
   (`AccessDenied`, `QueueLocked`, `ExclusiveConsumeRefused`; `TooManySubscriptions`; anything else)
   refuses the attach with `amqp:unauthorized-access`, `amqp:resource-limit-exceeded` or `amqp:not-found`.
-- Frames are answered one at a time under one gate. A message the bus hands a link waits on it
-  (`Amqp1Link.Waiting`; a topic link drops past 1000 and notes the count when it ends) and wakes a pump
-  that sends under the same gate.
+- Frames are answered one at a time under one gate. A live topic message the bus hands a link waits on
+  it (`Amqp1Link.Waiting`) and wakes a pump that sends under the same gate; a live topic link drops past
+  1000 waiting and notes the count when it ends. No queue delivery waits on a link (below).
+- A queue's messages go only to links that can send them (ADR-0146 Amendment 7; tests in
+  `Amqp1ContainerConnectionTests.DeliveryCredit.cs`). Every consumer, of a queue or a subscription
+  queue, is given delivery credit 0 before it starts (`Amqp1Link.StartConsumer`), then the link's
+  credit, or 0 while its session's remote `incoming-window` is 0 or it holds 1000 unsettled
+  (`GiveConsumerWhatTheLinkCanSend`, before and after each link sends; `SendWaitingAsync` goes round
+  until a round writes nothing). The bus's callback only wakes the pump. A delivery is claimed
+  (`TryClaimDelivery`) only as the container starts writing it, so what nobody can take stays ready on
+  the bus, and what the bus held for a link that can no longer send goes to another, not marked
+  redelivered; one partly written when the window closes is finished as it opens. A subscription
+  queue's link runs its filters on the claimed delivery: one refused or unnameable is acknowledged,
+  uses no link credit, and the next is claimed.
 - As receiver: a `flow` with credit 100 follows the `attach`, and a transfer that leaves 50 or less
   raises it back. A transfer past the credit detaches with `amqp:link:transfer-limit-exceeded`; a first
   transfer without `delivery-id`, or a continuation naming another delivery, with `amqp:invalid-field`;
@@ -129,13 +157,20 @@ BL-513 amendment):
   allow, each a new `delivery-id`, an 8-byte tag and `message-format` 0, split into `more` frames of
   the smaller `max-frame-size` and written frame by frame as the window opens (`Amqp1OutgoingTransfer`);
   a link holding 1000 deliveries unsettled sends nothing more until the client settles one. `drain`
-  sends what waits then gives the rest back with a `flow`; `echo` is answered with a `flow`. `snd-settle-mode` `settled` sends pre-settled (a queue delivery
+  sends what the link has - what waits on a live topic link; on a queue link, claiming until the bus
+  holds nothing for it - then gives the rest back with a `flow` and sets the consumer's credit to 0 (a
+  link that cannot send gets the credit back, its messages staying ready); `echo` is answered with a
+  `flow`. The container's `flow` states `available`: what waits on a live topic link, and for a queue
+  link its queue's ready count (`InspectQueue`), a hint that counts what the filters would refuse. `snd-settle-mode` `settled` sends pre-settled (a queue delivery
   acknowledged as written); otherwise the client's `disposition` over its range settles: `accepted`
   acknowledges, `rejected` drops, `released` (or settling with no outcome) and `modified` put back,
-  `modified` with `undeliverable-here` keeps it from the link until the link ends; a topic delivery is
-  only settled. Under `rcv-settle-mode` `second` the container settles once the client states an outcome.
+  `modified` with `undeliverable-here` keeps it from the link until the link ends. Those act on the
+  queue a delivery came from, a kept or non-durable shared subscription's included; a live
+  subscription's delivery is only settled. Under `rcv-settle-mode` `second` the container settles once
+  the client states an outcome.
 - A link ending (client `detach`, `end`, the connection going) ends its subscription or consumer, so
-  its unsettled and waiting queue deliveries go back to the queue.
+  its unsettled queue deliveries go back to the queue, marked redelivered; what was never sent is in the
+  queue already, or goes back unmarked.
 
 JMS selectors (BL-958; ADR-0146 decision 2.2):
 
@@ -164,7 +199,8 @@ Source filters (BL-959; ADR-0146 decisions 2.1 and 2.4):
   recognised by its descriptor, ulong or symbol (`0x0000468C:0x00000000` to `0x00000004`): a JMS
   selector (a string `Amqp1Selector.Parse` accepts; anything else refuses the attach with a null source
   and a closing `detach` with `amqp:invalid-field`, `selector not valid`, before the node is resolved),
-  no-local (a topic link only: the bus's `noLocal` subscription), the direct binding (the routing key
+  no-local (a topic link only, and not a shared one; a live link is the bus's `noLocal`
+  subscription, a kept one is under durable and shared subscriptions below), the direct binding (the routing key
   equals a string), the topic binding (a string `AmqpTopicExchangeNames.ToCanonicalFilter` accepts, matched
   word by word, `*` one word and `#` none or more) and the headers binding (a map whose `x-match` is
   absent, `all` or `any`, string or symbol; `x-` keys are not matched, a null value matches a property
@@ -175,9 +211,10 @@ Source filters (BL-959; ADR-0146 decisions 2.1 and 2.4):
   `Amqp1BusSelectorMessage` - the sections a transfer of it would carry, an undecodable native form as an
   empty message - and its routing key is its `subject`, else its bus topic through
   `AmqpTopicExchangeNames.FromCanonicalTopic`, except that on a queue link a message whose bus topic is
-  the queue's name (sent straight to it) has none. A topic link filters before a message waits, so a
-  filtered one never counts against the 1000; a queue link hands `QueuePredicate` to the bus as its
-  consumer predicate, so a message no consumer accepts stays ready.
+  the queue's name (sent straight to it) has none. A live topic link filters before a message waits, so
+  a filtered one never counts against the 1000; a queue link hands `QueuePredicate` to the bus as its
+  consumer predicate, so a message no consumer accepts stays ready; a link on a subscription queue
+  filters as a message leaves that queue (below).
 
 Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
 
@@ -193,9 +230,10 @@ Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
 - A transfer whose state is `transactional-state` naming an open transaction is judged as any transfer
   (format, decode), held unpublished and answered `transactional-state` with `accepted`, or with
   `rejected` and the error; held messages count with partial deliveries against `--max-filesize`
-  (`amqp:resource-limit-exceeded` past it). Access was judged at attach. A `txn-id` naming no open
-  transaction (not four bytes, discharged, rolled back, from another connection) is `rejected` with
-  `amqp:transaction:unknown-id`.
+  (`amqp:resource-limit-exceeded` past it); under `--max-filesize 0`, no limit, held messages have no
+  byte bound, and only the count of open transactions is bounded. Access was judged at attach. A
+  `txn-id` naming no open transaction (not four bytes, discharged, rolled back, from another
+  connection) is `rejected` with `amqp:transaction:unknown-id`.
 - `discharge` with `fail` true drops the held messages; with `fail` false publishes them all or none
   through `BusConnection.PublishBatch`, and a refusal rolls back and answers `rejected` with
   `amqp:transaction:rollback`. Either way the id is never valid again. A coordinator link ending
@@ -207,38 +245,80 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
 
 - A client receiver's topic source with `durable` above none and an `expiry-policy` other than
   `link-detach` (an absent or unknown policy is `session-end`, Part 3 section 3.5.6's default) is a kept
-  subscription (`Amqp1KeptSubscription`): a bus queue named `surl-subscription-` and the hex SHA-256 of
+  subscription (`Amqp1SubscriptionQueue`): a bus queue named `surl-subscription-` and the hex SHA-256 of
   the client's `container-id`, a zero byte and the link name, bound to the topic filter and carrying a
   description (hex of the encoded client address, canonical filter, applied filters, policy and sharing).
   `never` is a durable queue the bus persists; `session-end` and `connection-close` an exclusive one,
-  deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. It is answered
+  deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. A `session-end` one is
+  held by every session of the connection that consumed it - several for a shared one, or for one
+  resumed after a detach - whether or not a link of that session still consumes it, and is deleted when
+  the last of those sessions ends (BL-2043), so a session's end leaves a subscription another session's
+  link still consumes; once a `closed` detach or a replacement deletes its queue,
+  no session holds it. A kept subscription is answered
   `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
   `shared`/`global` capabilities applied.
 - Who may: the `sub` right on the topic filter is all a kept subscription needs; it asks for nothing on
-  `$queue/<name>`. Each attach judges it first (a live subscription made and ended at once), then
-  inspects the queue. A subscription already there under the name is judged on its own filter too
-  (`Amqp1KeptSubscription.FromDescription`), so an account without that right gets
+  `$queue/<name>`. An attach that opens the subscription inspects the queue (`InspectQueue`), then judges
+  the right on its filter (`Judge`: a live subscription made and ended at once); an attach with no source
+  has already inspected, to find the subscription by link name. Nothing changes before the judgement.
+  A subscription already there under the name is judged on its own filter too
+  (`Amqp1SubscriptionQueue.FromDescription`), so an account without that right gets
   `amqp:unauthorized-access` whether it asks the same filter, another one or no source, and the queue,
   its binding and its messages stay. The consume is `BusConnection.ConsumeSubscriptionQueue`, which
   takes only the queue carrying this description and bound to exactly this filter; one another client
   bound further is `amqp:unauthorized-access`. The bus takes no direct send to a described queue, so no
   other protocol's `$queue` send reaches a subscription.
 - Another link or connection holding the queue is `amqp:resource-locked` (a shared one is held only by a
-  different description), another description replaces it, the same resumes it. A queue exclusive to
+  different description), another description replaces it, the same resumes it. A queue to be replaced
+  that gains a consumer between the inspect and the delete is kept, and the attach is
+  `amqp:resource-locked` too (BL-2026). So is every attach that loses its queue's name to another link
+  or connection after the inspect (BL-2083): a bus answer of `QueueInUse`, `ExclusiveConsumeRefused`
+  (another link consumes first), `QueueDescriptionDiffers` (a queue declared under the name with
+  another description) or `QueueLocked` (another connection declared it exclusive), at the delete,
+  declare, bind or consume, is `subscription in use`, and that queue stays. So is `QueueFlagsDiffer`
+  from a declare when the queue then carries another description (`ConsumeRefusal`); a queue carrying
+  this subscription's own description with other flags is `amqp:not-found`. A queue exclusive to
   another connection shows no filter to judge: an attach with a source is `amqp:resource-locked`, one
   with none `amqp:not-found`. Filters
-  run as a message leaves the queue; a message they refuse, or the client cannot name, is acknowledged.
-  No-local is not applied to a kept subscription. An attach with no source finds the subscription by
-  link name (plain, shared, shared and global) and is answered its stored source; with none it is
+  run as a message leaves the queue, as a link able to send claims it; a message they refuse, or the
+  client cannot name, is acknowledged.
+  An attach with no source finds the subscription by link name (plain, shared, shared and global) and is
+  answered its stored source, less a no-local a shared one was stored with; with none it is
   `amqp:not-found`. A `closed` detach deletes the queue unless another consumer still takes from it.
   `Amqp1BusNodeDirectory` refuses `/queue/surl-subscription-...` with `amqp:not-found`.
-- Every delete the container asks for is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
+- No-local (BL-2039; ADR-0146 Amendment 3): once the client's `open` is read the connection sets
+  `BusConnection.PublisherName` to `amqp1:` and the `container-id`. An unshared kept subscription with
+  no-local declares its queue excluding that name, so the queue takes no topic publish of any AMQP 1.0
+  connection with that `container-id`, attached or detached, and every other publish. A shared
+  subscription, kept or not, does not apply no-local: the entry is left out of its echoed source and its
+  description, and its queue excludes nobody. Adding or dropping no-local on an unshared kept
+  subscription changes the description, so it replaces the subscription.
+- Non-durable shared (BL-2041; ADR-0146 Amendment 4): a client receiver's topic source with the
+  `shared` capability that asks no kept subscription (`durable` `none`, or `expiry-policy`
+  `link-detach`) is a bus queue named `surl-subscription-nondurable-` and the hex SHA-256 of the shared
+  key (`container-id`, or none under `global`, a zero byte and the link name before its first `|`),
+  auto-delete only, with a description recording policy `link-detach` whatever was asked, bound to the
+  topic filter. Every such link consumes it, not exclusively, so each message goes to one of them, and
+  what a link leaves unsettled when it ends goes back for the others, marked redelivered.
+  The answer carries no `durable` and no `timeout`, `expiry-policy` `link-detach`, the applied filters
+  and `shared` (with `global` when asked). Who may and `amqp:resource-locked` for another address or
+  other filters while a link consumes are as for a kept one. The bus removes the queue with its last
+  consumer, so no detach or session end deletes it. An attach refused after the declare deletes the
+  queue while no link consumes it; an `UnknownQueue` from the bind or consume (the last other link
+  ended between the calls) declares, binds and consumes once more, then refuses with `amqp:not-found`.
+  An attach with no source never finds one. A queue link echoes no capability, and `global` without
+  `shared` shares nothing.
+- Every delete the container asks of a subscription queue is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
   queue still carrying the description judged (BL-2010): replacing a stale one (`ClearStaleQueue`)
   the description just inspected and judged, only while unused; a `closed` detach
   (`DestroyKeptSubscription`) the link's own, only while unused - for a lookup link, the one found and
-  judged at its attach; a session's end (`EndSessionSubscriptions`) the description the session
-  consumed each under. A queue replaced since by one with another description stays. The bus itself
-  deletes a connection's exclusive queues when the connection ends.
+  judged at its attach (both through `DeleteUnusedSubscriptionQueue`); a session's end
+  (`EndSessionSubscriptions`) the description the session consumed each under, unless another session
+  holds that subscription; a non-durable shared attach refused after its declare (`DeclareBindAndConsume`)
+  the description it declared, only while unused. A queue replaced since by one with another
+  description stays. The one other delete the container asks for is a dynamic queue's, which carries no
+  description (above). The bus itself deletes a connection's exclusive queues when the connection ends,
+  and an auto-delete one when its last consumer ends.
 
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the

@@ -14,8 +14,9 @@ namespace Surl.Authentication;
 /// <see cref="DigestAlgorithm"/>, computed once here (ADR-0036); for NTLM, each named account's
 /// NT hashes, one for each way an upstream curl build hashes the password (ADR-0039,
 /// <see cref="NtlmPasswordHashes"/>); and for AWS Signature Version 4, each named account's password as UTF-8
-/// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
-/// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for Azure Storage, the
+/// bytes, since every signing key derives from the secret itself (ADR-0043); and, for
+/// <c>CRAM-MD5</c>, <c>DIGEST-MD5</c> and <c>APOP</c> logins, whichever server runs them, the same
+/// bytes (ADR-0049, section 5); and, for Azure Storage, the
 /// key a named account's password decodes to as base64, when it decodes to at least one byte
 /// (ADR-0100, decision 4.1); and, for SASL
 /// <c>SCRAM-SHA-1</c>, <c>SCRAM-SHA-256</c> and <c>SCRAM-SHA-512</c>, each named account's <see cref="ScramCredentials"/>
@@ -288,9 +289,13 @@ public sealed class AccountBook
     }
 
     /// <summary>
-    /// Whether an account of exactly <paramref name="userName"/> exists, its password unused: how
-    /// SASL <c>EXTERNAL</c> matches a client certificate's name (ADR-0049, section 4). The empty
-    /// name, a Bearer token's account, never matches.
+    /// Whether this book or view holds an account of exactly <paramref name="userName"/> now, no
+    /// password checked. Checked logins that name their client without a password match the name
+    /// here: SASL <c>EXTERNAL</c>, by the client certificate's subject simple name (ADR-0049,
+    /// section 4), and the Kerberos logins, by the client principal - SASL <c>GSSAPI</c>, Kerberos
+    /// inside <c>GSS-SPNEGO</c> and HTTP Negotiate (ADR-0057), and the SOCKS5 GSS-API login
+    /// (ADR-0165, amendment 1). <see cref="AuthenticationPolicy.NamesAccount"/> answers with it
+    /// too. The empty name, a Bearer token's account, never matches.
     /// </summary>
     /// <param name="userName">The name, compared ordinally.</param>
     /// <returns><see langword="true"/> only when a named account has that name.</returns>

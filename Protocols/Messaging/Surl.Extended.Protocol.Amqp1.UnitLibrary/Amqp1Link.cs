@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Surl.MessageBus;
 
 namespace Surl.Extended.Protocol.Amqp1;
@@ -13,6 +14,9 @@ internal sealed class Amqp1Link(uint containerHandle)
     private int waitingCount;
 
     private int droppedCount;
+
+    // The delivery credit the consumer has left: what it was last given, less each delivery claimed since.
+    private uint consumerCredit;
 
     /// <summary>The handle the container's frames for this link carry.</summary>
     public uint ContainerHandle => containerHandle;
@@ -39,6 +43,9 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>The node's canonical address, <c>/topic/&lt;t&gt;</c> or <c>/queue/&lt;q&gt;</c>, once found.</summary>
     public string NodeAddress { get; set; } = string.Empty;
 
+    /// <summary>The address of the dynamic node this link's attach made, which goes when the link ends or the attach is refused; <see langword="null"/> when it made none.</summary>
+    public string? MadeDynamicNodeAddress { get; set; }
+
     /// <summary>Whether the link's sender sends every delivery settled (<c>snd-settle-mode</c> <c>settled</c>).</summary>
     public bool SenderSettles { get; set; }
 
@@ -60,25 +67,25 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>When the container sends: the source filters it applies (ADR-0146 decision 2).</summary>
     public Amqp1SourceFilters Filters { get; set; } = Amqp1SourceFilters.None;
 
-    /// <summary>When the container sends from a topic and keeps the subscription: its plan (ADR-0146 decision 3); <see langword="null"/> for a live subscription.</summary>
-    public Amqp1KeptSubscription? Kept { get; set; }
+    /// <summary>When the container sends from a topic subscription held in a bus queue, a kept or a non-durable shared one: that queue's plan (ADR-0146 decision 3 and Amendment 4); <see langword="null"/> otherwise.</summary>
+    public Amqp1SubscriptionQueue? SubscriptionQueue { get; set; }
 
     /// <summary>Whether the link only looked a kept subscription up (an attach with no source), so it consumes nothing.</summary>
     public bool IsSubscriptionLookup { get; set; }
 
-    /// <summary>When the container sends from a topic: the live subscription.</summary>
+    /// <summary>When the container sends from a live topic subscription: that subscription; <see langword="null"/> otherwise. A kept or non-durable shared subscription's link has none and uses <see cref="Consumer"/>.</summary>
     public BusSubscription? Subscription { get; set; }
 
-    /// <summary>When the container sends from a queue: the bus consumer.</summary>
+    /// <summary>When the container sends from a bus queue, a queue node's or a kept or non-durable shared subscription's: the consumer of it; <see langword="null"/> otherwise, as for a live topic subscription or a kept subscription lookup.</summary>
     public BusQueueConsumer? Consumer { get; set; }
 
-    /// <summary>When the container sends: the messages handed to the link that wait for credit, in order.</summary>
+    /// <summary>When the container sends from a live topic subscription: the messages handed to the link that wait until it can send them, in order. A queue's messages wait in the queue instead (ADR-0146 Amendment 7).</summary>
     public ConcurrentQueue<Amqp1PendingMessage> Waiting { get; } = new();
 
     /// <summary>How many messages wait.</summary>
     public int WaitingCount => Volatile.Read(ref waitingCount);
 
-    /// <summary>How many topic messages were dropped because too many waited.</summary>
+    /// <summary>How many of a live topic subscription's messages were dropped because too many waited. No others are dropped or counted here: a link with a <see cref="Consumer"/>, a kept or non-durable shared subscription's included, has none wait on it.</summary>
     public int DroppedCount => Volatile.Read(ref droppedCount);
 
     /// <summary>When the container sends: how many of its deliveries on the link wait for the client to settle them.</summary>
@@ -108,12 +115,49 @@ internal sealed class Amqp1Link(uint containerHandle)
         return true;
     }
 
-    /// <summary>Takes the first waiting message.</summary>
-    public Amqp1PendingMessage Take()
+    /// <summary>Takes the first waiting message; <see langword="null"/> when none waits.</summary>
+    public Amqp1PendingMessage? TakeWaiting()
     {
-        Waiting.TryDequeue(out var message);
+        if (!Waiting.TryDequeue(out var message))
+        {
+            return null;
+        }
+
         Interlocked.Decrement(ref waitingCount);
-        return message!;
+        return message;
+    }
+
+    /// <summary>Starts the bus consumer, if the link has one, with delivery credit 0, so the bus holds nothing for it until <see cref="GiveConsumerCredit"/> says otherwise (ADR-0146 Amendment 7 item 3).</summary>
+    public void StartConsumer()
+    {
+        Consumer?.SetDeliveryCredit(0);
+        Consumer?.Start();
+    }
+
+    /// <summary>
+    /// Gives the bus consumer, if the link has one, this delivery credit: the most messages the bus holds
+    /// for it unclaimed. Held ones past it go back to the queue. The bus is told only of a change.
+    /// </summary>
+    public void GiveConsumerCredit(uint credit)
+    {
+        if (Consumer is not null && credit != consumerCredit)
+        {
+            consumerCredit = credit;
+            Consumer.SetDeliveryCredit(credit);
+        }
+    }
+
+    /// <summary>Claims the delivery the bus has held longest for the link's consumer, using one of its credit; the link must have a consumer.</summary>
+    /// <returns>Whether one was held.</returns>
+    public bool TryClaimDelivery([NotNullWhen(true)] out BusQueueDelivery? delivery)
+    {
+        if (!Consumer!.TryClaimDelivery(out delivery))
+        {
+            return false;
+        }
+
+        consumerCredit--;
+        return true;
     }
 
     /// <summary>Ends the link's subscription or consumer; a consumer's unsettled deliveries go back to the queue.</summary>

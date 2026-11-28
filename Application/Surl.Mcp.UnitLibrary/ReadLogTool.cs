@@ -28,7 +28,7 @@ public static class ReadLogTool
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
             "topic": { "type": "string", "minLength": 1, "description": "The topic, e.g. orders" },
-            "from_offset": { "type": "integer", "minimum": 0, "default": 0, "description": "The first offset to read" },
+            "from_offset": { "type": "integer", "minimum": 0, "maximum": 9007199254740991, "default": 0,"description": "The first offset to read" },
             "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100, "description": "The most records to return" }
           },
           "required": ["server_id", "topic"],
@@ -45,8 +45,8 @@ public static class ReadLogTool
 
     private static async Task<McpToolResult> ReadAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
-        var fromOffset = arguments.TryGetProperty("from_offset", out var from) ? from.GetInt64() : 0;
-        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetInt32() : 100;
+        var fromOffset = arguments.TryGetProperty("from_offset", out var from) ? from.GetWholeInt64() : 0;
+        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetWholeInt32() : 100;
         var page = await running.Server.Messages.ReadLogAsync(arguments.GetProperty("topic").GetString()!, fromOffset, limit, cancellationToken);
         return ToolResults.FromObject(writer =>
         {

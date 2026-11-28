@@ -28,7 +28,7 @@ public static class ReadMessageTool
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
             "owner": { "type": "string", "description": "The account's name; the empty string names the --allow-anonymous mailbox owner" },
             "mailbox": { "type": "string", "minLength": 1, "description": "The mailbox, e.g. INBOX" },
-            "uid": { "type": "integer", "minimum": 0, "description": "The message's UID" }
+            "uid": { "type": "integer", "minimum": 0, "maximum": 9007199254740991, "description": "The message's UID" }
           },
           "required": ["server_id", "owner", "mailbox", "uid"],
           "additionalProperties": false
@@ -47,7 +47,7 @@ public static class ReadMessageTool
         var message = await running.Server.Mail.ReadMessageAsync(
             arguments.GetProperty("owner").GetString()!,
             arguments.GetProperty("mailbox").GetString()!,
-            arguments.GetProperty("uid").GetInt64(),
+            arguments.GetProperty("uid").GetWholeInt64(),
             cancellationToken);
         return ToolResults.FromObject(writer =>
         {

@@ -153,8 +153,10 @@ public static class AuthenticationComposition
     }
 
     /// <summary>
-    /// Builds the policy of a command line with no accounts and no loosening option: what the
-    /// servers are composed with when only their schemes are wanted.
+    /// Builds the policy <see cref="Compose"/> builds for a command line with no accounts and no
+    /// loosening option, reading no file and with no event stream and no fault plan. To compose
+    /// servers only to list their schemes, <see cref="SurlServerComposition"/> uses
+    /// <see cref="SurlServerComposition.ComposePolicyWithoutAccounts"/> instead.
     /// </summary>
     /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
     /// <returns>The policy.</returns>

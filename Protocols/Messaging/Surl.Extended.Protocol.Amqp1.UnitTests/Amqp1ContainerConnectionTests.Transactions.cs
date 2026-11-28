@@ -232,6 +232,27 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_TransactionalTransfersUnderMaxFilesizeZero_AreHeldAndPublishedAtTheCommit()
+    {
+        var limits = ExchangeLimits.Default with { MaxUploadBytes = 0 };
+        var heldBus = Bus();
+        var committedBus = Bus();
+
+        var (held, _) = await ServeWithLimitsAsync(heldBus, limits, [.. TransactionFrames(Posted(1, 1), Posted(1, 2))]);
+        var (committed, _) = await ServeWithLimitsAsync(committedBus, limits, [.. TransactionFrames(Posted(1, 1), Posted(1, 2)), Control(0, 3, DischargeCommitHex)]);
+
+        var dispositions = Dispositions(held);
+        AssertSameFrame(Settled(1, InTransaction(Amqp1DeliveryState.Accepted)), dispositions[1]);
+        AssertSameFrame(Settled(2, InTransaction(Amqp1DeliveryState.Accepted)), dispositions[2]);
+        Assert.IsNull(heldBus.Connect().GetFromQueue("orders").Delivery);
+        AssertSameFrame(Settled(3, Amqp1DeliveryState.Accepted), Dispositions(committed)[3]);
+        var consumer = committedBus.Connect();
+        Assert.AreEqual("hello", Encoding.UTF8.GetString(consumer.GetFromQueue("orders").Delivery!.Message.Payload.Span));
+        Assert.AreEqual("hello", Encoding.UTF8.GetString(consumer.GetFromQueue("orders").Delivery!.Message.Payload.Span));
+        Assert.IsNull(consumer.GetFromQueue("orders").Delivery);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PreSettledTransactionalTransfer_IsHeldAndAnsweredByNothing()
     {
         var bus = Bus();

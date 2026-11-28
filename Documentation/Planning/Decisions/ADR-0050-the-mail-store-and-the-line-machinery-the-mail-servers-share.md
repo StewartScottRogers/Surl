@@ -110,6 +110,7 @@ ordinally):
   `INBOX` of every owner that lacks one (decision 7's index is then written once). `INBOX` is
   matched case-insensitively (`OrdinalIgnoreCase`, RFC 3501 section 5.1) and stored as `INBOX`;
   every other name is matched ordinally.
+  (When that index is written: the note of 2026-11-28 (BL-2084) at the end of this decision.)
 - **Other mailboxes** are created, deleted and renamed by IMAP. The store keeps names flat, as
   strings: the hierarchy delimiter and modified UTF-7 are the IMAP server's view (BL-187). A
   name is 1 to `MaxMailboxNameBytes` UTF-8 bytes with no control character (U+0000 to U+001F,
@@ -142,6 +143,21 @@ ordinally):
   invalid name) is a typed outcome, not an exception.
 - **Concurrent sessions** see each other's changes at once, except POP3 (decision 4). A fetch
   of a message another session expunged meanwhile is a missing message.
+
+*Note, 2026-11-28 (BL-2084):* on an `INBOX` created at start in a store with files, the code
+differs from the text above: the index is not written at start.
+
+- `MailboxStore.LoadAsync` creates each missing `INBOX` and only counts the change, and
+  `SurlServerComposition.LoadMailStoreAsync` does not save the store it loads.
+- The first `SaveChangesAsync` writes it, in the same index as every other change the store
+  holds by then. If that index write fails, the next save writes it (the other note of
+  2026-11-28, BL-2067, at the end of decision 7).
+- `SaveChangesAsync` is called by the SMTP, IMAP and POP3 servers after they change the store
+  (IMAP also after some commands that change nothing, such as a `CREATE` of a mailbox that
+  exists) and by `ComposedStores.SeedMailAsync` after each seed.
+- Stopping the server does not save the store. If no save has succeeded by then, the index on
+  disk still lacks that `INBOX`, and the next start creates it again, with a `UIDVALIDITY`
+  issued at that start.
 
 ### 4. POP3's maildrop and its lock
 
@@ -210,6 +226,7 @@ type), so each server would have to write `global::Surl.MailStore.MailStore`.
   store refuses one larger than its own `MailboxStore.MaxMessageBytes` (`Surl.Console` sets it from
   `ExchangeLimits.MaxUploadBytes`; 0 means no limit) again as a second line of defence, with
   the typed `MessageTooLarge` outcome and nothing stored.
+  (Who sets it: the note of 2026-11-28 (BL-2101) at the end of this decision.)
 - **Past a bound** nothing is stored, and the operation (a whole delivery, a whole `COPY`) gets
   the typed `StoreFull` or `TooManyMailboxes` outcome, answered in each protocol's words (texts
   in BL-186's and BL-187's ADRs). `StoreFull` also answers a new mailbox that would need a
@@ -223,6 +240,15 @@ type), so each server would have to write `global::Surl.MailStore.MailStore`.
   | A message past `--max-filesize` | `552`, ADR-0006 section 5 | tagged `NO`, ADR-0006 section 5 | n/a |
 
   `452` is transient, so a sender may retry once mail has been read and removed.
+
+*Note, 2026-11-28 (BL-2101):* on who loads the store and sets its message limit, the code differs
+from the text of this decision and of decision 7's "Loaded" bullet, which name `Surl.Console`.
+
+- `SurlServerComposition.LoadMailStoreAsync`, in `Surl.Composition`, does both. It builds the
+  store when there are no files and loads it with `MailboxStore.LoadAsync` when there are, passing
+  `ExchangeLimits.MaxUploadBytes` as `MailboxStore.MaxMessageBytes` either way.
+- A start reaches it through `SurlServerComposition.ComposeAsync`, which `Surl.Console` and
+  `Surl.Api` call.
 
 ### 7. Persistence under `<path>/.surl/mail`
 
@@ -244,6 +270,9 @@ only the index is rewritten whole.
   `MoveFileReplacing`. Writes are serialised inside the store's lock, so the file always holds a
   state the store held. A change's message file is renamed into place before its index is
   written; an expunged message's file is deleted after the index no longer names it.
+  (Which lock serialises the writes: the note of 2026-11-28 at the end of this decision.)
+  (When an `INBOX` created at start is written: the note of 2026-11-28 (BL-2084) at the end of
+  decision 3.)
 - **The index's byte format.** All integers big-endian and unsigned unless marked signed:
 
   | Part | Bytes |
@@ -267,6 +296,7 @@ only the index is rewritten whole.
   any message files beside it are ignored. Leftover `.index-<guid>` and `.pending-<guid>` files,
   and message files the index does not name, are ignored (a later delivery given the same
   number replaces such a file).
+  (Who loads it: the note of 2026-11-28 (BL-2101) at the end of decision 6.)
 - **Malformed at start** - surl refuses to start with `CouldNotReadFile` (37) and stderr
   `surl: (37) Could not read <file path>: <reason>`, `<file path>` the full path of the file at
   fault:
@@ -284,7 +314,8 @@ only the index is rewritten whole.
     gives`, or the exception message.
   Starting empty instead would overwrite the index on the first delivery and lose the mail
   silently, which is ADR-0031's reason too.
-- **A write that fails while serving:**
+- **A write that fails while serving:** (how a failed index write and a failed delete reach the
+  server: the note of 2026-11-28 at the end of this decision)
   - a message file that cannot be written refuses that delivery or append - nothing is stored,
     since its bytes would exist nowhere - with a typed `StorageFailed` outcome carrying the
     exception message, which the server notes with `IExchangeLog.Note` and answers as a local
@@ -296,6 +327,33 @@ only the index is rewritten whole.
     next load.
 - **Nothing outside the data directory** (ADR-0031 decision 8): the store writes only these
   paths, only through `IContentFileSystem`.
+
+*Note, 2026-11-28 (BL-2067):* on serialisation and on failed saves, the code differs from the
+text above.
+
+- **Serialisation.** Index writes are serialised by a semaphore of their own
+  (`MailboxStore`'s `saveLock`), not by the store's lock. `SaveChangesAsync` holds the
+  semaphore for the whole save. Within a save the store's lock is held only to take the
+  index's bytes and the released file numbers, and afterwards to record the save and drop
+  those numbers from the queue; it is not held while the index is written or the released
+  message files are deleted. The file still always holds a state the store held.
+- **Failed saves.** `SaveChangesAsync` returns no outcome: it throws.
+  - An index write that fails throws the file system's exception as it came (such as
+    `IOException` or `UnauthorizedAccessException`), after deleting the temporary file. The
+    change stays in memory, the released files stay queued, and the next save writes the
+    index and then deletes them.
+  - A message file that cannot be deleted does not stop the others: after the index no longer
+    names them, every released file is tried, and then one `IOException` with the first
+    failure's message is thrown. Their numbers have already left the queue, so no later save
+    retries the delete; a file left behind is ignored at the next load.
+  - The SMTP, IMAP and POP3 servers catch whatever `SaveChangesAsync` throws, other than
+    `OperationCanceledException`, and note `Mail store: <exception message>`
+    (`SmtpSession.SaveMailStoreAsync`, `ImapSession.SaveMailStoreIfChangedAsync`,
+    `Pop3Session.RemoveDeletedMessagesAsync`). Seeding through
+    `ComposedStores.SeedMailAsync` does not catch it: it reaches the caller.
+
+  A message file that cannot be written does answer an outcome, `StorageFailed`, as the list
+  says; the exception message is held in `PendingMessage.StorageFailure`.
 
 ### 8. The line machinery in `Surl.LineProtocol`
 

@@ -52,9 +52,28 @@ What it holds now (BL-629):
   end puts it back at its own place, marked `Redelivered`; a reject without requeue drops it,
   because the bus has no dead-letter queue. An exclusive queue belongs to its declaring
   connection: any other connection gets `QueueLocked` on declare, bind, consume and delete,
-  but may still send to it. It is deleted when its owner goes. An auto-delete queue is
-  deleted when its last consumer ends. An expired message is dropped when the queue reaches
-  it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
+  but may still send to it, unless it carries a subscription description (below). It is deleted when its owner goes. An auto-delete queue is
+  deleted when its last consumer ends (one a restore ends, below, leaves it). An expired message is
+  dropped when the queue reaches it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
+- **Delivery credit (BL-2071, ADR-0146 Amendment 7).** `BusQueueConsumer.SetDeliveryCredit(n)` is
+  the most deliveries the bus holds for a consumer that it has not yet claimed; a consumer never
+  given one is served as above. With one, the consumer is assigned a message only while it has room
+  and holds fewer than `n`, and its callback says only that a delivery is held, so a message nobody
+  can take stays ready or goes to another consumer. A held delivery counts as unacknowledged (against
+  `maxUnacknowledged`, a queue's bound and `ifEmpty`), is not marked handed out, publishes no
+  `Delivered` change, and `Acknowledge` and `Reject` answer `UnknownDeliveryTag` for it.
+  `TryClaimDelivery` takes the one assigned first: it lowers the credit by one, marks the message
+  handed out and publishes `Delivered`; it is `false` when none is held, as after the consumer or
+  queue has ended, or a reset or restore. Setting the credit on a started consumer with room assigns
+  what is ready for it, up to the credit, before returning; deliveries assigned before the first
+  credit stay handed out. A held message does not expire. Lowering the credit
+  below the number held puts those assigned last back at their places with no change published for
+  that (one expired meanwhile is then dropped as any ready message is). A
+  held delivery that goes back, for that or through the consumer's end or `Recover`, keeps the
+  redelivered mark it had before it was assigned, and is saved and snapshotted with it. A stopped
+  consumer keeps what it holds, claimable until it ends. `onlyWhenConsumed` and
+  `PublishToConsumedQueues` count only a consumer that could be assigned the message, so one with no
+  credit left is not ready.
 - **AMQP 0-9-1's queue operations (BL-730, ADR-0112 decisions 5 and 6).**
   `BusConnection.InspectQueue` answers a queue's ready and consumer counts without creating it.
   `PurgeQueue` removes the ready messages, never the unacknowledged ones, and counts them.
@@ -96,10 +115,11 @@ What it holds now (BL-629):
   but asks for `sub` on the topic filter instead of on `$queue/<name>`, so an account needs no queue
   grant for its subscription. Under one hold of the bus's lock the queue must carry that description
   (else `QueueDescriptionDiffers`) and be bound to that filter and nothing else (else `AccessDenied`).
-  `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue. A queue carrying a
-  description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
-  `UnknownQueue`, so a direct send (AMQP 0-9-1's default, direct, fanout and headers exchanges, STOMP's
-  `/queue/`) brings no message from outside its bindings. `SeedEnqueue`, the test host's own, still
+  `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue, and `sub` on its
+  filters as well (below). A queue carrying a description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
+  `UnknownQueue`, so a direct send (every AMQP 0-9-1 exchange but `amq.topic`: the default, direct,
+  fanout, headers and declared topic exchanges; STOMP's `/queue/`) brings no message from outside its
+  bindings. `SeedEnqueue`, the test host's own, still
   fills it. The check at consume time reads the bindings as they are then: a message another client's
   binding copied in, then unbound, stays in the queue.
 - **Deleting by description (BL-2010, ADR-0146 decision 3.4).**
@@ -120,8 +140,30 @@ What it holds now (BL-629):
   `QueueInUse` and `QueueNotEmpty`, under the lock the removal happens under. A queue with no
   description asks for no grant. The bindings are judged as they are then, and `UnbindQueue` asks for
   no grant, so a client with `sub` on a filter of its own can bind it, unbind the subscription's and
-  then delete the queue. `Consume` and `GetFromQueue` ask only for the `$queue` grant, so a caller
-  holding it can take a subscription queue's messages with no `sub` on its filter.
+  then take the queue's messages or delete it.
+- **Getting from and consuming a subscription queue by name (BL-2047, ADR-0146 Amendment 5).**
+  `GetFromQueue` and `Consume` - what AMQP 0-9-1's `basic.get` and `basic.consume` and a STOMP
+  `SUBSCRIBE` to `/queue/<name>` call - on a queue carrying a description need both: `sub` on
+  `$queue/<name>`, as on any queue, and `sub` covering every filter the queue is bound to, on the
+  delete's terms (one bound to none is refused under any grant). A `$queue` grant alone, `$queue/#`
+  included, is not enough. The `$queue` grant is checked first, before the queue is looked up; the
+  filters come after `UnknownQueue` and `QueueLocked` and before `ExclusiveConsumeRefused` and
+  `TooManySubscriptions`, under the lock the message is taken or the consumer added under. A refused
+  call takes nothing and adds no consumer. They are judged when the call is made: a consumer already
+  added keeps receiving whatever is bound later. A queue with no description asks only for the
+  `$queue` grant.
+- **A restore over a live queue (BL-2051 and BL-2095, ADR-0146 Amendments 8 and 9).** A queue the
+  snapshot holds takes the snapshot's flags and is exclusive to no connection, whatever live queue
+  held its name: a former owner is then a caller like any other, and its end leaves the queue and
+  its messages. When `Restore` changes a live queue's flags, or gives it another subscription
+  description than it has (one where it had none, none where it had one, or other text), every
+  consumer and get holder of that queue ends before the snapshot's messages go in: the bus hands it
+  nothing more, it no longer counts against its connection's `MaxSubscriptionsPerConnection`, and
+  nothing tells its server or client. The restored messages stay ready for a caller judged on the
+  restored queue, an auto-delete queue stays with no consumer, ending them and changing the flags
+  publish no `Deleted` change, and the queue's delivery tags keep rising. A restore that leaves the flags and description as they
+  were keeps them, even if it changes the bindings or the excluded publisher. A queue the snapshot
+  does not hold, and every queue on `Reset`, keeps its flags and owner.
 - **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
   opaque text naming the client that publishes through the connection, `null` unless a server sets it
   (starting with its scheme family and `:`, so protocols never match each other's).
@@ -202,7 +244,8 @@ What it holds now (BL-629):
   `.<name>-<guid>` file renamed over the old one. `MessageBusFiles`' remarks and
   `BusMessageCodec` give the byte formats, and `MessageBusFilesTests` pins them byte for
   byte. Durable queues that are neither exclusive nor auto-delete persist, with their
-  bindings and every message, an unacknowledged one loaded as redelivered. A malformed
+  bindings and every message, an unacknowledged one loaded as redelivered (one held and not yet
+  claimed with the mark it had before it was assigned). A malformed
   file, or one past a bound, is a `MessageBusLoadException` with the file's path and
   `not a message bus file`, which the composition answers with 37. When `retained` is not
   there, an old MQTT 3.1.1 `.surl/mqtt/retained-messages` is read (its own reason, `not a
@@ -236,7 +279,8 @@ What it holds now (BL-629):
   `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume (a subscription
   queue consumed through `ConsumeSubscriptionQueue` asks for `sub` on its topic filter instead). A refusal is
   `AccessDenied`, checked before anything that would tell whether the topic or queue exists
-  (except the delete and purge of a subscription queue, above, which judge the queue found).
+  (except the get, consume, delete and purge of a subscription queue by name, above, which judge the
+  queue found).
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
   without touching it, as Kafka's Metadata needs (BL-518). ADR-0102 decision 3.5 records these
   choices (BL-704).

@@ -28,10 +28,11 @@ on the client's half-close or, once it has sent something, after the seam's `Idl
 
 **Line faults** (ADR-0138, BL-798; ADR-0141, BL-914): `TelnetSession` holds each completed line
 (`LineAwaitingAnswer`) until `TelnetProtocolServer` has asked `ExchangeContext.Faults` through
-`TelnetLineFaults` - listener and scheme only, TELNET has no command, path or account - and a matching `error` rule's
-text is sent as one line in place of the echo, then the session ends, publishing `FaultAppliedEvent`
-with target `line <n>`. A `delay` rule holds the line's answer for its `ms` on `ExchangeContext.TimeProvider` with the
-idle clock paused (the hold ends early if the client closes or resets the connection), and a `drop` rule aborts the
-connection with nothing written for the line (`TelnetSession.EndWithoutAnswer`), each through
-`CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent`. Only an `error` rule whose reply does not fit, or
-a rule of a kind other than `error`, `delay` or `drop`, is noted and not applied.
+`TelnetLineFaults` - its fault point, at the `Command` stage, carries the exchange ID, the listen URL and the scheme
+only, with no account, command or path - and a matching `error` rule's text is sent as one line in place of the line's
+answer (the echo, or `bye` for a `quit` line), then the session ends, publishing `FaultAppliedEvent` with target
+`line <n>`. A `delay` rule holds the line's answer for its `ms` on `ExchangeContext.TimeProvider` with the idle clock
+paused (the hold ends early if the client closes or resets the connection), and a `drop` rule aborts the connection with
+nothing written for the line (`TelnetSession.EndWithoutAnswer`), each through `CommandStageFaults.FindAndApplyAsync`
+with one `FaultAppliedEvent`. Only an `error` rule whose reply does not fit, or a rule of a kind other than `error`,
+`delay` or `drop`, is noted and not applied.

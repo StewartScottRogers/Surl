@@ -9,8 +9,9 @@ namespace Surl.Protocol.Ldap;
 /// <see cref="LdapFrameReadOutcome.FrameRead"/>.
 /// </param>
 /// <param name="AnnouncedBytes">
-/// The bytes the message's tag and length announced, tag and length included, when
-/// <paramref name="Outcome"/> is <see cref="LdapFrameReadOutcome.MessageTooLarge"/>; 0 otherwise.
+/// When <paramref name="Outcome"/> is <see cref="LdapFrameReadOutcome.MessageTooLarge"/>, the bytes
+/// announced: for a message, the whole of it, tag and length included; for a security-layer buffer,
+/// the protected bytes alone, without the 4 length bytes. 0 otherwise.
 /// </param>
 internal sealed record LdapFrameReadResult(LdapFrameReadOutcome Outcome, byte[]? Message, long AnnouncedBytes = 0)
 {
@@ -29,10 +30,13 @@ internal sealed record LdapFrameReadResult(LdapFrameReadOutcome Outcome, byte[]?
     public static LdapFrameReadResult NoFrame(LdapFrameReadOutcome outcome) => new(outcome, null);
 
     /// <summary>
-    /// A result for a message whose length announced more than the reader may hold; none of its
-    /// value was read.
+    /// A result for a message or security-layer buffer whose length announced more than is allowed;
+    /// none of the message's value, or of the buffer's protected bytes, was read.
     /// </summary>
-    /// <param name="announcedBytes">The bytes the message announced, tag and length included.</param>
+    /// <param name="announcedBytes">
+    /// For a message, the bytes it announced, tag and length included; for a security-layer buffer,
+    /// the protected length it announced, without the 4 length bytes.
+    /// </param>
     /// <returns>A <see cref="LdapFrameReadOutcome.MessageTooLarge"/> result.</returns>
     public static LdapFrameReadResult TooLarge(long announcedBytes) => new(LdapFrameReadOutcome.MessageTooLarge, null, announcedBytes);
 }

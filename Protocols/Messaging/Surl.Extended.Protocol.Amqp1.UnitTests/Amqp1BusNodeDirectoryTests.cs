@@ -41,6 +41,34 @@ public sealed class Amqp1BusNodeDirectoryTests
     }
 
     [TestMethod]
+    public void DeleteDynamicNode_TheConnectionsDynamicQueue_DeletesItAndDoesNothingASecondTime()
+    {
+        var bus = Bus();
+        var directory = new Amqp1BusNodeDirectory(bus, bus.Connect("alice"), new UnitTestSeededIdentifierRandom(1));
+        var address = directory.Resolve(new(null, true, "alice")).CanonicalAddress!;
+
+        Assert.IsTrue(directory.DeleteDynamicNode(address));
+        Assert.IsFalse(directory.DeleteDynamicNode(address));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, bus.Connect().InspectQueue(address[Amqp1NodeAddress.QueuePrefix.Length..]).Outcome);
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "a durable queue")]
+    [DataRow(true, DisplayName = "a queue exclusive to another connection")]
+    public void DeleteDynamicNode_AnotherQueueUnderTheName_LeavesIt(bool exclusive)
+    {
+        var bus = Bus();
+        var other = bus.Connect("bob");
+        other.DeclareQueue("surl-dynamic-taken", new BusQueueFlags(Durable: !exclusive, Exclusive: exclusive, AutoDelete: exclusive));
+
+        var deleted = new Amqp1BusNodeDirectory(bus, bus.Connect("alice"), new UnitTestSeededIdentifierRandom(1)).DeleteDynamicNode("/queue/surl-dynamic-taken");
+
+        Assert.IsFalse(deleted);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, other.InspectQueue("surl-dynamic-taken").Outcome);
+    }
+
+    [TestMethod]
     [DataRow("/topic/news", false, "/topic/news", DisplayName = "a topic to send to")]
     [DataRow("/topic/news/#", true, "/topic/news/#", DisplayName = "a filter to receive from")]
     [DataRow("/topic/alias", false, "/topic/real", DisplayName = "an aliased topic")]
@@ -109,6 +137,7 @@ public sealed class Amqp1BusNodeDirectoryTests
         Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1BusNodeDirectory(bus, null!, new UnitTestSeededIdentifierRandom(1)));
         Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1BusNodeDirectory(bus, bus.Connect(), null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1BusNodeDirectory(bus, bus.Connect(), new UnitTestSeededIdentifierRandom(1)).Resolve(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1BusNodeDirectory(bus, bus.Connect(), new UnitTestSeededIdentifierRandom(1)).DeleteDynamicNode(null!));
     }
 
     private static MessageBus.MessageBus Bus(MessageBusConfiguration? configuration = null) =>

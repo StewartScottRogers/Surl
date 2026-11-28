@@ -213,6 +213,61 @@ public sealed class ProgramTests
     }
 
     [TestMethod]
+    [DataRow("""{"redis_keys":[{"key":"k","value":"v"},{"key":"k","value":"s3cret","ttl":1}]}""", "arguments.redis_keys[1].ttl: not allowed")]
+    [DataRow("""{"redis_keys":[{"key":"k","value":"s3cret","database":16}]}""", "arguments.redis_keys[0].database: expected at most 15")]
+    [DataRow("""{"redis_keys":[{"key":"k","value":"s3cret","expire_ms":0}]}""", "arguments.redis_keys[0].expire_ms: expected at least 1")]
+    [DataRow("""{"dns_zones":[{"apex":"example.com","zone_text":"s3cret","ttl":1}]}""", "arguments.dns_zones[0].ttl: not allowed")]
+    [DataRow("""{"dns_zones":[{"zone_text":"s3cret"}]}""", "arguments.dns_zones[0].apex: required")]
+    public async Task RunAsync_StartServerWithASeedItemItsSchemaRefuses_NamesTheItemAndNeverItsValue(string seed, string expected)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var response = await host.CallForResponseAsync(
+            """{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"start_server","arguments":{"listen_urls":["redis://127.0.0.1:0"],"""
+            + seed[1..] + "}}");
+
+        var error = response.GetProperty("error");
+        Assert.AreEqual(-32602, error.GetProperty("code").GetInt32());
+        StringAssert.Contains(error.GetProperty("message").GetString(), expected);
+        Assert.IsFalse(response.GetRawText().Contains("s3cret", StringComparison.Ordinal));
+        var listed = await host.CallAsync("""{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_servers"}}""");
+        Assert.AreEqual(0, listed.GetProperty("structuredContent").GetProperty("servers").GetArrayLength());
+    }
+
+    [TestMethod]
+    [DataRow("browse_queue", """{"server_id":"s1","queue":"q","after_position":2147483648}""", "arguments.after_position: expected at most 2147483647")]
+    [DataRow("browse_queue", """{"server_id":"s1","queue":"q","limit":1e30}""", "arguments.limit: expected at most 1000")]
+    [DataRow("get_events", """{"server_id":"s1","after_sequence":9223372036854775808}""", "arguments.after_sequence: expected at most ")]
+    [DataRow("get_events", """{"server_id":"s1","max_events":1e30}""", "arguments.max_events: expected at most 500")]
+    [DataRow("get_exchanges", """{"server_id":"s1","after_exchange_id":1e30}""", "arguments.after_exchange_id: expected at most ")]
+    [DataRow("get_exchanges", """{"server_id":"s1","max_exchanges":1e30}""", "arguments.max_exchanges: expected at most 100")]
+    [DataRow("list_files", """{"server_id":"s1","path":"/","limit":1e30}""", "arguments.limit: expected at most 1000")]
+    [DataRow("list_keys", """{"server_id":"s1","limit":1e30}""", "arguments.limit: expected at most 1000")]
+    [DataRow("list_keys", """{"server_id":"s1","database":1e30}""", "arguments.database: expected at most 15")]
+    [DataRow("list_messages", """{"server_id":"s1","owner":"a","mailbox":"INBOX","after_uid":1e19}""", "arguments.after_uid: expected at most ")]
+    [DataRow("list_messages", """{"server_id":"s1","owner":"a","mailbox":"INBOX","limit":1e30}""", "arguments.limit: expected at most 1000")]
+    [DataRow("read_key", """{"server_id":"s1","key":"k","database":1e30}""", "arguments.database: expected at most 15")]
+    [DataRow("read_log", """{"server_id":"s1","topic":"t","from_offset":9007199254740992}""", "arguments.from_offset: expected at most ")]
+    [DataRow("read_log", """{"server_id":"s1","topic":"t","limit":1e30}""", "arguments.limit: expected at most 1000")]
+    [DataRow("read_message", """{"server_id":"s1","owner":"a","mailbox":"INBOX","uid":1e400}""", "arguments.uid: expected an integer")]
+    [DataRow("read_message", """{"server_id":"s1","owner":"a","mailbox":"INBOX","uid":1e19}""", "arguments.uid: expected at most ")]
+    [DataRow("wait_for_event", """{"server_id":"s1","after_sequence":1e19}""", "arguments.after_sequence: expected at most ")]
+    public async Task RunAsync_WholeNumberTooLargeForItsArgument_IsRefusedNamingTheArgument(string toolName, string arguments, string expected)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var response = await host.CallForResponseAsync(
+            """{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":""" + $"\"{toolName}\""
+            + ""","arguments":""" + arguments + "}}");
+
+        var error = response.GetProperty("error");
+        Assert.AreEqual(-32602, error.GetProperty("code").GetInt32());
+        StringAssert.Contains(error.GetProperty("message").GetString(), expected);
+    }
+
+    [TestMethod]
     public async Task RunAsync_ResourcesList_ListsTheOverviewEveryAiHelpTopicAndAllInOrder()
     {
         await using var host = new ProgramTestHost(TestContext.CancellationToken);

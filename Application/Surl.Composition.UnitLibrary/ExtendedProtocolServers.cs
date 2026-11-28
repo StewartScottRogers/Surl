@@ -69,7 +69,10 @@ public static class ExtendedProtocolServers
     /// over the accounts allowed on <c>amqp1</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c>,
     /// and answering a TLS header on <c>amqp1</c> only when a TLS upgrade is available, with a
     /// certificate or under TLS-SRP (ADR-0107 decision 1; ADR-0122 decision 5). <c>amqp1s</c> is TLS from the first byte through <see cref="TlsSchemes"/>
-    /// (ADR-0107 decision 7), so, like <c>mqtts</c>, it needs no second registration.
+    /// (ADR-0107 decision 7), so, like <c>mqtts</c>, it needs no second registration. The container draws its
+    /// <c>container-id</c> from the <c>amqp1</c> server-life identifier source
+    /// (<see cref="ComposedProtocolServices.IdentifiersForServer"/>; ADR-0124 decision 6), so runs with the same
+    /// <c>--random-seed</c> send the same one.
     /// The DNS server is two entries for <c>dns</c>: a <see cref="DnsDatagramRoutingProtocolServer"/>
     /// (a <see cref="DnsUdpProtocolServer"/>, or DNS over QUIC) and a
     /// <see cref="DnsConnectionRoutingProtocolServer"/> (a <see cref="DnsTcpProtocolServer"/> for TCP
@@ -121,7 +124,8 @@ public static class ExtendedProtocolServers
             {
                 AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
                 CanUpgradeToTls = services.IsTlsUpgradeAvailable,
-            })),
+            },
+            services.IdentifiersForServer("amqp1"))),
         new(["az", "abfs", "abfss"], services => new AzureStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("az"), services.TimeProvider,
             allowsPlaintextAuthentication: services.AuthenticationPolicy.Settings.AllowPlaintextAuthentication)),

@@ -350,12 +350,17 @@ answers a `PING` with a `PONG` and a client `CLOSE` with a `CLOSE`, closes a fra
 
 The LDAP server answers `ldap` and `ldaps`
 ([ADR-0072](Documentation/Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md))
-from a read-only directory: with `--directory`, the LDIF file `<path>/.surl/ldap/directory.ldif`,
-read at start; without it, or without the file, an empty one. Every search but the root DSE's
-needs a bind, and a simple bind's password over `ldap://` is refused unchecked unless
-`--allow-plaintext-auth` is given. Here `site/.surl/ldap/directory.ldif` holds the entries
-`dc=example,dc=com` and `cn=alice,dc=example,dc=com` (`objectClass: person`), and curl is the
-Windows build, which binds over `WinLDAP` and is the one these commands have been proven with:
+from a directory LDAP clients cannot change: with `--directory`, it holds the entries of the
+LDIF file `<path>/.surl/ldap/directory.ldif`, read at start; without it, or without the file, no
+entry comes from a file. The host (`Surl.Api`, `surl-mcp` or the `--control` endpoint) can add
+entries in memory
+([ADR-0158](Documentation/Planning/Decisions/ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md)),
+so the directory is empty only when it holds none from the file and none from such a seed. Every
+search but the root DSE's needs a bind, and a simple bind's password over `ldap://` is refused
+unchecked unless `--allow-plaintext-auth` is given. Here `site/.surl/ldap/directory.ldif` holds
+the entries `dc=example,dc=com` and `cn=alice,dc=example,dc=com` (`objectClass: person`), and
+curl is the Windows build, which binds over `WinLDAP` and is the one these commands have been
+proven with:
 
 ```
 surl --directory site --allow-plaintext-auth --user alice:s3cret ldap://127.0.0.1:3389/

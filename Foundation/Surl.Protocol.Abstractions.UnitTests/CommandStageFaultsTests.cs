@@ -74,6 +74,33 @@ public sealed class CommandStageFaultsTests
     }
 
     [TestMethod]
+    public async Task FindAndApplyAsync_DelayAtAPointWithoutACommand_NotesTheTargetAsHeld()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 2000 };
+        using var exchangeEnd = new CancellationTokenSource();
+        var (context, _, _, log) = NewContext(new ScriptedFaultPlan(delay), new NeverFiringTimeProvider(), exchangeEnd.Token);
+        var point = new FaultPoint(FaultStage.Command) { ExchangeId = 7 };
+
+        var applying = CommandStageFaults.FindAndApplyAsync(context, new InMemoryConnection([], peerHalfClosesWhenExhausted: false), point, "line 1").AsTask();
+        await exchangeEnd.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => applying);
+        CollectionAssert.AreEqual(new[] { "line 1 held for 2 s by fault rule f1." }, log.Notes.ToArray());
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_DropAtAPointWithoutACommand_NotesTheTargetAsDropped()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var (context, _, _, log) = NewContext(new ScriptedFaultPlan(drop), TimeProvider.System, TestContext.CancellationToken);
+        var point = new FaultPoint(FaultStage.Command) { ExchangeId = 7 };
+
+        await CommandStageFaults.FindAndApplyAsync(context, new InMemoryConnection([]), point, "/a");
+
+        CollectionAssert.AreEqual(new[] { "/a dropped the connection, unanswered, by fault rule f1." }, log.Notes.ToArray());
+    }
+
+    [TestMethod]
     public async Task FindAndApplyAsync_DelayRule_HoldsWithTheIdleClockPaused_UntilCancelled_ThenRestartsIt()
     {
         var delay = new FaultRule("f4", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 };

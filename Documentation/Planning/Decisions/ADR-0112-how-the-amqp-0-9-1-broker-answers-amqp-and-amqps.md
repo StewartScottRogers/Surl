@@ -22,6 +22,10 @@
   which applies the same rules with each `--topic-map` alias on top
   ([ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)'s
   BL-1704 amendment).
+- **Amended:** decisions 5 and 6 by
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 6 (2026-11-27, BL-2012): through any exchange but `amq.topic`, a queue carrying a
+  subscription description is not routed to.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -322,7 +326,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   | `StoreFull`, `TooManyTopics` | connection exception **`506` `RESOURCE_ERROR`** |
   | `QueueFull` for a chosen queue, the message transient (`delivery-mode` absent or 1) | that queue does not take it, noted; the rest of the publish stands (ADR-0100 decision 3.6; basic rule 05) |
   | `QueueFull` for a chosen queue, the message persistent (`delivery-mode` 2) | connection exception **`506`**: basic rule 02 forbids discarding a persistent message on overflow, and closing tells the publisher it was not taken |
-  | `UnknownQueue` on the default exchange | unroutable, as above |
+  | `UnknownQueue` on the default exchange | unroutable, as above. 2026-11-27 (BL-2012): a queue carrying a subscription description answers `UnknownQueue` to a direct send through any exchange but `amq.topic`, and is not routed to ([ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md) Amendment 6) |
 
 - **Properties onto the bus message** (ADR-0100 decision 3.4): `content-type` is the content
   type; `headers` entries whose value is a longstr (`S`) or shortstr (`s`) are the headers, in

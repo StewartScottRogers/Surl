@@ -41,6 +41,10 @@ duplication: the listen URL as the instance reports it was formatted by the engi
      meaning at a command and is ignored there.
    - Any other kind is handed back untouched, so a server answers a chosen `Error` in its own shape as before.
    The event's target is what the chosen error's is: the path the point names, or else the verb.
+
+   *Note, 2026-11-27 (BL-2008):* `<verb>` in the two notes above is the fault point's `Command`. At a point
+   without one (TELNET's input lines, Gopher's selectors) the notes start with the event's target instead:
+   `line 1 held for 2 s by fault rule f1.`, `/a dropped the connection, unanswered, by fault rule f1.`
 3. **Where a mail server asks.** Exactly where it asked for a chosen error (BL-796): after the state's login
    check, before the store is touched; IMAP's `APPEND` before its `+` continuation, so a drop sends no `+` and
    a delay holds it. No new point is asked, so a rule that matched an `Error` before matches the same commands

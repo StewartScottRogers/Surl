@@ -25,8 +25,10 @@ internal sealed class Amqp1Session(ushort incomingChannel, ushort outgoingChanne
     public bool IsEnding { get; set; }
 
     /// <summary>
-    /// The subscriptions kept until this session ends (<c>expiry-policy</c> <c>session-end</c>): each
-    /// queue's name, and the subscription description this session consumed it under.
+    /// The subscriptions this session holds until it ends (<c>expiry-policy</c> <c>session-end</c>): each
+    /// queue's name, and the subscription description this session consumed it under. Other sessions may
+    /// hold the same one - a shared one, or one resumed after a detach - and it is deleted when the last of
+    /// them ends.
     /// </summary>
     public Dictionary<string, string> SessionSubscriptions { get; } = [];
 

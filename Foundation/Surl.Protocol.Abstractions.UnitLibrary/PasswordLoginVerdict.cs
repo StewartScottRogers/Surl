@@ -7,17 +7,26 @@ namespace Surl.Protocol.Abstractions;
 public enum PasswordLoginVerdict
 {
     /// <summary>
-    /// The login's credentials were checked and match an account.
+    /// The login's credentials were checked and accepted: they match a local account (for a token,
+    /// <see cref="PasswordLogin.IsToken"/>, the empty-name account), or, for a name the account book
+    /// does not hold, an LDAP account source accepted the name and password (ADR-0149); and no
+    /// <c>refuse-login</c> fault rule refused the login.
     /// </summary>
     Accepted,
 
     /// <summary>
-    /// The user name or password does not match an account.
+    /// The login's credentials were checked and refused: no local account and no LDAP account
+    /// source accepts the user name and password; a token
+    /// (<see cref="PasswordLogin.IsToken"/>) does not match the empty-name account; or a
+    /// <c>refuse-login</c> fault rule refused credentials that matched or that the LDAP account
+    /// source accepted (ADR-0124, decision 4).
     /// </summary>
     RefusedCredentials,
 
     /// <summary>
-    /// The login carried no credentials and anonymous logins are not allowed.
+    /// The login has no user name (<see cref="PasswordLogin.UserName"/> is <see langword="null"/>)
+    /// and <c>--allow-anonymous</c> was not given. A login that is also refused as
+    /// <see cref="RefusedPlaintext"/> gets that verdict instead.
     /// </summary>
     RefusedAnonymous,
 

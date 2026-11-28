@@ -47,7 +47,7 @@ internal sealed class SmtpMailTransaction(string reversePath)
     /// </summary>
     /// <returns>The recipients to deliver to, each of one owner.</returns>
     public IReadOnlyList<MailRecipient> DeliverablePerOwner() =>
-        [.. deliverable.SelectMany(recipient => recipient.OwnerNames.Select(ownerName => OneOwnerOf(recipient, ownerName)))];
+        [.. Deliverable.SelectMany(recipient => recipient.OwnerNames.Select(ownerName => OneOwnerOf(recipient, ownerName)))];
 
     private MailRecipient OneOwnerOf(MailRecipient recipient, string ownerName)
     {

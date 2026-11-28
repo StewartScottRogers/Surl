@@ -7,8 +7,10 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>start_server</c> tool (ADR-0103 decisions 3 and 4): checks the listen URLs and options against the
-/// host's rules, then starts a Surl server through <c>Surl.Api</c> with in-memory files, recording its exchanges,
-/// and returns its ID, its bound URLs and the log lines written while it started.
+/// host's rules, then starts a Surl server through <c>Surl.Api</c> with in-memory files and any start-time seeds for
+/// its Redis keyspace, LDAP directory and DNS zones (ADR-0158), recording its exchanges, and returns its ID, its bound
+/// URLs and the log lines written while it started. A refused seed is an <c>isError</c> result and nothing is left
+/// running.
 /// </summary>
 public static class StartServerTool
 {
@@ -26,7 +28,11 @@ public static class StartServerTool
         "Start a Surl protocol server that listens on the given URLs and answers clients as `surl` with the same "
         + "options would. Returns its ID and the URLs it bound. Use port 0 to let the system choose a free port. "
         + "Read the `surl://aihelp` resources for every scheme and option. "
-        + "The whole `tools/call` message is at most 4 MiB (4194304 bytes); seed anything larger one file at a "
+        + "Seed Redis keys with redis_keys, LDAP entries with directory_ldif and DNS zones with dns_zones; they are "
+        + "held before any listener binds and `reset_server` returns the server to them. A seed a store refuses, "
+        + "or one for a store no listen URL serves, starts nothing and is answered with the store's words, which for "
+        + "directory_ldif or dns_zones may quote part of the text; a Redis value is never shown back by this tool. "
+        + "The whole `tools/call` message is at most 4 MiB (4194304 bytes); seed larger files one at a "
         + "time with `put_file`.";
 
     /// <summary>The tool's input schema.</summary>
@@ -43,7 +49,30 @@ public static class StartServerTool
             "files_base64": { "type": "object",
               "description": "In-memory content: '/'-separated relative path -> base64 bytes" },
             "cookies": { "type": "array", "items": { "type": "string" }, "maxItems": 64,
-              "description": "surl --set-cookie values, one per cookie, e.g. session=t1;Path=/;HttpOnly" }
+              "description": "surl --set-cookie values, one per cookie, e.g. session=t1;Path=/;HttpOnly" },
+            "redis_keys": { "type": "array",
+              "description": "Redis string keys held at start, each as set_key takes it",
+              "items": { "type": "object",
+                "properties": {
+                  "key": { "type": "string", "description": "The key as UTF-8 text" },
+                  "key_base64": { "type": "string", "description": "The key as base64 bytes" },
+                  "value": { "type": "string", "description": "The value as UTF-8 text" },
+                  "value_base64": { "type": "string", "description": "The value as base64 bytes" },
+                  "database": { "type": "integer", "minimum": 0, "maximum": 15, "description": "The database (default 0)" },
+                  "expire_ms": { "type": "integer", "minimum": 1, "maximum": 31536000000, "description": "Milliseconds until the key expires (default: never)" }
+                },
+                "additionalProperties": false } },
+            "directory_ldif": { "type": "string", "minLength": 1,
+              "description": "LDAP entries held at start, as add_ldap_entries' ldif" },
+            "dns_zones": { "type": "array",
+              "description": "DNS zones held at start, each as add_dns_zone takes it",
+              "items": { "type": "object",
+                "properties": {
+                  "apex": { "type": "string", "minLength": 1, "description": "The zone's apex, e.g. example.com" },
+                  "zone_text": { "type": "string", "minLength": 1, "description": "The zone file's text" }
+                },
+                "required": ["apex", "zone_text"],
+                "additionalProperties": false } }
           },
           "required": ["listen_urls"],
           "additionalProperties": false
@@ -91,9 +120,9 @@ public static class StartServerTool
             TimeProvider = servers.TimeProvider,
         };
         AddAll(options.Cookies, ReadStrings(arguments, "cookies"));
-        var fileFailure = AddFiles(options, arguments);
-        return fileFailure is not null
-            ? McpToolResult.FromFailure(fileFailure)
+        var contentFailure = AddFiles(options, arguments) ?? StartTimeSeedArguments.AddTo(options, arguments);
+        return contentFailure is not null
+            ? McpToolResult.FromFailure(contentFailure)
             : await StartAsync(servers, listenUrls, words, options, log, cancellationToken);
     }
 
@@ -118,6 +147,10 @@ public static class StartServerTool
         catch (SurlServerStartException exception)
         {
             return StartRefused(exception);
+        }
+        catch (SurlSeedRefusedException exception)
+        {
+            return McpToolResult.FromFailure(exception.Message);
         }
         catch (ArgumentException exception)
         {

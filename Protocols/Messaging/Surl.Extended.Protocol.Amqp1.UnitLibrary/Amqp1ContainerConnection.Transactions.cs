@@ -117,8 +117,11 @@ public sealed partial class Amqp1ContainerConnection
         }
     }
 
-    // ADR-0146 decisions 1.5 and 1.6: held outcomes are forgotten, their settled deliveries unsettled again;
-    // deliveries acquired in the transaction and not retired outside it go back to their queue, redelivered.
+    // ADR-0146 decisions 1.5 and 1.6 and Amendment 1: held outcomes are forgotten, their settled deliveries
+    // unsettled again unless their link has ended. Deliveries acquired in the transaction and still
+    // unsettled leave the unsettled set, and only those with a queue delivery tag (a queue's, or a kept or
+    // non-durable shared subscription's) go back to their queue, redelivered, unless an outcome stated
+    // outside the transaction has already settled them on the bus; a live topic subscription's has none.
     private static void RollBack(Amqp1Transaction transaction)
     {
         foreach (var held in transaction.HeldOutcomes)
@@ -167,9 +170,11 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         // Access was judged when the link attached, and the commit's batch publish judges it again.
-        // Held messages count with the partial deliveries against --max-filesize (ADR-0146 decision 1.4).
+        // Held messages count with the partial deliveries against --max-filesize (ADR-0146 decision 1.4);
+        // --max-filesize 0 is no limit (ADR-0006).
         var bytes = delivery.Bytes.WrittenCount;
-        if (transactions.Values.Sum(open => open.HeldBytes) + partialBytes + bytes > context.Limits.MaxUploadBytes)
+        var maxBytes = context.Limits.MaxUploadBytes;
+        if (maxBytes > 0 && transactions.Values.Sum(open => open.HeldBytes) + partialBytes + bytes > maxBytes)
         {
             return StoreRejection(MessageBusOutcome.StoreFull);
         }

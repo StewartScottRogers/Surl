@@ -8,9 +8,15 @@ namespace Surl.Protocol.Smtp;
 
 /// <summary>
 /// One SMTP connection's session (ADR-0053): the greeting, then every command line answered in
-/// order until <c>QUIT</c>, the peer's close, or a limit. A <c>DATA</c> body streams, after its
-/// trace fields, into a <see cref="PendingMessage"/> that is delivered or deleted, and a message
-/// file that cannot be written is answered <c>451 4.3.0 Local error in processing</c>.
+/// order until <c>QUIT</c>, the peer's close, or a limit. A <c>DATA</c> body streams, after the
+/// trace fields, through an <see cref="SmtpTeeStream"/> into each <see cref="PendingMessage"/>
+/// of the transaction, and each is delivered or deleted. With
+/// <see cref="MailboxStore.DeliveredToEnabled"/> (<c>--mail-delivered-to</c>) and at least one
+/// owner to deliver to, there is one pending message per owner (for the anonymous owner, one per
+/// recipient), whose <c>Delivered-To</c> lines name only the <c>RCPT</c> paths that resolved to
+/// that owner or recipient (ADR-0053, Amendment 1). Otherwise there is one pending message,
+/// shared by every owner. A message file that cannot be written is answered
+/// <c>451 4.3.0 Local error in processing</c>.
 /// </summary>
 internal sealed partial class SmtpSession
 {
@@ -363,7 +369,12 @@ internal sealed partial class SmtpSession
             context.Log.Note($"Mail for {SmtpLogText.Render(Encoding.UTF8.GetBytes(path))} discarded: no such account");
         }
 
-        context.Log.Note($"Message stored: {pendings.Max(pending => pending.Length)} bytes for {accepted.Deliverable.Count} recipients");
+        // With no copy stored, the discard notes are the whole record (ADR-0053 Amendment 3).
+        if (owners.Count > 0)
+        {
+            context.Log.Note($"Message stored: {pendings.Max(pending => pending.Length)} bytes for {owners.Count} recipients");
+        }
+
         await SaveMailStoreAsync();
         return SmtpReplies.MessageAccepted;
     }

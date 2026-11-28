@@ -6,10 +6,17 @@ namespace Surl.Protocol.Abstractions;
 /// Asks an exchange's fault plan at a command (ADR-0124, decision 4; ADR-0141) and applies the two
 /// kinds every server applies the same way: a <see cref="FaultKind.Delay"/> rule holds the command's
 /// answer for the rule's <c>ms</c> on the exchange's <see cref="ExchangeContext.TimeProvider"/> with
-/// its <see cref="ExchangeContext.IdleClock"/> paused, and a <see cref="FaultKind.Drop"/> rule aborts
-/// the connection in place of the answer. Each publishes one <see cref="FaultAppliedEvent"/>. Any
-/// other kind - a chosen <see cref="FaultKind.Error"/> - is handed back for the server to answer in
-/// its own shape.
+/// its <see cref="ExchangeContext.IdleClock"/> paused, and a <see cref="FaultKind.Drop"/> rule takes
+/// the place of the answer. Each publishes one <see cref="FaultAppliedEvent"/>. Any other kind - a
+/// chosen <see cref="FaultKind.Error"/> - is handed back for the server to answer in its own shape.
+/// <para>
+/// The overloads that take an <see cref="IConnection"/> watch it during a hold and end the hold early
+/// when it reports that the client closed or reset the connection (otherwise the hold lasts the whole
+/// delay), and they abort it on a drop. The overload without one,
+/// <see cref="FindAndApplyAsync(ExchangeContext, FaultPoint, string)"/>, watches no connection, so its
+/// hold lasts the whole delay, and it hands a drop rule back for the caller to end the exchange.
+/// Cancelling the exchange ends a hold in every overload.
+/// </para>
 /// </summary>
 public static class CommandStageFaults
 {
@@ -22,7 +29,10 @@ public static class CommandStageFaults
     /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
     /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
-    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <param name="target">
+    /// What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb. It is also the subject
+    /// of the log notes when <paramref name="point"/> has no <see cref="FaultPoint.Command"/>.
+    /// </param>
     /// <returns>
     /// The matching rule, or <see langword="null"/> when none matched. After a
     /// <see cref="FaultKind.Delay"/> the server answers the command as usual; after a
@@ -44,7 +54,10 @@ public static class CommandStageFaults
     /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
     /// <param name="connection">The connection a drop aborts and a hold watches.</param>
     /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
-    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <param name="target">
+    /// What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb. It is also the subject
+    /// of the log notes when <paramref name="point"/> has no <see cref="FaultPoint.Command"/>.
+    /// </param>
     /// <returns>The matching rule and, when the client left during a hold, how.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
     public static async ValueTask<CommandStageFaultResult> FindAndApplyWithClientOutcomeAsync(
@@ -69,7 +82,10 @@ public static class CommandStageFaults
     /// </summary>
     /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
     /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
-    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <param name="target">
+    /// What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb. It is also the subject
+    /// of the log notes when <paramref name="point"/> has no <see cref="FaultPoint.Command"/>.
+    /// </param>
     /// <returns>The matching rule, or <see langword="null"/> when none matched.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
     public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, FaultPoint point, string target) =>
@@ -83,13 +99,14 @@ public static class CommandStageFaults
 
         var clientLeft = PeerWatchOutcome.NotWatched;
         var rule = await context.Faults.FindAsync(point, context.CancellationToken);
+        var noteSubject = point.Command ?? target;
         if (rule is { Kind: FaultKind.Delay })
         {
-            clientLeft = await HoldAsync(context, connection, rule, point.Command, target);
+            clientLeft = await HoldAsync(context, connection, rule, noteSubject, target);
         }
         else if (rule is { Kind: FaultKind.Drop })
         {
-            context.Log.Note($"{point.Command} dropped the connection, unanswered, by fault rule {rule.Id}.");
+            context.Log.Note($"{noteSubject} dropped the connection, unanswered, by fault rule {rule.Id}.");
             Publish(context, rule, target);
         }
 
@@ -97,11 +114,11 @@ public static class CommandStageFaults
     }
 
     private static async Task<PeerWatchOutcome> HoldAsync(
-        ExchangeContext context, IConnection? connection, FaultRule rule, string? verb, string target)
+        ExchangeContext context, IConnection? connection, FaultRule rule, string noteSubject, string target)
     {
         var delay = TimeSpan.FromMilliseconds(rule.DelayMilliseconds ?? 0);
         context.Log.Note(
-            $"{verb} held for {delay.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s by fault rule {rule.Id}.");
+            $"{noteSubject} held for {delay.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s by fault rule {rule.Id}.");
         Publish(context, rule, target);
         using var holdEnded = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
         // The wait starts before the pause, so whoever sees the pause knows the wait's timer is

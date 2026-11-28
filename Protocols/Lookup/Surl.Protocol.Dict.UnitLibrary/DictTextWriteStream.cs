@@ -52,6 +52,14 @@ internal sealed class DictTextWriteStream : Stream
         set => throw new NotSupportedException("A connection has no position.");
     }
 
+    /// <summary>
+    /// <see langword="true"/> once a <c>WriteAsync</c> to the connection has thrown
+    /// <see cref="IOException"/>, so a caller copying a file onto this stream can tell a
+    /// failure of the connection from a failure of the file.
+    /// <see cref="EndTextAsync"/>'s writes are not recorded.
+    /// </summary>
+    public bool HasFailedWrite { get; private set; }
+
     /// <inheritdoc/>
     public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
@@ -61,7 +69,7 @@ internal sealed class DictTextWriteStream : Stream
             AppendTransformed(value);
         }
 
-        return connection.WriteAsync(output.AsMemory(0, outputCount), cancellationToken);
+        return WriteOutputRecordingFailureAsync(cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -133,6 +141,19 @@ internal sealed class DictTextWriteStream : Stream
     /// <exception cref="NotSupportedException">Always.</exception>
     public override void SetLength(long value) =>
         throw new NotSupportedException("A connection has no length.");
+
+    private async ValueTask WriteOutputRecordingFailureAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await connection.WriteAsync(output.AsMemory(0, outputCount), cancellationToken);
+        }
+        catch (IOException)
+        {
+            HasFailedWrite = true;
+            throw;
+        }
+    }
 
     private void StartOutput(int capacity)
     {

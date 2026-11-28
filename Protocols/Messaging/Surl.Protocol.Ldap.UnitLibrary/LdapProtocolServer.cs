@@ -5,7 +5,9 @@ namespace Surl.Protocol.Ldap;
 /// <summary>
 /// The LDAPv3 server (RFC 4511) upstream curl's <c>ldap://</c> and <c>ldaps://</c> transfers talk
 /// to: answers simple, SASL and Sicily binds, <c>StartTLS</c>, searches, compares, unbind and
-/// abandon from a read-only directory, as ADR-0072 decisions 2 to 7 say.
+/// abandon from a directory LDAP clients cannot change, as ADR-0072 decisions 2 to 7 say. The host
+/// can change it, in memory only, through <see cref="SeedDirectoryEntries"/>,
+/// <see cref="ResetDirectory"/> and <see cref="RestoreDirectory"/> (ADR-0158).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -56,15 +58,23 @@ namespace Surl.Protocol.Ldap;
 /// registered for it through the engine's implicit TLS.
 /// </para>
 /// <para>
-/// <b>Operations.</b> A search other than the root DSE's needs a bound connection, or
-/// <c>--allow-anonymous</c>; otherwise it is answered <c>insufficientAccessRights</c> (50),
+/// <b>Operations.</b> A search other than the root DSE's - whose base is empty or only spaces,
+/// both being the empty DN - needs a bound connection, or <c>--allow-anonymous</c>; otherwise it is answered <c>insufficientAccessRights</c> (50),
 /// <c>bind first</c>, whether or not its base exists. Compare follows the same rule. Add,
-/// delete, modify and modify DN are <c>unwillingToPerform</c>; an extended operation other than
-/// <c>StartTLS</c> is <c>protocolError</c> with no name; abandon has no answer, operations being
-/// answered in order; unbind closes the connection. A critical control is
-/// <c>unavailableCriticalExtension</c> (12). An unknown operation or a message that does not
-/// decode is answered with the Notice of Disconnection <c>protocolError</c> and the
-/// connection is closed.
+/// delete, modify and modify DN are <c>unwillingToPerform</c>, bound or not; an extended
+/// operation other than <c>StartTLS</c> is <c>protocolError</c> with no name; abandon has no
+/// answer, operations being answered in order; unbind closes the connection. A critical
+/// control on a request that has a response is answered <c>unavailableCriticalExtension</c>
+/// (12), before the bind check and any fault rule; abandon and unbind ignore it. An unknown
+/// operation or a message that does not decode is answered with the Notice of Disconnection
+/// <c>protocolError</c> and the connection is closed. A matching fault rule can change the
+/// result code or drop the connection: searches (the root DSE's too), compares and writes, and
+/// no other operations, are put to the fault plan at its command stage, after the bind check
+/// where one applies (the root DSE's search and writes have none). A matching <c>error</c>
+/// rule's <c>&lt;resultCode&gt; &lt;diagnostic&gt;</c> replaces the result, with no entry; <c>drop</c>
+/// aborts the connection with no response; <c>delay</c> holds the response, then answers as
+/// usual. An <c>error</c> reply that does not fit, or a rule of another kind, is noted and not
+/// applied (ADR-0139, ADR-0141).
 /// </para>
 /// <para>
 /// <b>Limits.</b> A message longer than <see cref="ExchangeLimits.MaxMessageBytes"/> is
@@ -97,7 +107,10 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
 
     /// <summary>
     /// Creates an LDAP server over an empty directory, as in-memory mode serves (ADR-0072
-    /// decision 1): every search but the root DSE's answers <c>noSuchObject</c>.
+    /// decision 1). Until the host seeds it (<see cref="SeedDirectoryEntries"/>), a connection
+    /// allowed to search - bound, or under <c>--allow-anonymous</c> - gets <c>noSuchObject</c>
+    /// for a base that is an RFC 4514 DN other than the root DSE's, unless a critical control,
+    /// or an <c>error</c> or <c>drop</c> fault rule, comes first (see the class remarks).
     /// </summary>
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>
     /// <param name="saslAuthenticationPolicy">Offers the SASL mechanisms and runs every SASL and Sicily bind.</param>
@@ -135,8 +148,9 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     /// <summary>
     /// Loads the directory from <paramref name="directoryFile"/> and creates an LDAP server over
     /// it, as surl does at start with <c>--directory</c>, after the data-directory lock and before
-    /// any listener binds (ADR-0072 decision 1, ADR-0031 decision 7). A missing file serves an
-    /// empty directory.
+    /// any listener binds (ADR-0072 decision 1, ADR-0031 decision 7). A missing file loads no
+    /// entries: the directory is then empty only while the host has seeded none into it through
+    /// <see cref="SeedDirectoryEntries"/>.
     /// </summary>
     /// <param name="directoryFile">The directory's file.</param>
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>

@@ -16,7 +16,8 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// </summary>
 /// <remarks>
 /// Frames are answered one at a time under one gate. A message the bus hands a link on another
-/// connection's thread waits on the link and wakes a pump that sends it under the same gate.
+/// connection's thread - a live topic message waiting on the link, or a queue delivery the bus holds
+/// for it - wakes a pump that sends it under the same gate.
 /// </remarks>
 public sealed partial class Amqp1ContainerConnection
 {
@@ -48,6 +49,8 @@ public sealed partial class Amqp1ContainerConnection
     private readonly Channel<bool> wakeups = Channel.CreateUnbounded<bool>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource emptyFramesCancellation = new();
     private readonly Dictionary<ushort, Amqp1Session> sessionsByIncomingChannel = [];
+    // The dynamic nodes deleted since the links consuming them were last detached.
+    private readonly List<string> deletedDynamicNodeAddresses = [];
     private Task emptyFramesRunning = Task.CompletedTask;
     private Task pumping = Task.CompletedTask;
     private long lastWrittenUtcTicks;
@@ -233,7 +236,8 @@ public sealed partial class Amqp1ContainerConnection
         }
     }
 
-    // One frame at a time, then whatever the frame let the links send.
+    // One frame at a time, then the detach of every link it left on a deleted node, then whatever it let
+    // the links send.
     private async ValueTask<bool> AnswerUnderGateAsync(Amqp1Frame frame)
     {
         await stateGate.WaitAsync(CancellationToken);
@@ -243,6 +247,7 @@ public sealed partial class Amqp1ContainerConnection
             var goesOn = refusal is null
                 ? await AnswerAsync(frame.Channel, body!.Performative!, body.Payload)
                 : await CloseWithErrorAsync(refusal);
+            await DetachConsumersOfDeletedNodesAsync();
             await SendWaitingAsync();
             return goesOn;
         }

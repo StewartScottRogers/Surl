@@ -7,7 +7,8 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// The container's nodes on the shared message bus (ADR-0107 decision 4; ADR-0100 decision 3): a
 /// topic is the bus topic its address maps to through <see cref="MessageBus.MessageBus.Names"/>, a queue is the
 /// bus queue of that name, declared durable on first attach, and a dynamic node is a queue exclusive to
-/// the connection and deleted with its last consumer. Access is ADR-0102 decision 3.4's.
+/// the connection, deleted with the link that made it (<see cref="DeleteDynamicNode"/>) or, by the bus,
+/// with its last consumer. Access is ADR-0102 decision 3.4's.
 /// </summary>
 /// <param name="bus">The process's message bus.</param>
 /// <param name="connection">The connection's place on the bus; its account is the caller.</param>
@@ -51,6 +52,23 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
             : ResolveQueue(address[Amqp1NodeAddress.QueuePrefix.Length..], request.ClientIsReceiver);
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The queue goes only while it is still the connection's dynamic one: the bus may have deleted it with
+    /// its last consumer, and a later attach by address may have declared another queue under the name.
+    /// </remarks>
+    public bool DeleteDynamicNode(string canonicalAddress)
+    {
+        ArgumentNullException.ThrowIfNull(canonicalAddress);
+
+        var name = canonicalAddress[Amqp1NodeAddress.QueuePrefix.Length..];
+
+        // A queue that exists takes this declare only when it is exclusive to this connection and auto-deleted.
+        return connection.InspectQueue(name).Outcome == MessageBusOutcome.Succeeded
+            && connection.DeclareQueue(name, DynamicQueueFlags).Outcome == MessageBusOutcome.Succeeded
+            && connection.DeleteQueue(name) == MessageBusOutcome.Succeeded;
+    }
+
     private Amqp1NodeResolution DeclareDynamicQueue()
     {
         Span<byte> bytes = stackalloc byte[16];
@@ -76,8 +94,8 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
 
     private Amqp1NodeResolution ResolveQueue(string queue, bool clientIsReceiver)
     {
-        // ADR-0146 decision 3.4: only the subscriber reaches a kept subscription's queue.
-        if (queue.StartsWith(Amqp1KeptSubscription.QueueNamePrefix, StringComparison.Ordinal))
+        // ADR-0146 decision 3.4 and Amendment 4 item 3: only its subscribers reach a subscription's queue.
+        if (queue.StartsWith(Amqp1SubscriptionQueue.QueueNamePrefix, StringComparison.Ordinal))
         {
             return Amqp1NodeResolution.NotFound;
         }

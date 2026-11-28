@@ -249,6 +249,54 @@ public sealed class SurlServerOptions
     public IList<string> Cookies { get; } = [];
 
     /// <summary>
+    /// The string keys the Redis keyspace holds before any listener binds, set in order (a later one replaces an
+    /// earlier one of the same database and key); none by default, and not a <c>surl</c> option. A reset returns the
+    /// keyspace to them (ADR-0158, decisions 3 and 4), but a server with a <see cref="DataDirectory"/> or a share on
+    /// disk refuses the reset (<see cref="SurlServer.ResetAsync"/>). Each publishes a
+    /// <see cref="Protocol.Abstractions.StoreChangedEvent"/> with
+    /// <see cref="Protocol.Abstractions.StoreChange.Seeded"/>; the fault plan is not consulted. A null item, an
+    /// empty key, a database outside 0 to 15 or an expiry outside 1 millisecond to 365 days is an
+    /// <see cref="ArgumentException"/>. A key the keyspace refuses, or any key when no <c>redis</c> or <c>rediss</c>
+    /// listen URL is served (the extended servers off included), refuses the start with a
+    /// <see cref="SurlSeedRefusedException"/>. Assigning <see langword="null"/> leaves it empty.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.AllowNull]
+    public IReadOnlyList<SurlRedisKey> RedisKeys
+    {
+        get;
+        set => field = value ?? [];
+    } = [];
+
+    /// <summary>
+    /// The LDIF content records (RFC 2849, at most 16 MiB) the LDAP directory holds before any listener binds, beside
+    /// those read from <see cref="DataDirectory"/>; <see langword="null"/>, the default, for none, and not a
+    /// <c>surl</c> option. A reset returns the directory to them (ADR-0158, decisions 3 and 4), but a server with a
+    /// <see cref="DataDirectory"/> or a share on disk refuses the reset (<see cref="SurlServer.ResetAsync"/>). Each
+    /// entry publishes a <see cref="Protocol.Abstractions.StoreChangedEvent"/> with
+    /// <see cref="Protocol.Abstractions.StoreChange.Seeded"/>. Text the directory refuses, or any text when no
+    /// <c>ldap</c> or <c>ldaps</c> listen URL is served, refuses the start with a
+    /// <see cref="SurlSeedRefusedException"/>.
+    /// </summary>
+    public string? DirectoryLdif { get; set; }
+
+    /// <summary>
+    /// The DNS zones held before any listener binds, beside those read from <see cref="DataDirectory"/>; none by
+    /// default, and not a <c>surl</c> option. A reset returns to them (ADR-0158, decisions 3 and 4), but a server with
+    /// a <see cref="DataDirectory"/> or a share on disk refuses the reset (<see cref="SurlServer.ResetAsync"/>). Each
+    /// publishes a <see cref="Protocol.Abstractions.StoreChangedEvent"/> with
+    /// <see cref="Protocol.Abstractions.StoreChange.Seeded"/>. A null item, apex or text is an
+    /// <see cref="ArgumentException"/>. A zone the zones refuse, or any zone when no <c>dns</c> listen URL is served
+    /// (the extended servers off included), refuses the start with a <see cref="SurlSeedRefusedException"/>.
+    /// Assigning <see langword="null"/> leaves it empty.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.AllowNull]
+    public IReadOnlyList<SurlDnsZone> DnsZones
+    {
+        get;
+        set => field = value ?? [];
+    } = [];
+
+    /// <summary>
     /// Config files read at start (<c>--config</c>, ADR-0101 decision 2), in order, after every property above and before
     /// <see cref="AdditionalArguments"/>, so <see cref="AdditionalArguments"/> can override a file and a file the properties.
     /// A refusal inside a file is <c>surl</c>'s, prefixed by <c>&lt;file&gt;:&lt;line&gt;: </c>. <c>-</c> (standard input) is refused.

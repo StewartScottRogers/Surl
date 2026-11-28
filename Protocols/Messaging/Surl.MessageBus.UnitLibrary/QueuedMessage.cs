@@ -1,8 +1,9 @@
 namespace Surl.MessageBus;
 
 /// <summary>
-/// One message held in a named queue, with its place in the queue and whether a consumer has
-/// been handed it before.
+/// One message held in a named queue, with its place in the queue and whether it has been handed
+/// out to a consumer before (<see cref="HandedOut"/>), which a delivery only held until claimed
+/// does not make it.
 /// </summary>
 internal sealed class QueuedMessage(long sequence, BusMessage message)
 {

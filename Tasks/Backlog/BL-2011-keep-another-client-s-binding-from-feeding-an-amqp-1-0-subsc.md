@@ -5,7 +5,7 @@ priority: Low
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests]
+touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary/CLAUDE.md, Documentation/Planning/Decisions/ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md]
 requirement: none
 created: 2026-11-27
 completed:
@@ -38,6 +38,40 @@ clients try to bind to it or unbind from it.
 
 ## Notes
 
+Lane 2, 2026-11-27: no code written. Returned to Backlog because `touches` had to grow into a project
+BL-2041 holds.
+
+Why `touches` grew:
+
+- `Surl.Extended.Protocol.Amqp1.UnitTests`:
+  `ServeAsync_SubscriptionAnotherClientBoundFurther_IsRefusedUnauthorizedAndNothingIsSent`
+  (`Amqp1ContainerConnectionTests.Subscriptions.cs`) has `bob` bind a second filter to a kept subscription
+  and expects the next attach to be refused. The first acceptance criterion makes that bind fail, so the
+  attach resumes the subscription and the test fails. Rewrite it to expect the refused bind, no
+  `secrets` message queued and a resumed attach. The other binds there and in `...NoLocal.cs` are the
+  declaring connection's first bind and keep passing under the rule below.
+- Amqp1 library `CLAUDE.md`: "one another client bound further is `amqp:unauthorized-access`" stops
+  being reachable through a client's bind.
+- ADR-0146: record the rule as Amendment 6; Amendments 2 and 5 point at BL-2011 for it.
+
+Design worked out from the code, to build next run (decide and record as Amendment 6):
+
+- In `MessageBus.BindQueue` (`MessageBus.Queues.cs`), under the lock, on a queue with a description:
+  every unbind is `AccessDenied`; binding a filter it already has is `Succeeded` and changes nothing; any
+  other filter on a bound queue is `AccessDenied`. AMQP 0-9-1 already answers `AccessDenied` with 403.
+- The first filter only from a connection that declared or redeclared the queue naming its description.
+  Without this, another client can bind between the container's declare and bind. Keep every such
+  connection, not just the last, so two shared links declaring at once both bind. A queue loaded with no
+  binding is bound again after the container's redeclare.
+- A queue with no description is unchanged. Restore and load set bindings directly and are unaffected.
+- `MessageBusSubscriptionQueueTests` that build two-filter or unbound described queues through
+  `BindQueue`/`UnbindQueue` (`binder`, `Rebind`) must change: unbound is a declare with no bind; two
+  filters can only come from a `queues/index` file.
+- In the library `CLAUDE.md`, remove both known limits: "a message another client's binding copied in,
+  then unbound, stays" and "`UnbindQueue` asks for no grant, so a client ... can bind it, unbind".
+
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Backlog. touches now includes Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests (and the Amqp1 library CLAUDE.md), which BL-2041 in Doing holds; build after it, from the design in Notes

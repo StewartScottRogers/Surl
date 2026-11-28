@@ -1,9 +1,13 @@
 namespace Surl.Extended.Protocol.Amqp1;
 
 /// <summary>
-/// The delivery states of Part 3 section 3.4 the container writes and reads: <c>accepted</c> and
-/// <c>rejected</c> it sends as a receiver (ADR-0107 decision 5), and every outcome a client
-/// receiver may send it.
+/// The delivery states of Part 3 section 3.4 and Part 4 the container writes and reads. It writes
+/// <c>accepted</c> and <c>rejected</c> (ADR-0107 decision 5) and, for local transactions (ADR-0146
+/// decision 1), <c>declared</c> and <c>transactional-state</c>, the latter with an outcome or, for a
+/// delivery acquired in a transaction, without one. It reads which of <c>received</c>,
+/// <c>accepted</c>, <c>rejected</c>, <c>released</c> and <c>modified</c> a state is, a
+/// <c>modified</c>'s <c>undeliverable-here</c>, and a <c>transactional-state</c>'s <c>txn-id</c> and
+/// outcome.
 /// </summary>
 public static class Amqp1DeliveryState
 {
@@ -87,7 +91,7 @@ public static class Amqp1DeliveryState
 
     /// <summary>Which outcome a delivery state read is.</summary>
     /// <param name="state">The <c>state</c> field of a <c>disposition</c> or <c>transfer</c>, as read.</param>
-    /// <returns>The outcome; <see cref="Amqp1Outcome.None"/> when absent or not a delivery state.</returns>
+    /// <returns>The outcome; <see cref="Amqp1Outcome.None"/> when absent, not a delivery state, or <c>declared</c> or <c>transactional-state</c>.</returns>
     public static Amqp1Outcome OutcomeOf(object? state) =>
         Amqp1Descriptor.CodeOf((state as Amqp1Described)?.Descriptor) is { } code && OutcomesByDescriptor.TryGetValue(code, out var outcome)
             ? outcome

@@ -8,6 +8,8 @@
   [ADR-0012](ADR-0012-how-the-gopher-server-answers-a-selector.md) (Gopher), [ADR-0025](ADR-0025-how-the-telnet-server-answers.md) (TELNET), and [ADR-0135](ADR-0135-how-the-ssh-and-smb-servers-answer-a-chosen-error.md)
   (the same question for SSH and SMB, whose decisions 4 to 6 this one follows).
 - **Acted on by:** BL-798.
+- **Amended (2026-11-27, BL-2009):** the TELNET, DICT and Gopher fault points also carry the listen URL
+  and the exchange ID; see the note under decision 3.
 
 ## Context
 
@@ -34,11 +36,18 @@ plan, which word a DICT command's path is, how a Gopher error item is framed, or
    error menu, with the reply as its display string, UTF-8 encoded - and then writes are completed.
 3. **TELNET** (`TelnetProtocolServer`, `TelnetSession`, `TelnetLineFaults`). TELNET has no error reply, so
    ADR-0124's planning default stands: the plan is asked once per line of data the client completes, `quit`
-   included, before the line is echoed, with scheme `telnet` and nothing else - no command, path or account,
-   so a rule scoped by any of those never matches a TELNET line. A line after `quit` is never read, so it asks
-   nothing. A chosen error is the reply, UTF-8 encoded, and CRLF in place of the line's echo, after which the
-   session is over and the connection closed; any negotiation answers already due go first. Lines count from
-   1 per session.
+   included, before the line is answered, with scheme `telnet` and nothing else - no command, path or account,
+   so a rule scoped by any of those never matches a TELNET line. Data after `quit` completes no line, so it asks
+   nothing. A chosen error is the reply, UTF-8 encoded, and CRLF in place of the line's answer (the echo, or
+   `bye` for a `quit` line), after which the session is over and the connection closed; any negotiation answers
+   already due go first. Lines count from 1 per session.
+
+   *Amended 2026-11-27 (BL-2009):* "with scheme `telnet` and nothing else" does not name the whole point.
+   As decision 6 says, it also carries the listen URL and the exchange ID (`TelnetLineFaults`), so a rule
+   scoped by `listener` or `scheme` can match a TELNET line; one scoped by `command`, `path` or `account`
+   never does. The DICT and Gopher points of decisions 1 and 2 carry the listen URL and the exchange ID
+   too (`DictCommandFaults`, `GopherSelectorFaults`).
+
 4. **What fits.** DICT reads three digits 500 to 599, one space and non-empty text; Gopher non-empty text with
    no TAB, CR or LF (a TAB would split the item, a line break end it); TELNET non-empty text with no CR or LF.
    A reply that does not fit - a `Surl.Api` hook can hand one over unchecked, and `Surl.Cli`'s check of

@@ -51,10 +51,11 @@ public sealed partial class Amqp1ContainerConnection
         await WriteAsync(session.OutgoingChannel, AnsweringAttach(attach, link.ContainerHandle, refusal is null ? nodeTerminus : null));
         if (refusal is not null)
         {
-            link.Kept = null;
+            link.SubscriptionQueue = null;
             // Part 2 section 2.6.3: a null terminus, then at once a closing detach with the error.
             link.IsDetachedByContainer = true;
             link.EndSource();
+            DeleteMadeDynamicNode(link);
             await WriteAsync(session.OutgoingChannel, new Amqp1Detach(link.ContainerHandle) { Closed = true, Error = refusal });
         }
         else if (link.ContainerReceives)
@@ -87,7 +88,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         // ADR-0146 decision 2.2: a refused selector refuses the attach before any node is made.
-        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(source, request.IsTopic) : Amqp1SourceFilters.None;
+        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(source, AppliesNoLocal(request, terminus)) : Amqp1SourceFilters.None;
         if (filters is null)
         {
             return (null, Error(Amqp1ErrorCondition.InvalidField, "selector not valid"));
@@ -100,15 +101,22 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         link.NodeAddress = nodeAddress;
+        link.MadeDynamicNodeAddress = request.IsDynamic ? nodeAddress : null;
         link.Filters = filters;
-        link.Kept = PlanKeptSubscription(attach, terminus, nodeAddress, filters);
-        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.Kept), null);
+        link.SubscriptionQueue = PlanSubscriptionQueue(attach, terminus, nodeAddress, filters);
+        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.SubscriptionQueue), null);
     }
 
-    // ADR-0146 decision 3.1: only a client receiver's topic source asking durability keeps a subscription.
-    private Amqp1KeptSubscription? PlanKeptSubscription(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1SourceFilters filters) =>
-        attach.IsReceiver && Amqp1NodeAddress.IsTopic(nodeAddress) && Amqp1KeptSubscription.IsAskedFor(terminus)
-            ? Amqp1KeptSubscription.Plan(clientContainerId, attach.Name, terminus, nodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], filters.Applied)
+    // ADR-0146 decision 2.1, Amendment 3 and Amendment 4 item 7: no-local is for a topic link, but not for
+    // a shared subscription, kept or not.
+    private static bool AppliesNoLocal(Amqp1NodeRequest request, Amqp1Terminus terminus) =>
+        request.IsTopic && !terminus.IsShared;
+
+    // ADR-0146 decision 3.1 and Amendment 4 item 1: only a client receiver's topic source asking
+    // durability or sharing holds its subscription in a queue.
+    private Amqp1SubscriptionQueue? PlanSubscriptionQueue(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1SourceFilters filters) =>
+        attach.IsReceiver && Amqp1NodeAddress.IsTopic(nodeAddress) && Amqp1SubscriptionQueue.IsAskedFor(terminus)
+            ? Amqp1SubscriptionQueue.Plan(clientContainerId, attach.Name, terminus, nodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], filters.Applied)
             : null;
 
     // ADR-0146 decision 3.3: a client receiver's attach with no source asks for the kept subscription of
@@ -158,11 +166,11 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // A dynamic node is answered with the address the directory gave it; any other echoes the client's.
-    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters, Amqp1KeptSubscription? kept)
+    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters, Amqp1SubscriptionQueue? subscriptionQueue)
     {
         var answeredAddress = terminus.IsDynamic ? nodeAddress : terminus.Address!;
         return attach.IsReceiver
-            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters, kept)
+            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters, subscriptionQueue)
             : Amqp1Terminus.Target(answeredAddress, terminus.IsDynamic);
     }
 
@@ -195,8 +203,8 @@ public sealed partial class Amqp1ContainerConnection
                 MaxMessageSize = (ulong)context.Limits.MaxUploadBytes,
             };
 
-    // A client receiver's link becomes the topic's live subscription or the queue's consumer; null
-    // when it may, or the error that refuses the attach.
+    // A client receiver's link becomes the topic's live subscription, a consumer of its subscription
+    // queue or the queue's consumer; null when it may, or the error that refuses the attach.
     private Amqp1Error? OpenNode(Amqp1Session session, Amqp1Link link)
     {
         if (link.ContainerReceives)
@@ -204,9 +212,9 @@ public sealed partial class Amqp1ContainerConnection
             return null;
         }
 
-        if (link.Kept is { } kept)
+        if (link.SubscriptionQueue is { } planned)
         {
-            return OpenKeptSubscription(session, link, kept);
+            return OpenSubscriptionQueue(session, link, planned);
         }
 
         var outcome = Amqp1NodeAddress.IsTopic(link.NodeAddress) ? Subscribe(link) : Consume(link);
@@ -231,31 +239,30 @@ public sealed partial class Amqp1ContainerConnection
     private MessageBusOutcome Consume(Amqp1Link link)
     {
         var queueName = link.NodeAddress[Amqp1NodeAddress.QueuePrefix.Length..];
-        var consumed = busConnection.Consume(queueName, OfferQueueDelivery(link), MaxWaitingDeliveries, accepts: link.Filters.QueuePredicate(queueName));
+        // The callback says only that the bus holds a delivery for the link; the pump claims it as it sends.
+        var consumed = busConnection.Consume(queueName, _ => WakePump(), MaxWaitingDeliveries, accepts: link.Filters.QueuePredicate(queueName));
         link.Consumer = consumed.Consumer;
-        link.Consumer?.Start();
+        link.StartConsumer();
         return consumed.Outcome;
     }
 
-    // On the bus's thread: a message the link's filters refuse is not sent and never waits (ADR-0146
-    // decision 2.4), nor one on a topic the client cannot name (ADR-0100 decision 3.2), and one past the
-    // link's 1000 waiting is dropped for this link (ADR-0107 decision 7).
+    // On the bus's thread: a message the link does not send never waits, and one past the link's 1000
+    // waiting is dropped for this link (ADR-0107 decision 7).
     private void OfferTopicMessage(Amqp1Link link, BusMessage message)
     {
-        if (link.Filters.Accepts(message, queueName: null)
-            && bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, message.Topic).Name is { } address
+        if (SentTopicAddress(link, message) is { } address
             && link.Offer(new(message, address, null, false), MaxWaitingDeliveries))
         {
             WakePump();
         }
     }
 
-    // On the bus's thread: the consumer's window already bounds what waits.
-    private Action<BusQueueDelivery> OfferQueueDelivery(Amqp1Link link) => delivery =>
-    {
-        link.Offer(new(delivery.Message, Amqp1NodeAddress.QueuePrefix + delivery.QueueName, delivery.DeliveryTag, delivery.Redelivered), int.MaxValue);
-        WakePump();
-    };
+    // The address a topic message is sent on the link as; null when the link's filters refuse it
+    // (ADR-0146 decision 2.4) or the client cannot name its topic (ADR-0100 decision 3.2).
+    private string? SentTopicAddress(Amqp1Link link, BusMessage message) =>
+        link.Filters.Accepts(message, queueName: null)
+            ? bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, message.Topic).Name
+            : null;
 
     private async ValueTask<bool> AnswerDetachAsync(Amqp1Session session, Amqp1Detach detach)
     {
@@ -268,12 +275,14 @@ public sealed partial class Amqp1ContainerConnection
         EndLink(session, link);
         if (detach.Closed)
         {
-            DestroyKeptSubscription(session, link);
+            DestroyKeptSubscription(link);
         }
 
         if (!link.IsDetachedByContainer)
         {
-            // Nothing of a link is kept for resumption, so a suspending detach ends it all the same.
+            // A link is never resumed, so a detach with closed false ends it all the same. A kept
+            // subscription's queue stays after one, for a later attach to resume the subscription
+            // (ADR-0146 decisions 3.4 and 3.6).
             await WriteAsync(session.OutgoingChannel, new Amqp1Detach(link.ContainerHandle) { Closed = detach.Closed });
         }
 
@@ -291,11 +300,12 @@ public sealed partial class Amqp1ContainerConnection
         return true;
     }
 
-    // Its subscription or consumer ends, a consumer's unsettled deliveries going back to the queue, and
-    // any partial delivery is discarded.
+    // Its subscription or consumer ends, a consumer's unsettled deliveries going back to the queue, the
+    // dynamic node its attach made goes, and any partial delivery is discarded.
     private void EndLink(Amqp1Session session, Amqp1Link link)
     {
         link.EndSource();
+        DeleteMadeDynamicNode(link);
         link.IsEnded = true;
         DiscardPartial(link);
         RollBackTransactionsDeclaredBy(link);
@@ -311,6 +321,34 @@ public sealed partial class Amqp1ContainerConnection
             context.Log.Note($"Link {link.ContainerHandle} dropped {link.DroppedCount} topic messages past {MaxWaitingDeliveries} waiting.");
         }
     }
+
+    // ADR-0107 decision 4: a dynamic node goes with the link whose attach made it, whoever else consumes
+    // it; a link that only named its address made none.
+    private void DeleteMadeDynamicNode(Amqp1Link link)
+    {
+        if (link.MadeDynamicNodeAddress is { } address && nodes.DeleteDynamicNode(address))
+        {
+            deletedDynamicNodeAddresses.Add(address);
+        }
+    }
+
+    // Part 2 section 2.8.15: a link still consuming a dynamic node deleted under it is detached with
+    // amqp:resource-deleted. Run once a frame is answered, so a link that ended with the node, as every
+    // link of an ending session has, is not among them; at the connection's end it is not run.
+    private async ValueTask DetachConsumersOfDeletedNodesAsync()
+    {
+        var stranded = sessionsByIncomingChannel.Values
+            .SelectMany(session => session.LinksByClientHandle.Values.Where(IsConsumingADeletedNode).Select(link => (session, link)))
+            .ToList();
+        deletedDynamicNodeAddresses.Clear();
+        foreach (var (session, link) in stranded)
+        {
+            await DetachWithErrorAsync(session, link, Error(Amqp1ErrorCondition.ResourceDeleted, "the node was deleted"));
+        }
+    }
+
+    private bool IsConsumingADeletedNode(Amqp1Link link) =>
+        link is { Consumer: not null, IsEnded: false } && deletedDynamicNodeAddresses.Contains(link.NodeAddress);
 
     private void EndLinks(Amqp1Session session)
     {

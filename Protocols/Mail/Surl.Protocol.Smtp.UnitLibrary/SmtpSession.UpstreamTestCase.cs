@@ -9,9 +9,12 @@ namespace Surl.Protocol.Smtp;
 /// ADR-0080 decision 2): the greeting <c>REPLY welcome</c> gives, a <c>REPLY</c>'d line answered
 /// with the case's text and not run, <c>EHLO</c>'s extensions from <c>CAPA</c> and <c>AUTH</c>,
 /// mail sent without a login, a <c>DATA</c> body recorded rather than delivered, <c>VRFY</c>,
-/// <c>EXPN</c> and <c>HELP</c> answered with the case's data, a <c>RCPT</c> with no at sign refused, and a <c>MAIL</c>
-/// whose <c>SIZE=</c> exceeds the <c>SIZE</c> the case's <c>CAPA</c> advertised refused, as upstream's
-/// <c>MAIL_smtp</c> and <c>RCPT_smtp</c> do. Every other answer is the session's own.
+/// <c>EXPN</c> and <c>HELP</c> answered with the case's data, a <c>RCPT</c> with no at sign refused
+/// (<c>501 Invalid address</c>), a <c>RCPT</c> or <c>VRFY</c> argument with a byte past ASCII refused
+/// (<c>501 Invalid address</c>) unless the case's <c>CAPA</c> lists <c>SMTPUTF8</c>, and a <c>MAIL</c>
+/// whose <c>SIZE=</c> exceeds the <c>SIZE</c> the case's <c>CAPA</c> advertised refused
+/// (<c>552 Message size too large</c>), as upstream's <c>MAIL_smtp</c>, <c>RCPT_smtp</c> and
+/// <c>VRFY_smtp</c> do. Every other answer is the session's own.
 /// </summary>
 internal sealed partial class SmtpSession
 {

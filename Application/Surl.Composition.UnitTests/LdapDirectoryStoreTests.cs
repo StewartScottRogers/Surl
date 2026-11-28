@@ -63,6 +63,22 @@ public sealed class LdapDirectoryStoreTests
     }
 
     [TestMethod]
+    public async Task Stores_ResetAsync_KeepsAnEntrySeededToBeKeptAndDropsOneSeededWithoutTheFlag()
+    {
+        var (serving, _) = await ComposeAsync();
+        await using var running = serving;
+        await running.Stores.SeedEntriesAsync(SeedLdif, keepOnReset: true, TestContext.CancellationToken);
+        await running.Stores.SeedEntriesAsync(
+            "dn: ou=dropped,dc=example,dc=com\nobjectClass: organizationalUnit\nou: dropped\n", TestContext.CancellationToken);
+
+        await running.Stores.ResetAsync(StoreKind.Directory, TestContext.CancellationToken);
+
+        var ldif = running.Stores.ReadDirectoryLdif().Value!;
+        StringAssert.Contains(ldif, "dn: dc=example,dc=com\n");
+        Assert.IsFalse(ldif.Contains("ou=dropped", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task Stores_SeedResetAndRestore_PublishTheirChangesOnTheInstancesStream()
     {
         var (serving, _) = await ComposeAsync();

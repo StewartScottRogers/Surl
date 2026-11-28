@@ -188,6 +188,24 @@ public sealed class DictProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_DefinitionUnwritableWhileSent_AbortsTheConnectionAndNotesIt()
+    {
+        // Write 1 is the banner, write 2 the 150 and 151 lines, write 3 the first block of the definition.
+        var failure = new IOException("broken pipe");
+        var connection = new OneWriteFailingConnection([Encoding.ASCII.GetBytes("DEFINE ! hello\r\nSTATUS\r\n")], 3, failure);
+        var server = new DictProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
+        var log = new RecordingExchangeLog();
+
+        await server.ServeAsync(connection, Context(log, TestContext.CancellationToken));
+
+        Assert.AreEqual(Banner + "150 1 definitions retrieved\r\n151 \"hello\" " + DatabaseLine, Utf8(connection.WrittenBytes));
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(
+            $"{Path.Join(Root, "hello")} could not be written to the connection while it was sent ({failure.Message}); the connection was aborted.",
+            log.Notes[0]);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_EscapedWordFromCurl_IsLookedUpUnescapedAndQuotedInTheReply()
     {
         var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "a b\"c"), "x"u8.ToArray(), FileTime);

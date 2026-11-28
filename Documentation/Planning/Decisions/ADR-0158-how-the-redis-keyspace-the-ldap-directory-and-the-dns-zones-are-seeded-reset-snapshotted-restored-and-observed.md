@@ -436,3 +436,24 @@ seeded key's expiry passes while they are still being applied; a later kept seed
 
 Rejected: no bound on the kept keys, for the reason above; and bounding at reset by leaving keys out, because a
 reset that silently returns less than the configured state is not deterministic to a test.
+
+## Amendment 5 (2026-11-27, BL-2032): how `surl-mcp`'s start-time seed properties are refused
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-2032. Adds to decision 9.
+
+`start_server`'s `redis_keys` and `dns_zones` items are nested objects in the tool's input schema, each with
+`additionalProperties: false`, so a refusal comes from one of three places:
+
+| What is wrong | Answer |
+| --- | --- |
+| The input schema refuses it: an unknown nested property, a wrong type, a `database` or `expire_ms` out of range, a zone without `apex` or `zone_text`, an empty `apex`, `zone_text` or `directory_ldif` | JSON-RPC `-32602` naming the path, e.g. `arguments.redis_keys[1].ttl: not allowed` (ADR-0103 decision 1) |
+| A `redis_keys` item's content: both or neither of `key` and `key_base64`, or of `value` and `value_base64`, an empty key, a bad base64 string | `isError: true` naming the item, e.g. `redis_keys[1]: give exactly one of key and key_base64` |
+| A store refuses the seed, or no listen URL serves it | `isError: true` with the `SurlSeedRefusedException` text; nothing is left running |
+
+None of them shows a Redis value, and the schema's and the item's refusals show no seeded text at all. A store's
+refusal of `directory_ldif` or of a zone is passed on in the store's own words, as `add_ldap_entries` and
+`add_dns_zone` pass it, and the reader's words may quote part of the text (an unknown record type, a DN). The nested `key` has no `minLength`, unlike `set_key`'s, so an empty key reaches the
+tool and is answered naming its item.
+
+Rejected: checking nested properties again in the tool so an unknown one is `isError`. The schema check runs first,
+so no client would ever see that answer, and every other unknown argument of every tool is already `-32602`.

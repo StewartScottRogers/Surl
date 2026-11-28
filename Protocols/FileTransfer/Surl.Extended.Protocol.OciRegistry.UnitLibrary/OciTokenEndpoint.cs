@@ -25,7 +25,7 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <param name="tokens">The server's tokens.</param>
 /// <param name="allowsUploads">Whether the store allows uploads, so a token may grant <c>push</c> and <c>delete</c>.</param>
 /// <param name="tlsSession">The connection's TLS session, or <see langword="null"/> on plain text.</param>
-/// <param name="context">The exchange: its clock, behind the answer's <c>issued_at</c>, and the exchange ID and listen URL each login carries.</param>
+/// <param name="context">The exchange: its clock, behind the answer's <c>issued_at</c>, and the exchange ID and listen URL each login carries. The token's bytes do not come from it but from the <see cref="System.Security.Cryptography.RandomNumberGenerator"/> of <paramref name="tokens"/>.</param>
 internal sealed class OciTokenEndpoint(IAuthenticationPolicy policy, OciTokenBook tokens, bool allowsUploads, TlsSession? tlsSession, ExchangeContext context)
 {
     /// <summary>

@@ -22,7 +22,8 @@ namespace Surl.Authentication;
 /// when it does not decode to at least one byte.
 /// </param>
 /// <param name="ChallengeResponse">
-/// The challenge-response mail logins' secret: the same byte array as <paramref name="AwsSigV4"/>'s.
+/// The secret of <c>CRAM-MD5</c>, <c>DIGEST-MD5</c> and <c>APOP</c> logins, whichever server runs
+/// them: the same byte array as <paramref name="AwsSigV4"/>'s.
 /// </param>
 /// <param name="Scram">The SCRAM credentials under each hash.</param>
 internal sealed record NamedAccountCredentials(

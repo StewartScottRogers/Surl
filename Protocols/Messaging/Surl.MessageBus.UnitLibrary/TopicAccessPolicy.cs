@@ -6,7 +6,7 @@ namespace Surl.MessageBus;
 /// <see cref="TopicAccessGrant.Everyone"/>, allows. An anonymous caller has no account. The
 /// answer never depends on whether a topic or queue exists (ADR-0006, section 3), except that
 /// <see cref="MaySubscribeToEvery"/> judges the filters its caller read from a queue it found
-/// (ADR-0146, Amendment 2). Immutable.
+/// (ADR-0146, Amendments 2 and 5). Immutable.
 /// </summary>
 internal sealed class TopicAccessPolicy(IReadOnlyList<TopicAccessGrant> grants)
 {

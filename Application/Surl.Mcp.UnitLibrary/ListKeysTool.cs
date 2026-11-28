@@ -46,8 +46,8 @@ public static class ListKeysTool
     private static async Task<McpToolResult> ReadAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
         var pattern = RunningServerTool.ReadOptionalString(arguments, "pattern") ?? "*";
-        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetInt32() : 100;
-        var database = arguments.TryGetProperty("database", out var databaseValue) ? databaseValue.GetInt32() : 0;
+        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetWholeInt32() : 100;
+        var database = arguments.TryGetProperty("database", out var databaseValue) ? databaseValue.GetWholeInt32() : 0;
         var page = await running.Server.Keys.ListAsync(pattern, RunningServerTool.ReadOptionalString(arguments, "after_key"), limit, database, cancellationToken);
         return ToolResults.FromObject(writer =>
         {

@@ -5,13 +5,17 @@ namespace Surl.Protocol.Dict;
 
 /// <summary>
 /// Answers the DICT commands of one connection, one line at a time (RFC 2229, section 3).
-/// ADR-0011 records every reply below.
+/// ADR-0011 records the server's own replies, and ADR-0138 the chosen-error reply of an
+/// <c>error</c> fault rule.
 /// </summary>
 /// <remarks>
 /// Command names and <c>SHOW</c> and <c>OPTION</c> subjects are matched without regard to
 /// case; database and strategy names, and words, ordinally. The reply text is Surl's own
-/// fixed text, and a word the client sent comes back only inside a quoted string with
-/// <c>"</c> and <c>\</c> escaped (ADR-0006, section 3). It is not safe for concurrent calls.
+/// fixed text, apart from the counts, headwords and definitions drawn from what is served,
+/// and except a chosen-error reply, whose text is the fault rule's
+/// (<see cref="DictCommandFaults"/>). A word the client sent comes back only inside a quoted
+/// string with <c>"</c> and <c>\</c> escaped (ADR-0006, section 3). It is not safe for
+/// concurrent calls.
 /// </remarks>
 internal sealed class DictCommandResponder
 {
@@ -56,7 +60,10 @@ internal sealed class DictCommandResponder
     /// Creates a responder that answers on <paramref name="connection"/> from <paramref name="dictionary"/>.
     /// </summary>
     /// <param name="connection">The connection every reply is written to.</param>
-    /// <param name="context">The exchange, for its cancellation token.</param>
+    /// <param name="context">
+    /// The exchange: its cancellation token, its log, and the fault plan and events that
+    /// <see cref="DictCommandFaults"/> uses for each recognized command.
+    /// </param>
     /// <param name="dictionary">Where definitions and headwords come from.</param>
     public DictCommandResponder(IConnection connection, ExchangeContext context, DictContentDictionary dictionary)
     {
@@ -92,10 +99,19 @@ internal sealed class DictCommandResponder
     /// Answers one command line.
     /// </summary>
     /// <param name="line">The line, without its line ending.</param>
-    /// <returns><see langword="true"/> when the connection stays open for the next command; <see langword="false"/> after <c>QUIT</c>.</returns>
+    /// <returns>
+    /// <see langword="true"/> when the connection stays open for the next command;
+    /// <see langword="false"/> after <c>QUIT</c> is answered <c>221 bye</c>, after a <c>drop</c>
+    /// rule, and when a definition cannot be read, or its bytes cannot be written, while it is
+    /// sent (the connection is then aborted).
+    /// </returns>
     /// <remarks>
-    /// A recognized command first asks the fault plan: a chosen-error rule's status line answers
-    /// it in place of its own reply, and the connection stays open (ADR-0138).
+    /// A recognized command first asks the fault plan (<see cref="DictCommandFaults"/>; ADR-0138,
+    /// ADR-0141). A <c>delay</c> rule holds the command for its <c>ms</c>, or until the client
+    /// closes or resets the connection, and the command is then answered as usual. A <c>drop</c>
+    /// rule aborts the connection, with nothing written for the command. The status line of an
+    /// <c>error</c> rule whose reply fits (<see cref="DictCommandFaults.Fits"/>) answers the command
+    /// in place of its own reply, <c>QUIT</c>'s included, and the connection stays open.
     /// </remarks>
     public async Task<bool> AnswerAsync(string line)
     {
@@ -154,7 +170,8 @@ internal sealed class DictCommandResponder
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            context.Log.Note($"{file.Mapping.Location} could not be read while it was sent ({exception.Message}); the connection was aborted.");
+            var failedAction = text.HasFailedWrite ? "written to the connection" : "read";
+            context.Log.Note($"{file.Mapping.Location} could not be {failedAction} while it was sent ({exception.Message}); the connection was aborted.");
             connection.Abort();
 
             return false;

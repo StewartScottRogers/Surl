@@ -536,6 +536,15 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Messages_SaysASubscriptionQueueAlsoNeedsSubOnItsFilters()
+    {
+        var page = AiHelpText.Answer("messages").Output;
+
+        StringAssert.Contains(page, "A queue keeping an AMQP 1.0 durable or shared subscription (`surl-subscription-...`) needs more: a get, consume, delete or purge of it by name also needs `sub` on every topic filter it is bound to");
+        StringAssert.Contains(page, "(a get or consume still needs its `$queue/<name>` grant), and once any grant is given, one bound to no filter is refused.");
+    }
+
+    [TestMethod]
     public void Answer_ExitCodes_ListsEverySurlExitCodeMember()
     {
         var page = AiHelpText.Answer("exit-codes").Output;
@@ -897,6 +906,18 @@ public sealed partial class AiHelpTextTests
         StringAssert.Contains(page, "An HTTP, SASL or `GSS-SPNEGO` Kerberos login is accepted only when an account of exactly that name exists, unless `--allow-anonymous` is given.");
         StringAssert.Contains(page, "A SOCKS5 GSS-API login needs a proxy account (`-U`, `--proxy-user-file`; never `--user` or `--user-file`) of exactly that name when the proxy was started with proxy accounts, even an empty `--proxy-user-file`; with none, any ticket the keys accept is accepted; `--allow-anonymous` skips the account match.");
         StringAssert.Contains(page, "No Kerberos login uses the account's password.");
+    }
+
+    [TestMethod]
+    public void Answer_Auth_SaysHowLongADirectoryUsersOciOrMcpTokenIsHonoured()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        var userLdapParagraph = page.Split('\n').Single(line => line.Contains("`--user-ldap <ldap-url>", StringComparison.Ordinal) && line.Contains("LDAP directory", StringComparison.Ordinal));
+        StringAssert.Contains(userLdapParagraph, "An OCI or MCP token issued to a directory user is honoured, within the token's own lifetime, for at most one hour after the name's last directory login that server accepted: refreshing an MCP token is not a login, so it never extends the hour, and a refused login neither ends nor renews it.");
+        StringAssert.Contains(userLdapParagraph, "Disabling or deleting the user in the directory ends no token already issued.");
+        StringAssert.Contains(userLdapParagraph, "A reset of the sessions ends them all, and so does a restore: on the `--control` endpoint `POST /v1/reset` resets the sessions with every other store, but with `--directory` or `--share` it is refused and ends none.");
+        StringAssert.Contains(userLdapParagraph, "A name the accounts have held, on any scheme, while surl runs is refused such tokens: its token is honoured only while the accounts name it for that server's scheme, so removing the account refuses its tokens even when the directory knows the name too.");
     }
 
     [TestMethod]

@@ -23,7 +23,11 @@ internal enum LdapFrameReadOutcome
     /// <summary>The length announced more than four length octets, more than any message this reader can hold needs.</summary>
     MalformedLength,
 
-    /// <summary>The length announced a message longer than the message limit; none of its value was read.</summary>
+    /// <summary>
+    /// A length announced more than is allowed - a message past the message limit or too long for one
+    /// array, or a security-layer buffer past the layer's maximum or the message limit; none of the
+    /// message's value, or of the buffer's protected bytes, was read.
+    /// </summary>
     MessageTooLarge,
 
     /// <summary>A security-layer buffer failed its signature or MAC, or came out of sequence (ADR-0072 decision 4).</summary>

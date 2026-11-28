@@ -65,7 +65,7 @@ public static class ReadKeyTool
             return McpToolResult.FromFailure(refusal);
         }
 
-        var database = arguments.TryGetProperty("database", out var databaseValue) ? databaseValue.GetInt32() : 0;
+        var database = arguments.TryGetProperty("database", out var databaseValue) ? databaseValue.GetWholeInt32() : 0;
         var read = await running.Server.Keys.GetAsync(key!, database, cancellationToken);
         return ToolResults.FromObject(writer =>
         {

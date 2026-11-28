@@ -5,7 +5,9 @@ namespace Surl.MessageBus;
 /// <summary>
 /// The bus's named queues (ADR-0100, decision 3.3): FIFOs of messages with competing
 /// consumers, each delivery unacknowledged until acknowledged, and put back at its place,
-/// marked redelivered, by a reject with requeue, a recover, or its consumer's end.
+/// marked redelivered, by a reject with requeue, a recover, or its consumer's end. A consumer
+/// with a delivery credit (ADR-0146, Amendment 7) holds its deliveries until it claims them,
+/// and one that goes back unclaimed keeps the mark it had before.
 /// </summary>
 public sealed partial class MessageBus
 {
@@ -16,8 +18,9 @@ public sealed partial class MessageBus
     /// Puts <paramref name="message"/> straight into one named queue, as AMQP 0-9-1's default
     /// exchange and a STOMP <c>SEND</c> to <c>/queue/&lt;q&gt;</c> do. Its topic is not checked:
     /// a queue message is delivered by its queue's name. A message already expired is dropped.
-    /// Any connection may send to any queue, an exclusive one included. It is sent for an
-    /// anonymous caller: <see cref="PublishToQueue(string, BusMessage, string?)"/> with no account.
+    /// Any connection may send to an exclusive queue, but none to a queue carrying a subscription
+    /// description (ADR-0146, Amendment 6). It is sent for an anonymous caller:
+    /// <see cref="PublishToQueue(string, BusMessage, string?)"/> with no account.
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
@@ -41,6 +44,7 @@ public sealed partial class MessageBus
     /// <param name="account">The sender's account, or <see langword="null"/> for an anonymous one.</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.MessageTooLarge"/>,
     /// <see cref="MessageBusOutcome.AccessDenied"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
+    /// (also for a queue carrying a subscription description, which takes no direct send)
     /// or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> or
     /// <paramref name="message"/> is <see langword="null"/>.</exception>
@@ -57,7 +61,8 @@ public sealed partial class MessageBus
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
     /// <param name="account">The sender's account, or <see langword="null"/> for an anonymous one.</param>
     /// <param name="onlyWhenConsumed">Whether the queue takes the message only when a started,
-    /// unstopped consumer of it has room.</param>
+    /// unstopped consumer of it has room, and delivery credit left if it has a credit
+    /// (<see cref="BusQueueConsumer.SetDeliveryCredit"/>).</param>
     /// <returns>As <see cref="PublishToQueue(string, BusMessage, string?)"/>, and
     /// <see cref="MessageBusOutcome.NoReadyConsumer"/> when <paramref name="onlyWhenConsumed"/> found
     /// no consumer able to take it. <see cref="MessageBusOutcome.QueueFull"/> also answers a send to an
@@ -185,15 +190,10 @@ public sealed partial class MessageBus
     {
         lock (stateLock)
         {
-            var (outcome, queue) = Access(connection, queueName);
+            var (outcome, queue) = AccessMessages(connection, queueName);
             if (queue is null)
             {
                 return new(outcome, 0);
-            }
-
-            if (!MayRemoveMessages(connection.Account, queue))
-            {
-                return new(MessageBusOutcome.AccessDenied, 0);
             }
 
             var (count, bytes) = queue.RemoveAllReady();
@@ -212,7 +212,7 @@ public sealed partial class MessageBus
         DeleteQueueUnlessRefused(
             connection,
             queueName,
-            queue => MayRemoveMessages(connection.Account, queue)
+            queue => SubscriptionFiltersAllow(connection.Account, queue)
                 ? queue.DeleteRefusal(ifUnused, ifEmpty)
                 : MessageBusOutcome.AccessDenied);
 
@@ -253,7 +253,7 @@ public sealed partial class MessageBus
 
         return ChangeState(() =>
         {
-            var (outcome, queue) = Access(connection, queueName);
+            var (outcome, queue) = AccessMessages(connection, queueName);
             if (queue is null)
             {
                 return new BusGetResult(outcome, null, 0);
@@ -296,7 +296,7 @@ public sealed partial class MessageBus
 
         lock (stateLock)
         {
-            var (outcome, queue) = Access(connection, queueName);
+            var (outcome, queue) = AccessMessages(connection, queueName);
             return queue is null
                 ? new(outcome, null)
                 : AddDeliveringConsumer(connection, queue, deliver, maxUnacknowledged, exclusive, accepts);
@@ -341,6 +341,33 @@ public sealed partial class MessageBus
         RequeueAll(consumer);
         Dispatch(consumer.Queue, timeProvider.GetUtcNow());
         return true;
+    });
+
+    internal void SetDeliveryCredit(BusQueueConsumer consumer, uint credit) => ChangeState(() =>
+    {
+        if (consumer.IsActive)
+        {
+            foreach (var message in consumer.LimitDeliveryCredit(credit))
+            {
+                consumer.Queue.Requeue(message);
+            }
+
+            Dispatch(consumer.Queue, timeProvider.GetUtcNow());
+        }
+
+        return true;
+    });
+
+    internal BusQueueDelivery? ClaimDelivery(BusQueueConsumer consumer) => ChangeState(() =>
+    {
+        var delivery = consumer.ClaimFirstHeld();
+        if (delivery is not null)
+        {
+            queuesVersion++;
+            PublishQueueChange(StoreChange.Delivered, delivery.QueueName, delivery.Message.Payload.Length);
+        }
+
+        return delivery;
     });
 
     internal void Cancel(BusQueueConsumer consumer) => ChangeState(() =>
@@ -447,11 +474,12 @@ public sealed partial class MessageBus
         }
     }
 
-    private void DeliverToConsumers(List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries)
+    // A held delivery publishes Delivered when its consumer claims it, not here.
+    private void DeliverToConsumers(List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery, bool IsHeld)> deliveries)
     {
-        foreach (var (consumer, delivery) in deliveries)
+        foreach (var (consumer, delivery, isHeld) in deliveries)
         {
-            if (consumer.Deliver(delivery))
+            if (consumer.Deliver(delivery) && !isHeld)
             {
                 PublishQueueChange(StoreChange.Delivered, delivery.QueueName, delivery.Message.Payload.Length);
             }
@@ -513,6 +541,16 @@ public sealed partial class MessageBus
     private void Delete(NamedQueue queue)
     {
         queuesVersion++;
+        EndConsumersDroppingTheirMessages(queue);
+        queuedBytes -= queue.RemoveAllReady().Bytes;
+        queues.Remove(queue.Name);
+        PublishQueueChange(StoreChange.Deleted, queue.Name, byteCount: null);
+    }
+
+    // Ends every consumer and get holder of the queue without putting back what each holds, as a
+    // delete does, and without deleting an auto-delete queue left with none.
+    private void EndConsumersDroppingTheirMessages(NamedQueue queue)
+    {
         foreach (var consumer in queue.Consumers.ToList())
         {
             consumer.Deactivate();
@@ -520,10 +558,6 @@ public sealed partial class MessageBus
             queue.RemoveConsumer(consumer);
             CountEnded(consumer);
         }
-
-        queuedBytes -= queue.RemoveAllReady().Bytes;
-        queues.Remove(queue.Name);
-        PublishQueueChange(StoreChange.Deleted, queue.Name, byteCount: null);
     }
 
     private static void CountEnded(BusQueueConsumer consumer)

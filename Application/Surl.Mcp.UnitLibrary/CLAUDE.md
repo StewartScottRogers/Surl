@@ -25,7 +25,15 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     `SurlServerStartException` is `isError` with `{exit_code, exit_code_name, lines}` and the text each line
     after `surl: `; an `ArgumentException` from `Surl.Api` or bad `files` is `isError` with its message alone;
     a host rule broken is `isError` `refused: <rule>` with `{refused}`. Its description (and `put_file`'s) names
-    the 4 MiB `tools/call` message limit (BL-1533); larger seeds go through `put_file`, one file per call.
+    the 4 MiB `tools/call` message limit (BL-1533); larger files go through `put_file`, one file per call.
+    It also takes the start-time seeds (ADR-0158 decisions 3 and 9, BL-2032), read by `StartTimeSeedArguments`:
+    `redis_keys` (items as `set_key` takes them, read by `RedisKeyArguments`), `directory_ldif` (as
+    `add_ldap_entries`' `ldif`) and `dns_zones` (`apex`, `zone_text`), filling `SurlServerOptions.RedisKeys`,
+    `DirectoryLdif` and `DnsZones`. A `redis_keys` item with bad content is `isError` naming it
+    (`redis_keys[1]: ...`), never its value; an item the input schema refuses (an unknown property, a number out of
+    range) is `-32602` naming it, as for any argument (ADR-0158 amendment 5). A `SurlSeedRefusedException`, such as
+    a seed for a store no listen URL serves, is `isError` with its text; nothing is left running and no
+    `MaxServers` slot is used.
   - `ListServersTool` (`list_servers`): `{servers: [{server_id, listen_urls, bound_urls, started_at,
     exchange_count, dropped_exchange_count}]}`; never an error.
   - `StopServerTool` (`stop_server`): `{server_id, exit_code, exit_code_name}`; an unknown ID is `isError`
@@ -61,9 +69,10 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
       account`), so no exception text and never the password is echoed.
     - `SetKeyTool` (`set_key`, BL-1167, ADR-0158 decision 9): `key` or `key_base64`, `value` or `value_base64`,
-      `database` (0 to 15), `expire_ms` -> `{key or key_base64, database, event_name, byte_count}` (ADR-0158 amendment 1,
+      `database` (0 to 15), `expire_ms`, read by `RedisKeyArguments` (an empty key is
+      `<property>: a key needs at least one byte`) -> `{key or key_base64, database, event_name, byte_count}` (ADR-0158 amendment 1,
       BL-1405): the key as `read_key` spells it, `event_name` the keyspace event's name (`<database>/<key>`, non-UTF-8
-      bytes as `\xHH`, cut at 256 characters); the value is never echoed. On a server with no `redis` listen URL it
+      bytes as `\xHH`, cut at 256 characters); the value is never echoed. On a server with no `redis` or `rediss` listen URL it
       (like `add_dns_zone` and `add_ldap_entries` for their stores) is `isError` with the store's refusal text.
     - `AddLdapEntriesTool` (`add_ldap_entries`): `ldif` -> `{entry_count}` (the `dn:` lines); `AddDnsZoneTool`
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.
@@ -71,9 +80,27 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `AddProxyAccountTool` / `AddTlsSrpAccountTool` (`add_proxy_account`, `add_tls_srp_account`): `user`, `password` -> `{user}`; a server without such accounts is refused (`server <id> holds no proxy accounts, so its proxies are anonymous`, `server <id> was not started with TLS-SRP`). `add_proxy_account` refuses a `:` in the name and a name taken, both as `user <user> cannot be added: it holds ':' or already has a proxy account`; `add_tls_srp_account` accepts a `:` and refuses a name taken as `user <user> already has a TLS-SRP account`.
     - `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool` (`remove_proxy_account`, `remove_tls_srp_account`): `user` -> `{user}` (ADR-0170 decision 4). An account not held is `server <id> has no proxy account <user>` or `server <id> has no TLS-SRP account <user>`; a server without such accounts is `server <id> holds no proxy accounts, so its proxies are anonymous` or `server <id> was not started with TLS-SRP`. When `remove_proxy_account` removes the last proxy account it adds a `warning` member and a second text block, both `server <id> has no proxy account left; without --allow-anonymous its proxy now lets no new client through` (BL-1479, BL-1853); that removal does not open the proxy, and `add_proxy_account` lets the added account in (ADR-0132 amendment 4). `remove_tls_srp_account` adds no warning.
     - `SetAccountPasswordTool` / `SetProxyAccountPasswordTool` / `SetTlsSrpAccountPasswordTool` (`set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password`): `user`, `password` -> `{user}`, never the password; a user with no such account is `user <name> has no account`, and a server without proxy or TLS-SRP accounts is refused as the add tools refuse it (ADR-0132 amendment 1).
-    - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
-      `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
-      an ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
+    - `ResetServerTool` (`reset_server`) -> `{server_id}`, every store back to its state at start, start-time seeds
+      included: files, mail, messages, accounts, proxy accounts, TLS-SRP accounts, Redis keys, the LDAP directory,
+      AMQP 0-9-1 exchanges and bindings, and DNS zones. It also clears Kafka producer state and consumer groups, and
+      MQTT 5 sessions kept with no connection, pending Wills, queued deliveries and unacknowledged publishes. It
+      discards every open or staged object upload (S3, Azure Storage, Google Cloud Storage, OCI) and Azure Storage's
+      remembered committed block lists, and ends every OCI registry token, all MCP server OAuth state (clients, codes
+      and tokens) and every MCP HTTP session. A store on disk refuses (ADR-0167; BL-2079).
+    - `SnapshotServerTool` (`snapshot_server`) -> `{snapshot_id}`. It copies files, mail, messages, accounts, proxy
+      accounts, TLS-SRP accounts, Redis keys, the LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer
+      state, MQTT 5 sessions kept with no connection and DNS zones. It does not copy queues exclusive to a connection;
+      Kafka consumer groups; MQTT 5 pending Wills, queued deliveries and unacknowledged publishes; open or staged
+      object uploads (S3, Azure Storage, Google Cloud Storage, OCI) or Azure Storage's remembered committed block
+      lists; OCI registry tokens; MCP server OAuth state (clients, codes and tokens); or MCP HTTP sessions (BL-2099).
+    - `RestoreServerTool` (`restore_server`):
+      `snapshot_id` -> `{server_id, snapshot_id}`. It replaces files, mail, messages, accounts, proxy accounts,
+      TLS-SRP accounts, Redis keys, the LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer state, MQTT 5
+      sessions kept with no connection and DNS zones with the snapshot's, and clears what a snapshot does not copy:
+      the messages of queues exclusive to a connection (the queues are kept; BL-2106); Kafka consumer groups; MQTT 5
+      pending Wills, queued deliveries and unacknowledged publishes; every open or staged object upload (S3, Azure
+      Storage, Google Cloud Storage, OCI) and Azure Storage's remembered committed block lists; every OCI registry
+      token; all MCP server OAuth state (clients, codes and tokens); and every MCP HTTP session. An ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`. An optional `close` (`reset` or `graceful`, any case; BL-1616, ADR-0188 decision 4)
       is appended as the item key `close`; any other value is `isError` `option --fault: key close must be reset or graceful`, and the rest of the refusals are the reader's.
@@ -87,6 +114,11 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     newest 4 kept and the oldest dropped; never returned whole, and forgotten with the server.
   - For every tool taking filters, a `listen_url` that is not an absolute URL is `isError`; `EventToolFilter`
     reads them into the `SurlEventQuery` a .NET test would pass.
+- `JsonElementWholeNumbers` - how every tool reads an integer argument: `GetWholeInt32` and `GetWholeInt64`, which
+  take `1.0` and `6e4` as the schema does (never `JsonElement.GetInt32` or `GetInt64`, which throw for them). Each
+  integer property needs a schema `maximum` its type holds (`LargestExactWholeNumber`, 2^53 - 1, for a `long` with
+  no smaller one), so a larger number is `-32602` naming it; `timeout_ms`, which has none, is range-checked before it
+  is converted (ADR-0103 amendment 7).
 - `RecordedEventWriter` - writes an event as `{sequence, at, kind, ...}` through `SurlEvent.WriteMembers` (ADR-0171; a `Kind` member is written `<first word of the kind>_kind`, bytes as hex cut at 256) with enum
   values in snake_case and a `null` member left out, as the control endpoint does (ADR-0124 decision 7).
 - `RecordedExchangeWriter` - writes `get_exchanges`'s `exchanges`: a chunk is `text` when it is well-formed

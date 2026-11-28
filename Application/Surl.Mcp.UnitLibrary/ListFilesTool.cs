@@ -43,7 +43,7 @@ public static class ListFilesTool
 
     private static async Task<McpToolResult> ReadAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
-        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetInt32() : 100;
+        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetWholeInt32() : 100;
         var page = await running.Server.Files.ListAsync(
             arguments.GetProperty("path").GetString()!, RunningServerTool.ReadOptionalString(arguments, "after_name"), limit, cancellationToken);
         return ToolResults.FromObject(writer =>

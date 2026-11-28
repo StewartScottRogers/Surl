@@ -9,6 +9,10 @@ namespace Surl.MessageBus;
 /// <param name="Durable">Whether the queue and its messages outlive the process when a data
 /// directory is given (ADR-0100, decision 3.7). The bus only records it.</param>
 /// <param name="Exclusive">Whether only the declaring connection may bind, consume from or
-/// delete it; the queue is deleted when that connection goes.</param>
-/// <param name="AutoDelete">Whether the queue is deleted when its last consumer ends.</param>
+/// delete it; the queue is deleted when that connection goes. A
+/// <see cref="MessageBus.Restore"/> that puts a queue back under the name leaves it with the
+/// snapshot's flags and no such connection.</param>
+/// <param name="AutoDelete">Whether the queue is deleted when its last consumer ends; consumers a
+/// <see cref="MessageBus.Restore"/> ends for changing the queue's flags or subscription
+/// description leave it.</param>
 public readonly record struct BusQueueFlags(bool Durable = false, bool Exclusive = false, bool AutoDelete = false);

@@ -13,9 +13,10 @@ namespace Surl.Authentication;
 /// <c>AUTHENTICATE_MESSAGE</c> before any challenge is refused as a bad credential after the
 /// delay, naming the user the message carried, if any (ADR-0038).
 /// <para>
-/// For the mail servers the challenge is ADR-0039's, and under <c>--allow-anonymous</c> every
-/// step still runs and the message after the challenge is accepted unchecked. Where the server
-/// carries a security layer (<see cref="SaslExchangeContext.CanCarrySecurityLayer"/>, LDAP) the
+/// Where the server carries no security layer (<see cref="SaslExchangeContext.CanCarrySecurityLayer"/>
+/// is <see langword="false"/>, as for the mail servers and every other server but LDAP's) the
+/// challenge is ADR-0039's, and under <c>--allow-anonymous</c> every step still runs and the
+/// message after the challenge is accepted unchecked. Where it carries one (LDAP) the
 /// challenge also grants signing, sealing and key exchange as asked, the login is always
 /// checked - under <c>--allow-anonymous</c> a user with no account is refused with a note, since
 /// the layer's keys come from the account's password - and an accepted login whose
