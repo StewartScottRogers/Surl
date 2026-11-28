@@ -53,3 +53,4 @@ Found while working BL-1990 (2026-11-27) by reading the code; nothing was run.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
