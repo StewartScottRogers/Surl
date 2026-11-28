@@ -37,7 +37,7 @@ Found while working BL-2100 (2026-11-28). All statements are in `Protocols/Messa
 - All four claims in Context matched the code; only the library's `CLAUDE.md` changed.
 - The no-reply cases also name shutdown, and the critical-control rule is limited to requests
   that have a response (abandon and unbind ignore controls), as `LdapSession.AnswerAsync` does.
-- Three further false statements found, outside these four, filed as BL-2106 (filed with the
+- Three further false statements found, outside these four, filed as BL-2107 (filed with the
   board script directly: the findings were already checked, so `task-planner` was not needed).
 - Gates: `dotnet build` 0 warnings, 0 errors; fast tests no failures.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-2106
+id: BL-2107
 title: Correct the LDAP library's statements about log notes, fault bind checks and the announced security-layer length
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2106 — Correct the LDAP library's statements about log notes, fault bind checks and the announced security-layer length
+# BL-2107 — Correct the LDAP library's statements about log notes, fault bind checks and the announced security-layer length
 
 ## Goal
 
