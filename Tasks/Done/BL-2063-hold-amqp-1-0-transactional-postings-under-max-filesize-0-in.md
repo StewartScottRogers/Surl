@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2063 — Hold AMQP 1.0 transactional postings under --max-filesize 0 instead of refusing them
 
@@ -38,16 +38,30 @@ commit, as it does under any limit they fit in.
 
 ## Acceptance criteria
 
-- [ ] A new test in `Amqp1ContainerConnectionTests`, `ServeAsync_TransactionalTransfersUnderMaxFilesizeZero_AreHeldAndPublishedAtTheCommit` (`MaxUploadBytes = 0`, two postings then a commit), was seen to fail before the fix and passes: each posting is answered `transactional-state` with `accepted`, and both messages are on the queue only after the commit.
-- [ ] A new test, `ServeAsync_AttachAsSenderUnderMaxFilesizeZero_IsAnsweredWithMaxMessageSizeZero`, passes: the answering `attach` has `max-message-size` 0.
-- [ ] `ServeAsync_HeldMessagesPastMaxFilesize_AreRejectedWithResourceLimitExceeded` passes unchanged.
-- [ ] The library's `CLAUDE.md`, "Local transactions", says held messages have no byte bound when `--max-filesize` is 0.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green, with no test needing `TestCategory=Integration`.
-- [ ] `Surl.Extended.Protocol.Amqp1.UnitLibrary` keeps 100% line and branch coverage.
+- [x] A new test in `Amqp1ContainerConnectionTests`, `ServeAsync_TransactionalTransfersUnderMaxFilesizeZero_AreHeldAndPublishedAtTheCommit` (`MaxUploadBytes = 0`, two postings then a commit), was seen to fail before the fix and passes: each posting is answered `transactional-state` with `accepted`, and both messages are on the queue only after the commit.
+- [x] A new test, `ServeAsync_AttachAsSenderUnderMaxFilesizeZero_IsAnsweredWithMaxMessageSizeZero`, passes: the answering `attach` has `max-message-size` 0.
+- [x] `ServeAsync_HeldMessagesPastMaxFilesize_AreRejectedWithResourceLimitExceeded` passes unchanged.
+- [x] The library's `CLAUDE.md`, "Local transactions", says held messages have no byte bound when `--max-filesize` is 0.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green, with no test needing `TestCategory=Integration`.
+- [x] `Surl.Extended.Protocol.Amqp1.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- 2026-11-28: Plan: one `maxBytes > 0` guard in `Hold`, as `StompServerConnection.Routing.cs` has. No new
+  exit code, option or seam, so no ADR here (BL-2064 records the change in ADR-0107 and ADR-0146).
+- 2026-11-28: The `/feature` stages were run in the session, not delegated: the production change is one
+  condition, and a subagent per stage would cost more than the change. Review was a read of the diff.
+  `conformance-auditor` does not apply: an extended server is judged by its specification (ADR-0083).
+- 2026-11-28: Before the fix the transaction test failed with the posting answered
+  `amqp:resource-limit-exceeded`. The attach test passed before and after: it pins behaviour that was
+  already right.
+- 2026-11-28: The transaction test serves the postings twice, on two buses: once without the discharge, to see
+  that nothing is on the queue before the commit, and once with it.
+- 2026-11-28: Build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests green (AMQP 1.0: 920
+  passed), `Measure-CodeQuality.ps1`: 100% line, 100% branch, 0 failing members.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. AMQP 1.0 transactional postings under --max-filesize 0 are held and published at the commit

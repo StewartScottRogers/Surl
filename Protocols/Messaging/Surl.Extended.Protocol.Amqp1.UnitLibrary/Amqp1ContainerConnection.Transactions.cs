@@ -167,9 +167,11 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         // Access was judged when the link attached, and the commit's batch publish judges it again.
-        // Held messages count with the partial deliveries against --max-filesize (ADR-0146 decision 1.4).
+        // Held messages count with the partial deliveries against --max-filesize (ADR-0146 decision 1.4);
+        // --max-filesize 0 is no limit (ADR-0006).
         var bytes = delivery.Bytes.WrittenCount;
-        if (transactions.Values.Sum(open => open.HeldBytes) + partialBytes + bytes > context.Limits.MaxUploadBytes)
+        var maxBytes = context.Limits.MaxUploadBytes;
+        if (maxBytes > 0 && transactions.Values.Sum(open => open.HeldBytes) + partialBytes + bytes > maxBytes)
         {
             return StoreRejection(MessageBusOutcome.StoreFull);
         }
