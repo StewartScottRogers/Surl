@@ -38,3 +38,4 @@ Found while working BL-2081 (2026-11-28). All paths are in `Protocols/Messaging/
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
