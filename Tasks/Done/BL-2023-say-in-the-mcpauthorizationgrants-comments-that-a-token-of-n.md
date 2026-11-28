@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary/McpAuthorizationGrants.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-28
 ---
 # BL-2023 — Say in the McpAuthorizationGrants comments that a token of no named account is refused
 
@@ -37,14 +37,27 @@ only.
 
 ## Acceptance criteria
 
-- [ ] The `AccountOf` `<returns>` names three `null` cases: a token that is not live, one bound to another resource, and one whose account the policy does not name.
-- [ ] The `RedeemRefreshToken` `<returns>` and the `accounts` parameter comment do not limit the account refusal to an account that was removed, unless the code then does.
-- [ ] The diff changes only `///` lines in `McpAuthorizationGrants.cs`.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary -warnaserror` is clean.
+- [x] The `AccountOf` `<returns>` names three `null` cases: a token that is not live, one bound to another resource, and one whose account the policy does not name.
+- [x] The `RedeemRefreshToken` `<returns>` and the `accounts` parameter comment do not limit the account refusal to an account that was removed, unless the code then does.
+- [x] The diff changes only `///` lines in `McpAuthorizationGrants.cs`.
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- BL-2020 changed the code after this task was filed: both members now ask `IAuthenticationPolicy.HonoursTokenIssuedTo`,
+  not `NamesAccount`. As Context asks, the comments describe that code. The third `null` case reads "the policy does not
+  honour a token issued to its account (by default, an account the policy does not name)": "does not name" alone would be
+  false, because `AuthenticationPolicy` also honours a recently accepted directory user's token.
+- "No longer honours" became "does not honour": a refused token need not ever have been honoured (for example a directory
+  login for a name the account book once held, `AuthenticationPolicy.HonoursTokenIssuedTo`).
+- The `accounts` parameter comment now says the default refuses a removed account's token and that of a name never named.
+- Three comment edits made in the lane session, not delegated to `align-and-document`: the code to read was already
+  loaded. No ADR: no decision, no behaviour change.
+- Verify: solution and project builds with `-warnaserror` clean (0 warnings), `dotnet format --verify-no-changes`
+  passed, fast tests 30640 passed, 0 failed, 3 skipped.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The McpAuthorizationGrants comments name every null case, including a token of an account the policy does not honour
