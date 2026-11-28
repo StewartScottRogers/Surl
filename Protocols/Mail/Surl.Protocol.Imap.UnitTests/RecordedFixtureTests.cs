@@ -144,8 +144,8 @@ public sealed class RecordedFixtureTests
         Assert.AreEqual(responses.IndexOf(beginTls, StringComparison.Ordinal) + beginTls.Length, connection.WrittenBytesAtUpgrade);
     }
 
-    // The same curl, against a server with no certificate: the capabilities offer no STARTTLS,
-    // and curl gives up with exit 64 (ADR-0055 row 47).
+    // The same curl, against a server with no TLS upgrade available: the capabilities offer no
+    // STARTTLS, and curl gives up with exit 64 (ADR-0055 row 47).
     [TestMethod]
     public async Task ServeAsync_RecordedStartTlsNotOffered_WritesTheRecordedResponses()
     {

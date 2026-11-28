@@ -44,7 +44,7 @@ public sealed class ImapStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StartTlsWithoutACertificate_AnswersNotAvailableAndStaysPlaintext()
+    public async Task ServeAsync_StartTlsWithTlsUpgradeUnavailable_AnswersNotAvailableAndStaysPlaintext()
     {
         var clock = new ManualTimeProvider();
         var connection = await ServeAsync(Server(AnonymousStore(clock)), "a STARTTLS\r\nb NOOP\r\n", clock, TestContext.CancellationToken);

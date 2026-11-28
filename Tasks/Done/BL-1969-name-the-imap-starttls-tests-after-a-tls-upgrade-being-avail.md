@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitTests/ImapStartTlsTests.cs, Protocols/Mail/Surl.Protocol.Imap.UnitTests/RecordedFixtureTests.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1969 — Name the IMAP STARTTLS tests after a TLS upgrade being available, not a certificate
 
@@ -31,14 +31,20 @@ comments only; no store, event or fault is involved.
 
 ## Acceptance criteria
 
-- [ ] No test method name in `ImapStartTlsTests.cs` says "Certificate"; the renamed test says TLS upgrade unavailable.
-- [ ] The comment above `ServeAsync_RecordedStartTlsNotOffered_WritesTheRecordedResponses` says the server has no TLS upgrade available, not no certificate.
-- [ ] The diff changes only that name and that comment.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] No test method name in `ImapStartTlsTests.cs` says "Certificate"; the renamed test says TLS upgrade unavailable.
+- [x] The comment above `ServeAsync_RecordedStartTlsNotOffered_WritesTheRecordedResponses` says the server has no TLS upgrade available, not no certificate.
+- [x] The diff changes only that name and that comment.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- 2026-11-27: Renamed the test to `ServeAsync_StartTlsWithTlsUpgradeUnavailable_AnswersNotAvailableAndStaysPlaintext`
+  and reworded the comment (delegated to `align-and-document`). Names and comments only, so no ADR.
+- 2026-11-27: Verified: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
+  0 failed (`Surl.Protocol.Imap.UnitTests` 839 passed). No integration run: no behaviour changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The IMAP STARTTLS test name and recorded-fixture comment say TLS upgrade unavailable, not no certificate.
