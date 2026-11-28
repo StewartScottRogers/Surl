@@ -42,3 +42,4 @@ no account deletes a subscription whose topic filter it may not subscribe to.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
