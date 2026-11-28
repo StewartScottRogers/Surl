@@ -9,10 +9,12 @@ namespace Surl.Protocol.Ldap;
 /// </summary>
 /// <remarks>
 /// It decodes <c>BindRequest</c>, <c>UnbindRequest</c>, <c>SearchRequest</c>,
-/// <c>AbandonRequest</c> and <c>ExtendedRequest</c>, with their <c>controls</c>; every other
-/// operation is reported by its tag as an <see cref="LdapUnrecognizedOperation"/>. The
-/// <c>messageID</c> is carried by a malformed result whenever it could be read, so the server can
-/// answer <see cref="LdapResultCode.ProtocolError"/> to it.
+/// <c>CompareRequest</c>, <c>AbandonRequest</c> and <c>ExtendedRequest</c>; every other
+/// operation is not decoded but reported by its tag as an <see cref="LdapUnrecognizedOperation"/>.
+/// A message's <c>controls</c> are decoded whatever its operation. A malformed result carries
+/// the <c>messageID</c> whenever it could be read, but <see cref="LdapSession"/> does not echo
+/// it: it answers a malformed message with the Notice of Disconnection (<c>messageID</c> 0),
+/// <see cref="LdapResultCode.ProtocolError"/>, and ends the connection (ADR-0072 decision 3).
 /// </remarks>
 internal sealed class LdapMessageDecoder
 {
