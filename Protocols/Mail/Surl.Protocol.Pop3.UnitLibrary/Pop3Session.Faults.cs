@@ -3,17 +3,24 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Pop3;
 
 /// <summary>
-/// The command-stage faults (ADR-0124, decision 4; ADR-0141): every recognized command asks the
-/// exchange's fault plan at <see cref="FaultStage.Command"/> - a maildrop command once its maildrop
-/// is open, so a fault never skips the login check. An <see cref="FaultKind.Error"/> rule answers it
-/// with <c>-ERR</c> and the rule's text in place of the command, before the mail store is touched;
-/// a <see cref="FaultKind.Delay"/> rule holds the answer for the rule's <c>ms</c> with the idle clock
-/// paused; a <see cref="FaultKind.Drop"/> rule aborts the connection with no answer.
+/// The command-stage faults (ADR-0124, decision 4; ADR-0141): a recognized command asks the
+/// exchange's fault plan at <see cref="FaultStage.Command"/> - a maildrop command only once its
+/// maildrop is open, so a fault never skips the login check. Under an upstream test case, the
+/// maildrop commands its replacement handlers answer (<c>STAT</c>, <c>LIST</c>, <c>UIDL</c>,
+/// <c>RETR</c>, <c>TOP</c>, <c>DELE</c>, <c>RSET</c>, <c>NOOP</c>) ask no fault plan, and neither
+/// does a <c>REPLY</c>'d line. An <see cref="FaultKind.Error"/> rule answers the command with
+/// <c>-ERR</c> and the rule's text in its place; the command is not run. The maildrop command that
+/// opens an anonymous session's maildrop - its first, unless an earlier one was refused - has
+/// nevertheless already opened it (lock taken, view fixed) before the plan is asked, and so before
+/// an <see cref="FaultKind.Error"/> rule answers it. A <see cref="FaultKind.Delay"/> rule holds the
+/// answer for the rule's <c>ms</c> with the idle clock paused; a <see cref="FaultKind.Drop"/> rule
+/// aborts the connection with no answer.
 /// </summary>
 internal sealed partial class Pop3Session
 {
     // The commands answered in the AUTHORIZATION state, or in either; every other recognized
-    // command needs the maildrop and asks the plan in WithMaildropAsync.
+    // command needs the maildrop and asks the plan in WithMaildropAsync, which an upstream test
+    // case's replacement handlers for those commands do not go through.
     private static readonly HashSet<string> CommandsWithoutMaildrop = new(StringComparer.Ordinal)
     {
         "CAPA", "QUIT", "USER", "PASS", "STLS", "APOP", "AUTH",

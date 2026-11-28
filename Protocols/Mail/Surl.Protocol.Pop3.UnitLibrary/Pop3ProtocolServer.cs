@@ -14,13 +14,16 @@ namespace Surl.Protocol.Pop3;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Replies.</b> Each is fixed text, never an echo of the peer's bytes: the greeting
-/// <c>+OK surl ready</c>, followed by an <c>APOP</c> timestamp
-/// <c>&lt;16 hex digits.unix seconds@surl&gt;</c> when the mail authentication policy offers
-/// <c>APOP</c>; <c>CAPA</c>'s <c>TOP</c>, <c>UIDL</c>, <c>RESP-CODES</c>, <c>AUTH-RESP-CODE</c>
-/// and <c>PIPELINING</c>, and before a login <c>USER</c> when the policy offers a clear password
-/// on the connection, <c>SASL</c> with the mechanisms it offers, and <c>STLS</c> on a plaintext
-/// connection the server can upgrade.
+/// <b>Replies.</b> No reply line echoes bytes the client sent, with two exceptions: the
+/// <c>+ </c> continuation carrying a SASL SCRAM <c>server-first-message</c> holds the client's
+/// nonce inside its base64 (RFC 5802; ADR-0125), and under an upstream test case
+/// (<see cref="Pop3UpstreamTestCaseServer"/>) the reply to <c>LIST</c> with an argument writes
+/// that argument back. The greeting is <c>+OK surl ready</c>, followed by an <c>APOP</c>
+/// timestamp <c>&lt;16 hex digits.unix seconds@surl&gt;</c> when the mail authentication policy
+/// offers <c>APOP</c>. <c>CAPA</c> lists <c>TOP</c>, <c>UIDL</c>, <c>RESP-CODES</c>,
+/// <c>AUTH-RESP-CODE</c> and <c>PIPELINING</c>, and before a login <c>USER</c> when the policy
+/// offers a clear password on the connection, <c>SASL</c> with the mechanisms it offers, and
+/// <c>STLS</c> on a plaintext connection the server can upgrade.
 /// </para>
 /// <para>
 /// <b>TLS.</b> An <c>STLS</c> that is accepted - before a login, with no argument, on a plaintext
@@ -37,10 +40,13 @@ namespace Surl.Protocol.Pop3;
 /// so the password is never sent. <c>PASS</c> goes to
 /// <see cref="IAuthenticationPolicy.CheckPasswordLoginAsync"/>, and an accepted login takes the
 /// owner's maildrop lock (<see cref="MailboxStore.LockMaildrop"/>) before it is answered;
-/// another session's lock is <c>-ERR [IN-USE]</c>. A maildrop command before any login asks the
-/// policy once about the login with no credentials, and only
+/// another session's lock is <c>-ERR [IN-USE]</c>. Outside an upstream test case, a maildrop
+/// command before any login asks the policy about the login with no credentials. The session
+/// keeps the answer for later maildrop commands until an <c>STLS</c> upgrade drops it, so after
+/// <c>STLS</c> the next maildrop command before a login asks: again after a refusal, or for the
+/// first time when none had asked yet. Only
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/> (<c>--allow-anonymous</c>) opens the
-/// anonymous owner's maildrop; anything else is <c>-ERR [AUTH] Authentication required</c>.
+/// anonymous owner's maildrop; any other verdict is <c>-ERR [AUTH] Authentication required</c>.
 /// <c>AUTH</c> frames the SASL exchange the policy runs (<c>+ </c> continuations, base64, <c>=</c>
 /// for an empty initial response, <c>*</c> to cancel), and <c>APOP</c> hands the policy the
 /// greeting's timestamp; each answers in ADR-0049 section 7's POP3 words and takes the lock as

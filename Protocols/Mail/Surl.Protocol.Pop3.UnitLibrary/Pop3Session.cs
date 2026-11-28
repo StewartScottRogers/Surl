@@ -462,9 +462,11 @@ internal sealed partial class Pop3Session
         }
     }
 
-    // A maildrop command before any login asks the policy once about the login with no
-    // credentials, and only --allow-anonymous opens the anonymous owner's maildrop (ADR-0056,
-    // decision 7).
+    // A maildrop command before any login asks the policy about the login with no credentials,
+    // and the session keeps the answer until an STLS upgrade drops it: after STLS the next such
+    // command asks, again after a refusal, or for the first time when none had asked. Only
+    // --allow-anonymous opens the anonymous owner's maildrop (ADR-0056, decision 7), and it is
+    // opened before the command's fault is looked up.
     private async ValueTask<bool> WithMaildropAsync(Pop3CommandLine command, Func<Pop3Maildrop, string[], ValueTask<bool>> answer)
     {
         if (maildrop is null && await OpenAnonymousMaildropAsync(command.Verb) is { } refusal)

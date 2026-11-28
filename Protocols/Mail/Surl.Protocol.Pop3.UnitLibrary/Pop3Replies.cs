@@ -5,9 +5,13 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Pop3;
 
 /// <summary>
-/// The fixed reply lines the POP3 server sends, without their CRLF (ADR-0056, decisions 1 to 9).
-/// None echoes a byte the peer sent (ADR-0006, section 3); the numbers in them are the ones the
-/// server itself assigned.
+/// The POP3 server's fixed reply lines, and the builders of those that carry a value, without
+/// their CRLF (ADR-0056, decisions 1 to 9). No line echoes a byte the peer sent (ADR-0006,
+/// section 3), and the numbers in them are ones the server assigned or counted, with two
+/// exceptions: <see cref="Continuation"/> of a SASL SCRAM <c>server-first-message</c> carries
+/// the client's nonce inside its base64 (RFC 5802; ADR-0125), and under an upstream test case
+/// <see cref="OneLine"/> is given the argument of <c>LIST</c> to write back
+/// (<c>Pop3Session.AnswerUpstreamTestCaseListAsync</c>).
 /// </summary>
 internal static class Pop3Replies
 {

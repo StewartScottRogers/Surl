@@ -41,19 +41,26 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `IMailAuthenticationPolicy.CheckApopLoginAsync` with the greeting's timestamp; `AUTH` frames
   `StartSaslExchange` (`+ ` continuations, base64, `=`, `*`), and bare `AUTH` lists the offered
   mechanisms. An accepted login takes the owner's maildrop lock (`MailboxStore.LockMaildrop`)
-  before its `+OK`; a locked maildrop is `-ERR [IN-USE]`. A maildrop command before any login
-  asks the policy once about the login with no credentials, and only `--allow-anonymous` lets
-  it on (`-ERR [AUTH] Authentication required` otherwise).
+  before its `+OK`; a locked maildrop is `-ERR [IN-USE]`. Outside an upstream test case, a
+  maildrop command before any login asks the policy about the login with no credentials, and only
+  `--allow-anonymous` lets it on (`-ERR [AUTH] Authentication required` otherwise). The session
+  keeps the answer until an `STLS` upgrade drops it, so after `STLS` the next maildrop command
+  before a login asks: again after a refusal, or for the first time when none had asked yet.
 - The maildrop (decision 5): `Pop3Maildrop` holds the view fixed at the login and the `DELE`
   marks; `RETR` and `TOP` write through `DotStuffedBodyWriter`, `Pop3TopSection` cutting what
   `TOP` sends; `UIDL` gives `<uidvalidity>.<uid>`. Only `QUIT` after a login removes the marked
   messages, and the lock is released however the session ends.
-- Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `Pop3Session.Faults.cs`): every recognized
+- Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `Pop3Session.Faults.cs`): a recognized
   command asks `ExchangeContext.Faults` at `FaultStage.Command` - a maildrop command only once
   its maildrop is open, so a fault never skips the login check - with its verb, the owner whose
   maildrop the session opened, and the listen URL as `Surl.Protocol.Abstractions`' `ReportedListenUrl` writes it; POP3 has no
-  path. An `Error` rule is answered `-ERR <reply>` in place of the command, the maildrop is
-  untouched, a note is logged and one `FaultAppliedEvent` (target: the verb) is published. A
+  path. Under an upstream test case, the maildrop commands answered by its replacement handlers
+  (`STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP`) ask no fault plan, and neither
+  does a `REPLY`'d line. An `Error` rule is answered `-ERR <reply>` in place of the command, which
+  is not run, a note is logged and one `FaultAppliedEvent` (target: the verb) is published. The
+  maildrop command that opens an anonymous session's maildrop - its first, unless an earlier one
+  was refused - has already opened it (lock taken, view fixed) before the plan is asked, so an
+  `Error` rule answers it with the maildrop open. A
   rule with no reply answers `-ERR Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901). When the client half-closed or reset during a `Delay` hold, nothing is sent and the session ends, a reset aborting the connection (ADR-0141 amendment 3, BL-1546).
 - `STLS` (decision 8) is refused with the first of these that applies: `-ERR Already logged in`
   after a login, `-ERR Invalid arguments` with an argument, `-ERR Already using TLS` on a TLS
