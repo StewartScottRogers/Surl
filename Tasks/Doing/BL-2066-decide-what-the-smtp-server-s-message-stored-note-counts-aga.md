@@ -71,3 +71,4 @@ or fault, since each delivery's `StoreChangedEvent` already tells a test which o
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
