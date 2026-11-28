@@ -58,3 +58,4 @@ Base class library only; no new package reference.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
