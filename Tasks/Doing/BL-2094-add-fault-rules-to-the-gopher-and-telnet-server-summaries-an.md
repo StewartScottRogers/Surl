@@ -42,3 +42,4 @@ Found while working BL-2085 (2026-11-28), read from source. Documentation only; 
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
