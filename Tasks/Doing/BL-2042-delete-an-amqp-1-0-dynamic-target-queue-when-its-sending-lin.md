@@ -45,3 +45,4 @@ No dynamic node's queue outlives the link whose attach made it.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
