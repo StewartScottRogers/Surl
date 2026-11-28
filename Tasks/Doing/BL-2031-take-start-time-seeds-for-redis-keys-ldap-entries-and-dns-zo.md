@@ -40,3 +40,4 @@ A test sets `SurlServerOptions.RedisKeys`, `DirectoryLdif` and `DnsZones`, and t
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
