@@ -57,13 +57,16 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `MessageTooLarge` `552 5.3.4`, and `StorageFailed` `451 4.3.0 Local error in processing` with
   `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
   that throws after a delivered message is noted and still answered `250`.
-  With `--mail-delivered-to` (`MailboxStore.DeliveredToEnabled`) and at least one deliverable
-  recipient, each element of `SmtpMailTransaction.Deliverable` has its own pending message, with
-  `Delivered-To` lines ahead of `Return-Path` naming every path, in `RCPT` order, that reached
-  any of that element's owners (`PathsReaching`; for the anonymous owner, that recipient's own
-  path only); an alias element's several owners share its copy. The longest pending message
-  decides `--max-filesize`, and they are delivered together through the `DeliverAsync` overload
-  that takes `MailOwnerCopy` values (ADR-0053 Amendment 1).
+  `SmtpMailTransaction.DeliverablePerOwner` splits `Deliverable` into one recipient per owner
+  (one per recipient for the anonymous owner), each recording only the paths, in `RCPT` order,
+  that resolved to that owner (the anonymous owner's, its own path alone); each delivery
+  event's `DeliveredFor` is that list, with the option or without. With `--mail-delivered-to`
+  (`MailboxStore.DeliveredToEnabled`) and at least one deliverable recipient, each owner has its
+  own pending message, with `Delivered-To` lines ahead of `Return-Path` naming only those paths,
+  so an alias's several owners share no copy and no owner reads another's address. The longest
+  pending message decides `--max-filesize`, and they are delivered together through the
+  `DeliverAsync` overload that takes `MailOwnerCopy` values (ADR-0053 Amendment 1). Without the
+  option the owners share one pending message.
 - `STARTTLS` (decision 5): `220`, then `CrlfLineReader.DiscardBuffered`, then
   `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` only when no upgrade is
   available (`isTlsUpgradeAvailable` false: no certificate and no TLS-SRP), `503` on a TLS

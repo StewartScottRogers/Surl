@@ -21,20 +21,6 @@ internal sealed class SmtpMailTransaction(string reversePath)
     private readonly List<(string Path, MailRecipient Recipient)> resolved = [];
 
     /// <summary>
-    /// The paths, as sent and in <c>RCPT</c> order, that resolved to the owners of one deliverable recipient: for a
-    /// named owner every recipient that reached any of its owners, for the anonymous owner that recipient's own path
-    /// (ADR-0053 Amendment 1, decisions 2 and 4).
-    /// </summary>
-    /// <param name="deliverableRecipient">An element of <see cref="Deliverable"/>.</param>
-    /// <returns>The paths its copy's <c>Delivered-To</c> lines name.</returns>
-    public IReadOnlyList<string> PathsReaching(MailRecipient deliverableRecipient) =>
-        [.. resolved
-            .Where(entry => deliverableRecipient.OwnerName.Length == 0
-                ? ReferenceEquals(entry.Recipient, deliverableRecipient)
-                : entry.Recipient.OwnerNames.Any(deliverableRecipient.OwnerNames.Contains))
-            .Select(entry => entry.Path)];
-
-    /// <summary>
     /// The <c>MAIL FROM</c> path between its brackets; empty for <c>&lt;&gt;</c>.
     /// </summary>
     public string ReversePath { get; } = reversePath;
@@ -50,6 +36,29 @@ internal sealed class SmtpMailTransaction(string reversePath)
     /// ADR-0102, decision 1.3).
     /// </summary>
     public IReadOnlyList<MailRecipient> Deliverable => deliverable;
+
+    /// <summary>
+    /// <see cref="Deliverable"/> split into one recipient per owner, in its order and then each element's owner
+    /// order. Each records, in <see cref="MailRecipient.DeliveredFor"/>, only the paths that resolved to its owner,
+    /// as sent and in <c>RCPT</c> order; each of the anonymous owner's records its own path alone. So no owner's
+    /// recipient names a path that reached only other owners. With <c>--mail-delivered-to</c> each of these recipients
+    /// has its own pending message, whose <c>Delivered-To</c> lines name those paths alone (ADR-0053 Amendment 1,
+    /// decisions 3, 4 and 7).
+    /// </summary>
+    /// <returns>The recipients to deliver to, each of one owner.</returns>
+    public IReadOnlyList<MailRecipient> DeliverablePerOwner() =>
+        [.. deliverable.SelectMany(recipient => recipient.OwnerNames.Select(ownerName => OneOwnerOf(recipient, ownerName)))];
+
+    private MailRecipient OneOwnerOf(MailRecipient recipient, string ownerName)
+    {
+        var paths = resolved
+            .Where(entry => ownerName.Length == 0
+                ? ReferenceEquals(entry.Recipient, recipient)
+                : entry.Recipient.OwnerNames.Contains(ownerName))
+            .Select(entry => entry.Path);
+        // The one owner kept is not among those taken away, so something remains.
+        return recipient.WithoutOwners(recipient.OwnerNames.Where(other => other != ownerName))!.ForAddresses(paths);
+    }
 
     /// <summary>
     /// The recipients that name no account, whose copies are discarded.

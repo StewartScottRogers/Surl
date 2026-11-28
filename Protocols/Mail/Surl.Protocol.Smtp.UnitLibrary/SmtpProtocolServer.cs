@@ -60,12 +60,15 @@ namespace Surl.Protocol.Smtp;
 /// <c>550 5.7.1 Relaying denied</c> (ADR-0102, decision 1.1). A recipient that names no account is answered as one that does, and its copy is
 /// discarded. The stored message is <c>Return-Path</c> and <c>Received</c> trace fields, then the
 /// body as unstuffed, streamed as it is read into a <see cref="PendingMessage"/> - the store's
-/// pending file. With <see cref="MailboxStore.DeliveredToEnabled"/> (<c>--mail-delivered-to</c>)
-/// and at least one deliverable recipient, each deliverable recipient (an owner, or an alias,
-/// which can name several) has its own pending message, which has ahead of <c>Return-Path</c> one
-/// <c>Delivered-To</c> line for each <c>RCPT</c> path, as sent and in <c>RCPT</c> order, that
-/// reaches any of its owners (for the anonymous owner, its own path alone); the body is written
-/// to all of them, and one <c>DeliverAsync</c> call delivers them (ADR-0053, Amendment 1).
+/// pending file. Each owner's delivery event names, in
+/// <see cref="StoreChangedEvent.DeliveredFor"/>, only the <c>RCPT</c> paths, as sent and in
+/// <c>RCPT</c> order, that resolved to that owner; an alias's several owners are each delivered
+/// to separately, and the anonymous owner gets one copy per recipient, naming that recipient's
+/// path alone. With <see cref="MailboxStore.DeliveredToEnabled"/> (<c>--mail-delivered-to</c>)
+/// and at least one deliverable recipient, each owner has its own pending message (each
+/// recipient, for the anonymous owner), which has ahead of <c>Return-Path</c> one
+/// <c>Delivered-To</c> line for each of those paths and for no other; the body is written to all
+/// of them, and one <c>DeliverAsync</c> call delivers them (ADR-0053, Amendment 1).
 /// <c>--max-filesize</c> bounds a whole message, trace fields and body, so the longest pending
 /// message decides. A message the store refuses is answered
 /// <c>452 4.3.1 Insufficient system storage</c> when the store is full;
