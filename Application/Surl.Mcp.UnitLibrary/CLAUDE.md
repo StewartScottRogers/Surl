@@ -81,9 +81,20 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool` (`remove_proxy_account`, `remove_tls_srp_account`): `user` -> `{user}` (ADR-0170 decision 4). An account not held is `server <id> has no proxy account <user>` or `server <id> has no TLS-SRP account <user>`; a server without such accounts is `server <id> holds no proxy accounts, so its proxies are anonymous` or `server <id> was not started with TLS-SRP`. When `remove_proxy_account` removes the last proxy account it adds a `warning` member and a second text block, both `server <id> has no proxy account left; without --allow-anonymous its proxy now lets no new client through` (BL-1479, BL-1853); that removal does not open the proxy, and `add_proxy_account` lets the added account in (ADR-0132 amendment 4). `remove_tls_srp_account` adds no warning.
     - `SetAccountPasswordTool` / `SetProxyAccountPasswordTool` / `SetTlsSrpAccountPasswordTool` (`set_account_password`, `set_proxy_account_password`, `set_tls_srp_account_password`): `user`, `password` -> `{user}`, never the password; a user with no such account is `user <name> has no account`, and a server without proxy or TLS-SRP accounts is refused as the add tools refuse it (ADR-0132 amendment 1).
     - `ResetServerTool` (`reset_server`) -> `{server_id}`, every store back to its state at start, start-time seeds
-      included; `SnapshotServerTool` (`snapshot_server`) ->
-      `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
-      an ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
+      included: files, mail, messages, accounts, proxy accounts, TLS-SRP accounts, Redis keys, the LDAP directory,
+      AMQP 0-9-1 exchanges and bindings, and DNS zones. It also clears Kafka producer state and consumer groups, and
+      MQTT 5 sessions kept with no connection, pending Wills, queued deliveries and unacknowledged publishes. It
+      discards every open or staged object upload (S3, Azure Storage, Google Cloud Storage, OCI) and Azure Storage's
+      remembered committed block lists, and ends every OCI registry token, all MCP server OAuth state (clients, codes
+      and tokens) and every MCP HTTP session. A store on disk refuses (ADR-0167; BL-2079).
+    - `SnapshotServerTool` (`snapshot_server`) -> `{snapshot_id}`; `RestoreServerTool` (`restore_server`):
+      `snapshot_id` -> `{server_id, snapshot_id}`. It replaces files, mail, messages, accounts, proxy accounts,
+      TLS-SRP accounts, Redis keys, the LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer state, MQTT 5
+      sessions kept with no connection and DNS zones with the snapshot's, and clears what a snapshot does not copy:
+      Kafka consumer groups; MQTT 5 pending Wills, queued deliveries and unacknowledged publishes; every open or staged
+      object upload (S3, Azure Storage, Google Cloud Storage, OCI) and Azure Storage's remembered committed block
+      lists; every OCI registry token; all MCP server OAuth state (clients, codes and tokens); and every MCP HTTP
+      session. An ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`. An optional `close` (`reset` or `graceful`, any case; BL-1616, ADR-0188 decision 4)
       is appended as the item key `close`; any other value is `isError` `option --fault: key close must be reset or graceful`, and the rest of the refusals are the reader's.
