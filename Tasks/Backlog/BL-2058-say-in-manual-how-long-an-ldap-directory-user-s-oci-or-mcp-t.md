@@ -1,5 +1,5 @@
 ---
-id: BL-2054
+id: BL-2058
 title: Say in --manual how long an LDAP directory user's OCI or MCP token is honoured
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2054 — Say in --manual how long an LDAP directory user's OCI or MCP token is honoured
+# BL-2058 — Say in --manual how long an LDAP directory user's OCI or MCP token is honoured
 
 ## Goal
 

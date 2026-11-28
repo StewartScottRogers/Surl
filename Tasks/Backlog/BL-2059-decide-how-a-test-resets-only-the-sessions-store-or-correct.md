@@ -1,5 +1,5 @@
 ---
-id: BL-2055
+id: BL-2059
 title: Decide how a test resets only the sessions store, or correct ADR-0167 Amendment 3 point 3
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2055 — Decide how a test resets only the sessions store, or correct ADR-0167 Amendment 3 point 3
+# BL-2059 — Decide how a test resets only the sessions store, or correct ADR-0167 Amendment 3 point 3
 
 ## Goal
 

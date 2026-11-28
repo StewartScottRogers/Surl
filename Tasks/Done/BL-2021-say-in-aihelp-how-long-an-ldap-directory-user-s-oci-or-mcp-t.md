@@ -37,8 +37,8 @@ tokens at once.
 - `Answer_Auth_SaysHowLongADirectoryUsersOciOrMcpTokenIsHonoured` was run and seen failing before the prose change.
 - The text differs from ADR-0167 Amendment 3, point 3, where the code does: only a whole-instance reset or restore is
   public (`POST /v1/reset`, `SurlServer.ResetAsync`, the `surl-mcp` reset), and a content store on disk refuses it, so
-  the help says it ends no token with `--directory` or `--share`. BL-2055 settles the ADR.
-- `--manual` does not yet say any of this: BL-2054.
+  the help says it ends no token with `--directory` or `--share`. BL-2059 settles the ADR.
+- `--manual` does not yet say any of this: BL-2058.
 - Gates: build `-warnaserror` 0 warnings; `dotnet format --verify-no-changes` exit 0; fast tests 30589 passed,
   0 failed, 3 skipped. Only a prose constant changed, so coverage and complexity are unaffected.
 ## Log
