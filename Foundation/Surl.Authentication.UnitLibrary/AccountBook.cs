@@ -288,9 +288,13 @@ public sealed class AccountBook
     }
 
     /// <summary>
-    /// Whether an account of exactly <paramref name="userName"/> exists, its password unused: how
-    /// SASL <c>EXTERNAL</c> matches a client certificate's name (ADR-0049, section 4). The empty
-    /// name, a Bearer token's account, never matches.
+    /// Whether this book or view holds an account of exactly <paramref name="userName"/> now, no
+    /// password checked. Checked logins that name their client without a password match the name
+    /// here: SASL <c>EXTERNAL</c>, by the client certificate's subject simple name (ADR-0049,
+    /// section 4), and the Kerberos logins, by the client principal - SASL <c>GSSAPI</c>, Kerberos
+    /// inside <c>GSS-SPNEGO</c> and HTTP Negotiate (ADR-0057), and the SOCKS5 GSS-API login
+    /// (ADR-0165, amendment 1). <see cref="AuthenticationPolicy.NamesAccount"/> answers with it
+    /// too. The empty name, a Bearer token's account, never matches.
     /// </summary>
     /// <param name="userName">The name, compared ordinally.</param>
     /// <returns><see langword="true"/> only when a named account has that name.</returns>
