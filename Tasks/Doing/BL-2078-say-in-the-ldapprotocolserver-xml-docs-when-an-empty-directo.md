@@ -35,3 +35,4 @@ The `LdapProtocolServer` constructor summary and "Operations" remarks state only
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
