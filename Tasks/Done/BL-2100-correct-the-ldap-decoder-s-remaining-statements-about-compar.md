@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2100 — Correct the LDAP decoder's remaining statements about compare, message IDs and decode results
 
@@ -27,15 +27,27 @@ Found while working BL-2081 (2026-11-28). All paths are in `Protocols/Messaging/
 
 ## Acceptance criteria
 
-- [ ] The summary of `LdapUnrecognizedOperation` no longer lists compare as an operation Surl does not decode.
-- [ ] The `MessageId` documentation of `LdapDecodeResult` no longer says a malformed message is answered by its ID.
-- [ ] The comment above `ReadOtherOperation` is true of every request in that switch.
-- [ ] The BER codec paragraph of `CLAUDE.md` names `LdapDecodeResult` as what `Decode` returns.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
+- [x] The summary of `LdapUnrecognizedOperation` no longer lists compare as an operation Surl does not decode.
+- [x] The `MessageId` documentation of `LdapDecodeResult` no longer says a malformed message is answered by its ID.
+- [x] The comment above `ReadOtherOperation` is true of every request in that switch.
+- [x] The BER codec paragraph of `CLAUDE.md` names `LdapDecodeResult` as what `Decode` returns.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
 
 ## Notes
+
+- What the pinned builds send: the Windows `WinLDAP` build was measured sending bind, search and
+  unbind, and no `abandonRequest` (ADR-0072; the tests' `Fixtures/README.md`). The OpenLDAP-backed
+  build also sends an extended request, `STARTTLS` (ADR-0076), so "no curl build sends" was false.
+- The new comment above `ReadOtherOperation` claims nothing about curl, only how the two switches
+  divide the operations: whether the OpenLDAP-backed build ever sends `abandonRequest` is not
+  measured by either ADR.
+- Verified 2026-11-28: build with 0 warnings, format check clean, all 83 fast test assemblies
+  passed (`Surl.Protocol.Ldap.UnitTests` 602 of 602). Comments and prose only, so no
+  integration run.
+- Other false statements seen in the library's `CLAUDE.md` are filed as BL-2105.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. LDAP decoder comments and CLAUDE.md now say truly how compare, a malformed message's ID and decode results are handled
