@@ -56,8 +56,8 @@ pointing at ...:*"); recorded text is never rewritten. The code is in
   subscriptions (ADR-0146 Amendment 4) are queue deliveries too, so both subscription notes name them.
 - `dotnet build`: 0 warnings, 0 errors. Fast tests: 30641 passed, 0 failed, 3 skipped.
 - Found by reading the code: under `--max-filesize 0` every non-empty transactional posting is refused
-  (`Hold` has no `> 0` guard; STOMP's has one). The ADR-0107 note states it; filed as BL-2060, with the
-  ADR note for the fix as BL-2061. Topic-delivery comments in the library filed as BL-2062.
+  (`Hold` has no `> 0` guard; STOMP's has one). The ADR-0107 note states it; filed as BL-2063, with the
+  ADR note for the fix as BL-2064. Topic-delivery comments in the library filed as BL-2062.
 - The stale shared-source statements in ADR-0107's BL-1990 notes are already BL-2055's subject.
 
 ## Log

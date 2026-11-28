@@ -1,5 +1,5 @@
 ---
-id: BL-2060
+id: BL-2063
 title: Hold AMQP 1.0 transactional postings under --max-filesize 0 instead of refusing them
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2060 — Hold AMQP 1.0 transactional postings under --max-filesize 0 instead of refusing them
+# BL-2063 — Hold AMQP 1.0 transactional postings under --max-filesize 0 instead of refusing them
 
 ## Goal
 
@@ -34,7 +34,7 @@ commit, as it does under any limit they fit in.
 - With no byte limit, held bytes have no bound, as partial deliveries have none; `MaxOpenTransactions` stays.
 - Judged by the specification (ADR-0083); no curl and no Curl port run. No new option, store, event or fault: a test
   sees the posting's `disposition` and the committed messages on the shared bus.
-- BL-2061 records the change in ADR-0107 and ADR-0146; do not edit them here.
+- BL-2064 records the change in ADR-0107 and ADR-0146; do not edit them here.
 
 ## Acceptance criteria
 
