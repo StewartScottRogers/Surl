@@ -46,3 +46,4 @@ Noticed while working BL-2074 (2026-11-28) and read from source the same day.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
