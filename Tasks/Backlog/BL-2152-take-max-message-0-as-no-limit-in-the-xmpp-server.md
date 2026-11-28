@@ -1,5 +1,5 @@
 ---
-id: BL-2130
+id: BL-2152
 title: Take --max-message 0 as no limit in the XMPP server
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: NFR-015
 created: 2026-11-28
 completed:
 ---
-# BL-2130 — Take --max-message 0 as no limit in the XMPP server
+# BL-2152 — Take --max-message 0 as no limit in the XMPP server
 
 ## Goal
 
-With `--max-message 0` the `xmpp` and `xmpps` server holds no size bound on the stream header, a stanza, an attribute value or a text node (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2135 re-states NFR-014 to NFR-016.
+With `--max-message 0` the `xmpp` and `xmpps` server holds no size bound on the stream header, a stanza, an attribute value or a text node (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2157 re-states NFR-014 to NFR-016.
 
 ## Context
 
@@ -32,3 +32,4 @@ Found while working BL-2120 (2026-11-28), in `Protocols/Messaging/Surl.Extended.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Renumbered from BL-2130 to BL-2152; an archived task holds BL-2130.

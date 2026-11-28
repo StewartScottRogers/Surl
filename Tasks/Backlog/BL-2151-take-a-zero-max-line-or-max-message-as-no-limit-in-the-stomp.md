@@ -1,5 +1,5 @@
 ---
-id: BL-2129
+id: BL-2151
 title: Take a zero --max-line or --max-message as no limit in the STOMP broker
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: NFR-014
 created: 2026-11-28
 completed:
 ---
-# BL-2129 — Take a zero --max-line or --max-message as no limit in the STOMP broker
+# BL-2151 — Take a zero --max-line or --max-message as no limit in the STOMP broker
 
 ## Goal
 
-With `--max-line 0` the `stomp` and `stomps` broker holds no command or header line limit, and with `--max-message 0` its frame body bound is the next bound that applies, never 0 (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2135 re-states NFR-014 to NFR-016.
+With `--max-line 0` the `stomp` and `stomps` broker holds no command or header line limit, and with `--max-message 0` its frame body bound is the next bound that applies, never 0 (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2157 re-states NFR-014 to NFR-016.
 
 ## Context
 

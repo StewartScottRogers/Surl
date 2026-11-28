@@ -1,5 +1,5 @@
 ---
-id: BL-2137
+id: BL-2159
 title: Close a refused connection without a reset when writing its refusal throws
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: NFR-017
 created: 2026-11-28
 completed:
 ---
-# BL-2137 — Close a refused connection without a reset when writing its refusal throws
+# BL-2159 — Close a refused connection without a reset when writing its refusal throws
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-2134
+id: BL-2156
 title: Take --max-filesize 0 as no limit in a WebTransport session
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: NFR-016
 created: 2026-11-28
 completed:
 ---
-# BL-2134 — Take --max-filesize 0 as no limit in a WebTransport session
+# BL-2156 — Take --max-filesize 0 as no limit in a WebTransport session
 
 ## Goal
 
-With `--max-filesize 0` a `webtransport` session receives any amount of payload, and with flow control on its `WT_MAX_DATA` keeps being raised (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2135 re-states NFR-014 to NFR-016.
+With `--max-filesize 0` a `webtransport` session receives any amount of payload, and with flow control on its `WT_MAX_DATA` keeps being raised (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2157 re-states NFR-014 to NFR-016.
 
 ## Context
 

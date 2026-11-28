@@ -1,5 +1,5 @@
 ---
-id: BL-2128
+id: BL-2150
 title: Take a zero --max-line or --max-message as no limit in the NATS server
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: NFR-014
 created: 2026-11-28
 completed:
 ---
-# BL-2128 — Take a zero --max-line or --max-message as no limit in the NATS server
+# BL-2150 — Take a zero --max-line or --max-message as no limit in the NATS server
 
 ## Goal
 
-With `--max-line 0` the `nats` and `natss` server holds no control-line limit, and with `--max-message 0` its payload bound is the next bound that applies, never 0 (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2135 re-states NFR-014 to NFR-016.
+With `--max-line 0` the `nats` and `natss` server holds no control-line limit, and with `--max-message 0` its payload bound is the next bound that applies, never 0 (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2157 re-states NFR-014 to NFR-016.
 
 ## Context
 
@@ -37,3 +37,4 @@ ADR-0113 decision 7 gives the bound as the smaller of `--max-message` and the bu
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Renumbered from BL-2128 to BL-2150; an archived task holds BL-2128.

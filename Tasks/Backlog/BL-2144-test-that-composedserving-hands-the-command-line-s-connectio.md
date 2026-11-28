@@ -4,7 +4,7 @@ title: Test that ComposedServing hands the command line's connection limits to o
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2126]
+depends-on: [BL-2148]
 touches: [Application/Surl.Composition.UnitTests, Documentation/Product/Requirements.md]
 requirement: NFR-008
 created: 2026-11-28

@@ -4,7 +4,7 @@ title: Decide whether the MCP, NATS and Redis versions breach ADR-0006's no-vers
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-2126]
+depends-on: [BL-2148]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: NFR-019
 created: 2026-11-28

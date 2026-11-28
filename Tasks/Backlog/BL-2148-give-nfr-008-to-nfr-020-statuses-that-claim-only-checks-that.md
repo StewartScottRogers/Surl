@@ -1,5 +1,5 @@
 ---
-id: BL-2126
+id: BL-2148
 title: Give NFR-008 to NFR-020 statuses that claim only checks that exist
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2126 — Give NFR-008 to NFR-020 statuses that claim only checks that exist
+# BL-2148 — Give NFR-008 to NFR-020 statuses that claim only checks that exist
 
 ## Goal
 
@@ -31,3 +31,4 @@ The stash's statuses: NFR-013, NFR-018 and NFR-020 `Enforced by` the `ci.yml` fa
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Renumbered from BL-2126 to BL-2148; an archived task holds BL-2126.

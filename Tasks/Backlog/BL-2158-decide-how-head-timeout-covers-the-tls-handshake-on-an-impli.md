@@ -1,16 +1,16 @@
 ---
-id: BL-2136
+id: BL-2158
 title: Decide how --head-timeout covers the TLS handshake on an implicit-TLS listen URL
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-2126]
+depends-on: [BL-2148]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: NFR-012
 created: 2026-11-28
 completed:
 ---
-# BL-2136 — Decide how --head-timeout covers the TLS handshake on an implicit-TLS listen URL
+# BL-2158 — Decide how --head-timeout covers the TLS handshake on an implicit-TLS listen URL
 
 ## Goal
 

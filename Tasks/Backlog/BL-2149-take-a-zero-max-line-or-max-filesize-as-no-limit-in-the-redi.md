@@ -1,5 +1,5 @@
 ---
-id: BL-2127
+id: BL-2149
 title: Take a zero --max-line or --max-filesize as no limit in the Redis server
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: NFR-014
 created: 2026-11-28
 completed:
 ---
-# BL-2127 — Take a zero --max-line or --max-filesize as no limit in the Redis server
+# BL-2149 — Take a zero --max-line or --max-filesize as no limit in the Redis server
 
 ## Goal
 
-With `--max-line 0` or `--max-filesize 0` the `redis` and `rediss` server holds no limit of that kind, as ADR-0006 section 1 says ("0 means no limit"). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2135 re-states NFR-014 to NFR-016.
+With `--max-line 0` or `--max-filesize 0` the `redis` and `rediss` server holds no limit of that kind, as ADR-0006 section 1 says ("0 means no limit"). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2157 re-states NFR-014 to NFR-016.
 
 ## Context
 

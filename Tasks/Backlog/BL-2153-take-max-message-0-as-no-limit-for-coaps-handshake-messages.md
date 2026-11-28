@@ -1,5 +1,5 @@
 ---
-id: BL-2131
+id: BL-2153
 title: Take --max-message 0 as no limit for coaps handshake messages
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: NFR-015
 created: 2026-11-28
 completed:
 ---
-# BL-2131 — Take --max-message 0 as no limit for coaps handshake messages
+# BL-2153 — Take --max-message 0 as no limit for coaps handshake messages
 
 ## Goal
 
-With `--max-message 0` a `coaps` DTLS handshake completes: `--max-message` bounds no handshake message (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2135 re-states NFR-014 to NFR-016.
+With `--max-message 0` a `coaps` DTLS handshake completes: `--max-message` bounds no handshake message (ADR-0006 section 1). This task changes nothing in `Documentation/Product/Requirements.md`; BL-2157 re-states NFR-014 to NFR-016.
 
 ## Context
 

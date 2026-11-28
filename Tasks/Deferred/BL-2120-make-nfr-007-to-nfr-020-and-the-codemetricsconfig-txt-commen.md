@@ -32,4 +32,4 @@ Found while working BL-2119 (2026-11-28). NFR-007 in `Documentation/Product/Requ
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
-- 2026-11-28: Doing -> Deferred. Split into BL-2125, BL-2126 (timed out at the run's time limit)
+- 2026-11-28: Doing -> Deferred. Split into BL-2147, BL-2148 (timed out at the run's time limit)

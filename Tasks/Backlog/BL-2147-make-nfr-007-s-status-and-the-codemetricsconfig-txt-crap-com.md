@@ -1,5 +1,5 @@
 ---
-id: BL-2125
+id: BL-2147
 title: Make NFR-007's status and the CodeMetricsConfig.txt CRAP comment claim only checks that exist
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2125 — Make NFR-007's status and the CodeMetricsConfig.txt CRAP comment claim only checks that exist
+# BL-2147 — Make NFR-007's status and the CodeMetricsConfig.txt CRAP comment claim only checks that exist
 
 ## Goal
 
@@ -35,3 +35,4 @@ Re-check the copied NFR-007 text against `Directory.Packages.props`, `Directory.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Renumbered from BL-2125 to BL-2147; an archived task holds BL-2125.

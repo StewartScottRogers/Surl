@@ -4,7 +4,7 @@ title: Fail a fast test when the solution gains a second NuGet package or packag
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2125]
+depends-on: [BL-2147]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitTests, Documentation/Product/Requirements.md]
 requirement: NFR-007
 created: 2026-11-28
