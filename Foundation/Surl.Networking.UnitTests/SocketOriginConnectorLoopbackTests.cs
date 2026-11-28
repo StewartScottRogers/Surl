@@ -17,9 +17,10 @@ public sealed class SocketOriginConnectorLoopbackTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
-    // For a connect that must succeed. Windows takes about 2 s to refuse [::1], which localhost
-    // resolves to ahead of 127.0.0.1, and far longer on a loaded machine (BL-1746), so no connect
-    // timeout is set; the operating system still bounds each attempt.
+    // For a test that reaches a connect. Windows takes about 2 s to refuse a loopback port - [::1],
+    // which localhost resolves to ahead of 127.0.0.1, included - and far longer on a loaded machine
+    // (BL-1746, BL-2124), so no connect timeout is set; the operating system still bounds each
+    // attempt.
     private static readonly TimeSpan NoConnectTimeout = System.Threading.Timeout.InfiniteTimeSpan;
 
     public TestContext TestContext { get; set; } = null!;
@@ -53,11 +54,18 @@ public sealed class SocketOriginConnectorLoopbackTests
     [TestMethod]
     public async Task ConnectAsync_ClosedPort_IsRefused()
     {
-        var port = ClosedLoopbackPort();
+        // The port is the local end of an open connection: nothing listens on it, and no one else
+        // can be given it before the connect (BL-2124).
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        using var portHolder = new TcpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        await portHolder.ConnectAsync((IPEndPoint)listener.LocalEndpoint, TestContext.CancellationToken);
+        using var holderPeer = await listener.AcceptTcpClientAsync(TestContext.CancellationToken);
+        var port = ((IPEndPoint)portHolder.Client.LocalEndPoint!).Port;
         var connector = new SocketOriginConnector(AllowedOriginRule.LoopbackOnly);
 
         var exception = await Assert.ThrowsExactlyAsync<OriginConnectionException>(
-            () => connector.ConnectAsync("127.0.0.1", port, Timeout, TestContext.CancellationToken).AsTask());
+            () => connector.ConnectAsync("127.0.0.1", port, NoConnectTimeout, TestContext.CancellationToken).AsTask());
 
         Assert.AreEqual(OriginConnectionFailure.Refused, exception.Failure);
     }
@@ -97,16 +105,6 @@ public sealed class SocketOriginConnectorLoopbackTests
             () => connector.ConnectAsync("192.0.2.1", 80, Timeout, TestContext.CancellationToken).AsTask());
 
         Assert.AreEqual(OriginConnectionFailure.NotAllowed, exception.Failure);
-    }
-
-    private static int ClosedLoopbackPort()
-    {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-
-        return port;
     }
 
     private async Task ReadExactlyAsync(IConnection connection, byte[] buffer)
