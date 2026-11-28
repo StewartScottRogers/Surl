@@ -48,3 +48,4 @@ Found while working BL-2014 (2026-11-27), read from source. Documentation only; 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
