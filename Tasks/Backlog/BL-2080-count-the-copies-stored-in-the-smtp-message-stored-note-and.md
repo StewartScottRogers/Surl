@@ -1,5 +1,5 @@
 ---
-id: BL-2077
+id: BL-2080
 title: Count the copies stored in the SMTP Message stored note and write no note when none is
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2077 — Count the copies stored in the SMTP Message stored note and write no note when none is
+# BL-2080 — Count the copies stored in the SMTP Message stored note and write no note when none is
 
 ## Goal
 

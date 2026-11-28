@@ -366,7 +366,7 @@ each way are the engine's `BytesReceived`/`BytesSent` lines, as for every server
 
 | When | Note |
 | --- | --- |
-| A message stored | `Message stored: <n> bytes for <k> recipients`. [Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored) decides that `<k>` is to be the copies stored, and that no such note is to be written when none is; BL-2077 is to build that. On 2026-11-28 the server writes `<k>` as the number of `SmtpMailTransaction.Deliverable` entries, and writes the note with `0` when every recipient is discarded |
+| A message stored | `Message stored: <n> bytes for <k> recipients`. [Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored) decides that `<k>` is to be the copies stored, and that no such note is to be written when none is; BL-2080 is to build that. On 2026-11-28 the server writes `<k>` as the number of `SmtpMailTransaction.Deliverable` entries, and writes the note with `0` when every recipient is discarded |
 | A recipient that names no account | `Mail for <address> discarded: no such account` (ADR-0050 decision 5) |
 | Past the size limit | `Message refused: past --max-filesize after <n> bytes` |
 | The store full | `Message refused: the mail store is full` |
@@ -616,4 +616,4 @@ With `team@` naming Ann and Bob, and `pair@` naming Bob and Cat:
 
 ### What follows
 
-BL-2077 changes `SmtpSession.DeliverAsync` and the tests of `Surl.Protocol.Smtp` that pin the note.
+BL-2080 changes `SmtpSession.DeliverAsync` and the tests of `Surl.Protocol.Smtp` that pin the note.

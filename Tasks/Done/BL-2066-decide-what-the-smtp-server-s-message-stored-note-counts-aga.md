@@ -70,7 +70,7 @@ or fault, since each delivery's `StoreChangedEvent` already tells a test which o
 
 - Decision (ADR-0053 Amendment 3, 2026-11-28): `<k>` is to be the copies the delivery stored (one per named owner
   reached; under `--allow-anonymous` one per accepted `RCPT`), and no `Message stored` note is to be written when
-  that is 0. The text and `<n>` stay. The code differs, so BL-2077 changes it.
+  that is 0. The text and `<n>` stay. The code differs, so BL-2080 changes it.
 - Why: the decided count equals the new mailbox messages and the delivery events a test can check. Today's count of
   `Deliverable` entries need equal neither (`team@` gives 1 for two copies). Decision 8's "owners it reached" would
   say 1 for two copies in the anonymous `INBOX`. "Message stored" with nothing stored is untrue, and the discard
@@ -89,4 +89,4 @@ or fault, since each delivery's `StoreChangedEvent` already tells a test which o
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
-- 2026-11-28: Doing -> Done. ADR-0053 Amendment 3 settles the Message stored note: <k> is to count the copies stored and no note is written when none is; BL-2077 builds it
+- 2026-11-28: Doing -> Done. ADR-0053 Amendment 3 settles the Message stored note: <k> is to count the copies stored and no note is written when none is; BL-2080 builds it
