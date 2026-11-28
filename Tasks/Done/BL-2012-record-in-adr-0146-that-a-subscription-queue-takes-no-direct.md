@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2012 — Record in ADR-0146 that a subscription queue takes no direct send
 
@@ -28,11 +28,21 @@ ADR-0146 states that a queue carrying a subscription description takes no direct
 
 ## Acceptance criteria
 
-- [ ] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", stating the rule, the outcome answered, that seeding is unchanged, and the alternative rejected (checking each message's topic at consume time).
+- [x] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", stating the rule, the outcome answered, that seeding is unchanged, and the alternative rejected (checking each message's topic at consume time).
 
 ## Notes
+
+- Added as ADR-0146 Amendment 6; its claims were checked against `MessageBus`, the AMQP 0-9-1, STOMP and
+  AMQP 1.0 send paths. `dotnet build` clean, fast tests green (2026-11-27).
+- The Context's exchange list was short: every exchange but `amq.topic` takes the direct-send path, declared
+  topic exchanges included. The amendment says so.
+- Context and BL-1992 named the rejected alternative without a reason; the reason written (a direct send's topic
+  is the sender's own unjudged label) is Claude's, under the delegation.
+- STOMP answering a described queue with `Resource limit exceeded` follows ADR-0100's table; left as it is.
+- Other documents that need the rule are BL-2053.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0146 Amendment 6 records that a subscription queue takes no direct send, why, and what each protocol's client is answered
