@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0122-how-surl-serves-https-over-tls-srp.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1991 — Note in ADR-0122 Amendment 2 that --cert and --self-signed are allowed beside TLS-SRP since BL-911
 
@@ -37,13 +37,17 @@ Recorded text is never rewritten; the note is added in italics, dated, naming th
 
 ## Acceptance criteria
 
-- [ ] A dated note beside Amendment 2's "Refused beside TLS-SRP" bullet says `--cert` and `--self-signed` are allowed beside TLS-SRP and add the RSA-signed SRP suites, naming BL-911 and BL-1099.
-- [ ] The note says the options still refused are `--http3`, `--cacert`, `--tls-max` below 1.2 and `--tlsv1.3`, and that a `--cert` with a key other than RSA exits 58 (Amendment 5).
-- [ ] The diff to ADR-0122 only adds lines.
+- [x] A dated note beside Amendment 2's "Refused beside TLS-SRP" bullet says `--cert` and `--self-signed` are allowed beside TLS-SRP and add the RSA-signed SRP suites, naming BL-911 and BL-1099.
+- [x] The note says the options still refused are `--http3`, `--cacert`, `--tls-max` below 1.2 and `--tlsv1.3`, and that a `--cert` with a key other than RSA exits 58 (Amendment 5).
+- [x] The diff to ADR-0122 only adds lines.
 
 ## Notes
+n- 2026-11-27: `align-and-document` added the italic note under the bullet (7 lines added, 0 removed). Checked against
+  `TlsSrpCombination.cs`. No `.cs` or project file changed, so no `/verify`; `dotnet build` is clean and the fast
+  tests pass.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0122 Amendment 2 now carries a dated note that --cert and --self-signed are allowed beside TLS-SRP

@@ -396,6 +396,13 @@ Decided by Claude under Stewart's delegation, in BL-567.
   1.3 leaves nothing to serve; and `--cert` and `--self-signed`, because decision 2's signed suites
   are not built (Amendment 1, BL-911). Serving the unsigned suites while ignoring a certificate the
   user gave would say one thing and do another; BL-911 lifts this refusal when it adds them.
+
+  *Amended 2026-11-27 (BL-1991):* `--cert` and `--self-signed` are no longer refused. BL-911 built
+  the signed suites in `Surl.TlsSrp` and BL-1099 removed the two command-line refusals, so both are
+  allowed beside TLS-SRP and add the RSA-signed SRP suites. The options still refused beside it are
+  `--http3`, `--cacert`, `--tls-max` below 1.2 and `--tlsv1.3`. A `--cert` with a key other than
+  RSA exits 58 (Amendment 5, "The certificate's key").
+
 - **QUIC and DTLS still need a certificate.** TLS-SRP secures TCP listeners only, so a
   `webtransport` listen URL, or a `coaps` one with no account, is still refused `(58) ... needs a
   certificate`.
