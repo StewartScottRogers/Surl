@@ -1,16 +1,16 @@
 ---
-id: BL-2020
+id: BL-2031
 title: Take start-time seeds for Redis keys, LDAP entries and DNS zones in SurlServerOptions
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2019]
+depends-on: [BL-2030]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: FR-061
 created: 2026-11-27
 completed:
 ---
-# BL-2020 — Take start-time seeds for Redis keys, LDAP entries and DNS zones in SurlServerOptions
+# BL-2031 — Take start-time seeds for Redis keys, LDAP entries and DNS zones in SurlServerOptions
 
 ## Goal
 
@@ -21,9 +21,9 @@ A test sets `SurlServerOptions.RedisKeys`, `DirectoryLdif` and `DnsZones`, and t
 - ADR-0158 decisions 3, 4 and 9, and Amendment 1 (A2). BL-1166 added `Keys`, `Directory` and `Zones` on `SurlServer` and left the start-time options out.
 - `SurlServerOptions` gains `RedisKeys` (`IReadOnlyList<SurlRedisKey>`), `DirectoryLdif` (`string?`) and `DnsZones` (`IReadOnlyList<SurlDnsZone>`), defaults empty, empty and `null` as fits each type; assigning `null` to a list leaves it empty, as `AuthenticationMethods` does. New public types, one per file: `SurlRedisKey` (key bytes, value bytes, expiry `TimeSpan?`, database, default 0, with a second constructor taking key and value strings written as UTF-8) and `SurlDnsZone` (apex, zone-file text). None of this adds a `surl` word.
 - Misuse is refused by `SurlServerArguments.ThrowIfMisused` with `ArgumentException` (or a subclass) before anything is composed: a null list item, an empty key, a database outside 0 to 15, an expiry outside 1 millisecond to 365 days, a null apex or zone text.
-- In `SurlServer.StartAsync`, after `ComposeAsync` and after the `ExchangeRecordSubscriber` exists, and before `ServeUntilBoundAsync`, apply the seeds in the order keys, directory, zones, each through the `ComposedStores` overload of BL-2019 with `keepOnReset: true`.
+- In `SurlServer.StartAsync`, after `ComposeAsync` and after the `ExchangeRecordSubscriber` exists, and before `ServeUntilBoundAsync`, apply the seeds in the order keys, directory, zones, each through the `ComposedStores` overload of BL-2030 with `keepOnReset: true`.
 - A refused seed (a bound, a duplicate DN or apex, unreadable LDIF or zone text, or no listen URL serving that store) refuses the start with `SurlSeedRefusedException` naming the `StoreKind`, worded as `SurlServerKeys`, `SurlServerDirectory` and `SurlServerZones` word it, after disposing the recording and the composed serving, so nothing is bound or locked. `StartAsync`'s XML comment lists the exception. With `SURL_EXTENSIONS=0` a Redis or DNS start-time seed is refused the same way, since there is no such store.
-- `SurlServer.ResetAsync`'s XML comment says the Redis databases and the LDAP directory are empty and there is no DNS zone afterwards; correct it, `SurlServerZones.AddZoneAsync`'s comment if affected, and `Application/Surl.Api/CLAUDE.md`. The `README.md` is BL-2023.
+- `SurlServer.ResetAsync`'s XML comment says the Redis databases and the LDAP directory are empty and there is no DNS zone afterwards; correct it, `SurlServerZones.AddZoneAsync`'s comment if affected, and `Application/Surl.Api/CLAUDE.md`. The `README.md` is BL-2034.
 - Stand-in: seeds the three shared stores before a test connects, publishes one `Seeded` event each on the instance's stream, never consults the fault plan, and holds no static state.
 
 ## Acceptance criteria

@@ -1,5 +1,5 @@
 ---
-id: BL-2024
+id: BL-2035
 title: Limit the LdapDirectoryFile read-only remark to LDAP clients
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2024 — Limit the LdapDirectoryFile read-only remark to LDAP clients
+# BL-2035 — Limit the LdapDirectoryFile read-only remark to LDAP clients
 
 ## Goal
 

@@ -1,16 +1,16 @@
 ---
-id: BL-2022
+id: BL-2033
 title: Prove with pinned upstream curl that a start-time seeded LDAP entry survives a reset
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2020]
+depends-on: [BL-2031]
 touches: [Conformance/Surl.Conformance.UnitTests/StandInLdapDirectoryRecipeTests.cs]
 requirement: FR-061
 created: 2026-11-27
 completed:
 ---
-# BL-2022 — Prove with pinned upstream curl that a start-time seeded LDAP entry survives a reset
+# BL-2033 — Prove with pinned upstream curl that a start-time seeded LDAP entry survives a reset
 
 ## Goal
 
@@ -18,7 +18,7 @@ A recipe test shows pinned upstream curl finding an entry seeded by `SurlServerO
 
 ## Context
 
-- ADR-0158 decision 10: the LDAP directory is the one of the three stores with an original-protocol oracle, upstream curl's `ldap://` search. Redis and DNS are extended servers and are covered by the unit tests of BL-2017 to BL-2021.
+- ADR-0158 decision 10: the LDAP directory is the one of the three stores with an original-protocol oracle, upstream curl's `ldap://` search. Redis and DNS are extended servers and are covered by the unit tests of BL-2028 to BL-2032.
 - Add to `Conformance/Surl.Conformance.UnitTests/StandInLdapDirectoryRecipeTests.cs` (BL-1169), reusing its `SearchAsync`: `PinnedUpstreamCurl.RunReferenceForProtocolAsync` on Windows (the reference curl 8.21.0 over `WinLDAP`), `RunBuildLinkedAgainstAsync` with `OpenLDAP` elsewhere (ADR-0076). Builds are pinned in `UpstreamCurlBuilds.json`; never run another curl.
 - Scenario: start with `AllowAnonymous`, `ldap://127.0.0.1:0` and `DirectoryLdif` holding the base entry; add a child entry with `Directory.AddEntriesAsync`; search; `ResetAsync`; search again for the base entry and for the child. The class already expects exit 39 and the library's "No such object" text for a missing base.
 - The class summary describes only runtime seeding; extend it to say what the new test shows.

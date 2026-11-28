@@ -1,16 +1,16 @@
 ---
-id: BL-2021
+id: BL-2032
 title: Take redis_keys, directory_ldif and dns_zones in surl-mcp's start_server
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2020]
+depends-on: [BL-2031]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: FR-061
 created: 2026-11-27
 completed:
 ---
-# BL-2021 — Take redis_keys, directory_ldif and dns_zones in surl-mcp's start_server
+# BL-2032 — Take redis_keys, directory_ldif and dns_zones in surl-mcp's start_server
 
 ## Goal
 
@@ -18,11 +18,11 @@ An agent seeds Redis keys, LDAP entries and DNS zones in the `start_server` call
 
 ## Context
 
-- ADR-0158 decisions 3 and 9 (each start property has the matching seed tool's shape) and Amendment 1 (A2). The library is `Application/Surl.Mcp.UnitLibrary`, the tool `StartServerTool.cs`; fill `SurlServerOptions.RedisKeys`, `DirectoryLdif` and `DnsZones` (BL-2020).
+- ADR-0158 decisions 3 and 9 (each start property has the matching seed tool's shape) and Amendment 1 (A2). The library is `Application/Surl.Mcp.UnitLibrary`, the tool `StartServerTool.cs`; fill `SurlServerOptions.RedisKeys`, `DirectoryLdif` and `DnsZones` (BL-2031).
 - Shapes: `redis_keys` is an array of objects with `key` or `key_base64`, `value` or `value_base64`, `database` (0 to 15, default 0) and `expire_ms` (1 to 31536000000), as `SetKeyTool`; `directory_ldif` is a string, as `add_ldap_entries`' `ldif`; `dns_zones` is an array of objects with required `apex` and `zone_text`, as `AddDnsZoneTool`. Nested objects set `additionalProperties: false`; `McpToolInputSchema` checks `items`, `properties`, `required`, `minimum` and `maximum`. No `maxItems` is needed: the 4 MiB message limit bounds a call.
 - Reuse `SeededContent.TryRead` for the either-text-or-base64 rule and the 16 MiB bound, and refuse an empty key as `set_key` does. A bad item is `isError` naming it (`redis_keys[1]: ...`), with nothing started.
 - A seed the store refuses reaches the tool as `SurlSeedRefusedException`: answer `isError: true` with its text, with no server left running and no slot of `MaxServers` used. No value is echoed in a result or a log, and no local path is read.
-- Update the tool's description, `ResetServerTool`'s description (it names only files, mail, messages and accounts) to include the three stores and start-time seeds, and the library's `CLAUDE.md`. The `README.md` pages are BL-2023.
+- Update the tool's description, `ResetServerTool`'s description (it names only files, mail, messages and accounts) to include the three stores and start-time seeds, and the library's `CLAUDE.md`. The `README.md` pages are BL-2034.
 - Stand-in: seeds the three shared stores at start; each publishes `Seeded`, seen by `get_events`; no fault rule is consulted.
 
 ## Acceptance criteria

@@ -51,8 +51,8 @@ Stand-in: no store, event or fault changes. The notes only describe the seeding,
   change.
 - "Only those two files change" is about the documents delivered; this task file and the follow-ups filed under
   `Tasks/Backlog` are board changes.
-- Follow-ups filed: BL-2017 to BL-2023 (ADR-0158's start-time seeds are not in the code; BL-1166's Notes say they were
-  left out) and BL-2024 (the same unqualified remark in `LdapDirectoryFile.cs`).
+- Follow-ups filed: BL-2028 to BL-2034 (ADR-0158's start-time seeds are not in the code; BL-1166's Notes say they were
+  left out) and BL-2035 (the same unqualified remark in `LdapDirectoryFile.cs`).
 - 2026-11-27: `dotnet build` clean (0 warnings); fast tests passed with no failure.
 
 ## Log
