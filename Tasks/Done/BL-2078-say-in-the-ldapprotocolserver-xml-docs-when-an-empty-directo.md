@@ -8,7 +8,7 @@ depends-on: [BL-2077]
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary/LdapProtocolServer.cs]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2078 — Say in the LdapProtocolServer XML docs when an empty directory answers noSuchObject and that fault rules change answers
 
@@ -25,14 +25,26 @@ The `LdapProtocolServer` constructor summary and "Operations" remarks state only
 
 ## Acceptance criteria
 
-- [ ] The constructor summary limits the `noSuchObject` statement to a directory the host has not seeded and a connection allowed to search.
-- [ ] The "Operations" remarks say a matching fault rule can change the result code or drop the connection.
-- [ ] Only XML comments change.
-- [ ] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean.
+- [x] The constructor summary limits the `noSuchObject` statement to a directory the host has not seeded and a connection allowed to search.
+- [x] The "Operations" remarks say a matching fault rule can change the result code or drop the connection.
+- [x] Only XML comments change.
+- [x] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- `align-and-document` wrote the comments; its separate "Fault rules" paragraph was then merged into
+  "Operations", where the second criterion asks for the statement.
+- The constructor summary also excludes a base that is not an RFC 4514 DN (`invalidDNSyntax`), and a
+  critical control or an `error` or `drop` fault rule that comes first.
+- "Operations" now says abandon and unbind ignore a critical control, and that writes need no bind.
+- No ADR: comments only, describing what the code does.
+- Verified: full `dotnet build` 0 warnings, 0 errors; fast tests passed; `dotnet format
+  --verify-no-changes` on the file clean.
+- Follow-ups: the `LdapMessageDecoder` remarks omitting `CompareRequest` are already BL-2081; the
+  spaces-only search base is filed as BL-2088.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The LdapProtocolServer XML docs say when an empty directory answers noSuchObject, that fault rules change answers, and which requests ignore a critical control
