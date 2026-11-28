@@ -40,7 +40,7 @@ public sealed class XmppServerStartTlsTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public async Task ServeAsync_CertificateConfigured_OffersRequiredStartTlsAlone()
+    public async Task ServeAsync_TlsUpgradeAvailable_OffersRequiredStartTlsAlone()
     {
         var (answers, _, _) = await ServeAsync(Options(), ClientHeader);
 
@@ -101,7 +101,7 @@ public sealed class XmppServerStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StartTlsWithoutACertificate_IsTheTlsFailureAndClose()
+    public async Task ServeAsync_StartTlsWithTlsUpgradeUnavailable_IsTheTlsFailureAndClose()
     {
         var options = Options() with { IsTlsUpgradeAvailable = false };
 
@@ -207,7 +207,7 @@ public sealed class XmppServerStartTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_NoCertificateAndNoPlainTextMechanism_OffersNoFeatures()
+    public async Task ServeAsync_TlsUpgradeUnavailableAndNoPlainTextMechanism_OffersNoFeatures()
     {
         var options = Options() with { IsTlsUpgradeAvailable = false, AuthenticationPolicy = new UnitTestXmppSaslPolicy([], ["PLAIN"]) };
 

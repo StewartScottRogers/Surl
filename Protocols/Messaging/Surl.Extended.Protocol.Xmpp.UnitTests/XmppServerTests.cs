@@ -22,7 +22,7 @@ public sealed class XmppServerTests
 
     private const string FirstId = "00000000000000000000000000000001";
 
-    // With no certificate, the plain-text features: the SASL mechanisms the default policy offers.
+    // With no TLS upgrade available, the plain-text features: the SASL mechanisms the default policy offers.
     private const string PlainFeatures =
         "<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism></mechanisms></stream:features>";
 
