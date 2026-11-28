@@ -211,7 +211,7 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   the client's `container-id`, a zero byte and the link name, bound to the topic filter and carrying a
   description (hex of the encoded client address, canonical filter, applied filters, policy and sharing).
   `never` is a durable queue the bus persists; `session-end` and `connection-close` an exclusive one,
-  deleted with its session (`Amqp1Session.SessionSubscriptionQueues`) or connection. It is answered
+  deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. It is answered
   `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
   `shared`/`global` capabilities applied.
 - Who may: the `sub` right on the topic filter is all a kept subscription needs; it asks for nothing on
@@ -232,6 +232,13 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   link name (plain, shared, shared and global) and is answered its stored source; with none it is
   `amqp:not-found`. A `closed` detach deletes the queue unless another consumer still takes from it.
   `Amqp1BusNodeDirectory` refuses `/queue/surl-subscription-...` with `amqp:not-found`.
+- Every delete the container asks for is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
+  queue still carrying the description judged (BL-2010): replacing a stale one (`ClearStaleQueue`)
+  the description just inspected and judged, only while unused; a `closed` detach
+  (`DestroyKeptSubscription`) the link's own, only while unused - for a lookup link, the one found and
+  judged at its attach; a session's end (`EndSessionSubscriptions`) the description the session
+  consumed each under. A queue replaced since by one with another description stays. The bus itself
+  deletes a connection's exclusive queues when the connection ends.
 
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the

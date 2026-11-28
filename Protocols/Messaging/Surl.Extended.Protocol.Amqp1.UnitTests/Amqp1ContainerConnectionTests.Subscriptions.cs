@@ -278,6 +278,73 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ClosedDetachOfALookupLinkWhoseSubscriptionWasReplaced_LeavesTheNewOne()
+    {
+        var bus = Bus();
+        await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")), BusFrame(new Amqp1Detach(0)));
+
+        await ServeOnBusAsync(
+            bus,
+            Open(),
+            Begin(),
+            BusFrame(DurableAttach(0, "/topic/news") with { Source = null }),
+            BusFrame(DurableAttach(1, "/topic/weather", "never")),
+            BusFrame(new Amqp1Detach(1)),
+            BusFrame(new Amqp1Detach(0) { Closed = true }));
+
+        var left = bus.Connect("alice").InspectQueue(DurableQueue);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, DurableDescription("/topic/weather", "weather")), left);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClosedDetachOfALookupLinkWhoseStoredFilterItsAddressNoLongerMapsTo_DeletesTheSubscription()
+    {
+        var bus = Bus();
+        var owner = bus.Connect("alice");
+        owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), DurableDescription("/topic/news", "weather"));
+
+        await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news") with { Source = null }), BusFrame(new Amqp1Detach(0) { Closed = true }));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, owner.InspectQueue(DurableQueue).Outcome);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndAfterItsSubscriptionWasReplaced_LeavesTheNewOne()
+    {
+        var bus = Bus();
+
+        await ServeOnBusAsync(
+            bus,
+            Open(),
+            Begin(),
+            BusFrame(DurableAttach(0, "/topic/news", "session-end")),
+            BusFrame(new Amqp1Detach(0)),
+            Amqp1Frame.Carrying(1, new Amqp1Begin(0, 100, 100)).Encode(),
+            Amqp1Frame.Carrying(1, DurableAttach(0, "/topic/weather", "never")).Encode(),
+            Amqp1Frame.Carrying(1, new Amqp1Detach(0)).Encode(),
+            BusFrame(new Amqp1End()));
+
+        var left = bus.Connect("alice").InspectQueue(DurableQueue);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, DurableDescription("/topic/weather", "weather")), left);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DurableAttachOverAQueueWithNoDescriptionUnderTheSubscriptionsName_ReplacesIt()
+    {
+        var bus = Bus();
+        var owner = bus.Connect("alice");
+        owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true));
+
+        await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")), BusFrame(new Amqp1Detach(0)));
+
+        Assert.AreEqual(DurableDescription("/topic/news", "news"), owner.InspectQueue(DurableQueue).SubscriptionDescription);
+    }
+
+    // The description of the durable subscription the link "durable" of the container "client" keeps.
+    private static string DurableDescription(string address, string topicFilter) =>
+        Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus(address, false, false) { ExpiryPolicy = "never" }, topicFilter, null).Description;
+
+    [TestMethod]
     [DataRow("link-detach")]
     [DataRow("never", true)]
     public async Task ServeAsync_LinkDetachPolicyOrNoDurability_IsAnsweredNoneAndKeepsNothing(string policy, bool noDurability = false)
