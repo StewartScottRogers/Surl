@@ -5,8 +5,9 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// The files that keep a <see cref="MailboxStore"/> across restarts, read and written through
-/// <see cref="IContentFileSystem"/> (ADR-0050, decision 7): the index, rewritten whole after
-/// every change, and one file per distinct message, written once.
+/// <see cref="IContentFileSystem"/> (ADR-0050, decision 7): the index, rewritten whole by
+/// <see cref="MailboxStore.SaveChangesAsync"/> when the store has changed, and one file per
+/// distinct message, written once, as its body arrives.
 /// </summary>
 /// <remarks>
 /// <para>

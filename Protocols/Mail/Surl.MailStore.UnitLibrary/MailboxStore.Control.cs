@@ -36,7 +36,9 @@ public sealed partial class MailboxStore
     /// Returns the store to its configured state: every owner it was made with holds exactly the
     /// mailboxes it was made with - its <c>INBOX</c>, its configured folders, and the shared
     /// folders - each empty, with a <c>UIDVALIDITY</c> the store has never given before and next
-    /// UID 1. Mailboxes made since are gone. Aliases, quotas and shared-folder members are
+    /// UID 1. Mailboxes made since are gone. Owners <see cref="AddOwner"/> made since are dropped
+    /// with their mail, and exactly the accounts the store was made with are reached, one retired
+    /// since included. Aliases, quotas and shared-folder members are
     /// configuration and are unchanged. Every POP3 maildrop lock is released; a session that held
     /// one still reads the messages it was given and removes none at <c>QUIT</c>. Publishes one
     /// <see cref="StoreChange.Reset"/> naming the whole store (an empty name) with byte count 0.
@@ -68,7 +70,8 @@ public sealed partial class MailboxStore
 
     /// <summary>
     /// Takes a snapshot of the whole store: every owner's mailboxes and every message with its
-    /// UID, flags, internal date and bytes. Changes nothing and publishes nothing.
+    /// UID, flags, internal date and bytes, and which accounts are reached. Changes nothing and
+    /// publishes nothing.
     /// </summary>
     /// <returns>The snapshot, which only this store can restore.</returns>
     /// <exception cref="InvalidOperationException">The store is on disk (made by
@@ -89,7 +92,9 @@ public sealed partial class MailboxStore
     /// Replaces the store's contents with <paramref name="snapshot"/>'s: every owner holds exactly
     /// the mailboxes it held then, each with the messages, UIDs, flags, internal dates and next
     /// UID it held then, and a <c>UIDVALIDITY</c> the store has never given before, so an IMAP
-    /// client resynchronises. Every POP3 maildrop lock is released, as by <see cref="Reset"/>.
+    /// client resynchronises. An owner the snapshot does not hold is dropped with its mail, and
+    /// exactly the accounts reached then are reached. Every POP3 maildrop lock is released, as by
+    /// <see cref="Reset"/>.
     /// Publishes one <see cref="StoreChange.Restored"/> naming the whole store (an empty name) with
     /// the snapshot's <see cref="MailStoreSnapshot.ByteCount"/>.
     /// </summary>
@@ -128,11 +133,14 @@ public sealed partial class MailboxStore
 
     /// <summary>
     /// Reaches the owner of an account named <paramref name="accountName"/> that the server gained
-    /// while it ran (ADR-0185 decisions 1, 2, 5 and 6). A name never seen gets an owner with an empty
-    /// <c>INBOX</c> (a new <c>UIDVALIDITY</c>, next UID 1) that does not count against
-    /// <see cref="MaxMailboxes"/>, and one <see cref="StoreChange.Created"/> is published for it. A
-    /// retired owner is reached again with its mail as it was, publishing nothing. A store on disk
-    /// counts the new owner as a change, which the next <see cref="SaveChangesAsync"/> writes.
+    /// while it ran (ADR-0185 decisions 1, 2, 5 and 6). A name the store holds no owner for gets one
+    /// with an empty <c>INBOX</c> (a new <c>UIDVALIDITY</c>, next UID 1) that does not count against
+    /// <see cref="MaxMailboxes"/>; one <see cref="StoreChange.Created"/> is published for it and
+    /// <see cref="ChangeCount"/> rises by one, which a store on disk writes at the next
+    /// <see cref="SaveChangesAsync"/>. An owner held but unreached - retired by
+    /// <see cref="RetireOwner"/>, or held by the files <see cref="LoadAsync"/> read for a name that
+    /// was no account then - is reached again with its mail as it was, publishing nothing and not
+    /// raising <see cref="ChangeCount"/>.
     /// </summary>
     /// <param name="accountName">The account's name.</param>
     /// <returns><see langword="true"/> when an owner was made or reached again; <see langword="false"/>,
@@ -178,14 +186,33 @@ public sealed partial class MailboxStore
 
     /// <summary>
     /// Retires the owner of the account named <paramref name="accountName"/> (ADR-0185 decision 2):
-    /// its mail stays in the store, unreached, so <see cref="ViewFor"/> gives it an empty view,
-    /// <see cref="LookUpRecipient"/> answers <see cref="MailRecipientLookup.NoSuchAccount"/> and
-    /// <see cref="Seed"/> stores nothing, while the mail still counts against the bounds.
-    /// <see cref="AddOwner"/> with the same name reaches it again. Publishes nothing: no mail changes.
+    /// the name is no longer an account's, and the owner's mail stays in the store, still counted
+    /// against the bounds. <see cref="AddOwner"/> with the same name reaches it again. Publishes
+    /// nothing and does not raise <see cref="ChangeCount"/>: no mail changes.
+    /// <para>
+    /// <see cref="ViewFor"/> then gives the name no mailboxes of its own, but still every shared
+    /// folder whose members include it, so the view is empty only when there is none.
+    /// </para>
+    /// <para>
+    /// <see cref="LookUpRecipient"/> then answers a path naming it as for any name that is no
+    /// account, which is not always <see cref="MailRecipientLookup.NoSuchAccount"/>. With no mail
+    /// domain configured, the one remaining account whose name equals the local part ignoring case,
+    /// if exactly one does, receives it. With a mail domain, a path outside every configured domain
+    /// is <see cref="MailRecipientLookup.RelayingDenied"/> as before, and one inside can be
+    /// delivered through an alias or mailbox of that address, such an account, or the domain's
+    /// catch-all. <see cref="Seed"/> follows the same lookup, so it stores a message whenever that
+    /// answers <see cref="MailRecipientLookup.Deliverable"/> and the delivery is not refused.
+    /// </para>
+    /// <para>
+    /// A <see cref="MailView"/> or <see cref="MailRecipient"/> the store gave before the call still
+    /// reaches the retired owner: a session already holding such a view goes on acting on its
+    /// mailboxes, and a recipient already looked up is still delivered to.
+    /// </para>
     /// </summary>
-    /// <param name="accountName">The account's name.</param>
-    /// <returns><see langword="true"/> when a reached owner was retired; <see langword="false"/> for a
-    /// name that is no reached owner and for a store opened with <c>--allow-anonymous</c>.</returns>
+    /// <param name="accountName">The account's name, matched ordinally.</param>
+    /// <returns><see langword="true"/> when the account's owner was retired; <see langword="false"/>,
+    /// changing nothing, for a name that is no reached account's - a mail-domain mailbox address
+    /// included, which stays reached - and for a store opened with <c>--allow-anonymous</c>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
     public bool RetireOwner(string accountName)
     {

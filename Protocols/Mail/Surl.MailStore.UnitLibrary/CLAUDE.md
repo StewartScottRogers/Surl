@@ -119,10 +119,15 @@ every POP3 maildrop lock; `MaildropLock` removes a message only while its UID st
 was given, and releases the lock only while it still holds it.
 
 Owners at run time (BL-1451, ADR-0185): `AddOwner(name)` makes an owner with an empty `INBOX` (not counted
-against `MaxMailboxes`; one `Created` event; a change) or reaches a retired one again with its mail; `RetireOwner(name)`
-makes an owner unreached (mail kept and counted, no event). Both answer `false` and do nothing for the cases ADR-0185
-decision 6 lists. `Reset` drops owners not configured and reaches configured ones again; `TakeSnapshot` records
-`OwnerCount` and which owners are reached, and `Restore` puts both back.
+against `MaxMailboxes`; one `Created` event; one `ChangeCount` change, in every store) or reaches an owner held but
+unreached again with its mail (no event, no change); `RetireOwner(name)` makes an account's owner unreached (mail kept
+and counted against the bounds; no event, no change; `false` for a mailbox address). Both answer `false` and do nothing
+for the cases ADR-0185 decision 6 lists. A retired name is not necessarily an empty view or `NoSuchAccount`: `ViewFor`
+still gives it its shared folders, `LookUpRecipient` (so `Seed`) can still deliver its path through an alias or mailbox
+of that address, an account differing only by case or a mail domain's catch-all (and answers `RelayingDenied` outside
+the mail domains), and views and recipients given before the call still reach the owner. `Reset` drops owners not
+configured and reaches configured ones again; `TakeSnapshot` records `OwnerCount` and which owners are reached, and
+`Restore` puts both back.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,

@@ -24,7 +24,8 @@ public sealed class MailView
 
     /// <summary>
     /// The name of the owner the view acts as - an account's name, or the empty string for the
-    /// anonymous owner - or <see langword="null"/> for an empty view.
+    /// anonymous owner - or <see langword="null"/> for a view with no owner: an empty view, or one
+    /// that reaches only shared folders.
     /// </summary>
     public string? OwnerName => Owner?.Name;
 

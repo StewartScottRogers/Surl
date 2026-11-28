@@ -23,8 +23,10 @@ namespace Surl.MailStore;
 /// other than the owners' <c>INBOX</c>es. An operation that would pass a bound stores nothing.
 /// </para>
 /// <para>
-/// Its mailboxes and flags live in memory. <see cref="ChangeCount"/> rises by one with every
-/// change that alters the store, and not with a refused or no-op one. A store made by
+/// Its mailboxes and flags live in memory. <see cref="ChangeCount"/> rises by one with each
+/// operation that alters them, and not with a refused or no-op one, nor with
+/// <see cref="RetireOwner"/> or an <see cref="AddOwner"/> that reaches an owner already held,
+/// which change only who is reached. A store made by
 /// <see cref="LoadAsync"/> starts with what its <see cref="MailStoreFiles"/> hold, streams each
 /// new message body into a pending file that becomes its message file when it is stored, reads
 /// a message's bytes from that file when a server fetches them, and writes the index back when
@@ -192,7 +194,10 @@ public sealed partial class MailboxStore
     /// leaving any other mailbox of the owner that held it with none; that too counts as a change
     /// (ADR-0192).
     /// </summary>
-    /// <param name="files">The files the store is read from now and written to after each change.</param>
+    /// <param name="files">The files the store is read from now. A later message body is written to
+    /// a pending file in them as it arrives, renamed to its message file when it is stored; the
+    /// index is written, and the files of messages no longer held are deleted, only by
+    /// <see cref="SaveChangesAsync"/>.</param>
     /// <param name="accountNames">The configured accounts' names, as the constructor takes them.</param>
     /// <param name="allowAnonymous">Whether <c>--allow-anonymous</c> is set.</param>
     /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
@@ -286,8 +291,12 @@ public sealed partial class MailboxStore
     public int MaxMailboxes { get; }
 
     /// <summary>
-    /// How many changes have altered the store since it was created. A refused or no-op
-    /// operation does not count.
+    /// How many changes have altered the store's owners, mailboxes, messages, flags or folder uses
+    /// since it was made: one for each operation that alters any of them, however many messages it
+    /// alters, and, while <see cref="LoadAsync"/> starts the store, one for each mailbox it creates
+    /// or gives a configured use. The constructor leaves it at 0. A refused or no-op operation does
+    /// not count, and neither does <see cref="RetireOwner"/> or an <see cref="AddOwner"/> that
+    /// reaches an owner already held, which change only who is reached.
     /// </summary>
     public long ChangeCount
     {
@@ -390,9 +399,11 @@ public sealed partial class MailboxStore
     /// The mailboxes a session logged in as <paramref name="accountName"/> acts on (ADR-0050,
     /// decision 2): the anonymous owner's with <c>--allow-anonymous</c>, whatever the name;
     /// otherwise the account's or the mailbox's (ADR-0102, decision 1.2) named by it, matched
-    /// ordinally, or an empty view for a name that names neither. Outside
-    /// <c>--allow-anonymous</c> it also reaches, as <c>Shared/</c>&lt;name&gt;, each shared
-    /// folder whose members include the name (ADR-0102, decision 1.6).
+    /// ordinally, or no mailboxes of its own for a name that names neither, as one
+    /// <see cref="RetireOwner"/> retired. Outside <c>--allow-anonymous</c> it also reaches, as
+    /// <c>Shared/</c>&lt;name&gt;, each shared folder whose members include the name, matched
+    /// ordinally, whether or not the name names an account or mailbox (ADR-0102, decision 1.6). A
+    /// view with neither is empty.
     /// </summary>
     /// <param name="accountName">The login's account name, or <see langword="null"/> when the
     /// login carried none.</param>
@@ -1165,7 +1176,8 @@ public sealed partial class MailboxStore
     /// <param name="exchange">The exchange behind the write: it supplies the <c>ExchangeId</c> of the event published when the mailbox is created (ADR-0168 decision 2); <see langword="null"/> for a write with no exchange.</param>
     /// <param name="use">The RFC 6154 use the mailbox gets (<see cref="MailFolderUse"/>, with or without the backslash), or <see langword="null"/> for none; <see cref="MailStoreOutcome.FolderUseUnknown"/> or <see cref="MailStoreOutcome.FolderUseTaken"/> refuse it.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> (a view with no owner: an empty one, or one
+    /// that reaches only shared folders),
     /// <see cref="MailStoreOutcome.InvalidName"/>,
     /// <see cref="MailStoreOutcome.SharedFolderProtected"/> (shared folders are configured and the
     /// name is <c>Shared</c> or under <c>Shared/</c>, whether or not the view is a member of
@@ -1303,8 +1315,8 @@ public sealed partial class MailboxStore
 
     /// <summary>
     /// Takes the maildrop lock of the view's owner at a successful POP3 login, and fixes the
-    /// session's view of its <c>INBOX</c> (ADR-0050, decision 4). An empty view gets an empty
-    /// maildrop that locks nothing.
+    /// session's view of its <c>INBOX</c> (ADR-0050, decision 4). A view with no owner - an empty
+    /// one, or one that reaches only shared folders - gets an empty maildrop that locks nothing.
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="maildrop">The lock, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
