@@ -43,3 +43,4 @@ or fault changes. BL-1978 edits other bullets of the same file and does not cove
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
