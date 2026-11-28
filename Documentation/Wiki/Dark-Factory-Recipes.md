@@ -44,6 +44,13 @@ The factory stays busy only while the board holds ready, independent work. One r
   the open one keeps its CI. A task a lane requeues without a code commit is held (in
   `<repo>.logs\requeue-holds.txt`) until `master` moves or 6 hours pass; a task waiting on
   something outside the shift, such as a merge, should be Blocked instead.
+- **The handover waits for the lanes.** A shift ends, and `-Continuous` starts the next
+  one, only once no lane is still working, even when a held task outlasts the shift. Past
+  `-Hours` plus `-TaskMinutes` plus 30 minutes the trace names the lanes it is waiting for.
+  A running lane that has written no heartbeat for 60 minutes is stopped, then restarted or
+  left for the next shift to adopt; a lane dead after its restarts is not waited for.
+- **The checkout** must be clean and match its remote branch for a lane shift to start. One
+  that is only behind is fast-forwarded; a dirty, ahead or diverged one is refused.
 - **`-Lanes Auto`** starts at its ceiling and, every 15 minutes, adds one lane or retires
   lanes down to the measured token burn rate, capped by the board's parallel capacity,
   the machine's cap and `-MaxLanes` (default 6).
@@ -120,6 +127,7 @@ These are the factory working as designed; none needs you.
 | A task in `Blocked` | it needs a new package, a threshold change or an upstream curl download - still yours to decide | answer it; Claude moves it on |
 | A branch `factory/<ID>-lane-<n>-<stamp>` | work that would not integrate, parked; the task is back in Backlog | nothing: a later run picks it up from that branch |
 | `refuse  working tree not clean; commit or stash first` in the shift's log | the checkout has uncommitted or untracked files, so the shift would not start | say "status" to Claude; it commits or ignores what is there and starts the shift again |
+| `refuse  <branch> differs from origin/<branch>; push or pull first` in the shift's log | the checkout has commits its remote does not (ahead or diverged); one only behind would have been fast-forwarded | say "status" to Claude; it rebases or pushes those commits and starts the shift again |
 | No merge to `master` at shift end | CI is red, or still running on the frozen `factory/merge-<stamp>` pull request; the next shift merges it within 5 minutes of CI passing | ask Claude "why didn't the shift merge?" (`/ci-status`) |
 
 ## Hunt flaky tests on Linux and macOS
@@ -150,4 +158,5 @@ Each checks one part and exits without starting a shift.
 | The machine probe's pass rule | `RunDarkFactory.cmd -TestMachineProbe` |
 | Heartbeats and `status.json`, without pushing | `RunDarkFactory.cmd -TestHeartbeat` |
 | Which lanes `-Restart` may stop | `RunDarkFactory.cmd -TestRestart` |
-| Lanes ending at the shift's end | `RunDarkFactory.cmd -TestShiftEnd` |
+| Lanes ending at the shift's end, and which overdue lanes the handover waits for | `RunDarkFactory.cmd -TestShiftEnd` |
+| Switching back to the shift's branch, and fast-forwarding a checkout that is behind | `RunDarkFactory.cmd -TestShiftBranch` |
