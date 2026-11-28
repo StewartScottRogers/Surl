@@ -7,7 +7,9 @@ namespace Surl.Protocol.Smtp;
 /// exchange's fault plan at <see cref="FaultStage.Command"/>. An <see cref="FaultKind.Error"/> rule
 /// answers it with the rule's reply in place of the command, before the mail store is touched; a
 /// <see cref="FaultKind.Delay"/> rule holds the answer for the rule's <c>ms</c> with the idle clock
-/// paused; a <see cref="FaultKind.Drop"/> rule aborts the connection with no answer.
+/// paused; a <see cref="FaultKind.Drop"/> rule aborts the connection with no answer. A client that
+/// leaves during a <see cref="FaultKind.Delay"/> rule's hold, by half-closing or resetting the
+/// connection, is sent nothing, the command is not run and the session ends (ADR-0141, amendment 3).
 /// </summary>
 internal sealed partial class SmtpSession
 {
