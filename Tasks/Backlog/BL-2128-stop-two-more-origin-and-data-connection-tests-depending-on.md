@@ -1,5 +1,5 @@
 ---
-id: BL-2127
+id: BL-2128
 title: Stop two more origin and data connection tests depending on load or a released port
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2127 — Stop two more origin and data connection tests depending on load or a released port
+# BL-2128 — Stop two more origin and data connection tests depending on load or a released port
 
 ## Goal
 

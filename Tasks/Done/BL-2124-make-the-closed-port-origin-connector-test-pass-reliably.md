@@ -53,7 +53,7 @@ loaded machine, and Windows takes about 2 s to refuse a closed port), or another
   macOS refuses a connect to such a socket was not verified (CI runs this test there). A port held by a connected
   socket has no listening socket on any platform.
 - No production code changed. Linux and macOS behaviour is checked by CI only.
-- Follow-up filed: BL-2127 (two other tests in the project with the same kind of dependence, never seen to fail).
+- Follow-up filed: BL-2128 (two other tests in the project with the same kind of dependence, never seen to fail).
 - Gates: `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` clean; fast tests 30870 passed,
   0 failed, 3 skipped; `Surl.Networking.UnitTests` run five times in a row, 589 passed, 0 failed, 2 skipped each
   (integration tests included, as the command has no filter); its integration tests alone 27 passed.
