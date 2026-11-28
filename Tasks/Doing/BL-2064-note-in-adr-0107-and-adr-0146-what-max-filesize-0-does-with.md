@@ -44,3 +44,4 @@ bytes held in AMQP 1.0 transactions have no bound.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
