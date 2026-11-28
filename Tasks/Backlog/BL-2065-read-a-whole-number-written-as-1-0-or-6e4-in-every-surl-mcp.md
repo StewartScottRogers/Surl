@@ -1,5 +1,5 @@
 ---
-id: BL-2054
+id: BL-2065
 title: Read a whole number written as 1.0 or 6e4 in every surl-mcp integer argument
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-061
 created: 2026-11-28
 completed:
 ---
-# BL-2054 — Read a whole number written as 1.0 or 6e4 in every surl-mcp integer argument
+# BL-2065 — Read a whole number written as 1.0 or 6e4 in every surl-mcp integer argument
 
 ## Goal
 

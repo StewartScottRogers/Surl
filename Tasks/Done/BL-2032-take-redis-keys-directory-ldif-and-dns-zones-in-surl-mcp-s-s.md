@@ -51,7 +51,7 @@ An agent seeds Redis keys, LDAP entries and DNS zones in the `start_server` call
   `directory_ldif` or a zone is passed on in its own words, as `add_ldap_entries` and `add_dns_zone` pass it, and
   may quote part of the text; the description and the ADR say so.
 - Review found `database: 1.0` and `expire_ms: 6e4` answered `-32603` (already so in `set_key`); fixed in
-  `RedisKeyArguments`. The other tools' integer arguments are BL-2054.
+  `RedisKeyArguments`. The other tools' integer arguments are BL-2065.
 - Added one test row set to `StartServerSafetyCheckTests`: `IsConfigFileOption` was at 50% branch coverage before
   this task, which criterion 6 does not allow.
 - `touches` gained ADR-0158 and the ADR index (amendment 5); no task in Doing names either.
