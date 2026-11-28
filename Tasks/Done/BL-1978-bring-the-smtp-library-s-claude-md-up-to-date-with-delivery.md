@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1978 — Bring the SMTP library's CLAUDE.md up to date with delivery, command faults and redaction
 
@@ -38,15 +38,26 @@ event or fault changes. Code files are in the same folder as the `CLAUDE.md`.
 
 ## Acceptance criteria
 
-- [ ] The "Mail" bullet names `MailboxStore.DeliverAsync`, and the file no longer says `MailboxStore.Deliver(`.
-- [ ] The "Mail" bullet says when `Delivered-To` lines are written, where they go, and that each deliverable recipient then has its own pending message.
-- [ ] The faults bullet names `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` and says a client that leaves during a hold is sent nothing and the session ends.
-- [ ] The file names `IExchangeBytesRedactingServer` and `SmtpLineRedactionRule` and says what is masked and what is logged as it arrived.
-- [ ] The diff changes only that `CLAUDE.md`.
+- [x] The "Mail" bullet names `MailboxStore.DeliverAsync`, and the file no longer says `MailboxStore.Deliver(`.
+- [x] The "Mail" bullet says when `Delivered-To` lines are written, where they go, and that each deliverable recipient then has its own pending message.
+- [x] The faults bullet names `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` and says a client that leaves during a hold is sent nothing and the session ends.
+- [x] The file names `IExchangeBytesRedactingServer` and `SmtpLineRedactionRule` and says what is masked and what is logged as it arrived.
+- [x] The diff changes only that `CLAUDE.md`.
 
 ## Notes
+
+- Delivered by `align-and-document`; prose only. "The diff" in the last criterion is read as the task's code and
+  document diff: the board files (this task and the follow-ups below) change too.
+- The text says what the code does, which differs from the task's Context in two details: a lone `*` or empty `334`
+  answer is logged as it arrived, and `LineBytesRedactor` writes any line over 64 KiB, message lines included, as `****`.
+- `dotnet build` clean (0 warnings) and the fast tests green in all 83 test assemblies, 2026-11-27. The `verify` skill
+  was not run: no `.cs` or project file changed.
+- Follow-ups filed: BL-1995 (an owner's `Delivered-To` copy can name another owner's address, against ADR-0053
+  Amendment 1), BL-1996 (`DeliveredFor` on SMTP events with the option off), BL-1997 (three other false statements in
+  the same `CLAUDE.md`).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The SMTP library CLAUDE.md names DeliverAsync, the Delivered-To copies, the client-left fault outcome and the log redaction as the code has them.

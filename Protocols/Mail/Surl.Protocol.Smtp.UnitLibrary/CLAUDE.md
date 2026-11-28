@@ -18,12 +18,13 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
 
 ## What it holds
 
-- `SmtpProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
-  (`421 4.3.2 surl Too many connections, closing`). Its constructor takes the
-  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Composition` passes the `smtp`
-  scheme's one `AuthenticationPolicy` as both), the shared `MailboxStore`, and
-  `isTlsUpgradeAvailable`, which `Surl.Composition` sets with a certificate (`--cert` or
-  `--self-signed`) or under TLS-SRP (ADR-0122 decision 5;
+- `SmtpProtocolServer`: `IConnectionProtocolServer`, `IConnectionRefusalWriter`
+  (`421 4.3.2 surl Too many connections, closing`) and `IExchangeBytesRedactingServer`, whose
+  `CreateRedactor` returns a `LineBytesRedactor` over `SmtpLineRedactionRule`. Its
+  constructor takes the `IAuthenticationPolicy`, the `IMailAuthenticationPolicy`
+  (`Surl.Composition` passes the `smtp` scheme's one `AuthenticationPolicy` as both), the
+  shared `MailboxStore`, and `isTlsUpgradeAvailable`, which `Surl.Composition` sets with a
+  certificate (`--cert` or `--self-signed`) or under TLS-SRP (ADR-0122 decision 5;
   `ServerTlsComposition.IsTlsUpgradeAvailable`).
 - `SmtpSession`: one connection. The greeting, then each CRLF line read with `CrlfLineReader`
   and answered with `ReplyLineWriter` (`Surl.LineProtocol`) from the fixed lines in
@@ -50,12 +51,19 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `SmtpTraceFields`, then the body as `CrlfLineReader.ReadDotStuffedBodyAsync` unstuffs it, so
   with a data directory the message goes straight into the store's pending file. A message past
   `--max-filesize` (trace fields and body together) or a peer that closes mid-body disposes it,
-  deleting the pending file; otherwise `MailboxStore.Deliver(..., PendingMessage)` stores it
+  deleting the pending file; otherwise `MailboxStore.DeliverAsync` stores it
   and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`, `QuotaExceeded` (checked only after `DATA`, never at `RCPT`;
   ADR-0102 decision 1.4) `452 4.2.2 Mailbox full` with nothing delivered to any recipient,
   `MessageTooLarge` `552 5.3.4`, and `StorageFailed` `451 4.3.0 Local error in processing` with
   `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
   that throws after a delivered message is noted and still answered `250`.
+  With `--mail-delivered-to` (`MailboxStore.DeliveredToEnabled`) and at least one deliverable
+  recipient, each element of `SmtpMailTransaction.Deliverable` has its own pending message, with
+  `Delivered-To` lines ahead of `Return-Path` naming every path, in `RCPT` order, that reached
+  any of that element's owners (`PathsReaching`; for the anonymous owner, that recipient's own
+  path only); an alias element's several owners share its copy. The longest pending message
+  decides `--max-filesize`, and they are delivered together through the `DeliverAsync` overload
+  that takes `MailOwnerCopy` values (ADR-0053 Amendment 1).
 - `STARTTLS` (decision 5): `220`, then `CrlfLineReader.DiscardBuffered`, then
   `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` only when no upgrade is
   available (`isTlsUpgradeAvailable` false: no certificate and no TLS-SRP), `503` on a TLS
@@ -71,7 +79,17 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `Error` rule's reply is written in place of the command's own (`DATA`'s in place of `354`,
   before the message), nothing is stored, a note is logged and one `FaultAppliedEvent` (target:
   the path, else the verb) is published; a rule with no reply answers
-  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901).
+  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for
+  its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a
+  `Drop` rule aborts the connection with no answer and ends the session, each through
+  `CommandStageFaults.FindAndApplyWithClientOutcomeAsync` with one `FaultAppliedEvent`
+  (ADR-0141, BL-901). A client that leaves during a `Delay` hold is sent nothing and the
+  session ends (ADR-0141 amendment 3).
+- `SmtpLineRedactionRule` (ADR-0183): wraps `Surl.LineProtocol`'s `SaslLineRedactionRule`, so
+  the `AUTH` initial response and each answer to a `334 ` continuation, other than a lone `*`
+  or an empty line, are logged as `****`. Message lines from a `354` reply to the ending `.`
+  line are logged as they arrived, except that `LineBytesRedactor` writes any line over 64 KiB
+  as `****`.
 - `SmtpLogText`: renders peer bytes for the verbose notes of decision 8.
 - `SmtpUpstreamTestCaseServer` (ADR-0080 decision 2): the SMTP server half of one upstream
   curl test case, never composed by the shipped `surl`. It is `SmtpProtocolServer` built with
