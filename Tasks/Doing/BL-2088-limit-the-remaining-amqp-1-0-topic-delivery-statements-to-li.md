@@ -45,3 +45,4 @@ deliveries they mean: a live subscription's, not a kept or non-durable shared on
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
