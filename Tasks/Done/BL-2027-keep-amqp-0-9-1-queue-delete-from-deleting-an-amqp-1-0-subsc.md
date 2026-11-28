@@ -41,7 +41,7 @@ An account without the `sub` right on a subscription queue's topic filter cannot
   asks no grant). No grants: everyone may. `DeleteQueueIfDescribed` stays grantless.
 - Added ADR-0146 and ADR-0112 to `touches` to record the decision and the new `403`; no task in Doing named either.
 - Not covered: `Consume` and `GetFromQueue` still ask only for the `$queue` grant, so a caller holding it can drain
-  a subscription queue. Filed as BL-2028. Swapping bindings before a delete is BL-2011.
+  a subscription queue. Filed as BL-2047. Swapping bindings before a delete is BL-2011.
 - No Amqp0 broker test for the new `403`: that project is outside `touches`, and the broker's existing
   `AccessDenied` to `403` mapping carries it. Plan, tests and implementation were done in the session; the
   review stage ran `code-reviewer`. No upstream curl run: curl does not speak AMQP.

@@ -1,5 +1,5 @@
 ---
-id: BL-2028
+id: BL-2047
 title: Ask for sub on a subscription queue's filter before a get or consume by name takes its messages
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2028 — Ask for sub on a subscription queue's filter before a get or consume by name takes its messages
+# BL-2047 — Ask for sub on a subscription queue's filter before a get or consume by name takes its messages
 
 ## Goal
 
