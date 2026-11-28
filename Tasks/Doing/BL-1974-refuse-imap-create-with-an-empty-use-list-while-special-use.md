@@ -67,3 +67,4 @@ and command-stage faults reach `CREATE` as before. No new reset or fault point.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
