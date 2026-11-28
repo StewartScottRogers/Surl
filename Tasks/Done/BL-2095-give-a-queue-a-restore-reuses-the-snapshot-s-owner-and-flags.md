@@ -50,7 +50,7 @@ A queue a restore puts back has the snapshot's flags and no owning connection, w
   option, exit code or wire format changes.
 - Measured 2026-11-28: build 0 warnings, format clean, fast tests 30821 passed, 3 skipped, 0 failed;
   `Surl.MessageBus.UnitLibrary` line and branch coverage 100% (704 tests).
-- Filed BL-2103: a restore can leave more than `MaxQueues` queues (read in the code, not run).
+- Filed BL-2110: a restore can leave more than `MaxQueues` queues (read in the code, not run).
 
 ## Log
 

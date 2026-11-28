@@ -1,5 +1,5 @@
 ---
-id: BL-2103
+id: BL-2110
 title: Keep a message bus restore within MaxQueues beside the queues it keeps
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2103 — Keep a message bus restore within MaxQueues beside the queues it keeps
+# BL-2110 — Keep a message bus restore within MaxQueues beside the queues it keeps
 
 ## Goal
 
@@ -33,3 +33,4 @@ A restore either never leaves the bus holding more than `MaxQueues` queues, or a
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Renumbered from BL-2103 to BL-2110; an archived task holds BL-2103.
