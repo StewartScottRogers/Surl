@@ -1,0 +1,70 @@
+{
+    "schema":  1,
+    "shift":  "20261128-060304",
+    "branch":  "factory/phase-1",
+    "state":  "running",
+    "publishedAt":  "2026-11-28T16:32:21Z",
+    "autoLanes":  {
+                      "lanes":  4,
+                      "target":  4,
+                      "binding":  "capacity",
+                      "reason":  "lanes 3 -\u003e 4 (4 ready tasks can run at once)",
+                      "changedAt":  "2026-11-28T16:07:07Z"
+                  },
+    "lanes":  [
+                  {
+                      "lane":  1,
+                      "task":  "BL-2011",
+                      "title":  "Keep another client\u0027s binding from feeding an AMQP 1.0 subscription queue",
+                      "phase":  "run",
+                      "step":  "format",
+                      "taskStartedAt":  "2026-11-28T15:48:44Z",
+                      "heartbeatAt":  "2026-11-28T16:32:00Z"
+                  },
+                  {
+                      "lane":  2,
+                      "task":  "BL-2137",
+                      "title":  "Stop an upload to the bare name of a hidden share revealing that the share exists",
+                      "phase":  "run",
+                      "step":  "test",
+                      "taskStartedAt":  "2026-11-28T16:05:23Z",
+                      "heartbeatAt":  "2026-11-28T16:31:35Z"
+                  },
+                  {
+                      "lane":  3,
+                      "task":  "BL-2154",
+                      "title":  "Keep the MCP input line reader reading messages at a message limit of int.MaxValue",
+                      "phase":  "run",
+                      "step":  "agent protocol-architect: Plan BL-2154 overflow fix",
+                      "taskStartedAt":  "2026-11-28T16:26:21Z",
+                      "heartbeatAt":  "2026-11-28T16:32:09Z"
+                  },
+                  {
+                      "lane":  4,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "retired",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-28T16:26:02Z"
+                  },
+                  {
+                      "lane":  5,
+                      "task":  "BL-2136",
+                      "title":  "Correct the stale task references left in ADR-0132, ADR-0102 and the decisions index",
+                      "phase":  "run",
+                      "step":  "skill task-run BL-2136",
+                      "taskStartedAt":  "2026-11-28T16:24:57Z",
+                      "heartbeatAt":  "2026-11-28T16:31:43Z"
+                  },
+                  {
+                      "lane":  6,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "retired",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-28T15:04:13Z"
+                  }
+              ]
+}
