@@ -64,7 +64,7 @@ published message once between them (ADR-0146 Amendment 4, BL-2040).
 - Stand-in: the queue is on the shared bus, so any protocol's publish is shared out; no new event or fault.
 - No upstream curl run: curl cannot speak `amqp1` (ADR-0083); tests replay bytes written from the specification.
 - Review (code-reviewer, 2026-11-27): no behaviour defect. Its doc and test points are fixed here; ADR-0107's two
-  stale statements are BL-2049 (BL-2036 held the file). Its race (another container's declare landing between
+  stale statements are BL-2055 (BL-2036 held the file). Its race (another container's declare landing between
   this one's declare and bind) leaves an extra binding that BL-2011 (a described queue takes one filter) refuses.
 - Seen, not touched: this lane's worktree has a `sequencer` directory dated 2026-11-11 (a BL-426 cherry-pick), so
   `git status` says a cherry-pick is in progress.

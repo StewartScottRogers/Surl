@@ -1,5 +1,5 @@
 ---
-id: BL-2049
+id: BL-2055
 title: Point ADR-0107's AMQP 1.0 shared-source statements at ADR-0146 Amendment 4
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2049 — Point ADR-0107's AMQP 1.0 shared-source statements at ADR-0146 Amendment 4
+# BL-2055 — Point ADR-0107's AMQP 1.0 shared-source statements at ADR-0146 Amendment 4
 
 ## Goal
 
