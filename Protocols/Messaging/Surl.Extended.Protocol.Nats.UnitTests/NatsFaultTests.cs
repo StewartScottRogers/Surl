@@ -153,6 +153,41 @@ public sealed class NatsFaultTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ADropRuleWhileAWriteIsInProgress_EndsWithoutThrowing()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "SUB" });
+
+        // INFO is written; the +OK that answers CONNECT is held until the abort fails it.
+        var connection = new UnitTestNatsClientConnection { HoldWritesAfter = 1, FailsHeldWritesOnAbort = true };
+        var serving = ServeConnectionAsync(connection, plan, events, new ManualTimeProvider(), new RecordingIdleClock());
+        connection.Send("CONNECT {\"user\":\"alice\",\"pass\":\"secret\",\"verbose\":true}\r\n");
+        while (connection.WriteAttempts < 2)
+        {
+            await Task.Delay(5, TestContext.CancellationToken);
+        }
+
+        connection.Send("SUB foo 1\r\nPING\r\n");
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.StartsWith("INFO ", connection.Written);
+        Assert.AreEqual(connection.Written.Length, connection.Written.IndexOf("\r\n", StringComparison.Ordinal) + 2);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "SUB foo"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ADropRule_ServesNoOperationThatArrivedBehindTheDroppedOne()
+    {
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "SUB" });
+        var connection = Connection(AliceConnect + "SUB foo 1\r\nPUB bar 1\r\na\r\n");
+
+        await ServeConnectionAsync(connection, plan, new RecordingSurlEventPublisher(), new ManualTimeProvider(), new RecordingIdleClock());
+
+        CollectionAssert.AreEqual(new[] { "SUB foo" }, plan.Points.Select(point => $"{point.Command} {point.Path}").ToArray());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ADelayRuleForAnotherOperation_ChangesNothing()
     {
         var events = new RecordingSurlEventPublisher();
@@ -184,7 +219,7 @@ public sealed class NatsFaultTests
         new([Encoding.UTF8.GetBytes(bytes)], new IPEndPoint(IPAddress.Loopback, 4222));
 
     private Task ServeConnectionAsync(
-        InMemoryConnection connection, IFaultPlan plan, ISurlEventPublisher events, TimeProvider clock, IIdleClock idleClock,
+        IConnection connection, IFaultPlan plan, ISurlEventPublisher events, TimeProvider clock, IIdleClock idleClock,
         CancellationToken? cancellation = null)
     {
         var context = new ExchangeContext(

@@ -84,6 +84,10 @@ The chosen-error fault (BL-1031, ADR-0124 decisions 4 and 9):
   on the exchange's clock with the idle clock paused, then serves it as usual; a `drop` rule aborts the
   connection, `NatsOutbox.Abandon` discards everything queued and reading stops, so no `+OK` or other reply follows.
   Each publishes one `FaultAppliedEvent`.
+- After a `drop` rule `ServeAsync` ends by returning, not by throwing (ADR-0141 decision 2: the server ends the
+  session), whichever way a write the abort cut off ends: its `IOException` is not rethrown. Operations the
+  client had already sent behind the dropped one are not served, and no slow-consumer `-ERR` is tried. A failed
+  write with no `drop` still leaves `ServeAsync` as its exception.
 
 `natss` over TLS (BL-527, ADR-0113 decision 6):
 

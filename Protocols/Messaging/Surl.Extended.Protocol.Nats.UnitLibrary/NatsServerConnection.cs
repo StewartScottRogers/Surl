@@ -70,7 +70,16 @@ internal sealed partial class NatsServerConnection : IDisposable
         busConnection?.Dispose();
         outbox.Complete();
         var writeFailure = await CaptureFailureAsync(() => writing);
-        (failure ?? writeFailure)?.Throw();
+        failure?.Throw();
+
+        // ADR-0141 decision 2: a drop ends the session. A write the abort cut off is part of it, not
+        // a failure, and nothing more is sent.
+        if (isDroppedByAFault)
+        {
+            return;
+        }
+
+        writeFailure?.Throw();
         if (outbox.HasOverflowed)
         {
             await CutOffSlowConsumerAsync();
@@ -329,7 +338,8 @@ internal sealed partial class NatsServerConnection : IDisposable
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, stopReading.Token);
         try
         {
-            while (await reader.ReadLineAsync(cancellation.Token) is { } bytes)
+            // A drop also leaves unserved whatever the reader had already buffered.
+            while (!isDroppedByAFault && await reader.ReadLineAsync(cancellation.Token) is { } bytes)
             {
                 await AnswerAsync(NatsControlLine.Parse(bytes), cancellation.Token);
             }

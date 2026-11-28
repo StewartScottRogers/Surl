@@ -8,10 +8,16 @@ namespace Surl.Extended.Protocol.Nats;
 /// <see cref="FaultStage.Command"/> point - the operation as its command, the subject as the client
 /// sent it as its path, the account the login proved - before the bus is touched. A matching
 /// <see cref="FaultKind.Error"/> rule's text is answered <c>-ERR '&lt;text&gt;'</c>, nothing is
-/// published or subscribed, and the connection goes on, as a permissions violation does.
+/// published or subscribed, and the connection goes on, as a permissions violation does. A
+/// <see cref="FaultKind.Drop"/> rule aborts the connection: no further operation is served, and
+/// the session ends without a failure even when the abort cut off a write.
 /// </summary>
 internal sealed partial class NatsServerConnection
 {
+    // Set once a drop rule has aborted the connection: nothing more is read, answered or thrown
+    // for a write the abort cut off.
+    private bool isDroppedByAFault;
+
     // Whether a matching error rule answered the operation; null rules and other kinds answer nothing.
     private async ValueTask<bool> IsAnsweredByAFaultAsync(string operation, string subject)
     {
@@ -33,6 +39,7 @@ internal sealed partial class NatsServerConnection
         if (rule.Kind == FaultKind.Drop)
         {
             // The connection is aborted: nothing queued, before or after, is written, and reading stops.
+            isDroppedByAFault = true;
             outbox.Abandon();
             await stopReading.CancelAsync();
             return true;

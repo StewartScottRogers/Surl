@@ -8,11 +8,13 @@ namespace Surl.Extended.Protocol.Nats.UnitTests;
 /// <summary>
 /// A connection the test writes the client's side of while the server runs: <see cref="Send"/>
 /// queues bytes, <see cref="Close"/> half-closes the client's side, and a write fails with
-/// <see cref="IOException"/> once <see cref="FailWritesAfter"/> writes have succeeded.
+/// <see cref="IOException"/> once <see cref="FailWritesAfter"/> writes have succeeded, or when it
+/// was held under <see cref="FailsHeldWritesOnAbort"/> and the server aborts the connection.
 /// </summary>
 internal sealed class UnitTestNatsClientConnection : IConnection
 {
     private readonly Channel<byte[]> inbound = Channel.CreateUnbounded<byte[]>();
+    private readonly TaskCompletionSource aborted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Lock gate = new();
     private readonly StringBuilder written = new();
     private ReadOnlyMemory<byte> current;
@@ -27,6 +29,15 @@ internal sealed class UnitTestNatsClientConnection : IConnection
 
     /// <summary>Whether writes still wait after a held one was cancelled.</summary>
     public bool KeepsHoldingAfterCancel { get; init; }
+
+    /// <summary>
+    /// Whether a held write ignores cancellation and fails with <see cref="IOException"/> when the
+    /// connection is aborted, so the abort always lands while that write is in progress.
+    /// </summary>
+    public bool FailsHeldWritesOnAbort { get; init; }
+
+    /// <summary>Whether the server called <see cref="Abort"/>.</summary>
+    public bool Aborted => aborted.Task.IsCompleted;
 
     /// <summary>How many writes the server has begun, held ones included.</summary>
     public int WriteAttempts => Volatile.Read(ref attempts);
@@ -90,9 +101,15 @@ internal sealed class UnitTestNatsClientConnection : IConnection
     }
 
     // A transport that takes nothing until the write is cancelled; then it takes writes again
-    // unless it keeps holding.
+    // unless it keeps holding. Under FailsHeldWritesOnAbort only the abort ends the write.
     private async Task HoldAsync(CancellationToken cancellationToken)
     {
+        if (FailsHeldWritesOnAbort)
+        {
+            await aborted.Task;
+            throw new IOException("The connection was aborted.");
+        }
+
         try
         {
             await Task.Delay(Timeout.Infinite, cancellationToken);
@@ -106,7 +123,11 @@ internal sealed class UnitTestNatsClientConnection : IConnection
 
     public ValueTask CompleteWritesAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
-    public void Abort() => Close();
+    public void Abort()
+    {
+        aborted.TrySetResult();
+        Close();
+    }
 
     public ValueTask<TlsSession> UpgradeToTlsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
