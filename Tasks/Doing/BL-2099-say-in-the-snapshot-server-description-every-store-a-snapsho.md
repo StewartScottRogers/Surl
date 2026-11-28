@@ -35,3 +35,4 @@ deliveries and unacknowledged publishes). `restore_server`'s description (BL-207
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
