@@ -46,3 +46,4 @@ Stand-in: no store, event or fault changes. The notes only describe the seeding,
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
