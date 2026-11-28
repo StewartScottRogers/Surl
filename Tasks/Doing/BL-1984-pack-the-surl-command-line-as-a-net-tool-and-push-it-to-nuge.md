@@ -60,3 +60,4 @@ scratch directory, so a test version `0.0.1` never stays in the machine's packag
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
