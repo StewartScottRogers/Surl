@@ -57,3 +57,4 @@ event, seed, reset or fault behaviour.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
