@@ -13,7 +13,8 @@ namespace Surl.Protocol.Ldap;
 /// serving; the host can, in memory only (ADR-0158):
 /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/>,
 /// <see cref="LdapProtocolServer.ResetDirectory"/> and
-/// <see cref="LdapProtocolServer.RestoreDirectory"/>. A missing file is an empty directory.
+/// <see cref="LdapProtocolServer.RestoreDirectory"/>. A missing file, like in-memory mode (no
+/// file at all), leaves the directory empty only until the host seeds it.
 /// </remarks>
 public sealed class LdapDirectoryFile
 {

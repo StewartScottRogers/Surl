@@ -148,8 +148,9 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     /// <summary>
     /// Loads the directory from <paramref name="directoryFile"/> and creates an LDAP server over
     /// it, as surl does at start with <c>--directory</c>, after the data-directory lock and before
-    /// any listener binds (ADR-0072 decision 1, ADR-0031 decision 7). A missing file serves an
-    /// empty directory.
+    /// any listener binds (ADR-0072 decision 1, ADR-0031 decision 7). A missing file loads no
+    /// entries: the directory is then empty only while the host has seeded none into it through
+    /// <see cref="SeedDirectoryEntries"/>.
     /// </summary>
     /// <param name="directoryFile">The directory's file.</param>
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>

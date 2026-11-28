@@ -32,8 +32,9 @@ them in normal form; `LdapMatchingRules` picks and applies each type's RFC 4517 
 attributes returned.
 
 On top of both is the server (BL-308 and BL-309, ADR-0072 decisions 2 to 7): the public
-`LdapProtocolServer` answers `ldap` - its public constructor over an empty directory (in-memory
-mode), its public `LoadAsync` over the directory read from an `LdapDirectoryFile`, each taking
+`LdapProtocolServer` answers `ldap` - its public constructor over a directory that is empty
+until the host seeds it (in-memory mode), its public `LoadAsync` over the directory read from an
+`LdapDirectoryFile`, each taking
 the `IAuthenticationPolicy`, the `ISaslAuthenticationPolicy`, a `TimeProvider`, the optional
 `isTlsUpgradeAvailable` and an optional `ISurlEventPublisher` the directory publishes its changes
 to - and runs one `LdapSession` per connection. `LdapBindJudge` decides each bind into an
@@ -66,9 +67,9 @@ session. A reply that does not fit, or another kind, is noted and not applied.
 
 The directory's file (BL-307, ADR-0072 decision 1): the public `LdapDirectoryFile` names
 `directory.ldif` in the state folder it is given (`<path>/.surl/ldap`) and reads it once
-through `Surl.Content`'s `IContentFileSystem`; a missing file is an empty directory, and the
-file is never written. `LdifReader` reads RFC 2849 LDIF content records into
-`LdifRecord`s; a file it or `LdapDirectory` refuses, or one that cannot be read, ends in the
+through `Surl.Content`'s `IContentFileSystem`; a missing file, like in-memory mode, leaves the
+directory empty only until the host seeds it, and the file is never written. `LdifReader` reads
+RFC 2849 LDIF content records into `LdifRecord`s; a file it or `LdapDirectory` refuses, or one that cannot be read, ends in the
 public `LdapDirectoryLoadException` carrying the file path and `line <n>: <what>` (the texts in
 `LdifFaultText`) or the read failure's message, which `Surl.Composition`'s
 `SurlServerComposition.LoadLdapServerAsync` turns into `(37) Could not read <file>: <message>`,

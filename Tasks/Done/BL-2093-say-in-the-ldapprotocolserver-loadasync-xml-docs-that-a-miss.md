@@ -8,7 +8,7 @@ depends-on: [BL-2078]
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2093 — Say in the LdapProtocolServer.LoadAsync XML docs that a missing file leaves a directory the host can seed
 
@@ -28,14 +28,21 @@ Stand-in: comment only; no store, seed, reset, event or fault changes.
 
 ## Acceptance criteria
 
-- [ ] The `LoadAsync` summary says a missing file loads no entries and that the directory is empty only while the host has seeded none through `SeedDirectoryEntries`.
-- [ ] `LdapDirectoryFile`'s remarks and the project's `CLAUDE.md` say a missing file, or in-memory mode, leaves the directory empty only until the host seeds it.
-- [ ] The diff changes only `///` lines in `LdapProtocolServer.cs` and `LdapDirectoryFile.cs`, the project's `CLAUDE.md`, and this task's own file.
-- [ ] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean.
+- [x] The `LoadAsync` summary says a missing file loads no entries and that the directory is empty only while the host has seeded none through `SeedDirectoryEntries`.
+- [x] `LdapDirectoryFile`'s remarks and the project's `CLAUDE.md` say a missing file, or in-memory mode, leaves the directory empty only until the host seeds it.
+- [x] The diff changes only `///` lines in `LdapProtocolServer.cs` and `LdapDirectoryFile.cs`, the project's `CLAUDE.md`, and this task's own file.
+- [x] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+Made the comment and `CLAUDE.md` edits directly rather than through `align-and-document`: three sentences, already read in full, and a subagent would cost more than the change.
+
+BL-2078 had not changed the `LoadAsync` sentence, so it is changed here. The summary says "empty only while the host has seeded none", matching the Glossary's "directory file" row. `LdapDirectoryFile`'s internal `LoadAsync` and `ReadAsync` summaries describe the directory at the moment of reading, which is true, and are unchanged.
+
+Verify: solution build with `-warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests all passed (Ldap 602). No Integration run: comments and prose only.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The LDAP XML docs and project CLAUDE.md now say a missing directory file loads no entries and the host can seed the directory
