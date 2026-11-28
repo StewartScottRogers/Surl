@@ -67,14 +67,31 @@ public interface IAuthenticationPolicy
     /// Whether <paramref name="name"/> is exactly the name of a named account in the account set,
     /// its password unused. The Azure Storage server asks it to tell a path-style request's first
     /// segment, <c>/&lt;account&gt;/&lt;container&gt;/&lt;blob&gt;</c>, from a container (ADR-0109,
-    /// decision 2). The OCI registry and MCP servers ask it when a token they issued to an account
-    /// is used, and no longer honour the token if that name is not a named account's, as after the
-    /// account is removed (ADR-0167, decision 4). The empty name, a bearer token's account, never
-    /// matches. A policy with no named accounts keeps this default, which matches nothing.
+    /// decision 2). Whether a token issued to an account is still honoured is a different question,
+    /// <see cref="HonoursTokenIssuedTo"/>'s, whose default answers with this member. The empty name,
+    /// a bearer token's account, never matches. A policy with no named accounts keeps this default,
+    /// which matches nothing.
     /// </summary>
     /// <param name="name">The name, compared ordinally.</param>
     /// <returns><see langword="true"/> only when a named account has that name.</returns>
     bool NamesAccount(string name) => false;
+
+    /// <summary>
+    /// Whether a token issued to <paramref name="accountName"/> is still honoured. It is the
+    /// question for a server to ask when a token it issued to an account is used (ADR-0167,
+    /// decision 4 and Amendment 3, which gives it to the OCI registry and MCP servers). The default
+    /// is <see cref="NamesAccount"/>, so the token of a removed account is refused. A policy may
+    /// also honour the token of a directory user, a name only an LDAP directory knows, as ADR-0167
+    /// Amendment 3 decides. It judges no login: it publishes no event and asks no fault rule.
+    /// </summary>
+    /// <param name="accountName">The name the token was issued to, compared ordinally.</param>
+    /// <returns><see langword="true"/> when the token is still honoured.</returns>
+    bool HonoursTokenIssuedTo(string accountName)
+    {
+        ArgumentNullException.ThrowIfNull(accountName);
+
+        return NamesAccount(accountName);
+    }
 
     /// <summary>
     /// Judges a Kerberos login whose token the server has already checked (ADR-0165, decision 8).

@@ -56,11 +56,14 @@ What it holds:
   login, `PasswordLogin` judged as a `PasswordLoginVerdict`, one
   `IHttpAuthenticationSession` per HTTP connection, whose `CreateChallenges`, a default interface member
   returning an empty list, gives the `WWW-Authenticate` values the connection's own `401` would offer,
-  judging no request (BL-1699), and `NamesAccount`, a default interface member
-  matching nothing, which says whether a name is a named account's: the Azure Storage server asks
-  it to read a path-style target (ADR-0109 decision 2, BL-725), and the OCI registry and MCP
-  servers ask it when a token they issued to an account is used, refusing the token when that name
-  is not a named account's, as after the account is removed (ADR-0167 decision 4)),
+  judging no request (BL-1699), `NamesAccount`, a default interface member
+  matching nothing, which says whether a name is a named account's: the path-style check is its
+  question, asked by the Azure Storage server to read a target (ADR-0109 decision 2, BL-725), and
+  `HonoursTokenIssuedTo`, a default interface member returning `NamesAccount`'s answer, so the
+  token of a removed account is refused: the check of a token when it is used is its question,
+  which ADR-0167 Amendment 3 gives to the OCI registry and MCP servers, and under which a policy
+  may also honour a directory user's token; it judges no login, publishes no event and asks no
+  fault rule (BL-2018)),
   `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
   the body, `IHttpRequestBodyCheck`, asked with the body's SHA-256 once it is read,
