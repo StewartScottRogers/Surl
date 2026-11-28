@@ -305,9 +305,14 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
   `Surly.Surl.Mcp` are there from 0.1.12: `dotnet add package Surly.Surl.Api`, and
   `dotnet tool install -g Surly.Surl.Mcp` (or `dnx Surly.Surl.Mcp`). The push step is in
   `release.yml` from `v0.1.11`, the first release after BL-1795; that run failed at the
-  nuget.org login after creating the GitHub release, so 0.1.11 was not pushed. The `surl`
-  command line is not a .NET tool: it comes from the GitHub release or a source build.
-- **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
+  nuget.org login after creating the GitHub release, so 0.1.11 was not pushed.
+- **The `surl` command line as a .NET tool:** built (BL-1984, ADR-0191), not yet published.
+  `release.yml` packs `Surly.Surl.Console`, installs it and runs `surl --version`; from the first
+  release after `v0.1.12` a tag is to attach it to the GitHub release and push it to nuget.org,
+  for `dotnet tool install -g Surly.Surl.Console` (or
+  `dotnet dnx Surly.Surl.Console -- <options> <url>`). No tag has run those steps yet
+  (2026-11-27).
+- **Decisions:** ADR-0098, ADR-0099, ADR-0103, ADR-0124 and ADR-0191.
 
 ## Later
 

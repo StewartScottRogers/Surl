@@ -35,10 +35,17 @@ packages. `<version>` is the tag without its `v`:
 
 `SHA256SUMS` in such a release lists both `.nupkg` files as well as the twelve archives.
 
+From the first release after `v0.1.12`, a release is to carry a third package, and `SHA256SUMS` is
+to list it too:
+
+| NuGet package file | Holds |
+| --- | --- |
+| `Surly.Surl.Console.<version>.nupkg` | the `surl` command line as a framework-dependent .NET tool package, command `surl` |
+
 ## NuGet packages on nuget.org
 
 `Surly.Surl.Api` and `Surly.Surl.Mcp` are on nuget.org from 0.1.12: the release job pushes
-both there after it creates the GitHub release. Both need .NET 10:
+them there after it creates the GitHub release. Both need .NET 10:
 
 ```
 dotnet add package Surly.Surl.Api         # adds Surl.Api to a test project
@@ -46,15 +53,29 @@ dotnet tool install -g Surly.Surl.Mcp     # installs the surl-mcp command
 dnx Surly.Surl.Mcp                        # or runs surl-mcp without that install
 ```
 
-For `v0.1.10` and `v0.1.11`, download the `.nupkg` files from the GitHub release. The `surl`
-command line is not a .NET tool: it comes from a GitHub release's `surl` archive, or from
-[your own build](#build-it-yourself).
+For `v0.1.10` and `v0.1.11`, download the `.nupkg` files from the GitHub release.
+
+### The surl command line
+
+From the first release after `v0.1.12`, the release job is to push `Surly.Surl.Console` to
+nuget.org as well; no release has pushed it yet (2026-11-27). It needs the .NET 10 SDK:
+
+```
+dotnet tool install -g Surly.Surl.Console            # installs the surl command
+dotnet dnx Surly.Surl.Console -- <options> <url>     # or runs surl without that install
+```
+
+`surl`'s arguments go after `--`: `dnx` takes options such as `--version` and `--help` for itself.
+A script or a test harness should install the tool rather than run it through `dnx`: run from
+`cmd.exe`, `dnx` exited 0 when `surl` exited 2 (measured on Windows with the .NET 10.0.404 SDK).
+The native `surl` binary in a GitHub release's `surl` archive, or from
+[your own build](#build-it-yourself), needs no .NET.
 
 ## Installers
 
 The installers in this repository fetch the `surl` archive for the machine they run on from
 the newest release, pre-releases included, check it against the release's `SHA256SUMS`, and
-put `surl` in a directory of its own (they do not fetch `surl-mcp` or the NuGet packages):
+put `surl` in a directory of its own (they fetch neither `surl-mcp` nor any NuGet package):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.sh | sh    # Linux, macOS

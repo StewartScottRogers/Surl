@@ -1072,11 +1072,17 @@ ADR-0147):
   `surl` and `surl-mcp` (`Surl.Mcp`, ADR-0103). `Surl.Api` and `Surl.Mcp` are also packed as
   the NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` (a .NET tool of type `McpServer`).
   `release.yml` attaches the binary archives and `SHA256SUMS` to a tag's GitHub release, and
-  from `v0.1.10` (the first release after BL-1789) both `.nupkg` files. The release job also
-  pushes both packages to nuget.org (BL-1795), where they are from 0.1.12 (2026-11-27):
+  from `v0.1.10` (the first release after BL-1789) their two `.nupkg` files. The release job also
+  pushes its packages to nuget.org (BL-1795), where those two are from 0.1.12 (2026-11-27):
   `dotnet add package Surly.Surl.Api`, and `dotnet tool install -g Surly.Surl.Mcp` (or
-  `dnx Surly.Surl.Mcp`). The `surl` command line is not a .NET tool: it comes from the GitHub
-  release or a source build (see [Download](../../DOWNLOAD.md)).
+  `dnx Surly.Surl.Mcp`). `Surl.Console` is also packed, as the framework-dependent .NET tool
+  `Surly.Surl.Console` with the command `surl`
+  ([ADR-0191](../Planning/Decisions/ADR-0191-the-surl-command-line-is-published-to-nuget-org-as-the-net-tool-surly-surl-console.md)):
+  from the first release after `v0.1.12` the release is to carry its `.nupkg` file and push it to
+  nuget.org, for `dotnet tool install -g Surly.Surl.Console` (or
+  `dotnet dnx Surly.Surl.Console -- <options> <url>`); no release has pushed it yet
+  (2026-11-27). The tool needs the .NET 10 SDK; the native binary comes from the GitHub release
+  or a source build (see [Download](../../DOWNLOAD.md)).
 - **Platforms:** Windows, Linux and macOS, on x64 and Arm64.
 - **Licensing:** MIT (`LICENSE.txt`). Upstream test data copied in for `Surl.Conformance`
   keeps curl's own notice beside it.

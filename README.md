@@ -655,8 +655,19 @@ dotnet add package Surly.Surl.Api
 dotnet tool install -g Surly.Surl.Mcp    # or run it with: dnx Surly.Surl.Mcp
 ```
 
-The `surl` command line is not a .NET tool: get it from a GitHub release or build it from
-source.
+From the first release after `v0.1.12`, the `surl` command line is to be on nuget.org too, as the
+.NET tool `Surly.Surl.Console`, and that release is to hold its `.nupkg` file; no release has
+pushed it yet (2026-11-27). It needs the .NET 10 SDK:
+
+```
+dotnet tool install -g Surly.Surl.Console            # installs the surl command
+dotnet dnx Surly.Surl.Console -- <options> <url>     # or runs surl without that install
+```
+
+`surl`'s arguments go after `--`. A script or a test harness should install the tool rather than
+run it through `dnx`: run from `cmd.exe`, `dnx` exited 0 when `surl` exited 2 (measured on
+Windows with the .NET 10.0.404 SDK). The GitHub release's native `surl` binary needs no .NET, and
+you can also build `surl` from source.
 
 ## Build and test
 
