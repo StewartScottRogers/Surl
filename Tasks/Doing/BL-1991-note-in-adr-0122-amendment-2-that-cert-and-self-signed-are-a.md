@@ -46,3 +46,4 @@ Recorded text is never rewritten; the note is added in italics, dated, naming th
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
