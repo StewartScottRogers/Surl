@@ -51,7 +51,7 @@ ended.
 - When a `closed` detach or a replacement deletes the queue, every session's record of it is dropped, so a
   session that held the destroyed one cannot keep a later subscription of the same name alive.
 - No other connection can hold one: a `session-end` queue is exclusive to its connection.
-- The ADR note is filed as BL-2062, because BL-2044 (in Doing) was editing ADR-0146.
+- The ADR note is filed as BL-2073, because BL-2044 (in Doing) was editing ADR-0146.
 - No plan or conformance agent: a two-method fix in an extended server, which upstream curl cannot speak.
   `code-reviewer` found no correctness bug; its wording findings are fixed and it prompted the unshared test.
 - 2026-11-28: build 0 warnings, format clean, fast tests 30661 passed, 0 failed, 3 skipped; the library 100%

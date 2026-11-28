@@ -1,5 +1,5 @@
 ---
-id: BL-2062
+id: BL-2073
 title: Add a dated note to ADR-0146 decision 3.6 on a session-end subscription several sessions hold
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2062 — Add a dated note to ADR-0146 decision 3.6 on a session-end subscription several sessions hold
+# BL-2073 — Add a dated note to ADR-0146 decision 3.6 on a session-end subscription several sessions hold
 
 ## Goal
 
