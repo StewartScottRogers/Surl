@@ -72,7 +72,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       `database` (0 to 15), `expire_ms`, read by `RedisKeyArguments` (an empty key is
       `<property>: a key needs at least one byte`) -> `{key or key_base64, database, event_name, byte_count}` (ADR-0158 amendment 1,
       BL-1405): the key as `read_key` spells it, `event_name` the keyspace event's name (`<database>/<key>`, non-UTF-8
-      bytes as `\xHH`, cut at 256 characters); the value is never echoed. On a server with no `redis` listen URL it
+      bytes as `\xHH`, cut at 256 characters); the value is never echoed. On a server with no `redis` or `rediss` listen URL it
       (like `add_dns_zone` and `add_ldap_entries` for their stores) is `isError` with the store's refusal text.
     - `AddLdapEntriesTool` (`add_ldap_entries`): `ldif` -> `{entry_count}` (the `dn:` lines); `AddDnsZoneTool`
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2098 — Name rediss beside redis where set_key says which servers refuse it
 
@@ -35,15 +35,22 @@ Noticed while working BL-2074 (2026-11-28) and read from source the same day.
 
 ## Acceptance criteria
 
-- [ ] `SetKeyTool.Description` says that a server with no `redis` or `rediss` listen URL refuses the call.
-- [ ] A test in `Application/Surl.Mcp.UnitTests` asserts that sentence of `SetKeyTool.Description`.
-- [ ] The `SetKeyTool` entry in `Application/Surl.Mcp.UnitLibrary/CLAUDE.md` names both schemes.
-- [ ] The tests of `Application/Surl.Mcp.UnitTests` pass with `--filter "TestCategory!=Integration"`, and
+- [x] `SetKeyTool.Description` says that a server with no `redis` or `rediss` listen URL refuses the call.
+- [x] A test in `Application/Surl.Mcp.UnitTests` asserts that sentence of `SetKeyTool.Description`.
+- [x] The `SetKeyTool` entry in `Application/Surl.Mcp.UnitLibrary/CLAUDE.md` names both schemes.
+- [x] The tests of `Application/Surl.Mcp.UnitTests` pass with `--filter "TestCategory!=Integration"`, and
       `dotnet build Application/Surl.Mcp.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- The test is `Description_OfSetKey_SaysAServerWithNeitherARedisNorARedissListenUrlRefusesIt` in
+  `ToolDescriptionByteRuleTests.cs`, beside the other `set_key` description tests. It failed before the fix.
+- 2026-11-28 verification: `dotnet build -warnaserror` of the whole solution (which includes
+  `Surl.Mcp.UnitTests`) had 0 warnings, `dotnet format --verify-no-changes` exited 0, and the fast tests had
+  30811 passed, 0 failed, 3 skipped (`Surl.Mcp.UnitTests`: 543 passed).
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. set_key's description says a server with no redis or rediss listen URL refuses it

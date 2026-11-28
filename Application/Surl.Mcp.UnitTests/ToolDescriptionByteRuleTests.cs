@@ -42,4 +42,10 @@ public sealed class ToolDescriptionByteRuleTests
         StringAssert.Contains(SetKeyTool.Description, "Give the key and the value as UTF-8 text or base64, at most 16 MiB together;");
         Assert.IsFalse(SetKeyTool.Description.Contains("16 MiB each", StringComparison.Ordinal));
     }
+
+    [TestMethod]
+    public void Description_OfSetKey_SaysAServerWithNeitherARedisNorARedissListenUrlRefusesIt()
+    {
+        StringAssert.Contains(SetKeyTool.Description, "A server with no redis or rediss listen URL refuses it.");
+    }
 }

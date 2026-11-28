@@ -26,7 +26,7 @@ public static class SetKeyTool
         + "Answers the key as read_key and list_keys spell it (key, or key_base64 for a key that is not UTF-8 or that "
         + "holds a control character other than tab, CR and LF), the database, "
         + "event_name (<database>/<key>, the name a wait_for_event on the store watches) and byte_count. "
-        + "A server with no redis listen URL refuses it.";
+        + "A server with no redis or rediss listen URL refuses it.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
