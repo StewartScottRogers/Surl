@@ -752,7 +752,7 @@ queue restored over it, though its `sub` on that subscription's filters was neve
   resumes or replaces the queue (Amendment 4, item 4).
 - A queue exclusive to a connection that the restore reuses keeps that owner and its flags, whatever the
   snapshot holds: its consumers end as above, but it stays locked to its owner and goes, with the
-  restored messages, when the owner does. BL-2083 is to change that.
+  restored messages, when the owner does. BL-2095 is to change that.
 - The bus tells nobody, and no server tells its client: unlike an AMQP 0-9-1 `queue.delete`, which the
   broker announces with `basic.cancel` (ADR-0112 decision 5), a restore sends none.
 - A restore that leaves the description as it was keeps the queue's consumers, which are handed the

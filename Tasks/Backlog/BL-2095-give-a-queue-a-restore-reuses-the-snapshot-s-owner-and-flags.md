@@ -1,5 +1,5 @@
 ---
-id: BL-2083
+id: BL-2095
 title: Give a queue a restore reuses the snapshot's owner and flags
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2083 — Give a queue a restore reuses the snapshot's owner and flags
+# BL-2095 — Give a queue a restore reuses the snapshot's owner and flags
 
 ## Goal
 

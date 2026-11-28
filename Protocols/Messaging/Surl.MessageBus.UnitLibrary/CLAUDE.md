@@ -160,7 +160,7 @@ What it holds now (BL-629):
   no consumer. A restore that leaves the description as it was keeps them, and `Reset` changes no
   description. A restore that changes only the bindings keeps them too. A restore reusing a queue
   exclusive to a connection keeps that owner and the queue's flags, so the restored queue stays
-  locked to the owner and goes with it (BL-2083).
+  locked to the owner and goes with it (BL-2095).
 - **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
   opaque text naming the client that publishes through the connection, `null` unless a server sets it
   (starting with its scheme family and `:`, so protocols never match each other's).

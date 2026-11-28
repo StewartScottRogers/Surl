@@ -47,7 +47,7 @@ makes it a subscription queue.
   host's restore reaches this, so no option, exit code or byte upstream curl exchanges changes.
 - Review: fixed the false "no client is told, as when a queue is deleted" (AMQP 0-9-1 sends `basic.cancel` on its
   own delete) and the auto-delete comments. The older reuse of an exclusive queue's owner and flags is named as a
-  limit and filed as BL-2083; the Amqp1 library comments, outside `touches`, as BL-2084.
+  limit and filed as BL-2095; the Amqp1 library comments, outside `touches`, as BL-2096.
 - Final run: build 0 warnings, format clean, fast tests green in 83 assemblies (30732 passed), bus library 100%
   line and branch, 0 failing members.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-2084
+id: BL-2096
 title: Say that a restore can leave a non-durable shared subscription queue after its last link
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2084 — Say that a restore can leave a non-durable shared subscription queue after its last link
+# BL-2096 — Say that a restore can leave a non-durable shared subscription queue after its last link
 
 ## Goal
 
