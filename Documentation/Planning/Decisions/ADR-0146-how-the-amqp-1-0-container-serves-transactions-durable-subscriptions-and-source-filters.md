@@ -267,6 +267,17 @@ but its flags and bindings.
    `durable` `none`. The container answers the policy it applied, `durable` `configuration` for the
    first two and `none` for `link-detach`, and `timeout` 0: it removes the terminus at the event
    itself.
+
+   *Amended 2026-11-28 (BL-2073), recording what BL-2043 decided. Decided by Claude under
+   Stewart's delegation:* for `session-end`, "that event" is the end of the **last** session of the
+   connection that consumed the subscription. It is deleted then, shared or not, whether or not a
+   link of that session still consumes it. Several sessions can hold one: a shared one, or one
+   resumed in another session after a detach. An earlier session's end leaves it, because deleting
+   it then would take the queue from a session that still holds it, even while a link of that session
+   consumes it. One rule for shared and unshared subscriptions is the simplest. Once a `closed`
+   detach (decisions 3.4 and 3.5) or a replacement (decision 3.3) deletes the queue, no session holds
+   that subscription, so a session that held it cannot keep alive a later one made under the same
+   name.
 7. **Who may.** A durable or shared subscription needs the `Subscribe` right on its topic filter
    under `--topic-access` (ADR-0102 decision 3.4), judged at every attach, resumed ones included;
    refused, the attach gets `amqp:unauthorized-access` as ADR-0107 decision 4 says.
