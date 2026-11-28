@@ -76,8 +76,8 @@ Behaviour defects found and not fixed here (comments were not changed to bless t
   `CreateMailbox` on such a view succeeds into an owner the store no longer holds. The `Reset` summary ("removes none
   at `QUIT`") states the intended behaviour.
 
-Filed on 2026-11-28: BL-2117 (alias targets), BL-2118 (dropped owners), BL-2119 (ADR-0185 decision 2 and the
-glossary's "owner" and "view" entries, outside this task's `touches`), and BL-2120 (a loopback connector test that
+Filed on 2026-11-28: BL-2121 (alias targets), BL-2122 (dropped owners), BL-2123 (ADR-0185 decision 2 and the
+glossary's "owner" and "view" entries, outside this task's `touches`), and BL-2124 (a loopback connector test that
 failed once in a fast run).
 
 Verify on 2026-11-28: build with `-warnaserror` 0 warnings, format check clean, fast tests 30858 passed, 0 failed,

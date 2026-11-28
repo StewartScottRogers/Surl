@@ -1,5 +1,5 @@
 ---
-id: BL-2119
+id: BL-2123
 title: Correct ADR-0185 and the glossary on what a retired account still reaches
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2119 — Correct ADR-0185 and the glossary on what a retired account still reaches
+# BL-2123 — Correct ADR-0185 and the glossary on what a retired account still reaches
 
 ## Goal
 

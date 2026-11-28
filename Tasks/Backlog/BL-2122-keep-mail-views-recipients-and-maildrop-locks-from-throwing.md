@@ -1,5 +1,5 @@
 ---
-id: BL-2118
+id: BL-2122
 title: Keep mail views, recipients and maildrop locks from throwing after Reset drops their owner
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2118 — Keep mail views, recipients and maildrop locks from throwing after Reset drops their owner
+# BL-2122 — Keep mail views, recipients and maildrop locks from throwing after Reset drops their owner
 
 ## Goal
 

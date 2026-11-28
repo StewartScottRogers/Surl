@@ -1,5 +1,5 @@
 ---
-id: BL-2120
+id: BL-2124
 title: Make the closed-port origin connector test pass reliably
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2120 — Make the closed-port origin connector test pass reliably
+# BL-2124 — Make the closed-port origin connector test pass reliably
 
 ## Goal
 

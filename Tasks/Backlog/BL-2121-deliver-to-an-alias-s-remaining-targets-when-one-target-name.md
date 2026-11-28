@@ -1,5 +1,5 @@
 ---
-id: BL-2117
+id: BL-2121
 title: Deliver to an alias's remaining targets when one target names no owner
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2117 — Deliver to an alias's remaining targets when one target names no owner
+# BL-2121 — Deliver to an alias's remaining targets when one target names no owner
 
 ## Goal
 
