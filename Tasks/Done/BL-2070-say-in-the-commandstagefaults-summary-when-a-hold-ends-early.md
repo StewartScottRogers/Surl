@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary/CommandStageFaults.cs]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2070 — Say in the CommandStageFaults summary when a hold ends early and who ends a dropped exchange
 
@@ -35,14 +35,19 @@ It adds no store, event or fault, so the stand-in questions do not apply.
 
 ## Acceptance criteria
 
-- [ ] The class summary says the overloads that take an `IConnection` end a `delay` hold early when the client closes or resets the connection.
-- [ ] The class summary says those overloads abort the connection on a `drop` rule, and that the overload without one hands the rule back for the caller to end the exchange.
-- [ ] The diff to `CommandStageFaults.cs` changes comment lines only.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] The class summary says the overloads that take an `IConnection` end a `delay` hold early when the client closes or resets the connection.
+- [x] The class summary says those overloads abort the connection on a `drop` rule, and that the overload without one hands the rule back for the caller to end the exchange.
+- [x] The diff to `CommandStageFaults.cs` changes comment lines only.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- Edited the comment in the session instead of delegating to align-and-document: one summary in one file.
+- The summary ties the early end to what the connection reports: IConnection.WatchForPeerCloseAsync may answer NotWatched or BufferFull, and then the hold lasts the whole delay. It also says cancelling the exchange ends a hold in every overload.
+- Verified 2026-11-28: build 0 warnings, format clean, fast tests 30721 passed, 0 failed, 3 skipped.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The CommandStageFaults summary says when a delay hold ends early and who ends a dropped exchange

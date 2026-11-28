@@ -6,10 +6,17 @@ namespace Surl.Protocol.Abstractions;
 /// Asks an exchange's fault plan at a command (ADR-0124, decision 4; ADR-0141) and applies the two
 /// kinds every server applies the same way: a <see cref="FaultKind.Delay"/> rule holds the command's
 /// answer for the rule's <c>ms</c> on the exchange's <see cref="ExchangeContext.TimeProvider"/> with
-/// its <see cref="ExchangeContext.IdleClock"/> paused, and a <see cref="FaultKind.Drop"/> rule aborts
-/// the connection in place of the answer. Each publishes one <see cref="FaultAppliedEvent"/>. Any
-/// other kind - a chosen <see cref="FaultKind.Error"/> - is handed back for the server to answer in
-/// its own shape.
+/// its <see cref="ExchangeContext.IdleClock"/> paused, and a <see cref="FaultKind.Drop"/> rule takes
+/// the place of the answer. Each publishes one <see cref="FaultAppliedEvent"/>. Any other kind - a
+/// chosen <see cref="FaultKind.Error"/> - is handed back for the server to answer in its own shape.
+/// <para>
+/// The overloads that take an <see cref="IConnection"/> watch it during a hold and end the hold early
+/// when it reports that the client closed or reset the connection (otherwise the hold lasts the whole
+/// delay), and they abort it on a drop. The overload without one,
+/// <see cref="FindAndApplyAsync(ExchangeContext, FaultPoint, string)"/>, watches no connection, so its
+/// hold lasts the whole delay, and it hands a drop rule back for the caller to end the exchange.
+/// Cancelling the exchange ends a hold in every overload.
+/// </para>
 /// </summary>
 public static class CommandStageFaults
 {
