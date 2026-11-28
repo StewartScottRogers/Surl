@@ -1,5 +1,5 @@
 ---
-id: BL-2061
+id: BL-2067
 title: Add a dated note to ADR-0050 decision 7 on how the mail store serialises index writes and reports failed saves
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2061 — Add a dated note to ADR-0050 decision 7 on how the mail store serialises index writes and reports failed saves
+# BL-2067 — Add a dated note to ADR-0050 decision 7 on how the mail store serialises index writes and reports failed saves
 
 ## Goal
 
@@ -58,7 +58,7 @@ Stand-in: nothing to add; a documentation note, with no store, event, seed, rese
 
 ## Acceptance criteria
 
-- [ ] ADR-0050 has a note in or directly after decision 7, dated the day it is written and naming BL-2061, with a pointer to it from the "Writes are serialised inside the store's lock" statement and from the "A write that fails while serving" list.
+- [ ] ADR-0050 has a note in or directly after decision 7, dated the day it is written and naming BL-2067, with a pointer to it from the "Writes are serialised inside the store's lock" statement and from the "A write that fails while serving" list.
 - [ ] The note says index writes are serialised by a semaphore of their own, apart from the store's lock, which is held only to take the index's bytes and released file numbers and to record the save, not while files are written or deleted.
 - [ ] The note says a failed index write makes `SaveChangesAsync` throw the file system's exception, leaves the change in memory and the released files queued, and that the next save writes the index.
 - [ ] The note says a failed message file delete makes `SaveChangesAsync` throw an `IOException` with the first failure's message, after the index is written and every released file is tried, and that the file is never retried and is ignored at the next load.

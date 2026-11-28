@@ -1,5 +1,5 @@
 ---
-id: BL-2060
+id: BL-2066
 title: Decide what the SMTP server's Message stored note counts, against ADR-0053 decision 8
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2060 — Decide what the SMTP server's Message stored note counts, against ADR-0053 decision 8
+# BL-2066 — Decide what the SMTP server's Message stored note counts, against ADR-0053 decision 8
 
 ## Goal
 
@@ -59,7 +59,7 @@ or fault, since each delivery's `StoreChangedEvent` already tells a test which o
 
 ## Acceptance criteria
 
-- [ ] ADR-0053 has a new dated amendment, marked "Decided by Claude under Stewart's delegation" and naming BL-2060, listed in the ADR's header and pointed to from decision 8's "A message stored" row.
+- [ ] ADR-0053 has a new dated amendment, marked "Decided by Claude under Stewart's delegation" and naming BL-2066, listed in the ADR's header and pointed to from decision 8's "A message stored" row.
 - [ ] The amendment states what `<k>` counts, giving its value for each row of the table in Context and for one account named by two accepted `RCPT`s.
 - [ ] The amendment states whether a note is written when every recipient is discarded and, if one is, its exact text.
 - [ ] Every sentence in the amendment and the marked row about what the server does today is true of `SmtpSession.DeliverAsync`; wherever the decision differs from the code, it is written as intent and names the task that will change the code.

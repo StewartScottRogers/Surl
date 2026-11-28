@@ -38,7 +38,7 @@ after the delivery writes the file". `SmtpSession.ReceiveMessageAsync`
   directory both are held in memory.
 - Checked against `SmtpSession.ReceiveMessageAsync` and `DeliverAsync`, `ImapSession.Changes.cs`, `PendingMessage.cs`,
   `MailStoreFiles.cs` and `MailboxStore.cs`. `dotnet build` 0 warnings; fast tests all passed.
-- Follow-ups filed: BL-2060 (SMTP "Message stored" note against ADR-0053), BL-2061 (ADR-0050 decision 7 against the
+- Follow-ups filed: BL-2066 (SMTP "Message stored" note against ADR-0053), BL-2067 (ADR-0050 decision 7 against the
   code on index writes and failed saves).
 
 ## Log
