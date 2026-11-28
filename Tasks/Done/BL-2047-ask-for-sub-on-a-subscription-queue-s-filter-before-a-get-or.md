@@ -44,8 +44,8 @@ An account without the `sub` right on a subscription queue's topic filter cannot
 - The change is small, so the lane planned, tested and implemented it itself; `code-reviewer` reviewed it. No
   conformance run: upstream curl speaks none of these schemes.
 - The review's one must-fix (the `MessageBusOutcome.AccessDenied` comment) and its two missing test cases are done.
-  Filed BL-2049 (a restore can hand a described queue's messages to a consumer added before it was described) and
-  BL-2050 (`--aihelp` text for `--topic-access`).
+  Filed BL-2051 (a restore can hand a described queue's messages to a consumer added before it was described) and
+  BL-2052 (`--aihelp` text for `--topic-access`).
 - Gates: build 0 warnings; fast tests 30564 passed, 0 failed, 3 skipped (656 in `Surl.MessageBus.UnitTests`);
   `Surl.MessageBus.UnitLibrary` 100% line, 100% branch, 0 failing members.
 

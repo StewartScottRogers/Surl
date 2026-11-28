@@ -131,7 +131,7 @@ What it holds now (BL-629):
   `TooManySubscriptions`, under the lock the message is taken or the consumer added under. A refused
   call takes nothing and adds no consumer. They are judged when the call is made: a consumer already
   added keeps receiving whatever is bound later, and one added while the queue had no description is
-  also handed what a restore that describes the queue puts in it (BL-2049). A queue with no
+  also handed what a restore that describes the queue puts in it (BL-2051). A queue with no
   description asks only for the `$queue` grant.
 - **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
   opaque text naming the client that publishes through the connection, `null` unless a server sets it

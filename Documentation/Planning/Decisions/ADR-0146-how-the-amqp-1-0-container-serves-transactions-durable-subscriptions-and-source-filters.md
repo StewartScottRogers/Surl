@@ -540,7 +540,7 @@ and none on a subscription's filter could so take its messages: AMQP 0-9-1 `basi
   binding swap Amendment 2 names also opens a get and a consume; keeping other clients' bindings off a
   described queue stays BL-2011.
 - A consumer added to a queue with no description also stays when a test host's restore gives that queue
-  a description, and is handed the restored messages; closing that is BL-2049.
+  a description, and is handed the restored messages; closing that is BL-2051.
 
 ### Alternatives considered (Amendment 5)
 

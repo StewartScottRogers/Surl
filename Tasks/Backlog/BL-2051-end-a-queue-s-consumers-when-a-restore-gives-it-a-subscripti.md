@@ -1,5 +1,5 @@
 ---
-id: BL-2049
+id: BL-2051
 title: End a queue's consumers when a restore gives it a subscription description
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2049 — End a queue's consumers when a restore gives it a subscription description
+# BL-2051 — End a queue's consumers when a restore gives it a subscription description
 
 ## Goal
 

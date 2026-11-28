@@ -1,5 +1,5 @@
 ---
-id: BL-2050
+id: BL-2052
 title: Say in the --topic-access AI help that a subscription queue also needs sub on its filters
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2050 — Say in the --topic-access AI help that a subscription queue also needs sub on its filters
+# BL-2052 — Say in the --topic-access AI help that a subscription queue also needs sub on its filters
 
 ## Goal
 
