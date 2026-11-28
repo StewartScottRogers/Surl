@@ -3,9 +3,10 @@ using Surl.McpServing;
 namespace Surl.Mcp;
 
 /// <summary>
-/// The <c>reset_server</c> tool (ADR-0124 decisions 3 and 8): returns a running server's content store, mail store,
-/// message bus and accounts to their state at start, through <c>Surl.Api</c>'s <c>SurlServer.ResetAsync</c>. Result
-/// <c>{"server_id"}</c>; a store that refuses, such as one on disk, is an <c>isError</c> result naming it.
+/// The <c>reset_server</c> tool (ADR-0124 decisions 3 and 8): returns a running server's stores, the content store,
+/// mail store, message bus, accounts, Redis keyspace, LDAP directory and DNS zones among them, to their state at start,
+/// <c>start_server</c>'s seeds included (ADR-0158 decision 4), through <c>Surl.Api</c>'s <c>SurlServer.ResetAsync</c>.
+/// Result <c>{"server_id"}</c>; a store that refuses, such as one on disk, is an <c>isError</c> result naming it.
 /// </summary>
 public static class ResetServerTool
 {
@@ -14,7 +15,8 @@ public static class ResetServerTool
 
     /// <summary>The tool's description.</summary>
     internal const string Description =
-        "Return a running Surl server's files, mail, messages and accounts to their state at start. Open connections "
+        "Return a running Surl server's files, mail, messages, accounts, Redis keys, LDAP directory and DNS zones to "
+        + "their state at start, what `start_server` seeded included. Open connections "
         + "stay and see the new contents on their next command. A store on disk refuses.";
 
     /// <summary>The tool's input schema.</summary>

@@ -213,6 +213,29 @@ public sealed class ProgramTests
     }
 
     [TestMethod]
+    [DataRow("""{"redis_keys":[{"key":"k","value":"v"},{"key":"k","value":"s3cret","ttl":1}]}""", "arguments.redis_keys[1].ttl: not allowed")]
+    [DataRow("""{"redis_keys":[{"key":"k","value":"s3cret","database":16}]}""", "arguments.redis_keys[0].database: expected at most 15")]
+    [DataRow("""{"redis_keys":[{"key":"k","value":"s3cret","expire_ms":0}]}""", "arguments.redis_keys[0].expire_ms: expected at least 1")]
+    [DataRow("""{"dns_zones":[{"apex":"example.com","zone_text":"s3cret","ttl":1}]}""", "arguments.dns_zones[0].ttl: not allowed")]
+    [DataRow("""{"dns_zones":[{"zone_text":"s3cret"}]}""", "arguments.dns_zones[0].apex: required")]
+    public async Task RunAsync_StartServerWithASeedItemItsSchemaRefuses_NamesTheItemAndNeverItsValue(string seed, string expected)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var response = await host.CallForResponseAsync(
+            """{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"start_server","arguments":{"listen_urls":["redis://127.0.0.1:0"],"""
+            + seed[1..] + "}}");
+
+        var error = response.GetProperty("error");
+        Assert.AreEqual(-32602, error.GetProperty("code").GetInt32());
+        StringAssert.Contains(error.GetProperty("message").GetString(), expected);
+        Assert.IsFalse(response.GetRawText().Contains("s3cret", StringComparison.Ordinal));
+        var listed = await host.CallAsync("""{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_servers"}}""");
+        Assert.AreEqual(0, listed.GetProperty("structuredContent").GetProperty("servers").GetArrayLength());
+    }
+
+    [TestMethod]
     public async Task RunAsync_ResourcesList_ListsTheOverviewEveryAiHelpTopicAndAllInOrder()
     {
         await using var host = new ProgramTestHost(TestContext.CancellationToken);
