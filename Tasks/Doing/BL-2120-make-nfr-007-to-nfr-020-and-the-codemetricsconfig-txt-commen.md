@@ -31,3 +31,4 @@ Found while working BL-2119 (2026-11-28). NFR-007 in `Documentation/Product/Requ
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
