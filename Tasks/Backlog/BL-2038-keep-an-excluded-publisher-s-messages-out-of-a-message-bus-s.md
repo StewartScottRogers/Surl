@@ -15,14 +15,14 @@ completed:
 ## Goal
 
 `Surl.MessageBus` offers `BusConnection.PublisherName` and an `excludedPublisherName` parameter on
-`BusConnection.DeclareQueue` (ADR-0146 Amendment 2), so a topic publish through a connection of that name is
+`BusConnection.DeclareQueue` (ADR-0146 Amendment 3), so a topic publish through a connection of that name is
 never copied into the subscription queue.
 
 ## Context
 
 - Found while working BL-1990 (2026-11-27): a live subscription takes `noLocal`
   (`BusConnection.Subscribe`; `BusSubscription.KeepsFrom`), a queue has no equivalent.
-- Read ADR-0146 Amendment 2 (BL-2037) first: items 2 to 6 say whose publishes are withheld, that the bus
+- Read ADR-0146 Amendment 3 (BL-2037) first: items 2 to 6 say whose publishes are withheld, that the bus
   withholds at copy-in, the two additions, the redeclare rule, and the `SURL-BUS-QUEUES-3` index written only
   when a persisted queue excludes a publisher. Do exactly that.
 - Start at `MessageBus.Accept` and `CopyIntoBoundQueues` (`MessageBus.cs`, `MessageBus.Queues.cs`), the batch

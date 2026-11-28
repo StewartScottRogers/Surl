@@ -16,14 +16,14 @@ completed:
 
 An unshared kept AMQP 1.0 subscriber (`never`, `session-end` or `connection-close`) that is echoed the no-local
 filter does not receive what AMQP 1.0 connections with its `container-id` publish, and a shared subscription is
-not echoed the filter (ADR-0146 Amendment 2, BL-2037).
+not echoed the filter (ADR-0146 Amendment 3, BL-2037).
 
 ## Context
 
 - Found while working BL-1990 (2026-11-27) by reading the code; prove it with a failing test first.
 - The entry is echoed (`Amqp1SourceFilters.NoLocalPredicate`, `Amqp1Terminus.Source`) but
   `Amqp1ContainerConnection.Subscriptions.cs`, `MakeQueueAndConsume`, never passes it to the bus, against
-  ADR-0146 decision 2.1. Follow ADR-0146 Amendment 2: set `BusConnection.PublisherName` to `amqp1:` and the
+  ADR-0146 decision 2.1. Follow ADR-0146 Amendment 3: set `BusConnection.PublisherName` to `amqp1:` and the
   `container-id` once the client's `open` is read, pass the same text as `excludedPublisherName` when declaring
   an unshared kept subscription with no-local (both added by BL-2038), and leave no-local out of a shared
   subscription's applied filters, echo and description.
