@@ -46,6 +46,15 @@ internal sealed class LdapDistinguishedName
     }
 
     /// <summary>
+    /// Tells, without parsing a DN, whether <paramref name="text"/> is the root DSE's: it is empty
+    /// or only spaces, which are exactly the texts <see cref="TryParse"/> reads as the empty DN
+    /// (<see cref="IsRoot"/>), the parser dropping the spaces.
+    /// </summary>
+    /// <param name="text">The DN as written.</param>
+    /// <returns><see langword="true"/> when it names the root DSE.</returns>
+    public static bool NamesTheRootDse(string text) => !text.AsSpan().ContainsAnyExcept(' ');
+
+    /// <summary>
     /// The normal forms of this DN's superiors, nearest first: the parent's, its parent's, and so
     /// on up to a one-RDN DN.
     /// </summary>

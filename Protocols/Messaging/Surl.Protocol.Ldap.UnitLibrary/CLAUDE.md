@@ -23,8 +23,9 @@ Beside it is the directory (BL-306, ADR-0072 decision 1), internal too: `LdapDir
 holds `LdapEntry`s in their source's order, enforces the bounds (refusing a list it cannot
 hold with an `LdapDirectoryException` naming the `LdapDirectoryFault` and the entry), and
 answers an `LdapSearchRequest` with an `LdapSearchOutcome` - base, one-level and subtree
-scopes, the root DSE for the empty base (`LdapRootDseFacts` carry the per-connection
-part), `noSuchObject` with the nearest superior, the size and time limits.
+scopes, the root DSE for the empty DN - an empty base or one of only spaces,
+`LdapDistinguishedName.NamesTheRootDse`, which `LdapSession` also asks so that such a search
+needs no bind (`LdapRootDseFacts` carry the per-connection part), `noSuchObject` with the nearest superior, the size and time limits.
 `LdapDistinguishedName` parses RFC 4514 DNs (`LdapDistinguishedNameParser`) and compares
 them in normal form; `LdapMatchingRules` picks and applies each type's RFC 4517 rule;
 `LdapFilterEvaluator` evaluates filters three-valued; `LdapAttributeSelection` picks the

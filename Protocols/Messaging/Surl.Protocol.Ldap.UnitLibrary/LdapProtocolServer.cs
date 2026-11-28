@@ -58,8 +58,8 @@ namespace Surl.Protocol.Ldap;
 /// registered for it through the engine's implicit TLS.
 /// </para>
 /// <para>
-/// <b>Operations.</b> A search other than the root DSE's needs a bound connection, or
-/// <c>--allow-anonymous</c>; otherwise it is answered <c>insufficientAccessRights</c> (50),
+/// <b>Operations.</b> A search other than the root DSE's - whose base is empty or only spaces,
+/// both being the empty DN - needs a bound connection, or <c>--allow-anonymous</c>; otherwise it is answered <c>insufficientAccessRights</c> (50),
 /// <c>bind first</c>, whether or not its base exists. Compare follows the same rule. Add,
 /// delete, modify and modify DN are <c>unwillingToPerform</c>, bound or not; an extended
 /// operation other than <c>StartTLS</c> is <c>protocolError</c> with no name; abandon has no

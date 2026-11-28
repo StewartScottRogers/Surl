@@ -6,7 +6,8 @@ namespace Surl.Protocol.Ldap;
 /// <summary>
 /// The directory the LDAP server serves (ADR-0072 decision 1): entries in their source's order,
 /// replaced whole when seeded, reset or restored (so a search sees the old set or the new one), bounded, and searched with base,
-/// one-level and subtree scopes. A search of the empty DN answers the root DSE.
+/// one-level and subtree scopes. A search of the empty DN - an empty base, or one of only spaces -
+/// answers the root DSE.
 /// </summary>
 internal sealed class LdapDirectory
 {
@@ -171,7 +172,7 @@ internal sealed class LdapDirectory
 
     /// <summary>
     /// Answers a search: <c>invalidDNSyntax</c> for a base that is not a DN, the root DSE for the
-    /// empty base, <c>noSuchObject</c> with the nearest existing superior as matched DN for a base
+    /// empty DN (an empty base, or one of only spaces), <c>noSuchObject</c> with the nearest existing superior as matched DN for a base
     /// the directory lacks, and otherwise the matching entries up to the size limit, in directory
     /// order, then <c>success</c>, <c>sizeLimitExceeded</c> or <c>timeLimitExceeded</c>.
     /// </summary>

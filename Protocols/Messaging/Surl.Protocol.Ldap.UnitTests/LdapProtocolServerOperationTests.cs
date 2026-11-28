@@ -105,6 +105,46 @@ public sealed class LdapProtocolServerOperationTests
     }
 
     [TestMethod]
+    [DataRow(" ", DisplayName = "One space")]
+    [DataRow("   ", DisplayName = "Three spaces")]
+    public async Task ServeAsync_SearchOfABaseOfOnlySpaces_AnswersTheRootDseUnboundAndBound(string baseObject)
+    {
+        var policy = new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+        var sasl = new UnitTestSaslAuthenticationPolicy(offer: _ => ["NTLM"]);
+        var search = Search(Present("objectClass"), baseObject, scope: 0, attributes: "+");
+        var connection = new InMemoryConnection([Message(1, search), Message(2, SimpleBind(3, "alice", "secret")), Message(3, search)]);
+
+        await Server(policy, sasl, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(TestContext.CancellationToken));
+
+        const string RootDse = "searchResultEntry : namingContexts=dc=example,dc=com,o=other; supportedLDAPVersion=3; supportedSASLMechanisms=NTLM; supportedExtension=1.3.6.1.4.1.1466.20037";
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                $"#1 {RootDse}",
+                "#1 searchResultDone success",
+                "#2 bindResponse success",
+                $"#3 {RootDse}",
+                "#3 searchResultDone success",
+            },
+            LdapResponseTranscript.Of(connection.WrittenBytes).ToArray());
+        Assert.AreEqual("alice", policy.Logins.Single().UserName, "Only the bind is put to the policy: neither search needs it.");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CurlsSearchOfThePathPercent20_AnswersTheRootDseWithNoBind()
+    {
+        // Recorded from the pinned Windows curl 8.21.0 for ldap://127.0.0.1:<port>/%20: messageID 2,
+        // base " ", scope base, (ObjectClass=*), no attributes named.
+        var search = Hex("30840000002E0201026384000000250401200A01000A0100020100020100010100870B4F626A656374436C617373308400000000");
+
+        var connection = await RunAsync(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), TestContext.CancellationToken, null, search);
+
+        CollectionAssert.AreEqual(
+            new[] { "#2 searchResultEntry : objectClass=top", "#2 searchResultDone success" },
+            LdapResponseTranscript.Of(connection.WrittenBytes).ToArray());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_Unbind_ClosesWithNothingSentAndReadsNoFurther()
     {
         var connection = await RunAsync(

@@ -267,7 +267,7 @@ internal sealed partial class LdapSession
 
     private async ValueTask AnswerSearchAsync(int messageId, LdapSearchRequest search)
     {
-        var outcome = search.BaseObject.Length == 0 ? await SearchUnlessAFaultAnswersAsync(search, RootDseFacts())
+        var outcome = LdapDistinguishedName.NamesTheRootDse(search.BaseObject) ? await SearchUnlessAFaultAnswersAsync(search, RootDseFacts())
             : await MayReadAsync() ? await SearchUnlessAFaultAnswersAsync(search, UnusedRootDseFacts)
             : new LdapSearchOutcome([], BindFirst());
         if (outcome is null)

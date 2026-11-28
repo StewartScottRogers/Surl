@@ -28,7 +28,9 @@
   search and why the `ou=many` entries carry `objectClass`. Amendment 2 by BL-1295 (2026-11-16),
   recording fifteen choices the building tasks made where this ADR was silent. Decision 1's
   "read-only while serving" and "it never changes once loaded" by BL-1987 (2026-11-27): ADR-0158
-  lets the host change the loaded directory.
+  lets the host change the loaded directory. Decisions 1 and 2's "base search of `""`" and "the
+  root DSE's" by [Amendment 3](#amendment-3---a-base-of-only-spaces-is-the-root-dses-bl-2089-2026-11-28)
+  (BL-2089, 2026-11-28): a base of only spaces is the root DSE's too.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -828,3 +830,35 @@ BL-327: already in ADR-0072 (Amendment 1). BL-342: already in ADR-0078. BL-349: 
 already in ADR-0139. BL-847: item 12. BL-908: no choice for LDAP (shared `ReportedListenUrl`).
 BL-920: already in ADR-0141. BL-1162: no choice (its notes are empty; the design is ADR-0158).
 BL-1163: already in ADR-0158 decision 6. BL-1219: item 15.
+
+## Amendment 3 - A base of only spaces is the root DSE's (BL-2089, 2026-11-28)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+**Measured**, 2026-11-28, with decision 10's pinned Windows build through
+`Record-CurlExchange.ps1 -Ldap`: `curl -sS -u alice:secret ldap://127.0.0.1:<p>/%20` binds, then
+sends a `searchRequest` whose base is one space, scope base, filter `(ObjectClass=*)`:
+`30840000002E0201026384000000250401200A01000A0100020100020100010100870B4F626A656374436C617373308400000000`.
+`%20%20%20?*?base` sends a base of three spaces. `WinLDAP` does not trim either.
+
+**The gap.** The directory parses such a base to the empty DN (the parser drops spaces around a
+DN's parts) and answered it as the root DSE, while the session took only `""` for the root DSE's:
+it asked for a bind and gave the directory no connection facts, so the root DSE answered had no
+`supportedSASLMechanisms` and no `supportedExtension`.
+
+**Decision.** A base that is empty or only spaces is the root DSE's, for the session as for the
+directory (`LdapDistinguishedName.NamesTheRootDse`): wherever decisions 1 and 2 say a base search
+of `""`, or the root DSE's search, such a base is included. It needs no bind and is answered with
+this connection's root DSE; with scope `one` or `sub` it finds no entries. Only the space counts:
+a tab or any other character is not dropped. The search note and a fault rule's path keep the base
+as the client sent it. The session asks the question without parsing the DN, so an unbound peer's
+other bases are still not parsed before the bind check.
+
+**Why.** Decision 1 compares DNs in their normal form, and these have the empty DN's. The root DSE
+holds nothing an unbound peer cannot already read with `""`, so nothing is widened. Refusing the
+base as `invalidDNSyntax` instead would need the parser to reject the spaces it accepts around
+every other DN's parts, for this one DN alone.
+
+Pinned by `ServeAsync_SearchOfABaseOfOnlySpaces_AnswersTheRootDseUnboundAndBound`,
+`ServeAsync_CurlsSearchOfThePathPercent20_AnswersTheRootDseWithNoBind` and
+`NamesTheRootDse_IsTrueExactlyForTheTextsThatParseToTheEmptyDn`.
