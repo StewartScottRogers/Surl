@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2066 — Decide what the SMTP server's Message stored note counts, against ADR-0053 decision 8
 
@@ -59,16 +59,34 @@ or fault, since each delivery's `StoreChangedEvent` already tells a test which o
 
 ## Acceptance criteria
 
-- [ ] ADR-0053 has a new dated amendment, marked "Decided by Claude under Stewart's delegation" and naming BL-2066, listed in the ADR's header and pointed to from decision 8's "A message stored" row.
-- [ ] The amendment states what `<k>` counts, giving its value for each row of the table in Context and for one account named by two accepted `RCPT`s.
-- [ ] The amendment states whether a note is written when every recipient is discarded and, if one is, its exact text.
-- [ ] Every sentence in the amendment and the marked row about what the server does today is true of `SmtpSession.DeliverAsync`; wherever the decision differs from the code, it is written as intent and names the task that will change the code.
-- [ ] If the decision differs from the code, a `Backlog` task filed with `task-board.ps1 new` touches only `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary` and its `.UnitTests` project, and names each test whose expected note changes; if it does not differ, this task's Notes say no code task is needed.
-- [ ] This task changes no file under `Protocols/`.
+- [x] ADR-0053 has a new dated amendment, marked "Decided by Claude under Stewart's delegation" and naming BL-2066, listed in the ADR's header and pointed to from decision 8's "A message stored" row.
+- [x] The amendment states what `<k>` counts, giving its value for each row of the table in Context and for one account named by two accepted `RCPT`s.
+- [x] The amendment states whether a note is written when every recipient is discarded and, if one is, its exact text.
+- [x] Every sentence in the amendment and the marked row about what the server does today is true of `SmtpSession.DeliverAsync`; wherever the decision differs from the code, it is written as intent and names the task that will change the code.
+- [x] If the decision differs from the code, a `Backlog` task filed with `task-board.ps1 new` touches only `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary` and its `.UnitTests` project, and names each test whose expected note changes; if it does not differ, this task's Notes say no code task is needed.
+- [x] This task changes no file under `Protocols/`.
 
 ## Notes
+
+- Decision (ADR-0053 Amendment 3, 2026-11-28): `<k>` is to be the copies the delivery stored (one per named owner
+  reached; under `--allow-anonymous` one per accepted `RCPT`), and no `Message stored` note is to be written when
+  that is 0. The text and `<n>` stay. The code differs, so BL-2077 changes it.
+- Why: the decided count equals the new mailbox messages and the delivery events a test can check. Today's count of
+  `Deliverable` entries need equal neither (`team@` gives 1 for two copies). Decision 8's "owners it reached" would
+  say 1 for two copies in the anonymous `INBOX`. "Message stored" with nothing stored is untrue, and the discard
+  notes already cover every recipient in that case.
+- The amendment replaces BL-1995's "N still counting `Deliverable` elements" line; BL-1995's file was not edited.
+- Learned: `SmtpSession.DeliverAsync`'s `owners` parameter (`DeliverablePerOwner()`) already has one element per
+  copy stored, with `--mail-delivered-to` or without. `<n>` is the longest pending message's length. The discard
+  and stored notes are written only after the store answers `Succeeded`.
+- The ADR header listed no earlier amendment, so an "Amended by" bullet now lists Amendments 1, 2 and 3.
+- Searched the tracked files outside `Tasks/` for the note: besides ADR-0053, only `SmtpSession.cs` writes it and
+  only `SmtpDeliveryTests.cs` (two tests) and `SmtpMailDomainTests.cs` (one) pin it. No help text or other document
+  quotes it.
+- No `.cs` or project file changed, so no build or test run.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. ADR-0053 Amendment 3 settles the Message stored note: <k> is to count the copies stored and no note is written when none is; BL-2077 builds it
