@@ -38,3 +38,4 @@ Noticed while working BL-2133 on 2026-11-28, outside the places that task listed
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
