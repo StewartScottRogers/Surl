@@ -6,15 +6,21 @@ namespace Surl.Protocol.Smtp;
 
 /// <summary>
 /// The SMTP server (RFC 5321): greets the client, answers <c>EHLO</c>, <c>HELO</c>,
-/// <c>AUTH</c>, <c>MAIL</c>, <c>RCPT</c>, <c>DATA</c>, <c>RSET</c>, <c>NOOP</c>, <c>VRFY</c>, <c>EXPN</c>,
-/// <c>HELP</c> and <c>QUIT</c>, and delivers each accepted message into the shared mail store.
-/// ADR-0053 records every reply.
+/// <c>STARTTLS</c>, <c>AUTH</c>, <c>MAIL</c>, <c>RCPT</c>, <c>DATA</c>, <c>RSET</c>, <c>NOOP</c>,
+/// <c>VRFY</c>, <c>EXPN</c>, <c>HELP</c> and <c>QUIT</c>, and delivers each accepted message into
+/// the shared mail store. ADR-0053 records every reply.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Replies.</b> Each is fixed text, never an echo of the peer's bytes: the greeting
-/// <c>220 surl ESMTP ready</c>; <c>EHLO</c>'s capabilities <c>SIZE</c> (<c>--max-filesize</c>),
-/// <c>8BITMIME</c>, <c>SMTPUTF8</c>, <c>PIPELINING</c> and <c>ENHANCEDSTATUSCODES</c>. Every
+/// <b>Replies.</b> The greeting is <c>220 surl ESMTP ready</c>. Most replies are fixed text;
+/// these vary. <c>EHLO</c>'s capabilities are <c>SIZE</c> with the <c>--max-filesize</c> value,
+/// <c>8BITMIME</c>, <c>SMTPUTF8</c>, <c>PIPELINING</c> and <c>ENHANCEDSTATUSCODES</c>, then
+/// <c>STARTTLS</c> and <c>AUTH</c> lines that follow the connection's TLS state and the mail
+/// authentication policy's offer (TLS and Logins, below). <c>AUTH</c>'s <c>334</c> carries the
+/// policy's challenge in base64. A fault rule gives its own reply (Faults, below). A challenge
+/// can carry the peer's bytes: when <c>--auth</c> accepts a SCRAM mechanism, the
+/// <c>server-first-message</c> holds the client's nonce followed by the server's, so the
+/// client's nonce is sent back to it, base64 encoded. Every
 /// reply of the server's own carries an enhanced status code except these: the greeting
 /// <c>220</c>; <c>EHLO</c>'s multi-line <c>250</c>; <c>HELO</c>'s <c>250 surl Hello</c>; the
 /// <c>501 Syntax</c> reply to an <c>EHLO</c> or <c>HELO</c> with no argument or one holding a
@@ -22,7 +28,7 @@ namespace Surl.Protocol.Smtp;
 /// fault rule's reply is sent as the rule gives it. <see cref="SmtpUpstreamTestCaseServer"/>
 /// sends its case's text as written, and its own <c>501 Invalid address</c> and
 /// <c>552 Message size too large</c> carry no enhanced status code either. <c>VRFY</c>
-/// and <c>EXPN</c> answer <c>252</c> whatever is asked, so no peer can enumerate accounts.
+/// and <c>EXPN</c> answer <c>252</c> whatever name is asked, so no peer can enumerate accounts.
 /// </para>
 /// <para>
 /// <b>TLS.</b> On a plaintext connection of a server that can upgrade, <c>EHLO</c> advertises
@@ -54,14 +60,34 @@ namespace Surl.Protocol.Smtp;
 /// <c>550 5.7.1 Relaying denied</c> (ADR-0102, decision 1.1). A recipient that names no account is answered as one that does, and its copy is
 /// discarded. The stored message is <c>Return-Path</c> and <c>Received</c> trace fields, then the
 /// body as unstuffed, streamed as it is read into a <see cref="PendingMessage"/> - the store's
-/// pending file - and <c>--max-filesize</c> bounds the whole. A message the store refuses is
-/// answered <c>452 4.3.1 Insufficient system storage</c> when the store is full;
+/// pending file. With <see cref="MailboxStore.DeliveredToEnabled"/> (<c>--mail-delivered-to</c>)
+/// and at least one deliverable recipient, each deliverable recipient (an owner, or an alias,
+/// which can name several) has its own pending message, which has ahead of <c>Return-Path</c> one
+/// <c>Delivered-To</c> line for each <c>RCPT</c> path, as sent and in <c>RCPT</c> order, that
+/// reaches any of its owners (for the anonymous owner, its own path alone); the body is written
+/// to all of them, and one <c>DeliverAsync</c> call delivers them (ADR-0053, Amendment 1).
+/// <c>--max-filesize</c> bounds a whole message, trace fields and body, so the longest pending
+/// message decides. A message the store refuses is answered
+/// <c>452 4.3.1 Insufficient system storage</c> when the store is full;
 /// <c>452 4.2.2 Mailbox full</c> when a recipient's mailbox would pass its quota, or an
 /// out-of-space fault rule refuses the write, both found only after the body, never at
 /// <c>RCPT</c> (ADR-0102, decision 1.4); <c>552 5.3.4 Message exceeds the size limit</c> when it
 /// is past the store's <see cref="MailboxStore.MaxMessageBytes"/>; and
 /// <c>451 4.3.0 Local error in processing</c> when its file cannot be written, the reason in a
 /// note. Nothing is stored, for any recipient, and the session goes on.
+/// </para>
+/// <para>
+/// <b>Faults.</b> Every recognized command, one answered <c>502</c> included, asks
+/// <see cref="ExchangeContext.Faults"/> at <see cref="FaultStage.Command"/> before it is run
+/// (ADR-0124, decision 4; ADR-0141); an unrecognized line, a SASL response in an <c>AUTH</c>
+/// exchange, and a line <see cref="SmtpUpstreamTestCaseServer"/> answers with its case's
+/// <c>REPLY</c> do not. An <see cref="FaultKind.Error"/> rule's reply
+/// (<c>451 4.3.0 Local error in processing</c> when it has none) replaces the command's answer,
+/// the command is not run, and the session goes on. A <see cref="FaultKind.Delay"/> rule holds
+/// the answer for the rule's <c>ms</c> with the idle clock paused, then the command runs as
+/// usual; a client that leaves during the hold is sent nothing, the command is not run, and the
+/// session ends. A <see cref="FaultKind.Drop"/> rule aborts the connection with no answer and
+/// ends the session.
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/> is
@@ -151,7 +177,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
 
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
-    /// until the client quits or closes it, or a limit is passed.
+    /// until the client quits or closes it, a limit is passed, or a fault rule drops it.
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>
