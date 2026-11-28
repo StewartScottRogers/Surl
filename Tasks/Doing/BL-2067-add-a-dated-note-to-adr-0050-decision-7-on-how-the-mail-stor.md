@@ -70,3 +70,4 @@ Stand-in: nothing to add; a documentation note, with no store, event, seed, rese
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
