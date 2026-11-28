@@ -46,7 +46,8 @@ public sealed class XmppSaslLoginTests
         Assert.AreEqual(mechanism, start.Mechanism);
         Assert.AreEqual(clientFirst, Encoding.UTF8.GetString(start.InitialResponse!.Value.Span));
         Assert.AreEqual(InMemoryConnection.DefaultUpgradeTlsSession, start.TlsSession);
-        Assert.IsTrue(start.CanCarrySecurityLayer);
+        Assert.IsFalse(start.CanCarrySecurityLayer);
+        Assert.IsTrue(start.CanCarryAdditionalSuccessData);
         Assert.AreEqual("xmpps", start.Scheme);
         CollectionAssert.Contains(log.Notes.ToList(), $"Login accepted: {mechanism} user");
         CollectionAssert.Contains(log.Notes.ToList(), "Logged in as user@im.example.com.");
