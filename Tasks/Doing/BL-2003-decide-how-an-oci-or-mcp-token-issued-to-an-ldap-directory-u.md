@@ -57,3 +57,4 @@ Stand-in: the stores are the shared account book and the operator's own director
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
