@@ -276,7 +276,7 @@ public sealed partial class Amqp1ContainerConnection
         EndLink(session, link);
         if (detach.Closed)
         {
-            DestroyKeptSubscription(session, link);
+            DestroyKeptSubscription(link);
         }
 
         if (!link.IsDetachedByContainer)

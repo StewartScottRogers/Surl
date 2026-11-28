@@ -142,7 +142,23 @@ public sealed partial class Amqp1ContainerConnection
             return SubscriptionInUse();
         }
 
-        return differs ? RefusalUnless(busConnection.DeleteQueueIfDescribed(planned.QueueName, found.SubscriptionDescription, ifUnused: true)) : null;
+        return differs ? RefusalUnless(DeleteUnusedSubscriptionQueue(planned.QueueName, found.SubscriptionDescription)) : null;
+    }
+
+    // Deletes the queue while it carries this description and no link consumes it. No session holds a
+    // subscription once it is gone, so one made later under the name is held only by those that consume it.
+    private MessageBusOutcome DeleteUnusedSubscriptionQueue(string queueName, string? description)
+    {
+        var outcome = busConnection.DeleteQueueIfDescribed(queueName, description, ifUnused: true);
+        if (outcome == MessageBusOutcome.Succeeded)
+        {
+            foreach (var session in sessionsByIncomingChannel.Values)
+            {
+                session.SessionSubscriptions.Remove(queueName);
+            }
+        }
+
+        return outcome;
     }
 
     // ADR-0146 decision 3.2: filters apply as a message leaves the queue, one they refuse is acknowledged
@@ -164,29 +180,29 @@ public sealed partial class Amqp1ContainerConnection
     // with its last link only: the delete is refused while another consumer takes from it. It is refused
     // too once the queue carries another description than the link was judged on. A non-durable shared
     // one asks for no delete: the bus removes it with its last consumer (ADR-0146 Amendment 4 item 5).
-    private void DestroyKeptSubscription(Amqp1Session session, Amqp1Link link)
+    private void DestroyKeptSubscription(Amqp1Link link)
     {
-        if (link.SubscriptionQueue is not { IsKept: true } kept)
+        if (link.SubscriptionQueue is { IsKept: true } kept)
         {
-            return;
-        }
-
-        if (busConnection.DeleteQueueIfDescribed(kept.QueueName, kept.Description, ifUnused: true) == MessageBusOutcome.Succeeded)
-        {
-            session.SessionSubscriptions.Remove(kept.QueueName);
+            DeleteUnusedSubscriptionQueue(kept.QueueName, kept.Description);
         }
     }
 
-    // The subscriptions kept until the session ends go with it; a queue replaced since by one with
-    // another description is not this session's, and stays.
+    // The subscriptions kept until the session ends go with it, except one another session holds too,
+    // shared or not: that one goes with the last session holding it, whether or not a link of that session
+    // still consumes it. A queue replaced since by one with another description is not this session's, and
+    // stays.
     private void EndSessionSubscriptions(Amqp1Session session)
     {
-        foreach (var (queueName, description) in session.SessionSubscriptions)
-        {
-            busConnection.DeleteQueueIfDescribed(queueName, description);
-        }
-
+        var held = session.SessionSubscriptions.ToArray();
         session.SessionSubscriptions.Clear();
+        foreach (var subscription in held)
+        {
+            if (!sessionsByIncomingChannel.Values.Any(other => other.SessionSubscriptions.Contains(subscription)))
+            {
+                busConnection.DeleteQueueIfDescribed(subscription.Key, subscription.Value);
+            }
+        }
     }
 
     // Null when the bus carried the step out; otherwise the error its outcome is.

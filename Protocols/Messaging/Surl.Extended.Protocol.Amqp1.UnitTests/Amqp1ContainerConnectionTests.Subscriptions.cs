@@ -13,6 +13,8 @@ public sealed partial class Amqp1ContainerConnectionTests
 {
     private static readonly string DurableQueue = Amqp1SubscriptionQueue.QueueNameFor("client", "durable", isShared: false, isGlobal: false);
 
+    private static readonly string SharedDurableQueue = Amqp1SubscriptionQueue.QueueNameFor("client", "durable", isShared: true, isGlobal: false);
+
     [TestMethod]
     public async Task ServeAsync_DurableAttach_IsAnsweredConfigurationAndNeverAndKeepsWhatIsPublishedWhileDetached()
     {
@@ -327,6 +329,142 @@ public sealed partial class Amqp1ContainerConnectionTests
         var left = bus.Connect("alice").InspectQueue(DurableQueue);
         Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, DurableDescription("/topic/weather", "weather")), left);
     }
+
+    [TestMethod]
+    public async Task ServeAsync_OneOfTwoSessionsHoldingASharedSessionEndSubscriptionEnds_TheOtherStillReceivesWhatIsPublished()
+    {
+        var (written, _) = await ServeOnBusAsync(
+            Bus(),
+            Open(),
+            Begin(),
+            BusFrame(SharedSessionEndAttach(0, "durable|1")),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+            BusFrame(new Amqp1End()),
+            ChannelOneFrame(SenderAttach(1, "/topic/news")),
+            ChannelOneFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "after")),
+            ChannelOneFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("after", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndWhileADetachedLinksSessionStillHoldsTheSharedSubscription_KeepsItAndWhatIsPublished()
+    {
+        var (written, _) = await ServeOnBusAsync(
+            Bus(),
+            Open(),
+            Begin(),
+            BusFrame(SharedSessionEndAttach(0, "durable|1")),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+            BusFrame(new Amqp1Detach(0)),
+            ChannelOneFrame(new Amqp1End()),
+            BusFrame(SenderAttach(1, "/topic/news")),
+            BusFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "kept")),
+            BusFrame(SharedSessionEndAttach(0, "durable|1")),
+            BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("kept", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndOfTheSessionThatResumedAnUnsharedSessionEndSubscription_KeepsItForTheSessionThatMadeIt()
+    {
+        var (written, _) = await ServeOnBusAsync(
+            Bus(),
+            Open(),
+            Begin(),
+            BusFrame(DurableAttach(0, "/topic/news", "session-end")),
+            BusFrame(new Amqp1Detach(0)),
+            ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+            ChannelOneFrame(DurableAttach(0, "/topic/news", "session-end")),
+            ChannelOneFrame(new Amqp1End()),
+            BusFrame(SenderAttach(1, "/topic/news")),
+            BusFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "kept")),
+            BusFrame(DurableAttach(0, "/topic/news", "session-end")),
+            BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("kept", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    [DataRow((ushort)0, (ushort)1, DisplayName = "the first session first")]
+    [DataRow((ushort)1, (ushort)0, DisplayName = "the second session first")]
+    public async Task ServeAsync_BothSessionsHoldingASharedSessionEndSubscriptionEnd_DeletesIt(ushort endedFirst, ushort endedLast)
+    {
+        var bus = Bus();
+        var connection = new InMemoryConnection(
+            [
+                Open(),
+                Begin(),
+                BusFrame(SharedSessionEndAttach(0, "durable|1")),
+                ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                Amqp1Frame.Carrying(endedFirst, new Amqp1End()).Encode(),
+                Amqp1Frame.Carrying(endedLast, new Amqp1End()).Encode(),
+            ],
+            peerHalfClosesWhenExhausted: false);
+
+        var afterBoth = await InspectOnceWrittenAsync(
+            bus, connection, frame => frame is Amqp1End, 2, () => bus.Connect("alice").InspectQueue(SharedDurableQueue));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterBoth.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndAfterAClosedDetachDestroyedTheSharedSubscriptionAnotherSessionHeld_DeletesTheNewOne()
+    {
+        var bus = Bus();
+        var connection = new InMemoryConnection(
+            [
+                Open(),
+                Begin(),
+                BusFrame(SharedSessionEndAttach(0, "durable|1")),
+                BusFrame(new Amqp1Detach(0)),
+                ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                ChannelOneFrame(new Amqp1Detach(0) { Closed = true }),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                ChannelOneFrame(new Amqp1End()),
+            ],
+            peerHalfClosesWhenExhausted: false);
+
+        var afterSessionEnd = await InspectOnceWrittenAsync(
+            bus, connection, frame => frame is Amqp1End, 1, () => bus.Connect("alice").InspectQueue(SharedDurableQueue));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterSessionEnd.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionEndAfterTheSharedSubscriptionAnotherSessionHeldWasReplacedAndMadeAgain_DeletesIt()
+    {
+        var bus = Bus();
+        var connection = new InMemoryConnection(
+            [
+                Open(),
+                Begin(),
+                BusFrame(SharedSessionEndAttach(0, "durable|1")),
+                BusFrame(new Amqp1Detach(0)),
+                ChannelOneFrame(new Amqp1Begin(0, 100, 100)),
+                ChannelOneFrame(DurableAttach(0, "/topic/weather", "session-end", "durable|2", null, "shared")),
+                ChannelOneFrame(new Amqp1Detach(0)),
+                ChannelOneFrame(SharedSessionEndAttach(0, "durable|2")),
+                ChannelOneFrame(new Amqp1End()),
+            ],
+            peerHalfClosesWhenExhausted: false);
+
+        var afterSessionEnd = await InspectOnceWrittenAsync(
+            bus, connection, frame => frame is Amqp1End, 1, () => bus.Connect("alice").InspectQueue(SharedDurableQueue));
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, afterSessionEnd.Outcome);
+    }
+
+    private static Amqp1Attach SharedSessionEndAttach(uint handle, string name) =>
+        DurableAttach(handle, "/topic/news", "session-end", name, null, "shared");
+
+    private static byte[] ChannelOneFrame(Amqp1Performative performative, ReadOnlyMemory<byte> payload = default) =>
+        Amqp1Frame.Carrying(1, performative, payload).Encode();
 
     [TestMethod]
     public async Task ServeAsync_DurableAttachOverAQueueWithNoDescriptionUnderTheSubscriptionsName_ReplacesIt()

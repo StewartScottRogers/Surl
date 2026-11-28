@@ -219,7 +219,11 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   the client's `container-id`, a zero byte and the link name, bound to the topic filter and carrying a
   description (hex of the encoded client address, canonical filter, applied filters, policy and sharing).
   `never` is a durable queue the bus persists; `session-end` and `connection-close` an exclusive one,
-  deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. It is answered
+  deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. A `session-end` one is
+  held by every session of the connection that consumed it - several for a shared one, or for one
+  resumed after a detach - whether or not a link of that session still consumes it, and is deleted when
+  the last of those sessions ends (BL-2043); once a `closed` detach or a replacement deletes its queue,
+  no session holds it. A kept subscription is answered
   `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
   `shared`/`global` capabilities applied.
 - Who may: the `sub` right on the topic filter is all a kept subscription needs; it asks for nothing on
@@ -266,8 +270,9 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   queue still carrying the description judged (BL-2010): replacing a stale one (`ClearStaleQueue`)
   the description just inspected and judged, only while unused; a `closed` detach
   (`DestroyKeptSubscription`) the link's own, only while unused - for a lookup link, the one found and
-  judged at its attach; a session's end (`EndSessionSubscriptions`) the description the session
-  consumed each under; a non-durable shared attach refused after its declare (`DeclareBindAndConsume`)
+  judged at its attach (both through `DeleteUnusedSubscriptionQueue`); a session's end
+  (`EndSessionSubscriptions`) the description the session consumed each under, unless another session
+  holds that subscription; a non-durable shared attach refused after its declare (`DeclareBindAndConsume`)
   the description it declared, only while unused. A queue replaced since by one with another
   description stays. The one other delete the container asks for is a dynamic queue's, which carries no
   description (above). The bus itself deletes a connection's exclusive queues when the connection ends,
