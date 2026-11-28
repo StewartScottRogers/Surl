@@ -29,6 +29,15 @@ What it holds now (BL-629):
   subscription made with `noLocal` is not handed such a message; `BusConnection.AfterMessageDelivered`
   is called once a live message has been handed to all of that connection's subscriptions it
   reached, so a server can send overlapping matches once. BL-721 adds these to ADR-0100.
+- **Publishing connections (BL-2117, ADR-0100 decision 3.11).** `MessageBus.PublishingConnections`
+  holds the client connections being served that may publish, oldest first: a server calls `Join` for
+  each connection and disposes the `PublishingConnectionProgress` when it ends. The server wraps each
+  read from its client, and a delay fault's hold, in `CountAsCaughtUpWhileAsync`: caught up while the
+  task is not complete, handling once it returns. `WaitForEarlierConnectionsAsync` completes once every
+  earlier one has caught up at least once, or answers `false` after
+  `PublishingConnections.MaxWaitForEarlierConnections` (2 seconds on the `TimeProvider` given). A
+  one-shot subscriber waits so before it reads what is retained. `mqtt`, `mqtts` and the MQTT 5 broker
+  join; no other server does.
 - **Retained messages.** One per topic: a `Retain` publish replaces it, an empty retained
   payload removes it, and a subscribe with `includeRetained` is offered the matching ones in
   ordinal order of topic. An expired message is never delivered and is dropped from the

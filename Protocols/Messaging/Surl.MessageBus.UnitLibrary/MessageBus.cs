@@ -160,6 +160,12 @@ public sealed partial class MessageBus
     public long MaxQueuedBytes { get; }
 
     /// <summary>
+    /// The client connections being served now that may publish on this bus, which a server joins
+    /// for each of its connections so that a one-shot subscriber can wait for those before it.
+    /// </summary>
+    public PublishingConnections PublishingConnections { get; } = new();
+
+    /// <summary>
     /// Gives an anonymous server connection its place on the bus, through which it subscribes;
     /// <see cref="Connect(string?)"/> with no account.
     /// </summary>
