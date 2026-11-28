@@ -35,3 +35,4 @@ ADR-0146 states that a queue carrying a subscription description takes no direct
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
