@@ -40,7 +40,7 @@ per-store reset and file the tasks that build it.
   (`LdapDirectoryUserTokenPolicyTests`), at the cost Amendment 4, point 3, lists.
 - Whether the hosts act on one store at a time is BL-2076's question; Amendment 4, point 4, leaves it there and says
   it must weigh that with disk no public reset reaches any store. A pointer to that was added to BL-2076's Context.
-- The `reset_server` and `restore_server` tool descriptions omit the token revocation; filed as BL-2077.
+- The `reset_server` and `restore_server` tool descriptions omit the token revocation; filed as BL-2079.
 - The add-then-remove route was checked in source for `SurlServer.Accounts` and `ComposedControlTarget` (both call
   `ComposedStores.AddAccount`/`RemoveAccount`); the test that pins it covers the policy, not the hosts.
 

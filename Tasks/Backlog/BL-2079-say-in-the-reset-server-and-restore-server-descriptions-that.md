@@ -1,5 +1,5 @@
 ---
-id: BL-2077
+id: BL-2079
 title: Say in the reset_server and restore_server descriptions that OCI and MCP tokens stop working
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2077 — Say in the reset_server and restore_server descriptions that OCI and MCP tokens stop working
+# BL-2079 — Say in the reset_server and restore_server descriptions that OCI and MCP tokens stop working
 
 ## Goal
 
