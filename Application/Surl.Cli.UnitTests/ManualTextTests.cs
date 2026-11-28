@@ -258,7 +258,19 @@ public sealed class ManualTextTests
             "    with \"surl: (2) --user-ldap plaintext needs --allow-plaintext-auth\". A %",
             "    in the URL is written %25. A malformed URL, a missing bind password file,",
             "    and an unreadable CA file exit 2, 37 and 77. A group member naming no",
-            "    account is taken as a directory account.",
+            "    account is taken as a directory account. An OCI or MCP token issued to a",
+            "    directory user is honoured, within the token's own lifetime, for at most",
+            "    one hour after the name's last directory login that server accepted:",
+            "    refreshing an MCP token is not a login, so it never extends the hour, and",
+            "    a refused login neither ends nor renews it. Disabling or deleting the user",
+            "    in the directory ends no token already issued. A reset of the sessions",
+            "    ends them all, and so does a restore: on the --control endpoint",
+            "    POST /v1/reset resets the sessions with every other store, but with",
+            "    --directory or --share it is refused and ends none. A name the accounts",
+            "    have held, on any scheme, while surl runs is refused such tokens: its",
+            "    token is honoured only while the accounts name it for that server's",
+            "    scheme, so removing the account refuses its tokens even when the directory",
+            "    knows the name too.",
             "",
             "    --keytab <file> reads Kerberos service keys from an MIT keytab file when",
             "    surl starts, before any listener binds: the version 0x0502 format ktutil,",
@@ -903,6 +915,17 @@ public sealed class ManualTextTests
         StringAssert.Contains(words, "amqp for the schemes amqp, amqps, amqp1 and amqp1s,");
         StringAssert.Contains(words, "the SASL GSSAPI logins of the SMTP, IMAP, POP3, LDAP, AMQP 0-9-1 and AMQP 1.0 servers use them too,");
         StringAssert.Contains(words, "The AMQP servers' service is amqp, and a ticket is checked only when its frame fits: at most 4096 bytes on AMQP 0-9-1 before connection.tune-ok, and 65536 for an AMQP 1.0 SASL frame (--max-message when smaller, never below 512; --max-message 0 leaves 65536), so a larger one closes the connection unchecked.");
+    }
+
+    [TestMethod]
+    public void Text_SaysHowLongADirectoryUsersOciOrMcpTokenIsHonoured()
+    {
+        var words = string.Join(' ', ManualText.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        StringAssert.Contains(words, "An OCI or MCP token issued to a directory user is honoured, within the token's own lifetime, for at most one hour after the name's last directory login that server accepted: refreshing an MCP token is not a login, so it never extends the hour, and a refused login neither ends nor renews it.");
+        StringAssert.Contains(words, "Disabling or deleting the user in the directory ends no token already issued.");
+        StringAssert.Contains(words, "A reset of the sessions ends them all, and so does a restore: on the --control endpoint POST /v1/reset resets the sessions with every other store, but with --directory or --share it is refused and ends none.");
+        StringAssert.Contains(words, "A name the accounts have held, on any scheme, while surl runs is refused such tokens: its token is honoured only while the accounts name it for that server's scheme, so removing the account refuses its tokens even when the directory knows the name too.");
     }
 
     [TestMethod]
