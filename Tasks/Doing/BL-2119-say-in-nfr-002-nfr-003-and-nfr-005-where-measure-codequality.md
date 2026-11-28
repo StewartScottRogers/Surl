@@ -29,3 +29,4 @@ Found while working BL-2112 (2026-11-28): the three rows in `Documentation/Produ
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
