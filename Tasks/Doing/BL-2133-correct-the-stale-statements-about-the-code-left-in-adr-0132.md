@@ -42,3 +42,4 @@ Noticed while working BL-2130 on 2026-11-28; check each against the code before 
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
