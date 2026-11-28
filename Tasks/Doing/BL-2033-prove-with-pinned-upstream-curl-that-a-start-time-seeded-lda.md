@@ -37,3 +37,4 @@ A recipe test shows pinned upstream curl finding an entry seeded by `SurlServerO
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
