@@ -1,5 +1,5 @@
 ---
-id: BL-1983
+id: BL-1989
 title: Correct the POP3 library's CAPA reply, session end and project notes statements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1983 — Correct the POP3 library's CAPA reply, session end and project notes statements
+# BL-1989 — Correct the POP3 library's CAPA reply, session end and project notes statements
 
 ## Goal
 

@@ -56,7 +56,7 @@ Where the code differs from the wording above, the text follows the code:
 - "Logins" now starts "Outside an upstream test case", since the replacement handlers never ask the anonymous login.
 
 Verification (2026-11-27): build 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests green, and every
-changed `.cs` line is a comment. Other false statements noticed are filed as BL-1983.
+changed `.cs` line is a comment. Other false statements noticed are filed as BL-1989.
 
 ## Log
 
