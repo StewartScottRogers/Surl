@@ -1,16 +1,16 @@
 ---
-id: BL-2083
+id: BL-2086
 title: Say in the DICT definition failure note whether reading the file or writing to the connection failed
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2082]
+depends-on: [BL-2085]
 touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests]
 requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2083 — Say in the DICT definition failure note whether reading the file or writing to the connection failed
+# BL-2086 — Say in the DICT definition failure note whether reading the file or writing to the connection failed
 
 ## Goal
 
@@ -36,7 +36,7 @@ still aborted. The 150 and 151 lines and `DictTextWriteStream.EndTextAsync` are 
 as they are. `Protocols/Lookup/Surl.Protocol.Dict.UnitTests/WriteStallingConnection.cs` shows how a test wraps the
 in-memory connection; a write failure needs a double that throws `IOException`.
 
-Check the doc comments of `DictCommandResponder` and `DictProtocolServer` (as BL-2082 leaves them) and the library's
+Check the doc comments of `DictCommandResponder` and `DictProtocolServer` (as BL-2085 leaves them) and the library's
 `CLAUDE.md` stay true of the note.
 
 Stand-in: the content store is the shared store, unchanged, and no new event or fault is added. The change is to

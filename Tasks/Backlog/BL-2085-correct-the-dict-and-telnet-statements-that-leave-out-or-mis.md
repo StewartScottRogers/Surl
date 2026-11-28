@@ -1,5 +1,5 @@
 ---
-id: BL-2082
+id: BL-2085
 title: Correct the DICT and TELNET statements that leave out or misstate what fault rules do
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2082 — Correct the DICT and TELNET statements that leave out or misstate what fault rules do
+# BL-2085 — Correct the DICT and TELNET statements that leave out or misstate what fault rules do
 
 ## Goal
 

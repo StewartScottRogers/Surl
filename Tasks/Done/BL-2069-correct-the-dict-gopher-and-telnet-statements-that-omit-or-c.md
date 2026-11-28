@@ -54,10 +54,10 @@ as one task. It adds no store, event or fault, so the stand-in questions do not 
 - 2026-11-28: Delivered by `align-and-document`. Every claim in Context held against the source, ADR-0138 and ADR-0141.
 - `AnswerAsync`'s `<returns>` also says "or its bytes cannot be written": the `catch` in `AnswerDefineAsync` takes an
   `IOException` from writing to the connection during the copy as well as one from reading the file. Its log note still
-  says "could not be read" in both cases; changing it is a code change, filed as BL-2083.
+  says "could not be read" in both cases; changing it is a code change, filed as BL-2086.
 - Verify: build with `-warnaserror` 0 warnings, 0 errors; `dotnet format --verify-no-changes` clean; fast tests 30721
   passed, 0 failed, 3 skipped. Integration tests not run: the change is comments and notes only.
-- Follow-ups outside this task: BL-2082 (further DICT and TELNET statements) and BL-2083. The `CommandStageFaults`
+- Follow-ups outside this task: BL-2085 (further DICT and TELNET statements) and BL-2086. The `CommandStageFaults`
   summary's missing early end of a `delay` hold is already covered by BL-2070.
 
 ## Log
