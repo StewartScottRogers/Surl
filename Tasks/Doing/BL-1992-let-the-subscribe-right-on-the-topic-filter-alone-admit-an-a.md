@@ -61,3 +61,4 @@ Subscribe on its topic filter, with no `$queue/...` grant, and gives no account 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
