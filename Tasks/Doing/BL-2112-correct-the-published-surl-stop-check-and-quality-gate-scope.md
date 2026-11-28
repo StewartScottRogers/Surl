@@ -37,3 +37,4 @@ Stand-in: nothing to add; documentation only.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
