@@ -54,3 +54,4 @@ published message once between them (ADR-0146 Amendment 4, BL-2040).
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
