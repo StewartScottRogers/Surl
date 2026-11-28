@@ -72,11 +72,15 @@ and its start into `CouldNotReadFile` (37), before any listener binds (BL-310).
 
 LDAP operations cannot change the directory (writes are refused); the host can, in memory only
 (ADR-0158). `LdapProtocolServer.SeedDirectoryEntries` adds LDIF content records, all or none;
-`ResetDirectory` returns to the entries the server was built with (the file's as read by
-`LoadAsync`, none from the public constructor), dropping seeded ones; `TakeDirectorySnapshot`
-copies the entries and `RestoreDirectory` puts a snapshot of this server's back. A seed the
-directory cannot add, or another server's snapshot, is an `InvalidOperationException`. Seed, reset
-and restore publish `StoreChange.Seeded` (one per entry), `Reset` and `Restored`.
+`ResetDirectory` returns to the configured entries - those the server was built with (the file's
+as read by `LoadAsync`, none from the public constructor) plus those of every seed made with
+`keepOnReset: true` - dropping other seeded ones. A kept seed must be addable to the live entries
+and to the configured ones (parent present, no second DN, bounds), and an entry that has a parent
+only among the live entries is refused. A refusal changes neither set. `TakeDirectorySnapshot`
+copies the live entries and `RestoreDirectory` puts a snapshot of this server's back; neither
+changes the configured entries. A seed the directory cannot add, or another server's snapshot, is
+an `InvalidOperationException`. Seed, reset and restore publish `StoreChange.Seeded` (one per
+entry), `Reset` and `Restored`.
 
 What this library does not hold: the SASL mechanisms, the NTLM, `DIGEST-MD5` and Kerberos
 security layers and the password check live in `Surl.Authentication`, reached only through the

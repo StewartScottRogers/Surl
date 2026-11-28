@@ -196,12 +196,17 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     }
 
     /// <summary>
-    /// Adds LDIF content records to the directory, all or none (ADR-0158 decision 3).
+    /// Adds LDIF content records to the directory, all or none (ADR-0158 decision 3). A seed is lost by
+    /// <see cref="ResetDirectory"/> unless <paramref name="keepOnReset"/> is set.
     /// </summary>
     /// <param name="ldif">LDIF content records.</param>
+    /// <param name="keepOnReset">Whether <see cref="ResetDirectory"/> returns to a set holding these entries too; they must then be addable to that set too, and an entry with a parent among the live entries needs that parent in that set.</param>
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add.</exception>
-    public void SeedDirectoryEntries(string ldif) => directory.SeedEntries(ldif);
+    /// <exception cref="InvalidOperationException">
+    /// The text is not LDIF content the directory, or for a kept seed the set <see cref="ResetDirectory"/> returns to,
+    /// can add. Neither set changes and nothing is published.
+    /// </exception>
+    public void SeedDirectoryEntries(string ldif, bool keepOnReset = false) => directory.SeedEntries(ldif, keepOnReset);
 
     /// <summary>
     /// Writes the directory as LDIF (ADR-0164 decision 9): publishes nothing, asks no fault rule, omits every
@@ -211,7 +216,8 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeByt
     public string ExportDirectoryLdif() => directory.ExportLdif();
 
     /// <summary>
-    /// Returns the directory to the entries it was built with (ADR-0158 decision 4).
+    /// Returns the directory to its configured entries - those the server was built with, then every kept seed's -
+    /// and drops every other (ADR-0158 decision 4).
     /// </summary>
     public void ResetDirectory() => directory.Reset();
 

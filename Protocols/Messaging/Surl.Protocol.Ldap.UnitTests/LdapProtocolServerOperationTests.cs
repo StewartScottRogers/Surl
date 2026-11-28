@@ -53,6 +53,19 @@ public sealed class LdapProtocolServerOperationTests
     }
 
     [TestMethod]
+    public void ResetDirectory_AfterAKeptAndAnUnkeptSeed_HoldsTheKeptEntriesAlone()
+    {
+        var server = Server(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted));
+        var configured = server.ExportDirectoryLdif();
+        server.SeedDirectoryEntries("dn: o=kept\no: kept\n", keepOnReset: true);
+        server.SeedDirectoryEntries("dn: o=unkept\no: unkept\n");
+
+        server.ResetDirectory();
+
+        Assert.AreEqual(configured + "\ndn: o=kept\no: kept\n", server.ExportDirectoryLdif());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ConnectionClosedBeforeAnyMessage_SendsAndNotesNothing()
     {
         var log = new RecordingExchangeLog();
