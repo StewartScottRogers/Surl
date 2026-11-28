@@ -1,5 +1,5 @@
 ---
-id: BL-2066
+id: BL-2074
 title: Say in the Surl.Api and Surl.Composition XML docs when a Redis, LDAP or DNS store exists
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-061
 created: 2026-11-28
 completed:
 ---
-# BL-2066 — Say in the Surl.Api and Surl.Composition XML docs when a Redis, LDAP or DNS store exists
+# BL-2074 — Say in the Surl.Api and Surl.Composition XML docs when a Redis, LDAP or DNS store exists
 
 ## Goal
 

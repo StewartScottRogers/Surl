@@ -1,5 +1,5 @@
 ---
-id: BL-2068
+id: BL-2076
 title: Decide whether the hosts or FR-061 are wrong about resetting one store at a time
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-061
 created: 2026-11-28
 completed:
 ---
-# BL-2068 — Decide whether the hosts or FR-061 are wrong about resetting one store at a time
+# BL-2076 — Decide whether the hosts or FR-061 are wrong about resetting one store at a time
 
 ## Goal
 

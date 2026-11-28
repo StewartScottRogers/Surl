@@ -1,5 +1,5 @@
 ---
-id: BL-2067
+id: BL-2075
 title: Correct the Glossary's directory file row for LDAP start-time and runtime seeds
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-061
 created: 2026-11-28
 completed:
 ---
-# BL-2067 — Correct the Glossary's directory file row for LDAP start-time and runtime seeds
+# BL-2075 — Correct the Glossary's directory file row for LDAP start-time and runtime seeds
 
 ## Goal
 

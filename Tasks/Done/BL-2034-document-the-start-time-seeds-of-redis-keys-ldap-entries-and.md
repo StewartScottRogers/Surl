@@ -44,8 +44,8 @@ A reader of the Surl.Api, surl-mcp and stand-in pages learns how to seed the thr
   `greeting=hello` after the reset, and the surl-mcp README's JSON started all three listeners through
   `surl-mcp`; a Redis seed with only an LDAP URL was refused (`SurlSeedRefusedException`, `isError: true`).
 - `dotnet build` clean (0 warnings) and the fast tests passed. No `.cs` or project file changed.
-- "Only the four files" holds for the delivery; the board additionally gained the follow-ups BL-2066 (XML docs),
-  BL-2067 (Glossary "directory file" row) and BL-2068 (FR-061 "one at a time" versus the hosts).
+- "Only the four files" holds for the delivery; the board additionally gained the follow-ups BL-2074 (XML docs),
+  BL-2075 (Glossary "directory file" row) and BL-2076 (FR-061 "one at a time" versus the hosts).
 
 ## Log
 
