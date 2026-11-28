@@ -239,31 +239,30 @@ public sealed partial class Amqp1ContainerConnection
     private MessageBusOutcome Consume(Amqp1Link link)
     {
         var queueName = link.NodeAddress[Amqp1NodeAddress.QueuePrefix.Length..];
-        var consumed = busConnection.Consume(queueName, OfferQueueDelivery(link), MaxWaitingDeliveries, accepts: link.Filters.QueuePredicate(queueName));
+        // The callback says only that the bus holds a delivery for the link; the pump claims it as it sends.
+        var consumed = busConnection.Consume(queueName, _ => WakePump(), MaxWaitingDeliveries, accepts: link.Filters.QueuePredicate(queueName));
         link.Consumer = consumed.Consumer;
-        link.Consumer?.Start();
+        link.StartConsumer();
         return consumed.Outcome;
     }
 
-    // On the bus's thread: a message the link's filters refuse is not sent and never waits (ADR-0146
-    // decision 2.4), nor one on a topic the client cannot name (ADR-0100 decision 3.2), and one past the
-    // link's 1000 waiting is dropped for this link (ADR-0107 decision 7).
+    // On the bus's thread: a message the link does not send never waits, and one past the link's 1000
+    // waiting is dropped for this link (ADR-0107 decision 7).
     private void OfferTopicMessage(Amqp1Link link, BusMessage message)
     {
-        if (link.Filters.Accepts(message, queueName: null)
-            && bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, message.Topic).Name is { } address
+        if (SentTopicAddress(link, message) is { } address
             && link.Offer(new(message, address, null, false), MaxWaitingDeliveries))
         {
             WakePump();
         }
     }
 
-    // On the bus's thread: the consumer's window already bounds what waits.
-    private Action<BusQueueDelivery> OfferQueueDelivery(Amqp1Link link) => delivery =>
-    {
-        link.Offer(new(delivery.Message, Amqp1NodeAddress.QueuePrefix + delivery.QueueName, delivery.DeliveryTag, delivery.Redelivered), int.MaxValue);
-        WakePump();
-    };
+    // The address a topic message is sent on the link as; null when the link's filters refuse it
+    // (ADR-0146 decision 2.4) or the client cannot name its topic (ADR-0100 decision 3.2).
+    private string? SentTopicAddress(Amqp1Link link, BusMessage message) =>
+        link.Filters.Accepts(message, queueName: null)
+            ? bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, message.Topic).Name
+            : null;
 
     private async ValueTask<bool> AnswerDetachAsync(Amqp1Session session, Amqp1Detach detach)
     {

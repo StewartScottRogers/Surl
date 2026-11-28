@@ -34,12 +34,12 @@ public sealed partial class Amqp1ContainerConnectionTests
             BusFrame(SharedAttach(0, "group|1", durable, policy, NoLocal(), capabilities)),
             BusFrame(SharedAttach(1, "group|2", durable, policy, NoLocal(), capabilities)),
             BusFrame(SenderAttach(2, "/topic/news")),
+            BusFrame(Credit(0, deliveryCount: 0, credit: 10)),
+            BusFrame(Credit(1, deliveryCount: 0, credit: 10)),
             Publication(2, 0, "one"),
             Publication(2, 1, "two"),
             Publication(2, 2, "three"),
-            Publication(2, 3, "four"),
-            BusFrame(Credit(0, deliveryCount: 0, credit: 10)),
-            BusFrame(Credit(1, deliveryCount: 0, credit: 10)));
+            Publication(2, 3, "four"));
 
         CollectionAssert.AreEquivalent(new[] { "one", "two", "three", "four" }, Bodies(written));
         CollectionAssert.AreEquivalent(new[] { "one", "three" }, Bodies(written, handle: 0));
@@ -70,10 +70,10 @@ public sealed partial class Amqp1ContainerConnectionTests
             BusFrame(SharedAttach(0, "group|1")),
             BusFrame(SharedAttach(1, "group|2")),
             BusFrame(SenderAttach(2, "/topic/news")),
-            Publication(2, 0, "one"),
-            Publication(2, 1, "two"),
             BusFrame(Credit(0, deliveryCount: 0, credit: 10)),
             BusFrame(Credit(1, deliveryCount: 0, credit: 10)),
+            Publication(2, 0, "one"),
+            Publication(2, 1, "two"),
             BusFrame(new Amqp1Detach(0) { Closed = closed }),
             Publication(2, 2, "three"),
             Publication(2, 3, "four"),

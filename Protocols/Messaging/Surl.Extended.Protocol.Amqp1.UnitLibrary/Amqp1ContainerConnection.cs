@@ -16,7 +16,8 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// </summary>
 /// <remarks>
 /// Frames are answered one at a time under one gate. A message the bus hands a link on another
-/// connection's thread waits on the link and wakes a pump that sends it under the same gate.
+/// connection's thread - a live topic message waiting on the link, or a queue delivery the bus holds
+/// for it - wakes a pump that sends it under the same gate.
 /// </remarks>
 public sealed partial class Amqp1ContainerConnection
 {

@@ -81,7 +81,7 @@ public sealed partial class Amqp1ContainerConnection
             return SubscriptionQueueRefusal(outcome);
         }
 
-        link.Consumer!.Start();
+        link.StartConsumer();
         if (planned.EndsWithSession)
         {
             session.SessionSubscriptions[planned.QueueName] = planned.Description;
@@ -122,7 +122,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         var consumed = busConnection.ConsumeSubscriptionQueue(
-            planned.QueueName, planned.Description, planned.TopicFilter, OfferSubscriptionQueueDelivery(link), MaxWaitingDeliveries, exclusive: !planned.IsShared);
+            planned.QueueName, planned.Description, planned.TopicFilter, _ => WakePump(), MaxWaitingDeliveries, exclusive: !planned.IsShared);
         link.Consumer = consumed.Consumer;
         return consumed.Outcome;
     }
@@ -161,21 +161,6 @@ public sealed partial class Amqp1ContainerConnection
 
         return outcome;
     }
-
-    // ADR-0146 decision 3.2: filters apply as a message leaves the queue, one they refuse is acknowledged
-    // (the queue is the subscription's alone), and so is one the client cannot name.
-    private Action<BusQueueDelivery> OfferSubscriptionQueueDelivery(Amqp1Link link) => delivery =>
-    {
-        if (!link.Filters.Accepts(delivery.Message, queueName: null)
-            || bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, delivery.Message.Topic).Name is not { } address)
-        {
-            link.Consumer!.Acknowledge(delivery.DeliveryTag);
-            return;
-        }
-
-        link.Offer(new(delivery.Message, address, delivery.DeliveryTag, delivery.Redelivered), int.MaxValue);
-        WakePump();
-    };
 
     // Part 2 section 2.6.6: a detach with closed true destroys the terminus. A shared subscription goes
     // with its last link only: the delete is refused while another consumer takes from it. It is refused

@@ -51,11 +51,14 @@ public sealed partial class Amqp1ContainerConnection
             link.Credit = (uint)Math.Max(left, 0);
         }
 
+        // A drain is answered only once nothing is held for the link: setting its consumer's credit had the
+        // bus hold what was ready, and sending claims until none is left (ADR-0146 Amendment 7 item 3).
         await SendLinkAsync(session, link);
         if (flow.Drain && link.Credit > 0)
         {
             link.DeliveryCount += link.Credit;
             link.Credit = 0;
+            link.GiveConsumerCredit(0);
             await WriteLinkFlowAsync(session, link, drain: true);
         }
         else if (flow.Echo)
@@ -75,30 +78,57 @@ public sealed partial class Amqp1ContainerConnection
             Handle = link.ContainerHandle,
             DeliveryCount = link.DeliveryCount,
             LinkCredit = link.ContainerReceives ? CreditLeft(link) : link.Credit,
-            Available = link.ContainerReceives ? null : (uint)link.WaitingCount,
+            Available = link.ContainerReceives ? null : AvailableToSend(link),
             Drain = drain,
         });
 
-    // Every sending link of every session sends what its credit and its session's window allow.
+    // A queue link's available is its queue's ready count, a hint that counts what its filters would
+    // refuse (ADR-0146 Amendment 7 item 3); a live topic link's is what waits on it.
+    private uint AvailableToSend(Amqp1Link link) =>
+        (uint)(link.Consumer is { } consumer ? busConnection.InspectQueue(consumer.QueueName).ReadyMessageCount : link.WaitingCount);
+
+    // Every sending link of every session sends what its credit and its session's window allow, round
+    // after round until one sends nothing: what one link could not keep may have gone to another.
     private async ValueTask SendWaitingAsync()
     {
-        foreach (var session in sessionsByIncomingChannel.Values.ToList())
+        bool sent;
+        do
         {
-            foreach (var link in session.LinksByClientHandle.Values.ToList())
+            var links = sessionsByIncomingChannel.Values
+                .SelectMany(session => session.LinksByClientHandle.Values.Select(link => (session, link)))
+                .ToList();
+
+            // Before any link sends, what a link can no longer send is back in its queue for one that can.
+            foreach (var (session, link) in links)
             {
-                await SendLinkAsync(session, link);
+                GiveConsumerWhatTheLinkCanSend(session, link);
+            }
+
+            sent = false;
+            foreach (var (session, link) in links)
+            {
+                sent |= await SendLinkAsync(session, link);
             }
         }
+        while (sent);
     }
 
+    // ADR-0146 Amendment 7 items 1 and 3: the bus holds for a queue link's consumer at most the link's
+    // credit, and nothing while its session's window is closed or it holds its 1000 unsettled.
+    private static void GiveConsumerWhatTheLinkCanSend(Amqp1Session session, Amqp1Link link) =>
+        link.GiveConsumerCredit(session.RemoteIncomingWindow > 0 && link.UnsettledCount < MaxWaitingDeliveries ? link.Credit : 0);
+
     // Frame by frame while the client's session window allows: a delivery larger than the window is
-    // finished as later flows open it (Part 2 section 2.5.6).
-    private async ValueTask SendLinkAsync(Amqp1Session session, Amqp1Link link)
+    // finished as later flows open it (Part 2 section 2.5.6). True when a frame was written.
+    private async ValueTask<bool> SendLinkAsync(Amqp1Session session, Amqp1Link link)
     {
+        var sent = false;
+        GiveConsumerWhatTheLinkCanSend(session, link);
         while (!closed && link is { ContainerReceives: false, IsDetachedByContainer: false } && session.RemoteIncomingWindow > 0
             && (link.Sending ?? StartDelivery(session, link)) is { } sending)
         {
             await WriteFrameAsync(sending.Frames[sending.NextFrame], CancellationToken);
+            sent = true;
             sending.NextFrame++;
             session.NextOutgoingId++;
             session.RemoteIncomingWindow--;
@@ -107,18 +137,20 @@ public sealed partial class Amqp1ContainerConnection
                 FinishDelivery(link, sending);
             }
         }
+
+        GiveConsumerWhatTheLinkCanSend(session, link);
+        return sent;
     }
 
-    // The next waiting message as a delivery, its credit taken; null when the link has no credit, holds
-    // its 1000 unsettled, or has nothing waiting (ADR-0107 decision 7).
+    // The link's next message as a delivery, its credit taken; null when the link has no credit, holds
+    // its 1000 unsettled, or has nothing to send (ADR-0107 decision 7).
     private Amqp1OutgoingTransfer? StartDelivery(Amqp1Session session, Amqp1Link link)
     {
-        if (link.Credit == 0 || link.UnsettledCount >= MaxWaitingDeliveries || !link.Waiting.TryPeek(out _))
+        if (link.Credit == 0 || link.UnsettledCount >= MaxWaitingDeliveries || TakeNextMessage(link) is not { } pending)
         {
             return null;
         }
 
-        var pending = link.Take();
         var deliveryId = session.NextDeliveryId++;
         var transaction = OpenTransaction(link.AcquiringTransactionId);
         var sending = new Amqp1OutgoingTransfer(DeliveryFrames(session, link, pending, deliveryId, transaction), pending.QueueDeliveryTag);
@@ -135,6 +167,31 @@ public sealed partial class Amqp1ContainerConnection
 
         link.Sending = sending;
         return sending;
+    }
+
+    private Amqp1PendingMessage? TakeNextMessage(Amqp1Link link) =>
+        link.Consumer is null ? link.TakeWaiting() : ClaimQueueMessage(link);
+
+    // ADR-0146 Amendment 7 item 3: a queue delivery is claimed only as the container starts writing it.
+    // One a subscription queue's link does not send is acknowledged, the queue being the subscription's
+    // alone (decision 3.2), uses no link credit, and the next is claimed.
+    private Amqp1PendingMessage? ClaimQueueMessage(Amqp1Link link)
+    {
+        while (link.TryClaimDelivery(out var delivery))
+        {
+            var address = link.SubscriptionQueue is null
+                ? Amqp1NodeAddress.QueuePrefix + delivery.QueueName
+                : SentTopicAddress(link, delivery.Message);
+            if (address is not null)
+            {
+                return new(delivery.Message, address, delivery.DeliveryTag, delivery.Redelivered);
+            }
+
+            link.Consumer!.Acknowledge(delivery.DeliveryTag);
+            link.GiveConsumerCredit(link.Credit);
+        }
+
+        return null;
     }
 
     private static void FinishDelivery(Amqp1Link link, Amqp1OutgoingTransfer sending)

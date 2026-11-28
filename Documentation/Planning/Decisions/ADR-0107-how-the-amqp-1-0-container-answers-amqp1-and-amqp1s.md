@@ -38,6 +38,10 @@
   Amendment 4), not a live subscription, and its links are sent queue deliveries.
 - **Amended (2026-11-28, BL-2064):** a note after BL-2044's `--max-filesize` note under decision 7's
   table: under `--max-filesize 0` the messages held in open transactions have no byte bound.
+- **Amended (2026-11-28, BL-2072):** a note under decision 5's "From a queue" bullet: a queue's
+  messages go only to links that can send them
+  ([ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 7).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -405,6 +409,16 @@ when `amqp1://` is the only listen URL.
 - **From a queue** the link is one bus consumer (`BusConnection.Consume`) with `maxUnacknowledged`
   1000 (decision 7); deliveries the bus hands it while it has no credit wait on the link, in order,
   and go back to the queue when the link ends.
+
+  *Amended 2026-11-28 (BL-2072), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 7:* no delivery waits on a queue link. The link's consumer has the link's credit as its
+  delivery credit, or 0 while its session's window is closed or the link holds 1000 unsettled, and a
+  delivery is claimed from the bus only as the container starts writing it; the rest stay ready in the
+  queue. This replaces this bullet's last clause, what the BL-1990 note under "From a topic" says of
+  deliveries "still waiting for credit" and of filters and unnameable topics applying as a message
+  leaves the queue (they now apply as it is claimed), and what the BL-2055 note says of "waiting"
+  deliveries going back marked redelivered: what was never sent is not marked.
 - **From a topic** the link is one live bus subscription to the filter; messages published while it
   has no credit wait on the link, at most 1000 (decision 7), and a message arriving past that is
   dropped for this link and noted: fan-out is at most once (ADR-0100 decision 3.4).

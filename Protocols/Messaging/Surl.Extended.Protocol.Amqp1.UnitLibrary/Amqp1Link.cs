@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Surl.MessageBus;
 
 namespace Surl.Extended.Protocol.Amqp1;
@@ -13,6 +14,9 @@ internal sealed class Amqp1Link(uint containerHandle)
     private int waitingCount;
 
     private int droppedCount;
+
+    // The delivery credit the consumer has left: what it was last given, less each delivery claimed since.
+    private uint consumerCredit;
 
     /// <summary>The handle the container's frames for this link carry.</summary>
     public uint ContainerHandle => containerHandle;
@@ -75,7 +79,7 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>When the container sends from a queue: the bus consumer.</summary>
     public BusQueueConsumer? Consumer { get; set; }
 
-    /// <summary>When the container sends: the messages handed to the link that wait for credit, in order.</summary>
+    /// <summary>When the container sends from a live topic subscription: the messages handed to the link that wait until it can send them, in order. A queue's messages wait in the queue instead (ADR-0146 Amendment 7).</summary>
     public ConcurrentQueue<Amqp1PendingMessage> Waiting { get; } = new();
 
     /// <summary>How many messages wait.</summary>
@@ -111,12 +115,49 @@ internal sealed class Amqp1Link(uint containerHandle)
         return true;
     }
 
-    /// <summary>Takes the first waiting message.</summary>
-    public Amqp1PendingMessage Take()
+    /// <summary>Takes the first waiting message; <see langword="null"/> when none waits.</summary>
+    public Amqp1PendingMessage? TakeWaiting()
     {
-        Waiting.TryDequeue(out var message);
+        if (!Waiting.TryDequeue(out var message))
+        {
+            return null;
+        }
+
         Interlocked.Decrement(ref waitingCount);
-        return message!;
+        return message;
+    }
+
+    /// <summary>Starts the bus consumer, if the link has one, with delivery credit 0, so the bus holds nothing for it until <see cref="GiveConsumerCredit"/> says otherwise (ADR-0146 Amendment 7 item 3).</summary>
+    public void StartConsumer()
+    {
+        Consumer?.SetDeliveryCredit(0);
+        Consumer?.Start();
+    }
+
+    /// <summary>
+    /// Gives the bus consumer, if the link has one, this delivery credit: the most messages the bus holds
+    /// for it unclaimed. Held ones past it go back to the queue. The bus is told only of a change.
+    /// </summary>
+    public void GiveConsumerCredit(uint credit)
+    {
+        if (Consumer is not null && credit != consumerCredit)
+        {
+            consumerCredit = credit;
+            Consumer.SetDeliveryCredit(credit);
+        }
+    }
+
+    /// <summary>Claims the delivery the bus has held longest for the link's consumer, using one of its credit; the link must have a consumer.</summary>
+    /// <returns>Whether one was held.</returns>
+    public bool TryClaimDelivery([NotNullWhen(true)] out BusQueueDelivery? delivery)
+    {
+        if (!Consumer!.TryClaimDelivery(out delivery))
+        {
+            return false;
+        }
+
+        consumerCredit--;
+        return true;
     }
 
     /// <summary>Ends the link's subscription or consumer; a consumer's unsettled deliveries go back to the queue.</summary>

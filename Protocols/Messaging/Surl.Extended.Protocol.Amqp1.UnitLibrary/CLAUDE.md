@@ -118,10 +118,20 @@ BL-513 amendment):
   consumes nothing. For a live subscription or a queue link, the bus refusing it
   (`AccessDenied`, `QueueLocked`, `ExclusiveConsumeRefused`; `TooManySubscriptions`; anything else)
   refuses the attach with `amqp:unauthorized-access`, `amqp:resource-limit-exceeded` or `amqp:not-found`.
-- Frames are answered one at a time under one gate. A message the bus hands a link waits on it
-  (`Amqp1Link.Waiting`) and wakes a pump that sends under the same gate. A live topic link drops past
-  1000 waiting and notes the count when it ends; a consuming link drops none, its 1000 unacknowledged
-  bounding what waits.
+- Frames are answered one at a time under one gate. A live topic message the bus hands a link waits on
+  it (`Amqp1Link.Waiting`) and wakes a pump that sends under the same gate; a live topic link drops past
+  1000 waiting and notes the count when it ends. No queue delivery waits on a link (below).
+- A queue's messages go only to links that can send them (ADR-0146 Amendment 7; tests in
+  `Amqp1ContainerConnectionTests.DeliveryCredit.cs`). Every consumer, of a queue or a subscription
+  queue, is given delivery credit 0 before it starts (`Amqp1Link.StartConsumer`), then the link's
+  credit, or 0 while its session's remote `incoming-window` is 0 or it holds 1000 unsettled
+  (`GiveConsumerWhatTheLinkCanSend`, before and after each link sends; `SendWaitingAsync` goes round
+  until a round writes nothing). The bus's callback only wakes the pump. A delivery is claimed
+  (`TryClaimDelivery`) only as the container starts writing it, so what nobody can take stays ready on
+  the bus, and what the bus held for a link that can no longer send goes to another, not marked
+  redelivered; one partly written when the window closes is finished as it opens. A subscription
+  queue's link runs its filters on the claimed delivery: one refused or unnameable is acknowledged,
+  uses no link credit, and the next is claimed.
 - As receiver: a `flow` with credit 100 follows the `attach`, and a transfer that leaves 50 or less
   raises it back. A transfer past the credit detaches with `amqp:link:transfer-limit-exceeded`; a first
   transfer without `delivery-id`, or a continuation naming another delivery, with `amqp:invalid-field`;
@@ -145,7 +155,11 @@ BL-513 amendment):
   allow, each a new `delivery-id`, an 8-byte tag and `message-format` 0, split into `more` frames of
   the smaller `max-frame-size` and written frame by frame as the window opens (`Amqp1OutgoingTransfer`);
   a link holding 1000 deliveries unsettled sends nothing more until the client settles one. `drain`
-  sends what waits then gives the rest back with a `flow`; `echo` is answered with a `flow`. `snd-settle-mode` `settled` sends pre-settled (a queue delivery
+  sends what the link has - what waits on a live topic link; on a queue link, claiming until the bus
+  holds nothing for it - then gives the rest back with a `flow` and sets the consumer's credit to 0 (a
+  link that cannot send gets the credit back, its messages staying ready); `echo` is answered with a
+  `flow`. The container's `flow` states `available`: what waits on a live topic link, and for a queue
+  link its queue's ready count (`InspectQueue`), a hint that counts what the filters would refuse. `snd-settle-mode` `settled` sends pre-settled (a queue delivery
   acknowledged as written); otherwise the client's `disposition` over its range settles: `accepted`
   acknowledges, `rejected` drops, `released` (or settling with no outcome) and `modified` put back,
   `modified` with `undeliverable-here` keeps it from the link until the link ends. Those act on the
@@ -153,7 +167,8 @@ BL-513 amendment):
   subscription's delivery is only settled. Under `rcv-settle-mode` `second` the container settles once
   the client states an outcome.
 - A link ending (client `detach`, `end`, the connection going) ends its subscription or consumer, so
-  its unsettled and waiting queue deliveries go back to the queue.
+  its unsettled queue deliveries go back to the queue, marked redelivered; what was never sent is in the
+  queue already, or goes back unmarked.
 
 JMS selectors (BL-958; ADR-0146 decision 2.2):
 
@@ -255,7 +270,8 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   `amqp:resource-locked` too (BL-2026). A queue exclusive to
   another connection shows no filter to judge: an attach with a source is `amqp:resource-locked`, one
   with none `amqp:not-found`. Filters
-  run as a message leaves the queue; a message they refuse, or the client cannot name, is acknowledged.
+  run as a message leaves the queue, as a link able to send claims it; a message they refuse, or the
+  client cannot name, is acknowledged.
   An attach with no source finds the subscription by link name (plain, shared, shared and global) and is
   answered its stored source, less a no-local a shared one was stored with; with none it is
   `amqp:not-found`. A `closed` detach deletes the queue unless another consumer still takes from it.
@@ -273,7 +289,7 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   key (`container-id`, or none under `global`, a zero byte and the link name before its first `|`),
   auto-delete only, with a description recording policy `link-detach` whatever was asked, bound to the
   topic filter. Every such link consumes it, not exclusively, so each message goes to one of them, and
-  what a link leaves unsettled or waiting when it ends goes back for the others, marked redelivered.
+  what a link leaves unsettled when it ends goes back for the others, marked redelivered.
   The answer carries no `durable` and no `timeout`, `expiry-policy` `link-detach`, the applied filters
   and `shared` (with `global` when asked). Who may and `amqp:resource-locked` for another address or
   other filters while a link consumes are as for a kept one. The bus removes the queue with its last
