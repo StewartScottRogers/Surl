@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1997 — Correct the SMTP library CLAUDE.md on anonymous copies, SIZE refusals and the test case server
 
@@ -31,14 +31,23 @@ Found while working BL-1978 (2026-11-27). Prose only. Code files are in the same
 
 ## Acceptance criteria
 
-- [ ] The "Mail" bullet says the anonymous owner gets one copy for each recipient.
-- [ ] The "Limits" bullet says which `552` closes the session and that an oversize `MAIL` `SIZE=` does not.
-- [ ] The test case server bullet says it wraps a `SmtpProtocolServer`, implements only `IConnectionProtocolServer`, and names the three refusals.
-- [ ] The diff changes only that `CLAUDE.md`.
+- [x] The "Mail" bullet says the anonymous owner gets one copy for each recipient.
+- [x] The "Limits" bullet says which `552` closes the session and that an oversize `MAIL` `SIZE=` does not.
+- [x] The test case server bullet says it wraps a `SmtpProtocolServer`, implements only `IConnectionProtocolServer`, and names the three refusals.
+- [x] The diff changes only that `CLAUDE.md`.
 
 ## Notes
+
+- Edited in the session rather than delegated to `align-and-document`: three short passages, each checked against
+  `SmtpMailTransaction.cs`, `SmtpSession.cs`, `SmtpMailParameters.cs`, `SmtpUpstreamTestCaseServer.cs`,
+  `SmtpSession.UpstreamTestCase.cs` and `MailboxStore.DeliveriesOf`.
+- Also corrected in the same test case server bullet: `EHLO` lists `surl Hello` ahead of the case's `CAPA` and `AUTH`,
+  and the case's data for `VRFY`, `EXPN` and `HELP` is chosen by the `EHLO` or `HELO` name.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: passed. The only file changed outside the task board is that
+  `CLAUDE.md`.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The SMTP library CLAUDE.md now matches the code on anonymous copies, the two 552 refusals and the upstream test case server
