@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2131 — Read the mail store's accounts under its lock in LookUpRecipient and ViewFor
 
@@ -30,13 +30,21 @@ Stand-in (root `CLAUDE.md`): a test adds or removes accounts while clients are s
 
 ## Acceptance criteria
 
-- [ ] `LookUpRecipient` and `ViewFor` read `accounts`, `mailboxOwners` and the router's targets under `storeLock`.
-- [ ] A test in `Surl.MailStore.UnitTests` runs both on several threads while another adds and retires an owner, and a configured account is found every time.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] `LookUpRecipient` and `ViewFor` read `accounts`, `mailboxOwners` and the router's targets under `storeLock`.
+- [x] A test in `Surl.MailStore.UnitTests` runs both on several threads while another adds and retires an owner, and a configured account is found every time.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- `ViewFor` already read `accounts` and `mailboxOwners` under `storeLock` (BL-2129 added that lock), so only
+  `LookUpRecipient` changed: it now takes `storeLock` around both ways of resolving, the router's included.
+- `anonymousOwner` and `router` are still read outside the lock: both are set only while the store is made.
+- The test is `MailboxStoreRunTimeOwnerTests.LookUpRecipientAndViewFor_WhileAnOwnerIsAddedAndRetiredOnAnotherThread_FindAConfiguredAccountEveryTime`,
+  with and without a mail domain. Before the fix it failed in both (26 and 167 misses in the first reader).
+- No ADR: this makes the class summary's "every operation is atomic" true; no behaviour was decided.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. LookUpRecipient resolves recipients under the store's lock, so adding, retiring, resetting or restoring accounts on another thread no longer hides a configured account.
