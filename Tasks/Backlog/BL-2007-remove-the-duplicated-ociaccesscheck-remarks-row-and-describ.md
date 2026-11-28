@@ -1,5 +1,5 @@
 ---
-id: BL-1999
+id: BL-2007
 title: Remove the duplicated OciAccessCheck remarks row and describe every use of its policy
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1999 — Remove the duplicated OciAccessCheck remarks row and describe every use of its policy
+# BL-2007 — Remove the duplicated OciAccessCheck remarks row and describe every use of its policy
 
 ## Goal
 
@@ -28,7 +28,7 @@ Found while working BL-1981 (2026-11-27), read from source. `///` comment text o
   secrets are refused (`RefusesPlaintextAsync`, a probe `CheckPasswordLoginAsync`) and, through `NamesAccount`,
   whether a token's account still exists (`FindLiveToken`).
 
-Describe what the code does today; BL-1995 decides about LDAP directory users separately. No store, event or fault
+Describe what the code does today; BL-2003 decides about LDAP directory users separately. No store, event or fault
 changes: documentation only.
 
 ## Acceptance criteria

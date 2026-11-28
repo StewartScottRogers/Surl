@@ -1,5 +1,5 @@
 ---
-id: BL-1995
+id: BL-2003
 title: Decide how an OCI or MCP token issued to an LDAP directory user is judged when used
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1995 — Decide how an OCI or MCP token issued to an LDAP directory user is judged when used
+# BL-2003 — Decide how an OCI or MCP token issued to an LDAP directory user is judged when used
 
 ## Goal
 
@@ -49,7 +49,7 @@ Stand-in: the stores are the shared account book and the operator's own director
 - [ ] The amendment says, for the OCI bearer token and the MCP access and refresh tokens, whether a directory user's token is issued and honoured, until when, and what happens after the directory disables or deletes the user.
 - [ ] It keeps or explicitly changes each of these refusals: an account-book account removed by `remove_account`, reset or restore (also when the directory holds the same name), a scheme `protocols=` leaves out, and a name that never logged in.
 - [ ] It says whether the Azure Storage path-style check answers differently under `--user-ldap`.
-- [ ] It names the member that answers the token check and every library that changes; for any library other than `Surl.Authentication`, one task per library is filed with `task-board.ps1 new`, and added to BL-1996's `depends-on` where BL-1996 needs it first.
+- [ ] It names the member that answers the token check and every library that changes; for any library other than `Surl.Authentication`, one task per library is filed with `task-board.ps1 new`, and added to BL-2004's `depends-on` where BL-2004 needs it first.
 - [ ] No file outside `Documentation/Planning/Decisions/` and `Tasks/` changes.
 
 ## Notes

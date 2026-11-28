@@ -1,5 +1,5 @@
 ---
-id: BL-1997
+id: BL-2005
 title: Correct the PasswordLogin, AnonymousAuthenticationPolicy and NamesAccount statements in Abstractions
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1997 — Correct the PasswordLogin, AnonymousAuthenticationPolicy and NamesAccount statements in Abstractions
+# BL-2005 — Correct the PasswordLogin, AnonymousAuthenticationPolicy and NamesAccount statements in Abstractions
 
 ## Goal
 
@@ -34,7 +34,7 @@ All files are in `Foundation/Surl.Protocol.Abstractions.UnitLibrary`.
   Search again before writing.
 - `CLAUDE.md`, "The authentication contract": gives the Azure Storage path-style check as the only use of
   `NamesAccount`. `OciAccessCheck` and `McpAuthorizationGrants` also call it, to refuse a token whose account the
-  account book no longer holds (ADR-0167 decision 4). Describe what the code does today; BL-1995 decides about
+  account book no longer holds (ADR-0167 decision 4). Describe what the code does today; BL-2003 decides about
   directory users separately.
 
 `IAuthenticationPolicy.cs` is BL-1981's and is not touched here. No store, event or fault changes: documentation only.

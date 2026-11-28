@@ -1,21 +1,21 @@
 ---
-id: BL-1996
+id: BL-2004
 title: Judge an LDAP directory user's OCI and MCP tokens as the amended ADR-0167 decides
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1995]
+depends-on: [BL-2003]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1996 — Judge an LDAP directory user's OCI and MCP tokens as the amended ADR-0167 decides
+# BL-2004 — Judge an LDAP directory user's OCI and MCP tokens as the amended ADR-0167 decides
 
 ## Goal
 
 `AuthenticationPolicy` answers the OCI and MCP per-use token check for an LDAP directory user as ADR-0167 Amendment 3
-(BL-1995) decides.
+(BL-2003) decides.
 
 ## Context
 
@@ -25,7 +25,7 @@ Found while working BL-1981 (2026-11-27), read from source. With `--user-ldap` s
 `McpAuthorizationGrants` refuse that token as unknown.
 
 Read Amendment 3 first: it fixes the behaviour, the member and the libraries. `touches` here covers a change inside
-`Surl.Authentication`; BL-1995 files separate tasks for any other library. Tests drive the directory in memory through
+`Surl.Authentication`; BL-2003 files separate tasks for any other library. Tests drive the directory in memory through
 `ILdapDirectoryConnector`, on the settings view the server's policy is composed with
 (`AuthenticationSettings.ForScheme`). No socket, no `Integration` test, no upstream curl measurement (curl has neither
 scheme).

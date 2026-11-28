@@ -51,8 +51,8 @@ No store, event or fault is involved: comments only.
   (`AnonymousAuthenticationPolicy` returns one shared session).
 - Verified: solution build with `-warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests
   30378 passed, 3 skipped, 0 failed.
-- Follow-ups filed: BL-1995 and BL-1996 (an LDAP directory user's OCI or MCP token appears to be refused when used,
-  because `NamesAccount` asks only the account book; read from source, not run), BL-1997, BL-1998 and BL-1999
+- Follow-ups filed: BL-2003 and BL-2004 (an LDAP directory user's OCI or MCP token appears to be refused when used,
+  because `NamesAccount` asks only the account book; read from source, not run), BL-2005, BL-2006 and BL-2007
   (other stale comments). The login scheme comments in `AuthenticationPolicy.cs` are already BL-1994's.
 
 ## Log

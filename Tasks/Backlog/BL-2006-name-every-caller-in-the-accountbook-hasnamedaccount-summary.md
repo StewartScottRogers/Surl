@@ -1,5 +1,5 @@
 ---
-id: BL-1998
+id: BL-2006
 title: Name every caller in the AccountBook.HasNamedAccount summary
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1998 — Name every caller in the AccountBook.HasNamedAccount summary
+# BL-2006 — Name every caller in the AccountBook.HasNamedAccount summary
 
 ## Goal
 
@@ -23,7 +23,7 @@ Found while working BL-1981 (2026-11-27), read from source. `///` comment text o
 `Foundation/Surl.Authentication.UnitLibrary/AccountBook.cs`: the summary of `HasNamedAccount` gives SASL `EXTERNAL`
 as its use. It is also called by `AuthenticationPolicy.NamesAccount` and `FindKerberosAccountName` (the SOCKS5 GSS-API
 login), `GssapiSaslExchange`, `GssSpnegoSaslExchange` and `NegotiateKerberosLogin`, beside `ExternalSaslExchange`.
-Search again before writing: BL-1996 may have changed the callers.
+Search again before writing: BL-2004 may have changed the callers.
 
 BL-1994 corrects other summaries in the same library and does not cover this one. No store, event or fault changes:
 documentation only.
