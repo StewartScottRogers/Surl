@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests/Amqp1SecurityNegotiationTests.cs, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1973 — Name the AMQP 1.0 TLS header tests after a TLS upgrade being available, not a certificate
 
@@ -33,14 +33,20 @@ no store, event or fault is involved.
 
 ## Acceptance criteria
 
-- [ ] No test method name or `DisplayName` in `Amqp1SecurityNegotiationTests.cs` says "Certificate" or "certificate"; each renamed test says TLS upgrade available or unavailable.
-- [ ] Rows `Amqp1:Security-5.2-1` and `Amqp1:Surl-Headers-2` cite the new test names, and every test they name exists in `Surl.Extended.Protocol.Amqp1.UnitTests`.
-- [ ] The diff changes only those names and those citations.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] No test method name or `DisplayName` in `Amqp1SecurityNegotiationTests.cs` says "Certificate" or "certificate"; each renamed test says TLS upgrade available or unavailable.
+- [x] Rows `Amqp1:Security-5.2-1` and `Amqp1:Surl-Headers-2` cite the new test names, and every test they name exists in `Surl.Extended.Protocol.Amqp1.UnitTests`.
+- [x] The diff changes only those names and those citations.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Renamed `...TlsHeaderWithACertificate...` to `...TlsHeaderWithTlsUpgradeAvailable...` and
+  `...TlsHeaderWithoutACertificate...` to `...TlsHeaderWithTlsUpgradeUnavailable...`; updated the two citations.
+- 2026-11-27 verification: build 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests 30438 passed,
+  0 failed, 3 skipped. Integration tests not run: only test names and citations changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The two AMQP 1.0 TLS header tests and their conformance citations name TLS upgrade available or unavailable
