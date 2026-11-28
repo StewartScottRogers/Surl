@@ -23,7 +23,18 @@ namespace Surl.Authentication;
 /// </param>
 /// <param name="AllowPlaintextAuthentication"><c>--allow-plaintext-auth</c>: accept plain-text secrets without TLS.</param>
 /// <param name="AcceptedMethods">
-/// <c>--auth</c>'s methods, <see cref="AuthenticationMethods.DefaultAccepted"/> when it is not given.
+/// The methods the policy offers and checks. <c>Surl.Composition</c> gives the servers' settings
+/// <c>--auth</c>'s methods, or <see cref="AuthenticationMethods.DefaultAccepted"/> when it is not
+/// given; without <c>--auth</c> it adds the three SCRAM methods to the <c>kafka</c> and <c>xmpp</c>
+/// views, which also serve <c>kafkas</c> and <c>xmpps</c> (ADR-0179). The settings of a proxy given
+/// <c>-U</c> or <c>--proxy-user-file</c> hold <c>--proxy-auth</c>'s methods, or Digest and Basic
+/// when it is not given, never <c>--auth</c>'s (ADR-0088, decision 5). Settings composed without
+/// the instance's command line, such as those of the policy that judges the Kerberos logins of a
+/// proxy given neither, hold <see cref="AuthenticationMethods.DefaultAccepted"/> whatever either
+/// option says. The set does not decide
+/// <see cref="AuthenticationPolicy.CheckPasswordLoginAsync"/>'s password and token logins, SSH
+/// logins, a storage service's credentials or a Kerberos login judged by
+/// <see cref="AuthenticationPolicy.JudgeKerberosLoginAsync"/>.
 /// </param>
 public sealed record AuthenticationSettings(
     AccountBook Accounts,

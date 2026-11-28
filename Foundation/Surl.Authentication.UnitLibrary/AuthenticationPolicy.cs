@@ -5,9 +5,13 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// The <see cref="IAuthenticationPolicy"/> <c>Surl.Composition</c> composes (ADR-0032, sections
-/// 4, 5 and 8): anonymous access only where ADR-0032 allows it, and every refused credential
-/// answered after <see cref="RefusalDelay"/> on the injected <see cref="TimeProvider"/>. Except for
+/// Judges logins by its <see cref="Settings"/> (ADR-0032, sections 4, 5 and 8), answering a login
+/// refused after its credential was checked only after <see cref="RefusalDelay"/> on the injected
+/// <see cref="TimeProvider"/>. <c>Surl.Composition</c> builds it for the servers, per scheme over
+/// that scheme's view of the accounts, and for a proxy given <c>-U</c> or
+/// <c>--proxy-user-file</c>; a proxy given neither has <c>Surl.Composition</c>'s
+/// <c>NoAccountProxyAuthenticationPolicy</c>, which asks for no login and has an instance of this
+/// class, with no accounts and <c>AllowAnonymous</c>, judge only its Kerberos logins. Except for
 /// a storage service's credentials (ADR-0108, ADR-0109, ADR-0110), a plain-text secret on an
 /// unencrypted connection is refused unchecked unless <c>--allow-plaintext-auth</c> or
 /// <c>--allow-anonymous</c>, and of the <see cref="AuthenticationMethod"/>s only the accepted ones
@@ -709,8 +713,10 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     }
 
     /// <summary>
-    /// Gets the accounts, the loosening options, the accepted methods, the authorized keys and the
-    /// Kerberos acceptor this policy judges by, as <c>Surl.Composition</c> composed them.
+    /// Gets the settings this policy judges by, as given to its constructor: the account book,
+    /// <c>--allow-anonymous</c> and <c>--allow-plaintext-auth</c>, the accepted methods, the
+    /// authorized keys, the Kerberos acceptor, the LDAP account source and
+    /// <see cref="AuthenticationSettings.RequiresLoginWithoutAccounts"/>.
     /// </summary>
     public AuthenticationSettings Settings => settings;
 

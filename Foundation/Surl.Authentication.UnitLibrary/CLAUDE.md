@@ -6,9 +6,10 @@ challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, 
 Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, Azure Storage's bearer token, Shared Key
 and shared access signatures, the password check that logins such as the MQTT `CONNECT` and
 FTP's `PASS` ask for, SMB's NTLMv1 session setup
-(`AuthenticationPolicy.CheckSmbNtlmV1LoginAsync`, ADR-0073), and the mail servers' SASL
-mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
-`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, `GSSAPI`, which checks a Kerberos ticket with the
+(`AuthenticationPolicy.CheckSmbNtlmV1LoginAsync`, ADR-0073), and the SASL mechanisms the mail,
+LDAP and messaging servers run (`PLAIN`, `LOGIN`, `XOAUTH2`,
+`OAUTHBEARER`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, `SCRAM-SHA-1`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`,
+LDAP's `GSS-SPNEGO`, `GSSAPI`, which checks a Kerberos ticket with the
 `--keytab` acceptor and is offered first (ADR-0057 decisions 9 and 10), and `EXTERNAL`, which logs in as the
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
@@ -156,7 +157,7 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - The handshake itself is `NtlmHandshake` (answering decoded messages with an
   `NtlmHandshakeStep`), shared by NTLM and Negotiate; `NtlmConnectionVerifier` only decodes the
   base64 (`Base64Credentials`) and writes `NTLM <base64>`.
-- SASL `NTLM` for the mail servers (ADR-0049 section 5, BL-196) is `NtlmSaslExchange`: it holds
+- SASL `NTLM` (ADR-0049 section 5, BL-196) is `NtlmSaslExchange`: it holds
   its own `NtlmHandshake` (from `SaslExchangeContext.StartNtlmHandshake`, over the policy's
   `INtlmServerChallengeSource`), so the handshake dies with the `AUTH` command. An empty
   challenge when no initial response was sent, one `CHALLENGE_MESSAGE` per exchange, and every
@@ -347,11 +348,14 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 
 - `AuthenticationPolicy` implements `ISshAuthenticationPolicy` (ADR-0051, sections 6 and 7).
   `none` is refused, undelayed and unnoted, except under `--allow-anonymous`. A `password`
-  request or `keyboard-interactive` answer is checked against the named accounts through
-  `AccountBook.CheckPassword`, never refused as plain-text (SSH encrypts first), so
-  `--allow-plaintext-auth` plays no part. A `publickey` query is `KeyAcceptable` or `Refused`,
-  undelayed and unnoted; a signed request is `Accepted` only when the server verified the
-  signature and the key is authorized for the user. Every refused credential waits
+  request or `keyboard-interactive` answer is checked by `AccountBookAndDirectoryPasswordCheck`:
+  against the named accounts through `AccountBook.CheckPassword` and, for a non-empty name the
+  whole book does not hold, by the `LdapAccountSource` (`--user-ldap`, below), asked about the
+  `ForScheme` view's scheme (`ssh` on settings that are no view). It is never refused as
+  plain-text (SSH encrypts first), so `--allow-plaintext-auth` plays no part. A `publickey`
+  query is `KeyAcceptable` or `Refused`, undelayed and unnoted; a signed request is `Accepted`
+  only when the server verified the signature and the key is authorized for the user. Every
+  refused credential waits
   `RefusalDelay`, and every checked one carries a `CheckedLogin` whose method is the RFC 4252
   name as on the wire. Under `--allow-anonymous` everything is `AcceptedUnchecked` (a query
   `KeyAcceptable`), with no note.
@@ -480,8 +484,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `n` and `y` are accepted, `p=` is refused `channel-binding-not-supported`, `m=`
   `extensions-not-supported`. A refusal's `RefusalNote` is the `server-final-message` that
   refuses it (`e=invalid-proof` for a wrong proof and an unknown user alike); success is
-  `v=<ServerSignature>` as a challenge on the mail servers, or `AdditionalSuccessData` where the
-  server's success carries data (`SaslExchangeContext.SuccessCarriesData`, below).
+  `v=<ServerSignature>` as `AdditionalSuccessData` where the server's success carries data
+  (`SaslExchangeContext.SuccessCarriesData`, below; LDAP and XMPP start exchanges so), and as a
+  challenge otherwise.
 - `SaslPrep` is RFC 4013's mapping (C.1.2 spaces to U+0020, B.1 removed) and NFKC; the
   prohibited-output and bidirectional checks are not made, since they only refuse.
 - `ScramSaslMechanismTests` replays RFC 5802 section 5's and RFC 7677 section 3's examples byte
