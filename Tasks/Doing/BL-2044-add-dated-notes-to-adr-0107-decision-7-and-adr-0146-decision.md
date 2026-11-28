@@ -51,3 +51,4 @@ pointing at ...:*"); recorded text is never rewritten. The code is in
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
