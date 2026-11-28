@@ -43,10 +43,12 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `RCPT TO`; `SmtpMailTransaction` keeps up to `MaxRecipients` (100) recipients, each looked up
   with `MailboxStore.LookUpRecipient`, one that names no account discarded at delivery. With a
   `--mail-domain` configured (ADR-0102 decision 1), a recipient outside every domain
-  (`RelayingDenied`) is answered `550 5.7.1 Relaying denied`, noted, and not counted; an owner
-  reached by several `RCPT`s, aliases or catch-alls gets one copy, also when two aliases each
-  name an owner the other does not and share one (`MailRecipient.WithoutOwners` keeps the later
-  alias's unreached owners only; BL-767).
+  (`RelayingDenied`) is answered `550 5.7.1 Relaying denied`, noted, and not counted; a named
+  owner reached by several `RCPT`s, aliases or catch-alls gets one copy, also when two aliases
+  each name an owner the other does not and share one (`MailRecipient.WithoutOwners` keeps the
+  later alias's unreached owners only; BL-767). The anonymous owner gets one copy for each
+  recipient: `SmtpMailTransaction.AddRecipient` adds it once for each accepted `RCPT`, a
+  repeated address included.
   `DATA` streams into a `PendingMessage` from `MailboxStore.CreatePendingMessage`: first
   `SmtpTraceFields`, then the body as `CrlfLineReader.ReadDotStuffedBodyAsync` unstuffs it, so
   with a data directory the message goes straight into the store's pending file. A message past
@@ -71,8 +73,11 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` only when no upgrade is
   available (`isTlsUpgradeAvailable` false: no certificate and no TLS-SRP), `503` on a TLS
   connection.
-- Limits (decision 7, ADR-0059): `500` past `--max-line`, `421` past `--head-timeout`, `552`
-  past `--max-filesize`, each then closing, written within `LimitReplyWriteDeadline`; an
+- Limits (decision 7, ADR-0059): `500` past `--max-line`, `421` past `--head-timeout`, and
+  `552 5.3.4` for a `DATA` body that, with its trace fields, passes `--max-filesize`, each then
+  closing, written within `LimitReplyWriteDeadline`. A `MAIL` `SIZE=` over `--max-filesize` is
+  also answered `552 5.3.4` (`SmtpMailParameters.FindRefusal`, through `AnswerMailAsync`), but
+  that one opens no transaction and the session stays open. An
   exchange cancelled for a limit (`ExchangeContext.IsCancelledForALimit`) is answered
   `421 4.4.2 surl Timeout, closing`, and shutdown ends it with no farewell.
 - Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `SmtpSession.Faults.cs`): every recognized
@@ -95,14 +100,19 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   as `****`.
 - `SmtpLogText`: renders peer bytes for the verbose notes of decision 8.
 - `SmtpUpstreamTestCaseServer` (ADR-0080 decision 2): the SMTP server half of one upstream
-  curl test case, never composed by the shipped `surl`. It is `SmtpProtocolServer` built with
-  the internal constructor that takes a `MailUpstreamTestCaseReplies` (`Surl.LineProtocol`) and
-  an empty `MailboxStore` it owns. `SmtpSession.UpstreamTestCase.cs` holds what the case
+  curl test case, never composed by the shipped `surl`. It is a separate class that implements
+  only `IConnectionProtocolServer` and wraps a `SmtpProtocolServer`, built with the internal
+  constructor that takes a `MailUpstreamTestCaseReplies` (`Surl.LineProtocol`), and with an
+  empty `MailboxStore` of its own. `SmtpSession.UpstreamTestCase.cs` holds what the case
   changes: `REPLY welcome` replaces the greeting, a `REPLY`'d line is answered with the case's
-  text and not run, `EHLO` lists only the case's `CAPA` and `AUTH`, `MAIL` needs no login, a
-  `DATA` body is recorded dot-stuffed in `UploadedBytes` and not delivered, `VRFY`, `EXPN` and `HELP`
-  answer the case's data for the `EHLO` name when it has any, and every command line is
-  recorded in `ReceivedBytes`. Without a case the session is unchanged.
+  text and not run, `EHLO` lists `surl Hello`, then only the case's `CAPA` and `AUTH`, `MAIL`
+  needs no login, a `DATA` body is recorded dot-stuffed in `UploadedBytes` and not delivered,
+  `VRFY`, `EXPN` and `HELP` answer the case's data for the `EHLO` or `HELO` name when it has
+  any, and every command line is recorded in `ReceivedBytes`. It also adds three refusals,
+  after each of which the session goes on: a `RCPT` with no at sign is answered
+  `501 Invalid address`; so is a `RCPT` or `VRFY` argument with a byte past ASCII when the
+  `CAPA` does not list `SMTPUTF8`; and a `MAIL` `SIZE=` over the `SIZE` the `CAPA` advertises
+  is answered `552 Message size too large`. Without a case the session is unchanged.
 
 ## References
 
