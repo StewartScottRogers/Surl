@@ -90,6 +90,17 @@ What it holds now (BL-629):
   `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, only
   when some persisted queue has one, so a bus with none writes what earlier builds read),
   snapshotted and restored with its queue, and goes with the queue on reset.
+- **Subscription queues (BL-1992, ADR-0146 decision 3.7).**
+  `BusConnection.ConsumeSubscriptionQueue(name, description, filter, ...)` consumes as `Consume` does,
+  but asks for `sub` on the topic filter instead of on `$queue/<name>`, so an account needs no queue
+  grant for its subscription. Under one hold of the bus's lock the queue must carry that description
+  (else `QueueDescriptionDiffers`) and be bound to that filter and nothing else (else `AccessDenied`).
+  `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue. A queue carrying a
+  description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
+  `UnknownQueue`, so a direct send (AMQP 0-9-1's default, direct, fanout and headers exchanges, STOMP's
+  `/queue/`) brings no message from outside its bindings. `SeedEnqueue`, the test host's own, still
+  fills it. The check at consume time reads the bindings as they are then: a message another client's
+  binding copied in, then unbound, stays in the queue.
 - **Batch publish, all or none (BL-961, ADR-0146 decision 1.6).** `BusConnection.PublishBatch` takes an
   ordered list of `BusBatchEntry` - `ToTopic(message)` or `ToQueue(name, message)` - and answers a
   `BusBatchPublishResult`: `Succeeded` with each entry's `BusPublishResult` in order, or the first refused
@@ -185,7 +196,8 @@ What it holds now (BL-629):
   `PublishToQueue(string, BusMessage, string?)`; the parameterless forms are anonymous. A
   publish needs `pub` on a filter matching the topic; a subscribe or a `BindQueue` needs `sub`
   on a filter covering the filter (`CanonicalTopicName.FilterCovers`); a queue is the filter
-  `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume. A refusal is
+  `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume (a subscription
+  queue consumed through `ConsumeSubscriptionQueue` asks for `sub` on its topic filter instead). A refusal is
   `AccessDenied`, checked before anything that would tell whether the topic or queue exists.
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
   without touching it, as Kafka's Metadata needs (BL-518). ADR-0102 decision 3.5 records these

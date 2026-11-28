@@ -1,0 +1,198 @@
+using System.Text;
+
+namespace Surl.MessageBus;
+
+/// <summary>
+/// Consuming a subscription queue on the <c>sub</c> right of its topic filter alone
+/// (BL-1992; ADR-0146, decisions 3.2 and 3.7).
+/// </summary>
+[TestClass]
+public sealed class MessageBusSubscriptionQueueTests
+{
+    private const string Queue = "subscription-queue";
+    private const string Description = "described";
+    private const string Filter = "sport/+";
+
+    private readonly SettableTimeProvider clock = new();
+
+    [TestMethod]
+    public void ConsumeSubscriptionQueue_SubOnTheFilterOnly_ReceivesWhatTheQueueKept()
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        DeclareSubscriptionQueue(connection);
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        var received = new List<string>();
+
+        var consumed = connection.ConsumeSubscriptionQueue(
+            Queue, Description, Filter, delivery => received.Add(Encoding.UTF8.GetString(delivery.Message.Payload.Span)));
+        consumed.Consumer!.Start();
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, consumed.Outcome);
+        CollectionAssert.AreEqual(new[] { "kept" }, received);
+        Assert.AreEqual(1, connection.InspectQueue(Queue).ConsumerCount);
+    }
+
+    [TestMethod]
+    public void ConsumeAndGetFromQueue_SubOnTheFilterOnly_StayAccessDenied()
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        DeclareSubscriptionQueue(connection);
+
+        var consumed = connection.Consume(Queue, _ => { });
+        var got = connection.GetFromQueue(Queue);
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.AccessDenied, null), consumed);
+        Assert.AreEqual(new BusGetResult(MessageBusOutcome.AccessDenied, null, 0), got);
+    }
+
+    [TestMethod]
+    public void ConsumeSubscriptionQueue_WithoutSubOnTheFilter_IsAccessDeniedAndAddsNoConsumer()
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        DeclareSubscriptionQueue(owner);
+        using var other = bus.Connect("mallory");
+
+        var consumed = other.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { });
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.AccessDenied, null), consumed);
+        Assert.AreEqual(0, owner.InspectQueue(Queue).ConsumerCount);
+    }
+
+    [TestMethod]
+    [DataRow(null, DisplayName = "no description")]
+    [DataRow("another", DisplayName = "another description")]
+    public void ConsumeSubscriptionQueue_AQueueNotCarryingTheDescription_IsRefusedAndAddsNoConsumer(string? carried)
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        connection.DeclareQueue(Queue, subscriptionDescription: carried);
+        connection.BindQueue(Queue, Filter);
+
+        var consumed = connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { });
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.QueueDescriptionDiffers, null), consumed);
+        Assert.AreEqual(0, connection.InspectQueue(Queue).ConsumerCount);
+    }
+
+    [TestMethod]
+    [DataRow(new string[0], DisplayName = "no binding")]
+    [DataRow(new[] { "sport/chess" }, DisplayName = "a narrower filter")]
+    [DataRow(new[] { "news" }, DisplayName = "another filter")]
+    [DataRow(new[] { "sport/+", "news" }, DisplayName = "the filter and another")]
+    public void ConsumeSubscriptionQueue_AQueueNotBoundToExactlyTheFilter_IsAccessDeniedAndAddsNoConsumer(string[] bound)
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        using var binder = bus.Connect("binder");
+        connection.DeclareQueue(Queue, subscriptionDescription: Description);
+        foreach (var filter in bound)
+        {
+            Assert.AreEqual(MessageBusOutcome.Succeeded, binder.BindQueue(Queue, filter));
+        }
+
+        var consumed = connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { });
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.AccessDenied, null), consumed);
+        Assert.AreEqual(0, connection.InspectQueue(Queue).ConsumerCount);
+    }
+
+    [TestMethod]
+    public void ConsumeSubscriptionQueue_AMissingOrAnotherConnectionsExclusiveQueue_IsRefused()
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        using var other = bus.Connect("alice");
+        owner.DeclareQueue(Queue, new BusQueueFlags(Exclusive: true), Description);
+
+        var locked = other.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { });
+        var missing = other.ConsumeSubscriptionQueue("missing", Description, Filter, _ => { });
+
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.QueueLocked, null), locked);
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.UnknownQueue, null), missing);
+    }
+
+    [TestMethod]
+    public void ConsumeSubscriptionQueue_Exclusive_KeepsEveryOtherConsumerOut()
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        DeclareSubscriptionQueue(connection);
+
+        var first = connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { }, exclusive: true);
+        var second = connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { });
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, first.Outcome);
+        Assert.AreEqual(new BusConsumeResult(MessageBusOutcome.ExclusiveConsumeRefused, null), second);
+    }
+
+    [TestMethod]
+    public void ConsumeSubscriptionQueue_WithAMaximumOfUnacknowledged_HoldsNoMore()
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        DeclareSubscriptionQueue(connection);
+        bus.Publish(new BusMessage("sport/chess", "1"u8.ToArray()), "alice");
+        bus.Publish(new BusMessage("sport/chess", "2"u8.ToArray()), "alice");
+
+        connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { }, maxUnacknowledged: 1).Consumer!.Start();
+
+        Assert.AreEqual(1, connection.InspectQueue(Queue).ReadyMessageCount);
+    }
+
+    [TestMethod]
+    public void PublishToQueue_ASubscriptionQueue_IsUnknownQueueAndStoresNothing()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        DeclareSubscriptionQueue(connection);
+        var message = new BusMessage("elsewhere", "sent"u8.ToArray());
+        var expired = message with { ExpiresAt = clock.GetUtcNow() };
+
+        var sent = bus.PublishToQueue(Queue, message);
+        var sentExpired = bus.PublishToQueue(Queue, expired);
+        var batched = connection.PublishBatch([BusBatchEntry.ToQueue(Queue, message)]);
+
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, sent);
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, sentExpired);
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, batched.Outcome);
+        Assert.AreEqual(0, connection.InspectQueue(Queue).ReadyMessageCount);
+    }
+
+    [TestMethod]
+    public void ConsumeSubscriptionQueue_BadArgumentsOrAClosedConnection_Throw()
+    {
+        var bus = Bus();
+        var connection = bus.Connect("alice");
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => connection.ConsumeSubscriptionQueue(null!, Description, Filter, _ => { }));
+        Assert.ThrowsExactly<ArgumentNullException>(() => connection.ConsumeSubscriptionQueue(Queue, null!, Filter, _ => { }));
+        Assert.ThrowsExactly<ArgumentNullException>(() => connection.ConsumeSubscriptionQueue(Queue, Description, null!, _ => { }));
+        Assert.ThrowsExactly<ArgumentNullException>(() => connection.ConsumeSubscriptionQueue(Queue, Description, Filter, null!));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { }, maxUnacknowledged: -1));
+        connection.Dispose();
+        Assert.ThrowsExactly<ObjectDisposedException>(() => connection.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { }));
+    }
+
+    // alice publishes and subscribes on sport/#; the binder may bind any filter; nobody has a $queue grant.
+    private MessageBus Bus() => new(
+        clock,
+        configuration: new MessageBusConfiguration
+        {
+            AccessGrants =
+            [
+                new TopicAccessGrant("sport/#", "alice", TopicAccessRights.Publish),
+                new TopicAccessGrant("sport/#", "alice", TopicAccessRights.Subscribe),
+                new TopicAccessGrant("sport/#", "binder", TopicAccessRights.Subscribe),
+                new TopicAccessGrant("news", "binder", TopicAccessRights.Subscribe),
+            ],
+        });
+
+    private static void DeclareSubscriptionQueue(BusConnection connection)
+    {
+        connection.DeclareQueue(Queue, subscriptionDescription: Description);
+        connection.BindQueue(Queue, Filter);
+    }
+}

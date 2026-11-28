@@ -249,7 +249,7 @@ public sealed class MessageBusQueueDeclareTests
         var bus = new MessageBus(clock);
         using var connection = bus.Connect();
         connection.DeclareQueue("q", subscriptionDescription: "/topic/a");
-        bus.PublishToQueue("q", Message("1"));
+        bus.SeedEnqueue("q", Message("1"));
 
         var result = connection.DeclareQueue("q", subscriptionDescription: otherDescription);
 
@@ -278,7 +278,7 @@ public sealed class MessageBusQueueDeclareTests
         var bus = new MessageBus(clock);
         using var connection = bus.Connect();
         connection.DeclareQueue("q", subscriptionDescription: "/topic/a");
-        bus.PublishToQueue("q", Message("1"));
+        bus.SeedEnqueue("q", Message("1"));
 
         var result = connection.DeclareQueue("q", subscriptionDescription: description);
 

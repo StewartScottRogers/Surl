@@ -308,14 +308,97 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_DurableAttachWithTheTopicButNotTheQueueGranted_IsRefusedUnauthorized()
+    [DataRow("never", false, DisplayName = "durable")]
+    [DataRow("session-end", false, DisplayName = "session-end")]
+    [DataRow("never", true, DisplayName = "shared")]
+    public async Task ServeAsync_KeptAttachWithOnlyTheTopicGranted_IsServedAndReceivesWhatIsPublished(string policy, bool shared)
     {
-        var bus = Bus(new MessageBusConfiguration { AccessGrants = [new TopicAccessGrant("news", "alice", TopicAccessRights.Subscribe)] });
+        var bus = Bus(TopicOnlyGrants());
+        string[] capabilities = shared ? ["shared"] : [];
 
-        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")));
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            Open(),
+            Begin(),
+            BusFrame(DurableAttach(0, "/topic/news", policy, "durable", null, capabilities)),
+            BusFrame(SenderAttach(1, "/topic/news")),
+            BusFrame(new Amqp1Transfer(1) { DeliveryId = 0, DeliveryTag = [1], Settled = true }, ColoredMessage("red", "published")),
+            BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.IsNotNull(((Amqp1Attach)written[2].Performative!).Source);
+        Assert.IsEmpty(written.Select(frame => frame.Performative).OfType<Amqp1Detach>());
+        Assert.AreEqual("published", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DurableReattachWithOnlyTheTopicGranted_ResumesTheSubscription()
+    {
+        var bus = Bus(TopicOnlyGrants());
+        await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")), BusFrame(new Amqp1Detach(0)));
+        bus.Publish(new BusMessage("news", "kept"u8.ToArray()), "alice");
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")), BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
+
+        Assert.AreEqual("kept", DataOf(Transfers(written).Single().Payload));
+    }
+
+    [TestMethod]
+    [DataRow("/topic/weather", DisplayName = "another filter it is granted")]
+    [DataRow("/topic/news", DisplayName = "the same filter")]
+    [DataRow(null, DisplayName = "no source")]
+    public async Task ServeAsync_AttachOnASubscriptionWhoseFilterTheAccountLacks_IsRefusedUnauthorizedAndChangesNothing(string? address)
+    {
+        var bus = Bus(new MessageBusConfiguration
+        {
+            AccessGrants =
+            [
+                new TopicAccessGrant("news", "bob", TopicAccessRights.Publish),
+                new TopicAccessGrant("news", "bob", TopicAccessRights.Subscribe),
+                new TopicAccessGrant("weather", "bob", TopicAccessRights.Publish),
+                new TopicAccessGrant("weather", "alice", TopicAccessRights.Subscribe),
+            ],
+        });
+        var plan = Amqp1KeptSubscription.Plan("client", "durable", new Amqp1Terminus("/topic/news", false, false) { ExpiryPolicy = "never" }, "news", null);
+        var owner = bus.Connect("bob");
+        owner.DeclareQueue(DurableQueue, new BusQueueFlags(Durable: true), plan.Description);
+        owner.BindQueue(DurableQueue, "news");
+        bus.Publish(new BusMessage("news", "bobs"u8.ToArray()), "bob");
+        var attach = address is null ? DurableAttach(0, "/topic/news") with { Source = null } : DurableAttach(0, address, "never");
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(attach), BusFrame(new Amqp1Detach(0) { Closed = true }));
+
+        Assert.IsNull(((Amqp1Attach)written[2].Performative!).Source);
+        Assert.AreEqual(Amqp1ErrorCondition.UnauthorizedAccess, ((Amqp1Detach)written[3].Performative!).Error!.Condition);
+        Assert.IsEmpty(Transfers(written));
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 1, 0, plan.Description), owner.InspectQueue(DurableQueue));
+        bus.Publish(new BusMessage("weather", "unbound"u8.ToArray()), "bob");
+        bus.Publish(new BusMessage("news", "bound"u8.ToArray()), "bob");
+        Assert.AreEqual(2, owner.InspectQueue(DurableQueue).ReadyMessageCount);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SubscriptionAnotherClientBoundFurther_IsRefusedUnauthorizedAndNothingIsSent()
+    {
+        var bus = Bus();
+        await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")), BusFrame(new Amqp1Detach(0)));
+        bus.Connect("bob").BindQueue(DurableQueue, "secrets");
+        bus.Publish(new BusMessage("secrets", "other"u8.ToArray()));
+
+        var (written, _) = await ServeOnBusAsync(bus, Open(), Begin(), BusFrame(DurableAttach(0, "/topic/news", "never")), BusFrame(Credit(0, deliveryCount: 0, credit: 10)));
 
         Assert.AreEqual(Amqp1ErrorCondition.UnauthorizedAccess, ((Amqp1Detach)written[3].Performative!).Error!.Condition);
+        Assert.IsEmpty(Transfers(written));
+        Assert.AreEqual(1, bus.Connect("alice").InspectQueue(DurableQueue).ReadyMessageCount);
     }
+
+    private static MessageBusConfiguration TopicOnlyGrants() => new()
+    {
+        AccessGrants =
+        [
+            new TopicAccessGrant("news", "alice", TopicAccessRights.Publish),
+            new TopicAccessGrant("news", "alice", TopicAccessRights.Subscribe),
+        ],
+    };
 
     [TestMethod]
     [DataRow(0, "amqp:resource-limit-exceeded", DisplayName = "no queue left")]

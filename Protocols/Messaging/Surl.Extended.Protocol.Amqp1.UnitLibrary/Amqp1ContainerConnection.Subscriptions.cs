@@ -29,7 +29,10 @@ public sealed partial class Amqp1ContainerConnection
     // null when the link may go on, or the error that refuses the attach.
     private Amqp1Error? OpenKeptSubscription(Amqp1Session session, Amqp1Link link, Amqp1KeptSubscription kept)
     {
-        var refusal = Judge(kept) ?? (link.IsSubscriptionLookup ? null : MakeQueueAndConsume(session, link, kept));
+        var found = busConnection.InspectQueue(kept.QueueName);
+        var refusal = Judge(kept.TopicFilter)
+            ?? JudgeFound(kept.QueueName, found)
+            ?? (link.IsSubscriptionLookup ? null : MakeQueueAndConsume(session, link, kept, found));
         if (refusal is not null)
         {
             link.Kept = null;
@@ -40,23 +43,29 @@ public sealed partial class Amqp1ContainerConnection
 
     // ADR-0146 decision 3.7: the Subscribe right on the topic filter, judged at every attach, before
     // anything changes; a live subscription made and ended at once is how the bus tells.
-    private Amqp1Error? Judge(Amqp1KeptSubscription kept)
+    private Amqp1Error? Judge(string topicFilter)
     {
         // GC.KeepAlive is the callback that does nothing; the probe is gone before a message could reach it.
-        var probe = busConnection.Subscribe(kept.TopicFilter, GC.KeepAlive);
+        var probe = busConnection.Subscribe(topicFilter, GC.KeepAlive);
         probe.Subscription?.Dispose();
         return RefusalUnless(probe.Outcome);
     }
 
-    private Amqp1Error? MakeQueueAndConsume(Amqp1Session session, Amqp1Link link, Amqp1KeptSubscription kept)
+    // The subscription already under this name may be on another filter: replacing it, or being told
+    // of it, needs the right on that filter too.
+    private Amqp1Error? JudgeFound(string queueName, BusQueueInspectResult found) =>
+        Amqp1KeptSubscription.FromDescription(queueName, found.SubscriptionDescription) is { } existing ? Judge(existing.TopicFilter) : null;
+
+    private Amqp1Error? MakeQueueAndConsume(Amqp1Session session, Amqp1Link link, Amqp1KeptSubscription kept, BusQueueInspectResult found)
     {
-        var refusal = ClearStaleQueue(kept) ?? DeclareAndBind(kept);
+        var refusal = ClearStaleQueue(kept, found) ?? DeclareAndBind(kept);
         if (refusal is not null)
         {
             return refusal;
         }
 
-        var consumed = busConnection.Consume(kept.QueueName, OfferKeptDelivery(link), MaxWaitingDeliveries, exclusive: !kept.IsShared);
+        var consumed = busConnection.ConsumeSubscriptionQueue(
+            kept.QueueName, kept.Description, kept.TopicFilter, OfferKeptDelivery(link), MaxWaitingDeliveries, exclusive: !kept.IsShared);
         if (RefusalUnless(consumed.Outcome) is { } consumeRefusal)
         {
             return consumeRefusal;
@@ -74,16 +83,15 @@ public sealed partial class Amqp1ContainerConnection
 
     // ADR-0146 decision 3.3: a queue another link holds is locked; one with another description is a
     // different subscription, replaced.
-    private Amqp1Error? ClearStaleQueue(Amqp1KeptSubscription kept)
+    private Amqp1Error? ClearStaleQueue(Amqp1KeptSubscription kept, BusQueueInspectResult found)
     {
-        var inspected = busConnection.InspectQueue(kept.QueueName);
-        if (inspected.Outcome == MessageBusOutcome.UnknownQueue)
+        if (found.Outcome == MessageBusOutcome.UnknownQueue)
         {
             return null;
         }
 
-        var differs = inspected.SubscriptionDescription != kept.Description;
-        if (inspected.Outcome != MessageBusOutcome.Succeeded || (inspected.ConsumerCount > 0 && (differs || !kept.IsShared)))
+        var differs = found.SubscriptionDescription != kept.Description;
+        if (found.Outcome != MessageBusOutcome.Succeeded || (found.ConsumerCount > 0 && (differs || !kept.IsShared)))
         {
             return SubscriptionInUse();
         }

@@ -145,8 +145,10 @@ public sealed class BusConnection : IDisposable
     /// <param name="subscriptionDescription">Opaque text kept beside the queue, as the AMQP 1.0
     /// container keeps a durable subscription's address and filters (ADR-0146, decision 3.2):
     /// persisted, reset, snapshotted and restored with the queue and answered by
-    /// <see cref="InspectQueue"/>. <see langword="null"/> makes a queue with none and, on an existing
-    /// queue, checks nothing.</param>
+    /// <see cref="InspectQueue"/>. A queue made with one takes no direct send
+    /// (<see cref="MessageBus.PublishToQueue(string, BusMessage, string?)"/> answers
+    /// <see cref="MessageBusOutcome.UnknownQueue"/>); topic publishes reach it through its bindings.
+    /// <see langword="null"/> makes a queue with none and, on an existing queue, checks nothing.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.InvalidQueueName"/>,
     /// <see cref="MessageBusOutcome.TooManyQueues"/>, <see cref="MessageBusOutcome.QueueLocked"/>,
     /// <see cref="MessageBusOutcome.QueueFlagsDiffer"/> or
@@ -335,6 +337,41 @@ public sealed class BusConnection : IDisposable
         ArgumentNullException.ThrowIfNull(deliver);
         ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
         return bus.RunAs(Exchange, () => bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive, accepts));
+    }
+
+    /// <summary>
+    /// Makes a consumer of a subscription queue as <see cref="Consume"/> does of any queue, but asks
+    /// for <c>sub</c> on the subscription's topic filter instead of on <c>$queue/&lt;name&gt;</c>
+    /// (ADR-0146, decision 3.7). It consumes only a queue carrying
+    /// <paramref name="subscriptionDescription"/> and bound to <paramref name="topicFilter"/> and
+    /// nothing else; the checks and the consume happen under one hold of the bus's lock.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="subscriptionDescription">The description the queue was declared with
+    /// (<see cref="DeclareQueue"/>).</param>
+    /// <param name="topicFilter">The canonical topic filter the queue is bound to.</param>
+    /// <param name="deliver">As <see cref="Consume"/>'s.</param>
+    /// <param name="maxUnacknowledged">As <see cref="Consume"/>'s.</param>
+    /// <param name="exclusive">As <see cref="Consume"/>'s.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.AccessDenied"/> when the grants give
+    /// <see cref="Account"/> no <c>sub</c> covering the filter, or the queue is not bound to exactly
+    /// that filter; <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when it carries another
+    /// description or none; <see cref="MessageBusOutcome.UnknownQueue"/>,
+    /// <see cref="MessageBusOutcome.QueueLocked"/>, <see cref="MessageBusOutcome.ExclusiveConsumeRefused"/>
+    /// or <see cref="MessageBusOutcome.TooManySubscriptions"/> as <see cref="Consume"/>'s - and the
+    /// consumer.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusConsumeResult ConsumeSubscriptionQueue(
+        string queueName, string subscriptionDescription, string topicFilter, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0, bool exclusive = false)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        ArgumentNullException.ThrowIfNull(subscriptionDescription);
+        ArgumentNullException.ThrowIfNull(topicFilter);
+        ArgumentNullException.ThrowIfNull(deliver);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
+        return bus.RunAs(Exchange, () => bus.ConsumeSubscriptionQueue(this, queueName, subscriptionDescription, topicFilter, deliver, maxUnacknowledged, exclusive));
     }
 
     /// <summary>

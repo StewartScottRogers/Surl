@@ -23,6 +23,7 @@ public sealed partial class MessageBus
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.MessageTooLarge"/>,
     /// <see cref="MessageBusOutcome.AccessDenied"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
+    /// (also for a queue carrying a subscription description, which takes no direct send)
     /// or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public MessageBusOutcome PublishToQueue(string queueName, BusMessage message) =>
@@ -81,22 +82,27 @@ public sealed partial class MessageBus
 
         var now = timeProvider.GetUtcNow();
         var published = Copy(message, now);
-        var isOutOfSpace = !IsExpired(published, now) && HasQueue(queueName) && IsOutOfSpace(account, QueueChangeName(queueName));
+        var isOutOfSpace = !IsExpired(published, now) && TakesDirectSends(queueName) && IsOutOfSpace(account, QueueChangeName(queueName));
         return ChangeState(() =>
-            !queues.TryGetValue(queueName, out var queue) ? MessageBusOutcome.UnknownQueue
+            DirectSendTarget(queueName) is not { } queue ? MessageBusOutcome.UnknownQueue
             : IsExpired(published, now) ? MessageBusOutcome.Succeeded
             : isOutOfSpace ? MessageBusOutcome.QueueFull
             : onlyWhenConsumed && !queue.HasConsumerWithRoomFor(published) ? MessageBusOutcome.NoReadyConsumer
             : Enqueue(queue, published, now));
     }
 
-    private bool HasQueue(string queueName)
+    private bool TakesDirectSends(string queueName)
     {
         lock (stateLock)
         {
-            return queues.ContainsKey(queueName);
+            return DirectSendTarget(queueName) is not null;
         }
     }
+
+    // Called with the lock held. A queue carrying a subscription description is no target: it holds
+    // what its topic binding copies in, so the sub right its consumer needs on that filter covers it.
+    private NamedQueue? DirectSendTarget(string queueName) =>
+        queues.GetValueOrDefault(queueName) is { SubscriptionDescription: null } queue ? queue : null;
 
     internal BusQueueDeclareResult DeclareQueue(BusConnection connection, string name, BusQueueFlags flags, string? subscriptionDescription)
     {
@@ -271,26 +277,30 @@ public sealed partial class MessageBus
         lock (stateLock)
         {
             var (outcome, queue) = Access(connection, queueName);
-            if (queue is null)
-            {
-                return new(outcome, null);
-            }
-
-            if (exclusive ? queue.ActiveConsumerCount > 0 : queue.IsConsumedExclusively)
-            {
-                return new(MessageBusOutcome.ExclusiveConsumeRefused, null);
-            }
-
-            if (connection.SubscriptionCount >= MaxSubscriptionsPerConnection)
-            {
-                return new(MessageBusOutcome.TooManySubscriptions, null);
-            }
-
-            var consumer = new BusQueueConsumer(this, connection, queue, maxUnacknowledged, deliver) { IsExclusive = exclusive, Predicate = accepts };
-            queue.AddConsumer(consumer);
-            connection.SubscriptionCount++;
-            return new(MessageBusOutcome.Succeeded, consumer);
+            return queue is null
+                ? new(outcome, null)
+                : AddDeliveringConsumer(connection, queue, deliver, maxUnacknowledged, exclusive, accepts);
         }
+    }
+
+    // Called with the lock held, once the caller may consume the queue.
+    private BusConsumeResult AddDeliveringConsumer(
+        BusConnection connection, NamedQueue queue, Action<BusQueueDelivery> deliver, int maxUnacknowledged, bool exclusive, Func<BusMessage, bool>? accepts)
+    {
+        if (exclusive ? queue.ActiveConsumerCount > 0 : queue.IsConsumedExclusively)
+        {
+            return new(MessageBusOutcome.ExclusiveConsumeRefused, null);
+        }
+
+        if (connection.SubscriptionCount >= MaxSubscriptionsPerConnection)
+        {
+            return new(MessageBusOutcome.TooManySubscriptions, null);
+        }
+
+        var consumer = new BusQueueConsumer(this, connection, queue, maxUnacknowledged, deliver) { IsExclusive = exclusive, Predicate = accepts };
+        queue.AddConsumer(consumer);
+        connection.SubscriptionCount++;
+        return new(MessageBusOutcome.Succeeded, consumer);
     }
 
     internal void StartConsumer(BusQueueConsumer consumer) => ChangeState(() =>

@@ -49,7 +49,7 @@ public sealed partial class MessageBus
         var prepared = new PreparedBatchEntry(queueName, published, IsExpired(published, now));
         var outcome = message.PayloadAndNativeFormBytes > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
             : !accessPolicy.MayUseQueue(account, TopicAccessRights.Publish, queueName) ? MessageBusOutcome.AccessDenied
-            : !prepared.IsExpired && HasQueue(queueName) && IsOutOfSpace(account, QueueChangeName(queueName)) ? MessageBusOutcome.QueueFull
+            : !prepared.IsExpired && TakesDirectSends(queueName) && IsOutOfSpace(account, QueueChangeName(queueName)) ? MessageBusOutcome.QueueFull
             : MessageBusOutcome.Succeeded;
         return (outcome, prepared);
     }
@@ -137,7 +137,7 @@ public sealed partial class MessageBus
             : AdmitToTopic(entry.Published);
 
         private MessageBusOutcome AdmitToQueue(string queueName, PreparedBatchEntry entry) =>
-            !bus.queues.TryGetValue(queueName, out var queue) ? MessageBusOutcome.UnknownQueue
+            bus.DirectSendTarget(queueName) is not { } queue ? MessageBusOutcome.UnknownQueue
             : entry.IsExpired || TryAddToQueue(queue, entry.Published) ? MessageBusOutcome.Succeeded
             : MessageBusOutcome.QueueFull;
 

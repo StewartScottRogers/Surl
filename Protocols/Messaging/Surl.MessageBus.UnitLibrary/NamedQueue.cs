@@ -78,6 +78,9 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         RemoveAllReady();
     }
 
+    /// <summary>Whether <paramref name="filter"/> is the queue's one binding.</summary>
+    public bool IsBoundToExactly(string filter) => bindings.Count == 1 && bindings.ContainsKey(filter);
+
     public bool IsBoundTo(string[] topicLevels) =>
         bindings.Values.Any(filterLevels => CanonicalTopicName.FilterMatches(filterLevels, topicLevels));
 
