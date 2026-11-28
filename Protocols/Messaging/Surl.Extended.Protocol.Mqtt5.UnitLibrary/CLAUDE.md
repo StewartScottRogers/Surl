@@ -129,7 +129,7 @@ Sessions, DISCONNECT and AUTH (BL-499, ADR-0093 decisions 2, 3 and 6):
   published. Ping is answered pong. Once a close is sent the broker's writes are dropped; when
   the broker is done, close `1000` follows unless a close was sent.
 
-One-shot read (BL-976, ADR-0093 decision 9): `Mqtt5Broker`'s `disconnectsAfterRetained` (`--mqtt5-disconnect-after-retained`, off by default) makes a SUBSCRIBE end with SUBACK, the retained messages, DISCONNECT `0x00` and a close, the Will discarded.
+One-shot read (BL-976, ADR-0093 decision 9): `Mqtt5Broker`'s `disconnectsAfterRetained` (`--mqtt5-disconnect-after-retained`, off by default) makes a SUBSCRIBE end with SUBACK, the retained messages, DISCONNECT `0x00` and a close, the Will discarded. Such a SUBSCRIBE is answered only once every earlier connection to the bus has handled what its client has sent (BL-2117, ADR-0100 decision 3.11): each connection joins the bus's `PublishingConnections`, `Mqtt5PacketReader` and a delay fault count it as caught up while they wait, and the wait is at most 2 seconds, past which it is noted and answered.
 
 Faults (BL-1186, ADR-0141): `Mqtt5BrokerConnection.Faults.cs` asks `CommandStageFaults.FindAndApplyAsync` for each PUBLISH and each SUBSCRIBE filter: a `delay` rule holds the packet, a `drop` rule aborts the connection with no answer (the rest of a SUBSCRIBE is not asked), an `error` rule's reason code is answered as before.
 

@@ -29,7 +29,7 @@ public sealed class Mqtt5PacketReaderTests
     public async Task ReadPacketAsync_TwoPacketsInOneRead_ReadsThemOneAfterTheOther()
     {
         var connection = new Surl.Protocol.Abstractions.InMemoryConnection([(byte[])[0xC0, 0x00, 0xE0, 0x00]]);
-        var reader = new Mqtt5PacketReader(connection, 0, 0);
+        var reader = new Mqtt5PacketReader(connection, 0, 0, Mqtt5TestPackets.NewProgress());
 
         var first = await reader.ReadPacketAsync(CancellationToken.None);
         var second = await reader.ReadPacketAsync(CancellationToken.None);

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Mqtt5;
@@ -20,11 +21,14 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// buffer grows as bytes arrive, so a Remaining Length the peer never sends costs at most
 /// 64 KiB and at most twice what did arrive. It is not safe for concurrent calls, and after any
 /// outcome but <see cref="Mqtt5PacketReadOutcome.PacketRead"/> the caller stops reading.
+/// Its <paramref name="progress"/> is caught up while a read has to wait for the client, and
+/// handling as soon as one returns, before anything is made of the bytes.
 /// </remarks>
 /// <param name="connection">The connection to read from.</param>
 /// <param name="maxPacketBytes">The most bytes a packet may hold, fixed header included; 0 means no limit.</param>
 /// <param name="maxPublishPayloadBytes">The most bytes a <c>PUBLISH</c> payload may hold; 0 means no limit.</param>
-internal sealed class Mqtt5PacketReader(IConnection connection, long maxPacketBytes, long maxPublishPayloadBytes)
+/// <param name="progress">Where the connection stands with what its client has sent.</param>
+internal sealed class Mqtt5PacketReader(IConnection connection, long maxPacketBytes, long maxPublishPayloadBytes, PublishingConnectionProgress progress)
 {
     private const int InitialBodyBytes = 65536;
     private const int TopicNameLengthBytes = 2;
@@ -88,7 +92,10 @@ internal sealed class Mqtt5PacketReader(IConnection connection, long maxPacketBy
     }
 
     private async ValueTask<int> ReadByteAsync(CancellationToken cancellationToken) =>
-        await connection.ReadAsync(oneByte, cancellationToken) == 0 ? -1 : oneByte[0];
+        await ReceiveAsync(oneByte, cancellationToken) == 0 ? -1 : oneByte[0];
+
+    private ValueTask<int> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken) =>
+        progress.CountAsCaughtUpWhileAsync(connection.ReadAsync(buffer, cancellationToken));
 
     private async ValueTask<Mqtt5PacketReadResult> ReadBodyAsync(byte firstByte, int remainingLength, CancellationToken cancellationToken)
     {
@@ -159,7 +166,7 @@ internal sealed class Mqtt5PacketReader(IConnection connection, long maxPacketBy
                 body.Grow();
             }
 
-            var read = await connection.ReadAsync(body.Bytes.AsMemory(body.Filled, Math.Min(body.Bytes.Length, count) - body.Filled), cancellationToken);
+            var read = await ReceiveAsync(body.Bytes.AsMemory(body.Filled, Math.Min(body.Bytes.Length, count) - body.Filled), cancellationToken);
             if (read == 0)
             {
                 return false;

@@ -24,6 +24,7 @@ internal sealed partial class Mqtt5BrokerConnection
     private readonly ISaslAuthenticationPolicy? saslAuthenticationPolicy;
     private readonly bool disconnectsAfterRetained;
     private readonly Mqtt5PacketReader reader;
+    private readonly PublishingConnectionProgress progress;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource deliveriesCancellation = new();
     private CancellationToken headToken;
@@ -56,7 +57,8 @@ internal sealed partial class Mqtt5BrokerConnection
         this.state = state;
         this.authenticationPolicy = authenticationPolicy;
         this.saslAuthenticationPolicy = saslAuthenticationPolicy;
-        reader = new Mqtt5PacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes);
+        progress = state.Bus.PublishingConnections.Join();
+        reader = new Mqtt5PacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes, progress);
     }
 
     /// <summary>
@@ -64,6 +66,15 @@ internal sealed partial class Mqtt5BrokerConnection
     /// </summary>
     /// <returns>A task that completes when the exchange is over.</returns>
     public async Task ServeAsync()
+    {
+        // Disposing it, once the session and the Will are settled, is the connection leaving.
+        using (progress)
+        {
+            await ServeClientAsync();
+        }
+    }
+
+    private async Task ServeClientAsync()
     {
         if (await ConnectAsync() is not { } client)
         {
@@ -683,6 +694,11 @@ internal sealed partial class Mqtt5BrokerConnection
             return await DisconnectAsync(Mqtt5ReasonCode.ProtocolError, why);
         }
 
+        if (disconnectsAfterRetained)
+        {
+            await WaitForEarlierConnectionsAsync();
+        }
+
         var retained = new List<Mqtt5Delivery>();
         var reasonCodes = await SubscribeEachAsync(subscribe, subscriptionIdentifier, retained);
         if (droppedByFault)
@@ -702,6 +718,17 @@ internal sealed partial class Mqtt5BrokerConnection
         }
 
         return Mqtt5ConnectionEnd.StaysOpen;
+    }
+
+    // ADR-0093 decision 9: a one-shot read gets only what is retained when it is answered, so it is
+    // answered after every earlier connection has handled what its client has sent - a publisher
+    // that sent PUBLISH, DISCONNECT and closed just before this client connected included.
+    private async ValueTask WaitForEarlierConnectionsAsync()
+    {
+        if (!await progress.WaitForEarlierConnectionsAsync(context.TimeProvider, context.CancellationToken))
+        {
+            context.Log.Note("An earlier connection was still handling what its client sent after 2 seconds; the SUBSCRIBE is answered without waiting longer.");
+        }
     }
 
     // ADR-0093 decision 9: the retained messages are written in order with the sending loop stopped, then DISCONNECT 0x00

@@ -55,7 +55,10 @@ internal sealed partial class Mqtt5BrokerConnection
             Command = packetName,
         };
         var target = $"{packetName} {topic}";
-        if (await CommandStageFaults.FindAndApplyAsync(context, connection, point, target) is not { } rule)
+        // While a delay rule holds the packet the connection counts as caught up: a one-shot
+        // SUBSCRIBE does not wait out another connection's delay (ADR-0093 decision 9).
+        var applying = CommandStageFaults.FindAndApplyAsync(context, connection, point, target);
+        if (await progress.CountAsCaughtUpWhileAsync(applying) is not { } rule)
         {
             return null;
         }

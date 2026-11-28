@@ -50,9 +50,13 @@ internal static class Mqtt5TestPackets
         long maxPublishPayloadBytes = 0)
     {
         var connection = new InMemoryConnection(chunks.Select(chunk => (ReadOnlyMemory<byte>)chunk));
-        var reader = new Mqtt5PacketReader(connection, maxPacketBytes, maxPublishPayloadBytes);
+        var reader = new Mqtt5PacketReader(connection, maxPacketBytes, maxPublishPayloadBytes, NewProgress());
         return await reader.ReadPacketAsync(CancellationToken.None);
     }
+
+    /// <summary>The progress of a connection to a bus of its own, as a reader needs one.</summary>
+    public static Surl.MessageBus.PublishingConnectionProgress NewProgress() =>
+        new Surl.MessageBus.MessageBus(TimeProvider.System).PublishingConnections.Join();
 
     /// <summary>
     /// Reads one packet from <paramref name="bytes"/>, delivered whole.
