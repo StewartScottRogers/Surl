@@ -302,7 +302,7 @@ public sealed partial class MessageBus
             EnqueueDelivery(() => DeliverToSubscriptions(published, targets));
         }
 
-        var (queuedCount, fullQueueCount, unconsumedQueueCount) = CopyIntoBoundQueues(published, topicLevels, now, onlyToConsumedQueues, queuesFullByPlan);
+        var (queuedCount, fullQueueCount, unconsumedQueueCount) = CopyIntoBoundQueues(published, topicLevels, publisher, now, onlyToConsumedQueues, queuesFullByPlan);
         if (seed)
         {
             PublishChange(StoreChange.Seeded, published.Topic, published.Payload.Length);

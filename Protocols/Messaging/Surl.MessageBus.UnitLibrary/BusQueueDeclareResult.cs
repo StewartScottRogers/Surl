@@ -1,7 +1,8 @@
 namespace Surl.MessageBus;
 
 /// <summary>
-/// What <see cref="BusConnection.DeclareQueue"/> did.
+/// What <see cref="BusConnection.DeclareQueue(string, BusQueueFlags, string?)"/>, or its overload
+/// excluding a publisher, did.
 /// </summary>
 /// <param name="Outcome">Whether the queue now exists with the flags asked for, or which refusal
 /// the declare met.</param>

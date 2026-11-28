@@ -132,7 +132,7 @@ public sealed class MessageBusFilesTests
     }
 
     [TestMethod]
-    [DataRow("SURL-BUS-QUEUES-3\n00000000", DisplayName = "Another header")]
+    [DataRow("SURL-BUS-QUEUES-4\n00000000", DisplayName = "Another header")]
     [DataRow("SURL-BUS-QUEUES-2\n00000001 00000001 71 02 00000000 00000000", DisplayName = "A description byte that is neither 0 nor 1")]
     [DataRow("SURL-BUS-QUEUES-2\n00000001 00000001 71 01", DisplayName = "A description cut short")]
     [DataRow("SURL-BUS-QUEUES-1\n00000000 00", DisplayName = "Bytes after the last queue")]

@@ -87,8 +87,9 @@ What it holds now (BL-629):
   Declaring again with a non-null description other than the queue's, or on a queue with none,
   is `QueueDescriptionDiffers` and changes nothing; a declare with none checks nothing, so AMQP
   0-9-1 and STOMP never meet it. The description is persisted (`queues/index` is written as
-  `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, only
-  when some persisted queue has one, so a bus with none writes what earlier builds read),
+  `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, when
+  some persisted queue has one and none excludes a publisher, so a bus with none writes what earlier
+  builds read),
   snapshotted and restored with its queue, and goes with the queue on reset.
 - **Subscription queues (BL-1992, ADR-0146 decision 3.7).**
   `BusConnection.ConsumeSubscriptionQueue(name, description, filter, ...)` consumes as `Consume` does,
@@ -121,6 +122,22 @@ What it holds now (BL-629):
   no grant, so a client with `sub` on a filter of its own can bind it, unbind the subscription's and
   then delete the queue. `Consume` and `GetFromQueue` ask only for the `$queue` grant, so a caller
   holding it can take a subscription queue's messages with no `sub` on its filter.
+- **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
+  opaque text naming the client that publishes through the connection, `null` unless a server sets it
+  (starting with its scheme family and `:`, so protocols never match each other's).
+  `BusConnection.DeclareQueue(name, flags, description, excludedPublisherName)` keeps that publisher's
+  messages out of the queue: a topic publish through a connection whose `PublisherName` equals it,
+  ordinally, is withheld at copy-in, single, `PublishToConsumedQueues` and batch alike. A withheld copy
+  is never queued, counts against no queue bound (the batch's check included) and in none of
+  `QueuedCount`, `FullQueueCount` and `UnconsumedQueueCount`, publishes no store change for the queue,
+  and the out-of-space fault is not asked for it; logs, the retained slot, live subscriptions and other
+  queues take the message as ever. A publish with no connection or no publisher name, and a seed, is
+  never withheld. Naming one with no description is an `ArgumentException`. A redeclare that passes
+  every other check sets it on the existing queue, keeping what is already queued; a declare naming
+  none changes nothing. It is snapshotted and restored with its queue, goes with a queue a reset or
+  delete removes, stays with one a reset keeps, and is persisted: when some persisted queue has one,
+  `queues/index` is written as `SURL-BUS-QUEUES-3`, every queue's description field followed by `0x00`,
+  or `0x01` and the name; otherwise as before, and the earlier forms still load.
 - **Batch publish, all or none (BL-961, ADR-0146 decision 1.6).** `BusConnection.PublishBatch` takes an
   ordered list of `BusBatchEntry` - `ToTopic(message)` or `ToQueue(name, message)` - and answers a
   `BusBatchPublishResult`: `Succeeded` with each entry's `BusPublishResult` in order, or the first refused
@@ -241,8 +258,8 @@ What it holds now (BL-629):
   path, outside the lock: a topic publish (not expired) is `StoreFull`, a direct `PublishToQueue` to
   an existing queue (not expired) is `QueueFull`, nothing changed, and a `FaultAppliedEvent` names
   the path. Only an answer the plan gives at once counts; a pending one is served as no rule. A topic
-  publish (not a seed) also asks, before the lock, for each bound queue's `$queue/<name>`: a queue a
-  rule matches refuses only its own copy (`FullQueueCount`). A queue message dropped because it
+  publish (not a seed) also asks, before the lock, for the `$queue/<name>` of each bound queue not
+  excluding the publisher: a queue a rule matches refuses only its own copy (`FullQueueCount`). A queue message dropped because it
   expired publishes `Deleted` named for the queue with its payload length, and log records dropped by
   `MaxLogBytesPerTopic` retention publish one `Deleted` named for the topic with their bytes (BL-870).
   Not yet: the fault on a bound queue's copy inside `PublishBatch`.

@@ -10,5 +10,5 @@ namespace Surl.MessageBus;
 /// ones not counted; zero when refused.</param>
 /// <param name="ConsumerCount">How many consumers still take deliveries from it; zero when refused.</param>
 /// <param name="SubscriptionDescription">The subscription description it was declared with
-/// (<see cref="BusConnection.DeclareQueue"/>); <see langword="null"/> for none, and when refused.</param>
+/// (<see cref="BusConnection.DeclareQueue(string, BusQueueFlags, string?)"/>); <see langword="null"/> for none, and when refused.</param>
 public sealed record BusQueueInspectResult(MessageBusOutcome Outcome, int ReadyMessageCount, int ConsumerCount, string? SubscriptionDescription = null);

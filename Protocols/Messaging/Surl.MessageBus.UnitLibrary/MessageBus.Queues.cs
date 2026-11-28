@@ -104,7 +104,7 @@ public sealed partial class MessageBus
     private NamedQueue? DirectSendTarget(string queueName) =>
         queues.GetValueOrDefault(queueName) is { SubscriptionDescription: null } queue ? queue : null;
 
-    internal BusQueueDeclareResult DeclareQueue(BusConnection connection, string name, BusQueueFlags flags, string? subscriptionDescription)
+    internal BusQueueDeclareResult DeclareQueue(BusConnection connection, string name, BusQueueFlags flags, string? subscriptionDescription, string? excludedPublisherName)
     {
         if (name.Length == 0)
         {
@@ -116,7 +116,13 @@ public sealed partial class MessageBus
             ObjectDisposedException.ThrowIf(connection.IsClosed, connection);
             if (queues.TryGetValue(name, out var existing))
             {
-                return Redeclare(connection, existing, flags, subscriptionDescription);
+                var redeclared = Redeclare(connection, existing, flags, subscriptionDescription);
+                if (redeclared.Outcome is MessageBusOutcome.Succeeded)
+                {
+                    ExcludePublisher(existing, excludedPublisherName);
+                }
+
+                return redeclared;
             }
 
             if (queues.Count >= MaxQueues)
@@ -124,7 +130,7 @@ public sealed partial class MessageBus
                 return new(MessageBusOutcome.TooManyQueues, 0, 0);
             }
 
-            queues.Add(name, new NamedQueue(name, flags, flags.Exclusive ? connection : null) { SubscriptionDescription = subscriptionDescription });
+            queues.Add(name, new NamedQueue(name, flags, flags.Exclusive ? connection : null) { SubscriptionDescription = subscriptionDescription, ExcludedPublisherName = excludedPublisherName });
             queuesVersion++;
             PublishQueueChange(StoreChange.Written, name, byteCount: null);
             return new(MessageBusOutcome.Succeeded, 0, 0);
@@ -374,13 +380,14 @@ public sealed partial class MessageBus
         : new(MessageBusOutcome.Succeeded, existing.ReadyCount, existing.ActiveConsumerCount);
 
     // A batch passes the bound queues its plan found full, so each is refused as planned and the
-    // queues never hold more than the plan counted on (MessageBus.Batch.cs).
-    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues, HashSet<NamedQueue> queuesFullByPlan)
+    // queues never hold more than the plan counted on (MessageBus.Batch.cs). A queue excluding the
+    // publisher is passed over entirely: no copy, no count, no change (ADR-0146, Amendment 3).
+    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, BusConnection? publisher, DateTimeOffset now, bool onlyToConsumedQueues, HashSet<NamedQueue> queuesFullByPlan)
     {
         var queuedCount = 0;
         var fullQueueCount = 0;
         var unconsumedQueueCount = 0;
-        foreach (var queue in queues.Values.Where(queue => queue.IsBoundTo(topicLevels)))
+        foreach (var queue in queues.Values.Where(queue => queue.TakesCopyOf(topicLevels, publisher)))
         {
             if (onlyToConsumedQueues && !queue.HasConsumerWithRoomFor(published))
             {

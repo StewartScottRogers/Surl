@@ -75,7 +75,8 @@ public sealed partial class MessageBus
     public BusPublishResult Publish(BusMessage message, string? account) => Publish(message, account, publisher: null, onlyToConsumedQueues: false);
 
     // The publisher, when a connection published through BusConnection.Publish, keeps the
-    // message from that connection's No Local subscriptions.
+    // message from that connection's No Local subscriptions, and its PublisherName keeps it out of
+    // the queues excluding that name.
     // With onlyToConsumedQueues, a bound queue takes it only when a consumer could take it now.
     internal BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher, bool onlyToConsumedQueues) =>
         Publish(message, account, publisher, onlyToConsumedQueues, seed: false);
@@ -108,7 +109,7 @@ public sealed partial class MessageBus
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));
-        var refusedQueueNames = seed ? [] : BoundQueueNamesRefusedByFault(published.Topic, account);
+        var refusedQueueNames = seed ? [] : BoundQueueNamesRefusedByFault(published.Topic, publisher, account);
         return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues, seed, [.. refusedQueueNames.Select(name => queues.GetValueOrDefault(name)).OfType<NamedQueue>()]));
     }
 

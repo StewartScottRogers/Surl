@@ -37,6 +37,15 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     public Action<BusMessage>? AfterMessageDelivered { get; set; }
 
+    /// <summary>
+    /// The name of the client publishing through the connection, opaque text to the bus;
+    /// <see langword="null"/> unless the server sets it. A queue declared excluding this name takes no
+    /// copy of the connection's topic publishes (ADR-0146, Amendment 3). A server that sets it starts
+    /// it with its own scheme family and <c>:</c>, as <c>amqp1:&lt;container-id&gt;</c>, so another
+    /// protocol's name never matches, and sets it before the client publishes.
+    /// </summary>
+    public string? PublisherName { get; set; }
+
     internal int SubscriptionCount { get; set; }
 
     internal bool IsClosed { get; set; }
@@ -155,10 +164,41 @@ public sealed class BusConnection : IDisposable
     /// <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when refused - and the queue's counts.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default, string? subscriptionDescription = null)
+    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default, string? subscriptionDescription = null) =>
+        DeclareQueue(name, flags, subscriptionDescription, excludedPublisherName: null);
+
+    /// <summary>
+    /// Declares a named queue as <see cref="DeclareQueue(string, BusQueueFlags, string?)"/> does, and
+    /// keeps one publisher's messages out of it (ADR-0146, Amendment 3): a topic publish through a
+    /// connection whose <see cref="PublisherName"/> equals <paramref name="excludedPublisherName"/>,
+    /// ordinally, is not copied into the queue. Such a publish counts in none of the
+    /// <see cref="BusPublishResult"/>'s queue counts, counts against no queue bound, publishes no
+    /// store change for the queue and does not ask the fault plan about it. A publish with no
+    /// connection or no publisher name is never withheld. The name is persisted, reset, snapshotted and
+    /// restored with the queue.
+    /// </summary>
+    /// <param name="name">The queue's name; not empty.</param>
+    /// <param name="flags">Its flags.</param>
+    /// <param name="subscriptionDescription">As <see cref="DeclareQueue(string, BusQueueFlags, string?)"/>'s;
+    /// not <see langword="null"/> when a publisher is excluded.</param>
+    /// <param name="excludedPublisherName">The publisher to exclude. On an existing queue that passes
+    /// every other check it replaces the one the queue has, and what is already queued stays.
+    /// <see langword="null"/> makes a queue excluding none and, on an existing queue, changes
+    /// nothing.</param>
+    /// <returns>As <see cref="DeclareQueue(string, BusQueueFlags, string?)"/>'s.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="excludedPublisherName"/> is given with no
+    /// <paramref name="subscriptionDescription"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags, string? subscriptionDescription, string? excludedPublisherName)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return bus.RunAs(Exchange, () => bus.DeclareQueue(this, name, flags, subscriptionDescription));
+        if (excludedPublisherName is not null && subscriptionDescription is null)
+        {
+            throw new ArgumentException("Only a queue with a subscription description excludes a publisher.", nameof(excludedPublisherName));
+        }
+
+        return bus.RunAs(Exchange, () => bus.DeclareQueue(this, name, flags, subscriptionDescription, excludedPublisherName));
     }
 
     /// <summary>
@@ -380,7 +420,7 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="subscriptionDescription">The description the queue was declared with
-    /// (<see cref="DeclareQueue"/>).</param>
+    /// (<see cref="DeclareQueue(string, BusQueueFlags, string?)"/>).</param>
     /// <param name="topicFilter">The canonical topic filter the queue is bound to.</param>
     /// <param name="deliver">As <see cref="Consume"/>'s.</param>
     /// <param name="maxUnacknowledged">As <see cref="Consume"/>'s.</param>
