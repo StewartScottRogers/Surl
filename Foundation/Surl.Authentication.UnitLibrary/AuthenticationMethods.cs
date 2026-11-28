@@ -10,9 +10,13 @@ public static class AuthenticationMethods
 {
     /// <summary>
     /// The methods accepted without <c>--auth</c>:
-    /// <c>digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4</c>. NTLM,
-    /// NTLMv1, Negotiate, <c>DIGEST-MD5</c> and <c>APOP</c> are left out (ADR-0032, section 3;
-    /// ADR-0049, section 3; ADR-0073, decision 3).
+    /// <c>digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4</c>.
+    /// Negotiate, <c>GSSAPI</c>, NTLM, NTLMv1, <c>SCRAM-SHA-256</c>, <c>SCRAM-SHA-512</c>,
+    /// <c>SCRAM-SHA-1</c>, <c>DIGEST-MD5</c> and <c>APOP</c> are left out (ADR-0032, section 3;
+    /// ADR-0049, section 3; ADR-0057, decision 9; ADR-0073, decision 3; ADR-0105, decision 5;
+    /// ADR-0125). <c>Surl.Composition</c> adds the three SCRAM methods, without changing this set,
+    /// to what the <c>kafka</c> and <c>xmpp</c> servers (<c>kafkas</c> and <c>xmpps</c> included)
+    /// accept when <c>--auth</c> is not given (ADR-0179).
     /// </summary>
     public static IReadOnlySet<AuthenticationMethod> DefaultAccepted { get; } = new[]
     {

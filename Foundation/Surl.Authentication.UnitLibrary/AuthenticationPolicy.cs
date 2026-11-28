@@ -6,18 +6,27 @@ namespace Surl.Authentication;
 
 /// <summary>
 /// The <see cref="IAuthenticationPolicy"/> <c>Surl.Composition</c> composes (ADR-0032, sections
-/// 4, 5 and 8): with no accounts every login is refused, anonymous access only where ADR-0032
-/// allows it, a plain-text secret on an unencrypted connection refused unchecked unless
-/// <c>--allow-plaintext-auth</c>, only the accepted methods offered and checked, and every
-/// refused credential answered after <see cref="RefusalDelay"/> on the injected
-/// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/>, an
-/// <see cref="ISaslAuthenticationPolicy"/>, it offers and runs the SASL mechanisms <c>--auth</c>
-/// accepts (ADR-0049, sections 2 and 5): today <c>GSSAPI</c>,
-/// offered on any connection when <c>--keytab</c> gave a Kerberos acceptor (ADR-0057, decision 9),
-/// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
-/// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
-/// TLS or with <c>--allow-plaintext-auth</c>; <c>EXTERNAL</c>, offered and run only on a
-/// connection with a verified TLS client certificate; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
+/// 4, 5 and 8): anonymous access only where ADR-0032 allows it, and every refused credential
+/// answered after <see cref="RefusalDelay"/> on the injected <see cref="TimeProvider"/>. Except for
+/// a storage service's credentials (ADR-0108, ADR-0109, ADR-0110), a plain-text secret on an
+/// unencrypted connection is refused unchecked unless <c>--allow-plaintext-auth</c> or
+/// <c>--allow-anonymous</c>, and of the <see cref="AuthenticationMethod"/>s only the accepted ones
+/// are offered and checked. Without <c>--allow-anonymous</c> a login with no local account is
+/// accepted in two cases only, even when there are no accounts at all: a password login for a name
+/// the account book does not hold, which the <see cref="AuthenticationSettings.LdapAccountSource"/>
+/// accepts (ADR-0149, decision 6), and an SSH public-key login with a verified signature by a key
+/// <see cref="AuthenticationSettings.AuthorizedKeys"/> holds for the user (ADR-0051, section 6).
+/// As the <see cref="IMailAuthenticationPolicy"/>, an <see cref="ISaslAuthenticationPolicy"/>, it
+/// offers and runs the SASL mechanisms whose methods are accepted (ADR-0049, sections 2 and 5):
+/// <c>GSSAPI</c>, offered on any connection when <c>--keytab</c> gave a Kerberos acceptor
+/// (ADR-0057, decision 9); <c>SCRAM-SHA-256</c>, <c>SCRAM-SHA-512</c>, <c>SCRAM-SHA-1</c>,
+/// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection;
+/// <c>OAUTHBEARER</c>, <c>XOAUTH2</c>, <c>PLAIN</c> and <c>LOGIN</c>, all plain-text, so offered
+/// only over TLS or with <c>--allow-plaintext-auth</c>, and run then or under
+/// <c>--allow-anonymous</c>; <c>EXTERNAL</c>, offered and run only on a connection with a verified
+/// TLS client certificate; and <c>GSS-SPNEGO</c>, accepted by <c>negotiate</c>, offered for
+/// <c>ldap</c> and <c>ldaps</c> and run only where the server says a security layer can follow
+/// (ADR-0072, decision 4). It also offers and checks POP3 <c>APOP</c> when <c>--auth</c> accepts it.
 /// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts,
 /// never refused as plain-text since SSH encrypts first, and public keys against
 /// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7). As the
@@ -68,8 +77,9 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
     /// <summary>
     /// The scheme a <see cref="LoginJudgedEvent"/> and a <see cref="FaultPoint"/> name for an HTTP
-    /// login, whose request does not carry its listen URL's scheme: every scheme the HTTP family
-    /// serves (<c>https</c>, <c>ws</c>, <c>rtsp</c> ...) is named <c>http</c>.
+    /// login that carries no <see cref="LoginExchange"/> (its session was started without one):
+    /// every scheme the HTTP family serves (<c>https</c>, <c>ws</c>, <c>rtsp</c> ...) is then named
+    /// <c>http</c>. With one, they name its scheme.
     /// </summary>
     public const string HttpLoginScheme = "http";
 
@@ -81,8 +91,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     public const string SshLoginScheme = "ssh";
 
     /// <summary>
-    /// The scheme an SMB login (<c>smb</c>, <c>smbs</c>) is published and matched under, since its
-    /// request does not carry its listen URL's scheme.
+    /// The scheme an SMB login (<c>smb</c>, <c>smbs</c>) is published and matched under when its
+    /// request carries no <see cref="LoginExchange"/>; with one, the exchange's scheme is used.
     /// </summary>
     public const string SmbLoginScheme = "smb";
 
