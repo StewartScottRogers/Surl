@@ -559,9 +559,8 @@ and none on a subscription's filter could so take its messages: AMQP 0-9-1 `basi
   ask for no grant.
 - The bindings are judged when the call is made. A consumer already added keeps receiving, and the
   binding swap Amendment 2 names also opens a get and a consume; keeping other clients' bindings off a
-  described queue stays BL-2011.
-- A consumer added to a queue with no description also stays when a test host's restore gives that queue
-  a description, and is handed the restored messages; closing that is BL-2051.
+  described queue stays BL-2011. Amendment 8 says what a test host's restore that changes the queue's
+  description does to its consumers.
 
 ### Alternatives considered (Amendment 5)
 
@@ -730,3 +729,46 @@ until both are done the code behaves as the test showed.
   would keep messages from the other links in the same way.
 - **The rule only while a queue has several consumers.** Another consumer, or a `basic.get`, can come at
   any time, and a second path would hold messages out of its reach until then.
+
+## Amendment 8 (BL-2051, 2026-11-28): a restore that changes a queue's description ends its consumers
+
+Decided by Claude under Stewart's delegation.
+
+Amendment 5 judges a get or consume by name when the call is made. A test host's `Restore` keeps a queue
+that has consumers and gives it the snapshot's description and bindings, so a consumer let onto a queue
+with no description, on its `$queue/<name>` grant alone, was handed the messages of the subscription
+queue restored over it, though its `sub` on that subscription's filters was never asked.
+
+- When a restore gives a live queue a subscription description other than the one it has (one where it
+  had none, none where it had one, or other text), every consumer and get holder of the queue ends
+  before the snapshot's messages go in. The bus hands a consumer so ended nothing more (a server may
+  still write what it was handed before), it cannot be started, claim or settle anything, and it no
+  longer counts against its connection's subscription bound. What it held is already dropped, as any
+  restore drops unacknowledged deliveries. The restored messages stay ready for a caller judged on the
+  restored queue.
+- The queue stays, an auto-delete one included, with no consumer, as the snapshot holds it
+  (Amendment 4, item 9). A non-durable shared link that was consuming it therefore no longer takes the
+  queue with it when it ends: an exception to Amendment 4, item 5. The next attach under the name
+  resumes or replaces the queue (Amendment 4, item 4).
+- A queue exclusive to a connection that the restore reuses keeps that owner and its flags, whatever the
+  snapshot holds: its consumers end as above, but it stays locked to its owner and goes, with the
+  restored messages, when the owner does. BL-2083 is to change that.
+- The bus tells nobody, and no server tells its client: unlike an AMQP 0-9-1 `queue.delete`, which the
+  broker announces with `basic.cancel` (ADR-0112 decision 5), a restore sends none.
+- A restore that leaves the description as it was keeps the queue's consumers, which are handed the
+  restored messages as before. A reset changes no queue's description, so it ends no consumer.
+- Descriptions are compared ordinally. A restore that changes only the bindings under the same
+  description ends nobody; keeping other clients' bindings off a described queue stays BL-2011.
+
+### Alternatives considered (Amendment 8)
+
+- **Judging each consumer again on the restored filters.** A consumer made by
+  `ConsumeSubscriptionQueue` and one made by `Consume` are admitted by different rules, so the bus
+  would have to keep how each was let in, to spare consumers in a case only a test's restore reaches.
+  A queue that has become another subscription, or none, is not the one they asked for.
+- **Ending them only when the queue gains a description.** A subscription consumer, admitted with no
+  `$queue` grant, would then be handed an ordinary queue's messages, or another subscription's.
+- **Keeping the consumers and offering them nothing.** They would count as consumers, holding off an
+  `ifUnused` delete and an auto-delete queue's end, while never receiving.
+- **Refusing the restore.** A reset or restore between tests must not fail because a client is still
+  attached (ADR-0124).

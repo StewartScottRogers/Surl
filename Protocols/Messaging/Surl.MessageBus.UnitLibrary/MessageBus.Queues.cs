@@ -539,6 +539,16 @@ public sealed partial class MessageBus
     private void Delete(NamedQueue queue)
     {
         queuesVersion++;
+        EndConsumersDroppingTheirMessages(queue);
+        queuedBytes -= queue.RemoveAllReady().Bytes;
+        queues.Remove(queue.Name);
+        PublishQueueChange(StoreChange.Deleted, queue.Name, byteCount: null);
+    }
+
+    // Ends every consumer and get holder of the queue without putting back what each holds, as a
+    // delete does, and without deleting an auto-delete queue left with none.
+    private void EndConsumersDroppingTheirMessages(NamedQueue queue)
+    {
         foreach (var consumer in queue.Consumers.ToList())
         {
             consumer.Deactivate();
@@ -546,10 +556,6 @@ public sealed partial class MessageBus
             queue.RemoveConsumer(consumer);
             CountEnded(consumer);
         }
-
-        queuedBytes -= queue.RemoveAllReady().Bytes;
-        queues.Remove(queue.Name);
-        PublishQueueChange(StoreChange.Deleted, queue.Name, byteCount: null);
     }
 
     private static void CountEnded(BusQueueConsumer consumer)

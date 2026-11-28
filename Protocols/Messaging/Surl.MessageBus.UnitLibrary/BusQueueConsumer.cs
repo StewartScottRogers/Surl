@@ -174,7 +174,10 @@ public sealed class BusQueueConsumer : IDisposable
     /// <summary>
     /// Ends the consumer: every delivery it holds unacknowledged goes back at its place, marked
     /// redelivered (one held and not yet claimed keeping the mark it had before it was assigned),
-    /// and an auto-delete queue left with no consumer is deleted. Disposing it again does nothing.
+    /// and an auto-delete queue left with no consumer is deleted. Disposing it again does nothing,
+    /// and nor does disposing one already ended by its queue's delete or by a
+    /// <see cref="MessageBus.Restore"/> that changed the queue's subscription description, which
+    /// keeps the queue.
     /// </summary>
     public void Dispose() => bus.RunAs(Connection.Exchange, () => bus.Cancel(this));
 

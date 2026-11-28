@@ -53,8 +53,8 @@ What it holds now (BL-629):
   because the bus has no dead-letter queue. An exclusive queue belongs to its declaring
   connection: any other connection gets `QueueLocked` on declare, bind, consume and delete,
   but may still send to it. It is deleted when its owner goes. An auto-delete queue is
-  deleted when its last consumer ends. An expired message is dropped when the queue reaches
-  it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
+  deleted when its last consumer ends (one a restore ends, below, leaves it). An expired message is
+  dropped when the queue reaches it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
 - **Delivery credit (BL-2071, ADR-0146 Amendment 7).** `BusQueueConsumer.SetDeliveryCredit(n)` is
   the most deliveries the bus holds for a consumer that it has not yet claimed; a consumer never
   given one is served as above. With one, the consumer is assigned a message only while it has room
@@ -149,9 +149,18 @@ What it holds now (BL-629):
   filters come after `UnknownQueue` and `QueueLocked` and before `ExclusiveConsumeRefused` and
   `TooManySubscriptions`, under the lock the message is taken or the consumer added under. A refused
   call takes nothing and adds no consumer. They are judged when the call is made: a consumer already
-  added keeps receiving whatever is bound later, and one added while the queue had no description is
-  also handed what a restore that describes the queue puts in it (BL-2051). A queue with no
-  description asks only for the `$queue` grant.
+  added keeps receiving whatever is bound later. A queue with no description asks only for the
+  `$queue` grant.
+- **A restore that changes a description (BL-2051, ADR-0146 Amendment 8).** When `Restore` gives a
+  live queue another subscription description than it has (one where it had none, none where it had
+  one, or other text), every consumer and get holder of that queue ends before the snapshot's
+  messages go in: the bus hands it nothing more, it no longer counts against its connection's
+  `MaxSubscriptionsPerConnection`, and nothing tells its server or client. The restored
+  messages stay ready for a caller judged on the restored queue, and an auto-delete queue stays with
+  no consumer. A restore that leaves the description as it was keeps them, and `Reset` changes no
+  description. A restore that changes only the bindings keeps them too. A restore reusing a queue
+  exclusive to a connection keeps that owner and the queue's flags, so the restored queue stays
+  locked to the owner and goes with it (BL-2083).
 - **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
   opaque text naming the client that publishes through the connection, `null` unless a server sets it
   (starting with its scheme family and `:`, so protocols never match each other's).

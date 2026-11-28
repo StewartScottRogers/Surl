@@ -131,8 +131,11 @@ public sealed partial class MessageBus
     /// Replaces the bus's contents with <paramref name="snapshot"/>'s: its retained messages, its
     /// logs at the offsets they had, and its queues with their bindings and messages, a message
     /// then unacknowledged now ready and marked redelivered (one then held and not yet claimed
-    /// with the mark it had before it was assigned). Live subscriptions stay and consumers
-    /// are handed the restored messages; a queue the snapshot does not hold is treated as
+    /// with the mark it had before it was assigned). Live subscriptions stay, and a queue's
+    /// consumers are handed its restored messages, unless the restore changes the queue's
+    /// subscription description (gives it one, takes it away or replaces it): then its consumers
+    /// and get holders end first, receiving nothing more, and the messages stay ready (ADR-0146,
+    /// Amendment 8). A queue the snapshot does not hold is treated as
     /// <see cref="Reset"/> treats one, and every unacknowledged delivery is dropped. Publishes one
     /// <see cref="StoreChange.Restored"/> named <see cref="WholeBusChangeName"/>.
     /// </summary>
@@ -254,6 +257,7 @@ public sealed partial class MessageBus
 
         if (target.Filters is { } filters)
         {
+            EndConsumersIfDescriptionChanges(queue, target.SubscriptionDescription);
             queue.ReplaceBindings(filters);
             queue.SubscriptionDescription = target.SubscriptionDescription;
             queue.ExcludedPublisherName = target.ExcludedPublisherName;
@@ -266,5 +270,16 @@ public sealed partial class MessageBus
         }
 
         Dispatch(queue, now);
+    }
+
+    // A consumer was let onto the queue on what its description then was (ADR-0146, Amendment 5), so
+    // it is not handed the messages of a queue that has become another: its consumers and get holders
+    // end, and the restored messages wait for a caller judged on the restored queue (Amendment 8).
+    private void EndConsumersIfDescriptionChanges(NamedQueue queue, string? restoredDescription)
+    {
+        if (!string.Equals(queue.SubscriptionDescription, restoredDescription, StringComparison.Ordinal))
+        {
+            EndConsumersDroppingTheirMessages(queue);
+        }
     }
 }

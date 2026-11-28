@@ -10,5 +10,7 @@ namespace Surl.MessageBus;
 /// directory is given (ADR-0100, decision 3.7). The bus only records it.</param>
 /// <param name="Exclusive">Whether only the declaring connection may bind, consume from or
 /// delete it; the queue is deleted when that connection goes.</param>
-/// <param name="AutoDelete">Whether the queue is deleted when its last consumer ends.</param>
+/// <param name="AutoDelete">Whether the queue is deleted when its last consumer ends; consumers a
+/// <see cref="MessageBus.Restore"/> ends for changing the queue's subscription description leave
+/// it.</param>
 public readonly record struct BusQueueFlags(bool Durable = false, bool Exclusive = false, bool AutoDelete = false);
