@@ -28,6 +28,22 @@ public sealed class ImapSpecialUseTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_NoUseHeld_CreateWithAnEmptyUseListIsRefusedAndCreatesNoMailbox()
+    {
+        var responses = await ResponsesAsync(Login + "b CREATE x (USE ())\r\nc LIST \"\" x\r\n", TestContext.CancellationToken);
+
+        Assert.AreEqual(LoggedIn + $"b {UseRefused}\r\nc OK LIST completed\r\n", responses);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NoUseHeld_CreateWithNoParameterSucceeds()
+    {
+        var responses = await ResponsesAsync(Login + "b CREATE x\r\n", TestContext.CancellationToken);
+
+        Assert.AreEqual(LoggedIn + "b OK CREATE completed\r\n", responses);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_AUseHeld_GreetingAndCapabilityOfferSpecialUseAfterMove()
     {
         var clock = new ManualTimeProvider();

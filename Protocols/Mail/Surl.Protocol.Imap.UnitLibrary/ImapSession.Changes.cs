@@ -108,34 +108,30 @@ internal sealed partial class ImapSession
     }
 
     // CREATE drops one trailing "/" (RFC 3501, section 6.3.3); its parents are not created. A
-    // "(USE (...))" parameter (RFC 6154, section 3) is read only while SPECIAL-USE is offered and
-    // names at most one use, as the store holds one use per mailbox (ADR-0055, Amendment 1).
+    // "(USE (...))" parameter (RFC 6154, section 3) is parsed whether or not SPECIAL-USE is
+    // offered. While it is not offered, any well-formed USE, the empty list included, is
+    // NO [USEATTR]; while it is, the list names at most one use, as the store holds one use per
+    // mailbox (ADR-0055, Amendment 1).
     private ImapResponse CreateMailbox(ImapArguments arguments)
     {
         var nameBytes = arguments.ReadSpacedAString();
         var name = nameBytes is null ? null : DropTrailingDelimiter(ImapMailboxName.Decode(nameBytes));
+        var hasUseParameter = nameBytes is not null && !arguments.IsAtEnd;
         IReadOnlyList<string>? uses = [];
-        if (nameBytes is not null && !arguments.IsAtEnd)
+        if (hasUseParameter)
         {
             uses = arguments.TryReadSpace() ? arguments.ReadCreateUseList() : null;
         }
 
         return nameBytes is null || uses is null || !arguments.IsAtEnd ? InvalidArguments
             : !IsMailboxName(name) ? ImapResponse.Only(ImapResponses.InvalidMailboxName)
-            : ImapResponse.Only(CreateMailboxWithUses(name!, uses));
+            : ImapResponse.Only(CreateMailboxWithUses(name!, hasUseParameter, uses));
     }
 
-    private string CreateMailboxWithUses(string name, IReadOnlyList<string> uses)
-    {
-        if (uses.Count == 0)
-        {
-            return ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, name, context), "CREATE");
-        }
-
-        return uses.Count > 1 || !mailStore.HoldsAnyFolderUse
+    private string CreateMailboxWithUses(string name, bool hasUseParameter, IReadOnlyList<string> uses) =>
+        uses.Count > 1 || (hasUseParameter && !mailStore.HoldsAnyFolderUse)
             ? ImapResponses.UseNotAllowed
-            : ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, name, context, uses[0]), "CREATE");
-    }
+            : ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, name, context, uses.FirstOrDefault()), "CREATE");
 
     private ImapResponse DeleteMailbox(ImapArguments arguments) =>
         ChangeMailboxes(ReadNames(arguments, 1), names => ImapResponses.ForOutcome(mailStore.DeleteMailbox(view!, names[0], context), "DELETE"));
