@@ -34,3 +34,4 @@ A search whose base is only spaces is treated one way by both the session and th
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
