@@ -36,3 +36,4 @@ restore clears in `Application/Surl.Api/SurlServer.cs` (`RestoreAsync`) do not s
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
