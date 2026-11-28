@@ -37,7 +37,7 @@ deliveries and unacknowledged publishes). `restore_server`'s description (BL-207
   Storage server's remembered committed block lists (`AzureStagedUploadStoreRegistration`'s snapshot holds nothing).
 - Test: `SnapshotServerToolTests.Description_SaysWhatASnapshotCopiesAndLeavesOut`. `dotnet build -warnaserror` and
   `dotnet format --verify-no-changes` clean; fast tests 30816 passed, 0 failed, 3 skipped.
-- Filed BL-2105: `restore_server` does not say it drops an exclusive queue's messages.
+- Filed BL-2106: `restore_server` does not say it drops an exclusive queue's messages.
 
 ## Log
 

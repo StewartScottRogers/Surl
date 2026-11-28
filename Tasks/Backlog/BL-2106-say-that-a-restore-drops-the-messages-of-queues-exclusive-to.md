@@ -1,5 +1,5 @@
 ---
-id: BL-2105
+id: BL-2106
 title: Say that a restore drops the messages of queues exclusive to a connection
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2105 — Say that a restore drops the messages of queues exclusive to a connection
+# BL-2106 — Say that a restore drops the messages of queues exclusive to a connection
 
 ## Goal
 
