@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2068 — Say in the manual that a subscription queue also needs sub on its filters
 
@@ -27,12 +27,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The `--topic-access` text in `ManualText` states that a get, consume, delete or purge by name of a subscription queue also needs `sub` on every topic filter it is bound to, and `ManualTextTests` pins the new lines.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] The `--topic-access` text in `ManualText` states that a get, consume, delete or purge by name of a subscription queue also needs `sub` on every topic filter it is bound to, and `ManualTextTests` pins the new lines.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- The new manual text says what `--aihelp messages` already says: it also names the `$queue/<name>` filter (the
+  manual did not mention it), that a get or consume still needs that grant, and that a queue bound to no filter is
+  refused once any grant is given. No behaviour changed, so no ADR.
+- Verified 2026-11-28: `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` clean; fast
+  tests passed (`Surl.Cli.UnitTests` 2062 passed, 0 failed).
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. surl --manual says a subscription queue also needs sub on every topic filter it is bound to.
