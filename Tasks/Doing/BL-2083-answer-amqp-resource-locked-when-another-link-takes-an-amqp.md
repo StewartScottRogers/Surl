@@ -40,3 +40,4 @@ An unshared kept subscription that another link takes after the container inspec
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
