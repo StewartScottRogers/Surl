@@ -1,5 +1,5 @@
 ---
-id: BL-2088
+id: BL-2089
 title: Answer an LDAP search whose base is only spaces as the root DSE search it parses to
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2088 — Answer an LDAP search whose base is only spaces as the root DSE search it parses to
+# BL-2089 — Answer an LDAP search whose base is only spaces as the root DSE search it parses to
 
 ## Goal
 

@@ -41,7 +41,7 @@ The `LdapProtocolServer` constructor summary and "Operations" remarks state only
 - Verified: full `dotnet build` 0 warnings, 0 errors; fast tests passed; `dotnet format
   --verify-no-changes` on the file clean.
 - Follow-ups: the `LdapMessageDecoder` remarks omitting `CompareRequest` are already BL-2081; the
-  spaces-only search base is filed as BL-2088.
+  spaces-only search base is filed as BL-2089.
 
 ## Log
 
