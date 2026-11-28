@@ -218,6 +218,58 @@ public sealed class MailboxStoreRunTimeOwnerTests
                 catchAllTarget is null ? [] : [new MailCatchAll("example.com", catchAllTarget)]));
 
     [TestMethod]
+    [DataRow(false, DisplayName = "no mail domain")]
+    [DataRow(true, DisplayName = "mail domain")]
+    public async Task LookUpRecipientAndViewFor_WhileAnOwnerIsAddedAndRetiredOnAnotherThread_FindAConfiguredAccountEveryTime(bool withMailDomain)
+    {
+        // Retiring an owner rebuilds the account lookup in order, so the last of many accounts is absent longest.
+        string[] accountNames = [.. Enumerable.Range(0, 200).Select(index => $"account{index}"), "ann"];
+        var domains = withMailDomain ? new MailDomainConfiguration(["example.com"], [], [], []) : null;
+        var store = new MailboxStore(accountNames, allowAnonymous: false, new SettableTimeProvider(), mailDomains: domains);
+        using var churning = new ManualResetEventSlim();
+        using var readersDone = new CancellationTokenSource();
+        var churn = RunOnOwnThread(() =>
+        {
+            do
+            {
+                store.AddOwner("bob");
+                store.RetireOwner("bob");
+                churning.Set();
+            }
+            while (!readersDone.IsCancellationRequested);
+
+            return 0;
+        });
+        churning.Wait();
+
+        var readers = Enumerable.Range(0, 4).Select(_ => RunOnOwnThread(() => CountMissesOfAnn(store, lookups: 2000))).ToArray();
+        int[] misses;
+        try
+        {
+            misses = await Task.WhenAll(readers);
+        }
+        finally
+        {
+            await readersDone.CancelAsync();
+            await churn;
+        }
+
+        CollectionAssert.AreEqual(new[] { 0, 0, 0, 0 }, misses);
+    }
+
+    private static Task<int> RunOnOwnThread(Func<int> work) =>
+        Task.Factory.StartNew(work, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    /// <summary>
+    /// How many of <paramref name="lookups"/> rounds of <c>LookUpRecipient</c> and <c>ViewFor</c> did not find <c>ann</c>.
+    /// </summary>
+    private static int CountMissesOfAnn(MailboxStore store, int lookups) =>
+        Enumerable.Range(0, lookups).Count(_ =>
+            store.LookUpRecipient("<ann@example.com>", out var recipient) != MailRecipientLookup.Deliverable
+            || recipient!.OwnerNames.Single() != "ann"
+            || store.ViewFor("ann").OwnerName != "ann");
+
+    [TestMethod]
     public void Reset_DropsRunTimeOwnersAndReachesRetiredConfiguredOnesEmpty()
     {
         var store = NewStore("ann");

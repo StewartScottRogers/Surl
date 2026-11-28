@@ -370,14 +370,18 @@ public sealed partial class MailboxStore
             return MailRecipientLookup.InvalidAddress;
         }
 
-        return anonymousOwner is not null || router is null
-            ? Found(OwnerByLocalPart(localPart), out recipient)
-            : LookUpInMailDomains(router, localPart, domain, out recipient);
+        // AddOwner, RetireOwner, Reset and Restore change the accounts, which both ways of resolving read.
+        lock (storeLock)
+        {
+            return anonymousOwner is not null || router is null
+                ? Found(OwnerByLocalPart(localPart), out recipient)
+                : LookUpInMailDomains(router, localPart, domain, out recipient);
+        }
     }
 
     /// <summary>
     /// The anonymous owner, or else the account <paramref name="localPart"/> names (ADR-0050,
-    /// decisions 2 and 5).
+    /// decisions 2 and 5). Called under the store's lock.
     /// </summary>
     private IReadOnlyList<OwnerMailboxes> OwnerByLocalPart(string localPart)
     {
