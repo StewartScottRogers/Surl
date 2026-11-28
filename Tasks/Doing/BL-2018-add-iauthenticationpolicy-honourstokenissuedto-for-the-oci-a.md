@@ -42,3 +42,4 @@ BL-2005 edits the library's `CLAUDE.md` on `NamesAccount`; start from what it wr
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
