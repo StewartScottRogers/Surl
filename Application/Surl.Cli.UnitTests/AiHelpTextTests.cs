@@ -900,6 +900,18 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Auth_SaysHowLongADirectoryUsersOciOrMcpTokenIsHonoured()
+    {
+        var page = AiHelpText.Answer("auth").Output;
+
+        var userLdapParagraph = page.Split('\n').Single(line => line.Contains("`--user-ldap <ldap-url>", StringComparison.Ordinal) && line.Contains("LDAP directory", StringComparison.Ordinal));
+        StringAssert.Contains(userLdapParagraph, "An OCI or MCP token issued to a directory user is honoured, within the token's own lifetime, for at most one hour after the name's last directory login that server accepted: refreshing an MCP token is not a login, so it never extends the hour, and a refused login neither ends nor renews it.");
+        StringAssert.Contains(userLdapParagraph, "Disabling or deleting the user in the directory ends no token already issued.");
+        StringAssert.Contains(userLdapParagraph, "A reset of the sessions ends them all, and so does a restore: on the `--control` endpoint `POST /v1/reset` resets the sessions with every other store, but with `--directory` or `--share` it is refused and ends none.");
+        StringAssert.Contains(userLdapParagraph, "A name the accounts have held, on any scheme, while surl runs is refused such tokens: its token is honoured only while the accounts name it for that server's scheme, so removing the account refuses its tokens even when the directory knows the name too.");
+    }
+
+    [TestMethod]
     public void Answer_Socks_SaysTheGssApiLoginIgnoresAuthAndWhichProxyAccountItNeeds()
     {
         var page = AiHelpText.Answer("socks").Output;
