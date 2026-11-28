@@ -536,6 +536,15 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Messages_SaysASubscriptionQueueAlsoNeedsSubOnItsFilters()
+    {
+        var page = AiHelpText.Answer("messages").Output;
+
+        StringAssert.Contains(page, "A queue keeping an AMQP 1.0 durable or shared subscription (`surl-subscription-...`) needs more: a get, consume, delete or purge of it by name also needs `sub` on every topic filter it is bound to");
+        StringAssert.Contains(page, "(a get or consume still needs its `$queue/<name>` grant), and once any grant is given, one bound to no filter is refused.");
+    }
+
+    [TestMethod]
     public void Answer_ExitCodes_ListsEverySurlExitCodeMember()
     {
         var page = AiHelpText.Answer("exit-codes").Output;
