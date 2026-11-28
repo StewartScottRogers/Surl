@@ -39,3 +39,4 @@ An agent seeds Redis keys, LDAP entries and DNS zones in the `start_server` call
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
