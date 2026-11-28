@@ -42,3 +42,4 @@ the same link again after the transaction rolls back.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
