@@ -396,10 +396,16 @@ defined in the [glossary](../Wiki/Glossary.md), section "LDAP, SMB and RTSP".
   [ADR-0072](../Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md)
   decision 1): with `--directory`, `<path>/.surl/ldap/directory.ldif` (RFC 2849 LDIF content
   records, UTF-8) is read once at start, after the data-directory lock and before any listener
-  binds; a missing file, and in-memory mode, is an empty directory. The directory is read-only:
-  surl never writes the file, and LDAP's add, delete, modify and rename are answered
-  `unwillingToPerform`. A file that cannot be read or is not LDIF the directory can hold ends surl
-  with 37, `surl: (37) Could not read <file>: line <n>: <what>`. It is bounded
+  binds; a missing file, and in-memory mode, gives no entries from a file, so the directory is
+  empty only when it holds none from the file and none from a host seed. LDAP clients cannot
+  change it: their add, delete, modify and rename are answered `unwillingToPerform`. The host
+  can, in memory only: it adds LDIF entries at start and while serving, and resets and restores
+  the directory with the instance's other stores, which is refused when the instance's files are
+  on disk
+  ([ADR-0158](../Planning/Decisions/ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md)
+  decisions 3 to 6). surl never writes the file. A file that cannot be read or is not LDIF the
+  directory can hold ends surl with 37, `surl: (37) Could not read <file>: line <n>: <what>`.
+  The directory is bounded
   (`LdapDirectory.DefaultMaxEntries`, 100000 entries; 256 MiB; one value at most 1 MiB), and one
   search returns at most `LdapDirectory.DefaultMaxSearchEntries`, 10000, then `sizeLimitExceeded`.
 - **LDAP searches** (decisions 1 and 3): base, one-level and subtree scopes; every filter of RFC

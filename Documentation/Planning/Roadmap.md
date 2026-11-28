@@ -118,9 +118,11 @@ task board in `Tasks/`, never here.
 
 - **Status:** Built, and proven with the Windows builds (2026-09-30), with the LDAP open items closed since: the OpenLDAP-backed upstream curl that ADR-0076 pins binds, upgrades with `STARTTLS` and searches a live `surl` over `ldap` and `ldaps` (BL-312); Kerberos inside LDAP's `GSS-SPNEGO` is built (BL-327, ADR-0072 Amendment 1); LDAP SASL `GSSAPI` is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342, ADR-0078). Closed (2026-11-16): the Linux and macOS SMB results are recorded in ADR-0073 (BL-1293), the Linux RTSP results in ADR-0074 (BL-1294; on macOS RTSP is Inconclusive, ADR-0026), and the choices the building tasks made where ADR-0072, ADR-0073 and ADR-0074 were silent are in those ADRs' amendments (BL-1295 to BL-1297). Nothing is left open.
 - **Delivers:** the LDAP server (`Surl.Protocol.Ldap`, schemes `ldap` and `ldaps`): a BER codec on
-  `System.Formats.Asn1`, a read-only directory loaded from `<path>/.surl/ldap/directory.ldif`
-  (empty in memory), searches, compares, the root DSE, simple, Sicily and SASL binds with their
-  security layers, and `StartTLS`; the SMB server (`Surl.Protocol.Smb`, schemes `smb` and `smbs`):
+  `System.Formats.Asn1`, a directory LDAP clients cannot change, loaded from
+  `<path>/.surl/ldap/directory.ldif` (without `--directory` no file is read, so it is empty unless
+  the host seeds it; the host's changes are in memory only, ADR-0158), searches, compares, the
+  root DSE, simple, Sicily and SASL binds with their security layers, and `StartTLS`; the SMB
+  server (`Surl.Protocol.Smb`, schemes `smb` and `smbs`):
   SMB version 1 over NetBIOS framing, the content store's top-level directories as shares, reads,
   uploads under `--allow-uploads`, and the NTLMv1 session setup under the new `--auth` word
   `ntlmv1`; the RTSP server (`Surl.Protocol.Rtsp`, scheme `rtsp`): all ten RTSP/1.0 methods,

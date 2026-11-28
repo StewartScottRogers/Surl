@@ -8,7 +8,7 @@ depends-on: [BL-2075]
 touches: [Documentation/Wiki/Glossary.md, Documentation/Product/Product-Overview.md, Documentation/Product/Requirements.md, Documentation/Planning/Roadmap.md, README.md]
 requirement: FR-049
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2090 — Say in the Glossary, Product Overview, Requirements and Roadmap that the host can change the LDAP directory
 
@@ -32,15 +32,26 @@ Stand-in: documentation only; the seeds, reset, restore and events already exist
 
 ## Acceptance criteria
 
-- [ ] The Glossary's "LDAP directory" row says it is LDAP clients that cannot change the directory, and that the host can, in memory only, citing ADR-0158.
-- [ ] The Product Overview bullet and FR-049 say the same, and say the directory is empty only when it holds no entry from the file and none from a host seed.
-- [ ] The Roadmap's Milestone 5 "Delivers" text no longer calls the directory read-only or empty in memory without that limit.
-- [ ] All four places still say add, delete, modify and rename from an LDAP client are refused, wherever they said so before, and that surl never writes the file wherever they said so before.
-- [ ] The README's LDAP paragraph no longer calls the directory read-only or empty without those limits, and the diff changes no file but these five (and this task's own).
+- [x] The Glossary's "LDAP directory" row says it is LDAP clients that cannot change the directory, and that the host can, in memory only, citing ADR-0158.
+- [x] The Product Overview bullet and FR-049 say the same, and say the directory is empty only when it holds no entry from the file and none from a host seed.
+- [x] The Roadmap's Milestone 5 "Delivers" text no longer calls the directory read-only or empty in memory without that limit.
+- [x] All four places still say add, delete, modify and rename from an LDAP client are refused, wherever they said so before, and that surl never writes the file wherever they said so before.
+- [x] The README's LDAP paragraph no longer calls the directory read-only or empty without those limits, and the diff changes no file but these five (and this task's own).
 
 ## Notes
+
+- The Glossary, Product Overview and FR-049 also say that the hosts' reset and restore are refused when the
+  instance's files are on disk: every host calls only the whole-instance operation (`SurlServer.ResetAsync`,
+  `ResetServerTool`, `ComposedControlTarget.ResetAsync`), which stops at a content store on disk. Saying only
+  "the host can reset and restore the directory", as Context does, would be untrue with `--directory`.
+- They cite ADR-0158 decisions 3 to 6, not 3 to 5: decision 6 is the in-memory copy of the file.
+- Follow-ups filed, in their own commit so this task's diff stays the five documents and this file:
+  BL-2103 (Requirements.md names `Surl.Console` for code that is in `Surl.Composition`) and BL-2104
+  (a dated note on ADR-0158 decision 6, after BL-2076 decides per-store reset).
+- Verified 2026-11-28: `dotnet build` 0 warnings, 0 errors; fast tests no failures.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The Glossary, Product Overview, Requirements, Roadmap and README say LDAP clients cannot change the directory and the host can, in memory only (ADR-0158)
