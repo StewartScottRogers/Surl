@@ -54,7 +54,7 @@ Found while working BL-1994 (2026-11-27), read from source. Documentation only; 
   inside `NoAccountProxyAuthenticationPolicy`.
 - `dotnet build -warnaserror` and `dotnet format --verify-no-changes` clean; fast tests 30350 passed,
   3 skipped, 0 failed.
-- Follow-ups filed: BL-2051 (further descriptions in this library), BL-2052 (`ComposeWithoutAccounts`).
+- Follow-ups filed: BL-2056 (further descriptions in this library), BL-2057 (`ComposeWithoutAccounts`).
 
 ## Log
 

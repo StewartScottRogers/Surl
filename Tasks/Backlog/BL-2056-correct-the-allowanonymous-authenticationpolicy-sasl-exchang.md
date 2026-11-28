@@ -1,5 +1,5 @@
 ---
-id: BL-2051
+id: BL-2056
 title: Correct the AllowAnonymous, AuthenticationPolicy, SASL exchange and AccountBook descriptions in Surl.Authentication
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2051 — Correct the AllowAnonymous, AuthenticationPolicy, SASL exchange and AccountBook descriptions in Surl.Authentication
+# BL-2056 — Correct the AllowAnonymous, AuthenticationPolicy, SASL exchange and AccountBook descriptions in Surl.Authentication
 
 ## Goal
 
