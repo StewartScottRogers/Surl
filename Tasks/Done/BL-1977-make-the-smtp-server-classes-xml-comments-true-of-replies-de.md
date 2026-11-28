@@ -8,7 +8,7 @@ depends-on: [BL-1957]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpProtocolServer.cs, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpUpstreamTestCaseServer.cs, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/SmtpReplies.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1977 — Make the SMTP server classes' XML comments true of replies, delivery, faults and test cases
 
@@ -50,16 +50,29 @@ rewrites other sentences of the same remarks, so keep what it wrote.
 
 ## Acceptance criteria
 
-- [ ] Neither the `SmtpProtocolServer` remarks nor the `SmtpReplies` summary says every reply is fixed text or holds no peer byte; each names the lines that vary, including that a SCRAM `334` challenge carries the client's nonce base64 encoded.
-- [ ] The `SmtpProtocolServer` summary's command list includes `STARTTLS`.
-- [ ] The delivery paragraph says when `Delivered-To` lines are written, where they go, and that each deliverable recipient then has its own pending message.
-- [ ] The `SmtpProtocolServer` remarks say what an `Error`, a `Delay` and a `Drop` command-stage fault rule each do, including a client that leaves during a hold.
-- [ ] The `SmtpUpstreamTestCaseServer` remarks name the `HELP` data and the three refusals in Context item 5, with their reply text.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are `///` comments.
+- [x] Neither the `SmtpProtocolServer` remarks nor the `SmtpReplies` summary says every reply is fixed text or holds no peer byte; each names the lines that vary, including that a SCRAM `334` challenge carries the client's nonce base64 encoded.
+- [x] The `SmtpProtocolServer` summary's command list includes `STARTTLS`.
+- [x] The delivery paragraph says when `Delivered-To` lines are written, where they go, and that each deliverable recipient then has its own pending message.
+- [x] The `SmtpProtocolServer` remarks say what an `Error`, a `Delay` and a `Drop` command-stage fault rule each do, including a client that leaves during a hold.
+- [x] The `SmtpUpstreamTestCaseServer` remarks name the `HELP` data and the three refusals in Context item 5, with their reply text.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are `///` comments.
 
 ## Notes
+
+- 2026-11-27: `align-and-document` made the edits; Context items 1 to 5 matched the code. The delivery paragraph also
+  says what the code does for an alias: its one pending message lists the paths that reach any of its owners.
+- 2026-11-27: Nearby sentences corrected in the same comments: `VRFY`/`EXPN` answer `252` "whatever name is asked"
+  (a fault rule or a test case can answer otherwise), both `ServeAsync` summaries allow for the other ways a session
+  ends, and a `REPLY`'d SASL response applies only after a `REPLY`'d `AUTH`.
+- 2026-11-27: Gates: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
+  30378 passed, 0 failed, 3 skipped; no changed `.cs` line other than `///`. Integration tests not run: comments only.
+- 2026-11-27: Filed BL-1995 (privacy defect: with `--mail-delivered-to`, an alias that absorbs an earlier recipient
+  gives one owner's address to another, against ADR-0053 Amendment 1 decision 4; found by reading the code, not
+  reproduced), BL-1996, BL-1997, BL-1998 and BL-1999 (other false comments and documents). BL-1995 must also rewrite
+  the delivery paragraph written here.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The XML comments of SmtpProtocolServer, SmtpReplies and SmtpUpstreamTestCaseServer match the replies, delivery, command faults and test case refusals the code has
