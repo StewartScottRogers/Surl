@@ -131,6 +131,12 @@ the mail domains), and views and recipients given before the call still reach th
 configured and reaches configured ones again; `TakeSnapshot` records `OwnerCount` and which owners are reached, and
 `Restore` puts both back.
 
+Handles to a dropped owner (BL-2122, ADR-0193): a view, recipient or maildrop lock of an owner `Reset` or `Restore`
+dropped never throws for that and never writes to it. The view's own mailboxes are `MailboxMissing` (`CreateMailbox`
+too) and `LockMaildrop` gives it an empty maildrop; a delivery leaves the owner out and, with none left, answers
+`Succeeded` storing and publishing nothing; `RemoveMessages` returns 0. A later owner of the same name is not reached;
+a `Restore` that brings the owner back is.
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,
 amending ADR-0002's table); protocol servers may reference it, and the SMTP, IMAP and POP3

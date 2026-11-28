@@ -42,6 +42,15 @@ public sealed partial class MailboxStore
     /// configuration and are unchanged. Every POP3 maildrop lock is released; a session that held
     /// one still reads the messages it was given and removes none at <c>QUIT</c>. Publishes one
     /// <see cref="StoreChange.Reset"/> naming the whole store (an empty name) with byte count 0.
+    /// <para>
+    /// A <see cref="MailView"/>, <see cref="MailRecipient"/> or <see cref="MaildropLock"/> taken of
+    /// a dropped owner stays usable and never writes to it (ADR-0193): the view has no mailboxes of
+    /// its own, so every operation on one is <see cref="MailStoreOutcome.MailboxMissing"/> and
+    /// <see cref="LockMaildrop"/> gives an empty maildrop; a delivery to the recipient gives it no
+    /// copy; and the lock removes nothing. An owner made later under the same name is another
+    /// owner, which they do not reach. A <see cref="Restore"/> that brings the dropped owner back
+    /// makes them reach it again.
+    /// </para>
     /// </summary>
     /// <exception cref="InvalidOperationException">The store is on disk (made by
     /// <see cref="LoadAsync"/>), so nothing is changed; or the clock is so near 2106-02-07T06:28:15Z
@@ -94,7 +103,8 @@ public sealed partial class MailboxStore
     /// UID it held then, and a <c>UIDVALIDITY</c> the store has never given before, so an IMAP
     /// client resynchronises. An owner the snapshot does not hold is dropped with its mail, and
     /// exactly the accounts reached then are reached. Every POP3 maildrop lock is released, as by
-    /// <see cref="Reset"/>.
+    /// <see cref="Reset"/>, and views, recipients and maildrop locks of a dropped owner behave as
+    /// <see cref="Reset"/> describes.
     /// Publishes one <see cref="StoreChange.Restored"/> naming the whole store (an empty name) with
     /// the snapshot's <see cref="MailStoreSnapshot.ByteCount"/>.
     /// </summary>

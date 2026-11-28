@@ -439,6 +439,13 @@ public sealed partial class MailboxStore
     /// the message's bytes and its message file, counted once. <paramref name="message"/> is
     /// disposed whatever the outcome: its pending file becomes the message file when it is
     /// stored, and is deleted when it is not.
+    /// <para>
+    /// An owner a <see cref="Reset"/> or <see cref="Restore"/> dropped since the recipient was
+    /// looked up gets no copy, takes no part in a quota or out-of-space refusal, and does not
+    /// stop the others getting theirs (ADR-0193). When every owner was dropped, nothing is
+    /// stored or published, <see cref="ChangeCount"/> does not rise, and the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>, as for no recipient.
+    /// </para>
     /// </summary>
     /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found; an owner
     /// named by two entries gets two copies.</param>
@@ -498,8 +505,7 @@ public sealed partial class MailboxStore
             }
 
             var inboxOwners = DeliveriesOf(recipients);
-            var targets = inboxOwners.Select(delivery => delivery.Owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
-            return await IsOutOfSpaceAsync(targets, exchange, cancellationToken).ConfigureAwait(false)
+            return await IsOutOfSpaceAsync(InboxTargetsOf(inboxOwners), exchange, cancellationToken).ConfigureAwait(false)
                 ? MailStoreOutcome.QuotaExceeded
                 : DeliverPending(inboxOwners, message, StoreChange.Delivered, exchange);
         }
@@ -553,6 +559,9 @@ public sealed partial class MailboxStore
     /// Every delivery's <see cref="Surl.Protocol.Abstractions.StoreChangedEvent.DeliveredFor"/> is that copy's
     /// <see cref="MailOwnerCopy.DeliveredFor"/>, in the order given. One refusal stores nothing for any owner. Every
     /// pending message is disposed whatever the outcome: kept as a message file when stored, deleted when not.
+    /// An owner dropped by a <see cref="Reset"/> or <see cref="Restore"/> since its recipient was looked up is left
+    /// out, as <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> leaves it out;
+    /// a copy with no owner left is not stored.
     /// </summary>
     /// <param name="copies">The copies, each with its own pending message, its bytes all written.</param>
     /// <param name="exchange">The exchange behind the write, as <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> takes it.</param>
@@ -570,7 +579,7 @@ public sealed partial class MailboxStore
                 return outcome;
             }
 
-            return IsOutOfSpace(InboxTargetsOf(copies), exchange) ? MailStoreOutcome.QuotaExceeded : DeliverCopiesPending(copies, exchange);
+            return IsOutOfSpace(InboxTargetsOf(DeliveriesOf(copies)), exchange) ? MailStoreOutcome.QuotaExceeded : DeliverCopiesPending(copies, exchange);
         }
         finally
         {
@@ -599,7 +608,7 @@ public sealed partial class MailboxStore
                 return outcome;
             }
 
-            return await IsOutOfSpaceAsync(InboxTargetsOf(copies), exchange, cancellationToken).ConfigureAwait(false)
+            return await IsOutOfSpaceAsync(InboxTargetsOf(DeliveriesOf(copies)), exchange, cancellationToken).ConfigureAwait(false)
                 ? MailStoreOutcome.QuotaExceeded
                 : DeliverCopiesPending(copies, exchange);
         }
@@ -609,8 +618,31 @@ public sealed partial class MailboxStore
         }
     }
 
-    private static List<OwnerDelivery> DeliveriesOf(IEnumerable<MailRecipient> recipients) =>
-        [.. recipients.SelectMany(recipient => recipient.Owners.Select(owner => new OwnerDelivery(owner, recipient.DeliveredFor)))];
+    private List<OwnerDelivery> DeliveriesOf(IEnumerable<MailRecipient> recipients) =>
+        HeldDeliveries(recipients.SelectMany(recipient => recipient.Owners.Select(owner => new OwnerDelivery(owner, recipient.DeliveredFor))));
+
+    private List<OwnerDelivery> DeliveriesOf(IEnumerable<MailOwnerCopy> copies) => [.. copies.SelectMany(DeliveriesOf)];
+
+    private List<OwnerDelivery> DeliveriesOf(MailOwnerCopy copy) =>
+        HeldDeliveries(copy.Recipient.Owners.Select(owner => new OwnerDelivery(owner, copy.DeliveredFor)));
+
+    /// <summary>
+    /// The <paramref name="deliveries"/> to owners the store still holds (ADR-0193).
+    /// </summary>
+    private List<OwnerDelivery> HeldDeliveries(IEnumerable<OwnerDelivery> deliveries)
+    {
+        lock (storeLock)
+        {
+            return [.. deliveries.Where(delivery => Holds(delivery.Owner))];
+        }
+    }
+
+    /// <summary>
+    /// Whether the store holds <paramref name="owner"/> itself: <see langword="false"/> once a reset
+    /// or restore dropped it, even when another owner of its name has been made since, and
+    /// <see langword="true"/> again once a restore brings it back. Called under the store's lock.
+    /// </summary>
+    private bool Holds(OwnerMailboxes owner) => owners.GetValueOrDefault(owner.Name) == owner;
 
     private MailStoreOutcome CloseAndCheck(IReadOnlyList<MailOwnerCopy> copies)
     {
@@ -630,26 +662,31 @@ public sealed partial class MailboxStore
         }
     }
 
-    private static IEnumerable<(string, string)> InboxTargetsOf(IReadOnlyList<MailOwnerCopy> copies) =>
-        copies.SelectMany(copy => copy.Recipient.OwnerNames).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
+    private static IEnumerable<(string, string)> InboxTargetsOf(IEnumerable<OwnerDelivery> deliveries) =>
+        deliveries.Select(delivery => delivery.Owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
 
     private MailStoreOutcome DeliverCopiesPending(IReadOnlyList<MailOwnerCopy> copies, ExchangeContext? exchange)
     {
         lock (storeLock)
         {
-            var deliveries = copies.Select(copy => copy.Recipient.Owners.Select(owner => new OwnerDelivery(owner, copy.DeliveredFor)).ToList()).ToList();
-            var parts = copies.SelectMany((copy, index) => deliveries[index].Select(delivery => (delivery.Owner, copy.Message.Length))).ToList();
+            var held = copies.Select(copy => (copy.Message, Deliveries: DeliveriesOf(copy))).Where(copy => copy.Deliveries.Count > 0).ToList();
+            if (held.Count == 0)
+            {
+                return MailStoreOutcome.Succeeded;
+            }
+
+            var parts = held.SelectMany(copy => copy.Deliveries.Select(delivery => (delivery.Owner, copy.Message.Length))).ToList();
             if (parts.GroupBy(part => part.Owner).Any(owner => !WithinQuota(owner.Key, owner.Sum(part => part.Length))))
             {
                 return MailStoreOutcome.QuotaExceeded;
             }
 
-            if (!HasRoomFor(parts.ConvertAll(part => part.Owner.Inbox), copies.Sum(copy => copy.Message.Length)))
+            if (!HasRoomFor(parts.ConvertAll(part => part.Owner.Inbox), held.Sum(copy => copy.Message.Length)))
             {
                 return MailStoreOutcome.StoreFull;
             }
 
-            var bodies = KeepBodies(copies);
+            var bodies = KeepBodies(held.ConvertAll(copy => copy.Message));
             if (bodies is null)
             {
                 return MailStoreOutcome.StorageFailed;
@@ -657,7 +694,7 @@ public sealed partial class MailboxStore
 
             for (var index = 0; index < bodies.Count; index++)
             {
-                DeliverBody(deliveries[index], bodies[index], StoreChange.Delivered, exchange);
+                DeliverBody(held[index].Deliveries, bodies[index], StoreChange.Delivered, exchange);
             }
 
             changeCount++;
@@ -668,12 +705,12 @@ public sealed partial class MailboxStore
     /// <summary>
     /// Keeps every copy's pending message as its own message file, or none: when one cannot be kept, those already kept are let go.
     /// </summary>
-    private List<MessageBody>? KeepBodies(IReadOnlyList<MailOwnerCopy> copies)
+    private List<MessageBody>? KeepBodies(IReadOnlyList<PendingMessage> messages)
     {
         var bodies = new List<MessageBody>();
-        foreach (var copy in copies)
+        foreach (var message in messages)
         {
-            var body = KeepBody(copy.Message);
+            var body = KeepBody(message);
             if (body is null)
             {
                 bodies.ForEach(kept =>
@@ -691,7 +728,7 @@ public sealed partial class MailboxStore
     }
 
     private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerDelivery> inboxOwners, PendingMessage message, ExchangeContext? exchange) =>
-        IsOutOfSpace(inboxOwners.Select(delivery => delivery.Owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)), exchange)
+        IsOutOfSpace(InboxTargetsOf(inboxOwners), exchange)
             ? MailStoreOutcome.QuotaExceeded
             : DeliverPending(inboxOwners, message, StoreChange.Delivered, exchange);
 
@@ -702,12 +739,19 @@ public sealed partial class MailboxStore
     {
         lock (storeLock)
         {
-            if (IsAnyOwnerOverQuota(inboxOwners, message.Length))
+            // Asked again under the lock the write takes: a reset may have run since the caller asked.
+            var held = HeldDeliveries(inboxOwners);
+            if (held.Count == 0)
+            {
+                return MailStoreOutcome.Succeeded;
+            }
+
+            if (IsAnyOwnerOverQuota(held, message.Length))
             {
                 return MailStoreOutcome.QuotaExceeded;
             }
 
-            var inboxes = inboxOwners.ConvertAll(delivery => delivery.Owner.Inbox);
+            var inboxes = held.ConvertAll(delivery => delivery.Owner.Inbox);
             if (!HasRoomFor(inboxes, message.Length))
             {
                 return MailStoreOutcome.StoreFull;
@@ -719,7 +763,7 @@ public sealed partial class MailboxStore
                 return MailStoreOutcome.StorageFailed;
             }
 
-            DeliverBody(inboxOwners, body, change, exchange);
+            DeliverBody(held, body, change, exchange);
             changeCount++;
             return MailStoreOutcome.Succeeded;
         }
@@ -1177,7 +1221,8 @@ public sealed partial class MailboxStore
     /// <param name="use">The RFC 6154 use the mailbox gets (<see cref="MailFolderUse"/>, with or without the backslash), or <see langword="null"/> for none; <see cref="MailStoreOutcome.FolderUseUnknown"/> or <see cref="MailStoreOutcome.FolderUseTaken"/> refuse it.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> (a view with no owner: an empty one, or one
-    /// that reaches only shared folders),
+    /// that reaches only shared folders; or a view whose owner a <see cref="Reset"/> or
+    /// <see cref="Restore"/> dropped, which changes and publishes nothing, ADR-0193),
     /// <see cref="MailStoreOutcome.InvalidName"/>,
     /// <see cref="MailStoreOutcome.SharedFolderProtected"/> (shared folders are configured and the
     /// name is <c>Shared</c> or under <c>Shared/</c>, whether or not the view is a member of
@@ -1316,7 +1361,9 @@ public sealed partial class MailboxStore
     /// <summary>
     /// Takes the maildrop lock of the view's owner at a successful POP3 login, and fixes the
     /// session's view of its <c>INBOX</c> (ADR-0050, decision 4). A view with no owner - an empty
-    /// one, or one that reaches only shared folders - gets an empty maildrop that locks nothing.
+    /// one, or one that reaches only shared folders - gets an empty maildrop that locks nothing,
+    /// and so does a view whose owner a <see cref="Reset"/> or <see cref="Restore"/> dropped
+    /// (ADR-0193).
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="maildrop">The lock, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
@@ -1330,7 +1377,7 @@ public sealed partial class MailboxStore
         maildrop = null;
         lock (storeLock)
         {
-            var owner = view.Owner;
+            var owner = view.Owner is { } viewed && Holds(viewed) ? viewed : null;
             if (owner is not null && lockedMaildrops.ContainsKey(owner))
             {
                 return MailStoreOutcome.MaildropLocked;
@@ -1375,13 +1422,19 @@ public sealed partial class MailboxStore
     /// <summary>
     /// Removes the messages with <paramref name="messages"/>' UIDs from <paramref name="owner"/>'s
     /// <c>INBOX</c>, skipping any no longer there - including a UID that now holds another
-    /// message's bytes, as after a reset or restore (ADR-0131).
+    /// message's bytes, as after a reset or restore (ADR-0131). Removes nothing when a reset or
+    /// restore dropped the owner (ADR-0193).
     /// </summary>
     /// <returns>How many were removed.</returns>
     internal int RemoveFromInbox(OwnerMailboxes owner, IReadOnlyList<(uint Uid, MessageBody Body)> messages, ExchangeContext? exchange)
     {
         lock (storeLock)
         {
+            if (!Holds(owner))
+            {
+                return 0;
+            }
+
             var inbox = owner.Inbox;
             return RemovePublished(
                 new MailboxPlace(owner, inbox),
@@ -1769,7 +1822,7 @@ public sealed partial class MailboxStore
 
     private MailStoreOutcome CheckNewMailbox(MailView view, string mailboxName, bool addsMailbox = true)
     {
-        if (view.Owner is null)
+        if (view.Owner is null || !Holds(view.Owner))
         {
             return MailStoreOutcome.MailboxMissing;
         }

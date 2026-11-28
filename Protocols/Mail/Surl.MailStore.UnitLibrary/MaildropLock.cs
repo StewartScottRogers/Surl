@@ -70,7 +70,9 @@ public sealed class MaildropLock : IDisposable
     /// <summary>
     /// Removes messages from the owner's <c>INBOX</c>, as POP3's <c>QUIT</c> does with the
     /// messages <c>DELE</c> marked (RFC 1939 section 6). A message no longer in <c>INBOX</c> is
-    /// skipped.
+    /// skipped, and so is every message while the owner is one a
+    /// <see cref="MailboxStore.Reset"/> or <see cref="MailboxStore.Restore"/> dropped: the call
+    /// then removes and publishes nothing and returns 0 (ADR-0193).
     /// </summary>
     /// <param name="numbers">Message numbers from <see cref="Messages"/>.</param>
     /// <param name="exchange">The exchange behind the removal, named by the events it publishes; or <see langword="null"/>.</param>
