@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1994 — Correct the login scheme, SASL list, accounts and default-method summaries in Surl.Authentication
 
@@ -38,16 +38,27 @@ No store, event or fault changes: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The `HttpLoginScheme` and `SmbLoginScheme` summaries say the family name is used when the request carries no `LoginExchange`.
-- [ ] The `AuthenticationPolicy` class summary names every mechanism of `SaslMechanism.InOfferOrder` and `GSS-SPNEGO`, and says when a login can be accepted with no local account.
-- [ ] The `AuthenticationSettings.Accounts` description is true of every composer of the settings in `Surl.Composition`.
-- [ ] The `DefaultAccepted` summary's left-out methods are exactly the `AuthenticationMethod` members the set does not hold.
-- [ ] The diff changes only `///` lines in the library.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
+- [x] The `HttpLoginScheme` and `SmbLoginScheme` summaries say the family name is used when the request carries no `LoginExchange`.
+- [x] The `AuthenticationPolicy` class summary names every mechanism of `SaslMechanism.InOfferOrder` and `GSS-SPNEGO`, and says when a login can be accepted with no local account.
+- [x] The `AuthenticationSettings.Accounts` description is true of every composer of the settings in `Surl.Composition`.
+- [x] The `DefaultAccepted` summary's left-out methods are exactly the `AuthenticationMethod` members the set does not hold.
+- [x] The diff changes only `///` lines in the library.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- `align-and-document` made the edits. Two cases accept a login with no local account without
+  `--allow-anonymous`: the LDAP account source, and an SSH public key in `AuthorizedKeys` with a
+  verified signature. The class summary names both.
+- The same pass also corrected the class summary's plain-text sentences (`--allow-anonymous` lifts the
+  refusal; storage credentials are outside it).
+- Filed: BL-2010 (other false descriptions in this library), BL-2011 and BL-2012 (XMPP SASL logins ask
+  for a security layer they never apply; read from source, not reproduced).
+- Verify: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30380 passed,
+  0 failed, 3 skipped. No integration tests run: only comments changed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The login scheme, SASL list, accounts and default-method XML summaries in Surl.Authentication are true of the code
