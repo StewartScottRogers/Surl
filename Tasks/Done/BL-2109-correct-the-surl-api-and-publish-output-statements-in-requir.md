@@ -41,7 +41,7 @@ Stand-in: nothing to add; documentation only.
 - NFR-006 names the `release.yml` publish switches because a plain `dotnet publish` is not what the one-file check runs against. No publish was run for this task; the wording rests on `Test-PublishedSurl.ps1` check 1 and the `release.yml` comment.
 - The `align-and-document` subagent left the root `CLAUDE.md` unedited, because it would not change that file on a delegated request. The lane session made that one-sentence edit: the task's acceptance criteria and `touches` name it.
 - Verified 2026-11-28: `dotnet build` 0 warnings, fast tests 0 failures, `dotnet format --verify-no-changes` clean on the changed `.cs` file.
-- Out-of-scope statements found are filed as BL-2110 (stop check, native publish, gate scope wording) and BL-2111 (`Surl.Mcp` is not in the quality gate).
+- Out-of-scope statements found are filed as BL-2112 (stop check, native publish, gate scope wording) and BL-2111 (`Surl.Mcp` is not in the quality gate).
 
 ## Log
 

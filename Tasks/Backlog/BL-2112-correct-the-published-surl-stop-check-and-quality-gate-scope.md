@@ -1,5 +1,5 @@
 ---
-id: BL-2110
+id: BL-2112
 title: Correct the published-surl stop check and quality gate scope statements in Requirements.md, the glossary, README.md and coverage-auditor
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2110 — Correct the published-surl stop check and quality gate scope statements in Requirements.md, the glossary, README.md and coverage-auditor
+# BL-2112 — Correct the published-surl stop check and quality gate scope statements in Requirements.md, the glossary, README.md and coverage-auditor
 
 ## Goal
 
