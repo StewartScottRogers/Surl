@@ -50,3 +50,4 @@ that turns out to be a behaviour defect is filed as its own task.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
