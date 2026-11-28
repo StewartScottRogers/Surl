@@ -152,16 +152,18 @@ What it holds now (BL-629):
   call takes nothing and adds no consumer. They are judged when the call is made: a consumer already
   added keeps receiving whatever is bound later. A queue with no description asks only for the
   `$queue` grant.
-- **A restore that changes a description (BL-2051, ADR-0146 Amendment 8).** When `Restore` gives a
-  live queue another subscription description than it has (one where it had none, none where it had
-  one, or other text), every consumer and get holder of that queue ends before the snapshot's
-  messages go in: the bus hands it nothing more, it no longer counts against its connection's
-  `MaxSubscriptionsPerConnection`, and nothing tells its server or client. The restored
-  messages stay ready for a caller judged on the restored queue, and an auto-delete queue stays with
-  no consumer. A restore that leaves the description as it was keeps them, and `Reset` changes no
-  description. A restore that changes only the bindings keeps them too. A restore reusing a queue
-  exclusive to a connection keeps that owner and the queue's flags, so the restored queue stays
-  locked to the owner and goes with it (BL-2095).
+- **A restore over a live queue (BL-2051 and BL-2095, ADR-0146 Amendments 8 and 9).** A queue the
+  snapshot holds takes the snapshot's flags and is exclusive to no connection, whatever live queue
+  held its name: a former owner is then a caller like any other, and its end leaves the queue and
+  its messages. When `Restore` changes a live queue's flags, or gives it another subscription
+  description than it has (one where it had none, none where it had one, or other text), every
+  consumer and get holder of that queue ends before the snapshot's messages go in: the bus hands it
+  nothing more, it no longer counts against its connection's `MaxSubscriptionsPerConnection`, and
+  nothing tells its server or client. The restored messages stay ready for a caller judged on the
+  restored queue, an auto-delete queue stays with no consumer, ending them and changing the flags
+  publish no `Deleted` change, and the queue's delivery tags keep rising. A restore that leaves the flags and description as they
+  were keeps them, even if it changes the bindings or the excluded publisher. A queue the snapshot
+  does not hold, and every queue on `Reset`, keeps its flags and owner.
 - **A queue's excluded publisher (BL-2038, ADR-0146 Amendment 3).** `BusConnection.PublisherName` is
   opaque text naming the client that publishes through the connection, `null` unless a server sets it
   (starting with its scheme family and `:`, so protocols never match each other's).

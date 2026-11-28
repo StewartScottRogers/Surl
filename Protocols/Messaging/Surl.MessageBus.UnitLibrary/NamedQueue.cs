@@ -17,10 +17,11 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
 
     public string Name { get; } = name;
 
-    public BusQueueFlags Flags { get; } = flags;
+    public BusQueueFlags Flags { get; private set; } = flags;
 
-    /// <summary>The connection an exclusive queue belongs to; <see langword="null"/> for any other.</summary>
-    public BusConnection? Owner { get; } = owner;
+    /// <summary>The connection an exclusive queue belongs to; <see langword="null"/> for any other,
+    /// one a restore has put back under the name of an exclusive queue included.</summary>
+    public BusConnection? Owner { get; private set; } = owner;
 
     public int ReadyCount => readyHighPriority.Count + readyNormalPriority.Count;
 
@@ -62,6 +63,14 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         : MessageBusOutcome.Succeeded;
 
     public bool IsLockedAgainst(BusConnection connection) => Owner is { } exclusiveOwner && exclusiveOwner != connection;
+
+    /// <summary>Gives the queue <paramref name="restoredFlags"/> and no owning connection, as a
+    /// restore does (ADR-0146, Amendment 9). Its delivery tags keep rising.</summary>
+    public void BecomeUnownedWith(BusQueueFlags restoredFlags)
+    {
+        Flags = restoredFlags;
+        Owner = null;
+    }
 
     public void Bind(string filter) => bindings.TryAdd(filter, CanonicalTopicName.SplitLevels(filter));
 

@@ -765,13 +765,13 @@ queue restored over it, though its `sub` on that subscription's filters was neve
   (Amendment 4, item 9). A non-durable shared link that was consuming it therefore no longer takes the
   queue with it when it ends: an exception to Amendment 4, item 5. The next attach under the name
   resumes or replaces the queue (Amendment 4, item 4).
-- A queue exclusive to a connection that the restore reuses keeps that owner and its flags, whatever the
-  snapshot holds: its consumers end as above, but it stays locked to its owner and goes, with the
-  restored messages, when the owner does. BL-2095 is to change that.
+- Amendment 9 says what a restore does with the flags and owner of the live queue, and ends consumers
+  for changed flags too.
 - The bus tells nobody, and no server tells its client: unlike an AMQP 0-9-1 `queue.delete`, which the
   broker announces with `basic.cancel` (ADR-0112 decision 5), a restore sends none.
-- A restore that leaves the description as it was keeps the queue's consumers, which are handed the
-  restored messages as before. A reset changes no queue's description, so it ends no consumer.
+- A restore that leaves the description and the flags (Amendment 9) as they were keeps the queue's
+  consumers, which are handed the restored messages as before. A reset changes no queue's description
+  or flags, so it ends no consumer.
 - Descriptions are compared ordinally. A restore that changes only the bindings under the same
   description ends nobody; keeping other clients' bindings off a described queue stays BL-2011.
 
@@ -785,5 +785,41 @@ queue restored over it, though its `sub` on that subscription's filters was neve
   `$queue` grant, would then be handed an ordinary queue's messages, or another subscription's.
 - **Keeping the consumers and offering them nothing.** They would count as consumers, holding off an
   `ifUnused` delete and an auto-delete queue's end, while never receiving.
+- **Refusing the restore.** A reset or restore between tests must not fail because a client is still
+  attached (ADR-0124).
+
+## Amendment 9 (BL-2095, 2026-11-28): a restored queue has the snapshot's flags and no owner
+
+Decided by Claude under Stewart's delegation.
+
+A restore reused a live queue of a snapshot queue's name and kept its owning connection and flags. A
+snapshot holds no exclusive queue, so a connection that declared the name exclusive before a restore
+kept the restored queue locked to itself (`QueueLocked`; an AMQP 1.0 subscriber
+`amqp:resource-locked`), and its end deleted the queue with the restored messages. A live auto-delete
+queue likewise stayed auto-delete over a snapshot's durable one.
+
+- A queue the snapshot holds takes the snapshot's flags and belongs to no connection, whatever live
+  queue held its name. The former owner is then a caller like any other, and its end leaves the queue
+  and its messages. Declaring it with the snapshot's flags is not refused for its flags; with former
+  ones that differ from them it is `QueueFlagsDiffer`.
+- When the live queue's flags differ from the snapshot's, its consumers and get holders end as
+  Amendment 8 ends them for a changed description: nothing more is handed to them, nobody is told, an
+  auto-delete queue stays, and Amendment 4 item 5's exception covers this too. Only an exclusive queue
+  has an owner, so an owned live queue always differs.
+- The live queue itself is kept and changed, so its delivery tags keep rising and a stale get tag
+  settles no later delivery. Ending its consumers and changing its flags publish no `Deleted` change.
+- A restore that leaves the flags and description as they were keeps the consumers, even if it changes
+  the bindings or the excluded publisher.
+- A queue the snapshot does not hold keeps its flags and owner, as on a reset, which changes neither.
+
+### Alternatives considered (Amendment 9)
+
+- **Replacing the queue object.** The new one would have to be given the old one's delivery tag count,
+  or a stale get tag could settle a new delivery; changing the one object needs no copy.
+- **Ending consumers only on an owned queue.** A queue with other flags is another queue, as a
+  redeclare's `QueueFlagsDiffer` treats it, and a consumer of a durable queue restored as auto-delete,
+  if kept, would delete it and its messages when it ended.
+- **Keeping the owner's consumers.** They were let onto a queue only their connection could consume,
+  and would go on taking the messages of one every caller shares.
 - **Refusing the restore.** A reset or restore between tests must not fail because a client is still
   attached (ADR-0124).
