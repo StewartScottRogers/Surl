@@ -32,3 +32,4 @@ removed member's view still holds the shared folders. BL-2129 builds the rule an
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
