@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1974 — Refuse IMAP CREATE with an empty USE list while SPECIAL-USE is not offered
 
@@ -55,16 +55,28 @@ and command-stage faults reach `CREATE` as before. No new reset or fault point.
 
 ## Acceptance criteria
 
-- [ ] A new test in `ImapSpecialUseTests` shows that on a store holding no use, `CREATE x (USE ())` after a login answers `NO [USEATTR] The use cannot be given to this mailbox`, and that a following `LIST "" x` lists no mailbox `x`.
-- [ ] A test shows that on a store holding no use, `CREATE x` with no parameter still answers `OK CREATE completed`.
-- [ ] `ServeAsync_CreateWithAUse_SucceedsAndTheMailboxListsWithIt` and `ServeAsync_CreateWithMalformedParameters_IsRefused` pass with their expected answers unchanged.
-- [ ] The comment on `CreateMailbox` says the parameter is parsed whether or not `SPECIAL-USE` is offered, and that any well-formed `USE`, the empty list included, is `NO [USEATTR]` while it is not offered.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean and the `Surl.Protocol.Imap.UnitTests` fast tests pass, none of the new ones marked `Integration`.
-- [ ] The IMAP library stays at 100% line and branch coverage.
+- [x] A new test in `ImapSpecialUseTests` shows that on a store holding no use, `CREATE x (USE ())` after a login answers `NO [USEATTR] The use cannot be given to this mailbox`, and that a following `LIST "" x` lists no mailbox `x`.
+- [x] A test shows that on a store holding no use, `CREATE x` with no parameter still answers `OK CREATE completed`.
+- [x] `ServeAsync_CreateWithAUse_SucceedsAndTheMailboxListsWithIt` and `ServeAsync_CreateWithMalformedParameters_IsRefused` pass with their expected answers unchanged.
+- [x] The comment on `CreateMailbox` says the parameter is parsed whether or not `SPECIAL-USE` is offered, and that any well-formed `USE`, the empty list included, is `NO [USEATTR]` while it is not offered.
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean and the `Surl.Protocol.Imap.UnitTests` fast tests pass, none of the new ones marked `Integration`.
+- [x] The IMAP library stays at 100% line and branch coverage.
 
 ## Notes
+
+- Reproduced first: `ServeAsync_NoUseHeld_CreateWithAnEmptyUseListIsRefusedAndCreatesNoMailbox` failed with
+  `b OK CREATE completed` and `LIST` showing `x`.
+- Fix: `CreateMailbox` passes whether a parameter followed the name to `CreateMailboxWithUses`, which refuses any
+  well-formed `USE` while the store holds no use. The "offered" predicate is still `MailboxStore.HoldsAnyFolderUse`.
+- No new ADR and no new upstream curl measurement: ADR-0055, Amendment 1, point 5 already decides the answer, and the
+  refusal line is the existing one.
+- The `protocol` pipeline's planning and conformance stages were not run as separate agents: a one-condition fix whose
+  specification the task states in full.
+- Gates: solution build `-warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests pass (IMAP 841/841),
+  `Measure-CodeQuality.ps1` on `Surl.Protocol.Imap.UnitLibrary` reports 0 failing members.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. IMAP CREATE with an empty USE list is NO [USEATTR] and creates no mailbox while SPECIAL-USE is not offered.
