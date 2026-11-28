@@ -49,3 +49,4 @@ event or fault changes. Code files are in the same folder as the `CLAUDE.md`.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
