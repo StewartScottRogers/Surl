@@ -35,3 +35,4 @@ builds "what the servers are composed with when only their schemes are wanted". 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
