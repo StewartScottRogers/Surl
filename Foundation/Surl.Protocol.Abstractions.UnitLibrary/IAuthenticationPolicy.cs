@@ -12,44 +12,65 @@ namespace Surl.Protocol.Abstractions;
 public interface IAuthenticationPolicy
 {
     /// <summary>
-    /// Judges a login by user name and clear password: MQTT's <c>CONNECT</c> now; FTP, IMAP,
-    /// POP3, SMTP and LDAP later (ADR-0032, sections 5 and 6).
+    /// Judges a login made with a user name and clear password, with a token
+    /// (<see cref="PasswordLogin.IsToken"/>), or with no credentials (ADR-0032, sections 5 and
+    /// 6). Servers call it for logins their protocols carry in those forms, such as MQTT's
+    /// <c>CONNECT</c>, FTP's <c>PASS</c>, LDAP's simple bind and the SOCKS5 user name and
+    /// password. A server also calls it with no credentials to ask whether a client that has not
+    /// logged in is let through (<c>--allow-anonymous</c>), as SMTP does before <c>MAIL</c>; the
+    /// OCI registry calls it with an empty password over plain text to ask whether a Bearer token
+    /// may arrive that way. SASL, SSH and SMB logins have their own contracts,
+    /// <see cref="ISaslAuthenticationPolicy"/>, <see cref="ISshAuthenticationPolicy"/> and
+    /// <see cref="ISmbAuthenticationPolicy"/>, and a request handed to an HTTP session is judged
+    /// by <see cref="IHttpAuthenticationSession.JudgeAsync"/>.
     /// </summary>
-    /// <param name="login">The login as the client sent it, with the connection's encryption.</param>
+    /// <param name="login">
+    /// The credentials the client sent, if any, or those of the server's own question, with the
+    /// connection's encryption.
+    /// </param>
     /// <param name="cancellationToken">Cancels the check.</param>
     /// <returns>Whether the login is accepted, and if not, why.</returns>
     ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(
         PasswordLogin login, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Starts the authentication session for one HTTP connection, which holds that connection's
-    /// NTLM and Negotiate handshakes (ADR-0032, section 6). The HTTP server calls it once per
-    /// connection, before its first request, and the session dies with the connection.
+    /// Starts the authentication session for one HTTP or RTSP connection, which holds that
+    /// connection's NTLM and Negotiate handshakes (ADR-0032, section 6). A server that has its
+    /// requests judged by a session calls
+    /// <see cref="StartHttpConnection(TlsSession?, LoginExchange?)"/>, whose default calls this
+    /// member, at most once for each connection and before any request on it is judged: the HTTP
+    /// server (over HTTP/3, once for each QUIC connection, not for each stream), the HTTP proxy
+    /// and the RTSP and S3 servers, for example. A server keeps the session no longer than the
+    /// connection. An implementation whose session holds no state, such as
+    /// <see cref="AnonymousAuthenticationPolicy"/>, may return the same one for every connection.
     /// </summary>
     /// <param name="tlsSession">
-    /// The connection's <see cref="IConnection.TlsSession"/> as it stands: <see langword="null"/>
-    /// means unencrypted.
+    /// The connection's TLS session as it stands, <see langword="null"/> meaning unencrypted: its
+    /// <see cref="IConnection.TlsSession"/>, or over QUIC one the server builds from the
+    /// handshake.
     /// </param>
-    /// <returns>The session that judges every request on the connection.</returns>
+    /// <returns>The connection's session, which judges the requests the server hands it.</returns>
     IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession);
 
     /// <summary>
-    /// Starts the authentication session for one HTTP connection made in <paramref name="exchange"/>,
+    /// Starts the authentication session for one HTTP or RTSP connection made in <paramref name="exchange"/>,
     /// so the logins it judges name that exchange and its scheme (BL-871). The default ignores the
     /// exchange and starts the session as <see cref="StartHttpConnection(TlsSession?)"/> does.
     /// </summary>
     /// <param name="tlsSession">The connection's TLS session as it stands; <see langword="null"/> means unencrypted.</param>
     /// <param name="exchange">The connection's exchange, or <see langword="null"/> when unknown.</param>
-    /// <returns>The session that judges every request on the connection.</returns>
+    /// <returns>The connection's session, which judges the requests the server hands it.</returns>
     IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange) =>
         StartHttpConnection(tlsSession);
 
     /// <summary>
     /// Whether <paramref name="name"/> is exactly the name of a named account in the account set,
-    /// its password unused: how the Azure Storage server tells a path-style request's first
+    /// its password unused. The Azure Storage server asks it to tell a path-style request's first
     /// segment, <c>/&lt;account&gt;/&lt;container&gt;/&lt;blob&gt;</c>, from a container (ADR-0109,
-    /// decision 2). The empty name, a bearer token's account, never matches. A policy with no
-    /// named accounts keeps this default, which matches nothing.
+    /// decision 2). The OCI registry and MCP servers ask it when a token they issued to an account
+    /// is used, and no longer honour the token if that name is not a named account's, as after the
+    /// account is removed (ADR-0167, decision 4). The empty name, a bearer token's account, never
+    /// matches. A policy with no named accounts keeps this default, which matches nothing.
     /// </summary>
     /// <param name="name">The name, compared ordinally.</param>
     /// <returns><see langword="true"/> only when a named account has that name.</returns>

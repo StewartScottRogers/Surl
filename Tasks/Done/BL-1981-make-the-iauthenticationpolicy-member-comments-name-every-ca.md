@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary/IAuthenticationPolicy.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1981 — Make the IAuthenticationPolicy member comments name every caller truthfully
 
@@ -35,15 +35,28 @@ No store, event or fault is involved: comments only.
 
 ## Acceptance criteria
 
-- [ ] The `CheckPasswordLoginAsync` summary says nothing is still to come and describes its callers as they are.
-- [ ] The `StartHttpConnection(TlsSession?)` summary no longer says only the HTTP server calls it.
-- [ ] The `NamesAccount` summary names the token check as well as the Azure Storage path-style check.
-- [ ] The diff changes only `///` comment lines in `IAuthenticationPolicy.cs`.
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean.
+- [x] The `CheckPasswordLoginAsync` summary says nothing is still to come and describes its callers as they are.
+- [x] The `StartHttpConnection(TlsSession?)` summary no longer says only the HTTP server calls it.
+- [x] The `NamesAccount` summary names the token check as well as the Azure Storage path-style check.
+- [x] The diff changes only `///` comment lines in `IAuthenticationPolicy.cs`.
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- The summaries name callers by kind with examples, not as a closed list, so a new server does not make them false.
+- Checked against production source: servers call the two-argument `StartHttpConnection`, whose default calls the
+  one-argument member, at most once for each connection (over QUIC, once for each QUIC connection).
+- Also corrected in the same comments, found false while checking: "judges every request on the connection" (the MCP
+  server accepts its own tokens without the session) and "the session dies with the connection"
+  (`AnonymousAuthenticationPolicy` returns one shared session).
+- Verified: solution build with `-warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests
+  30378 passed, 3 skipped, 0 failed.
+- Follow-ups filed: BL-1995 and BL-1996 (an LDAP directory user's OCI or MCP token appears to be refused when used,
+  because `NamesAccount` asks only the account book; read from source, not run), BL-1997, BL-1998 and BL-1999
+  (other stale comments). The login scheme comments in `AuthenticationPolicy.cs` are already BL-1994's.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The IAuthenticationPolicy member comments describe their callers as the code does now.
