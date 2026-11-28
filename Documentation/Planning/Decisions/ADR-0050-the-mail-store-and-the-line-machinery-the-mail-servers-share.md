@@ -226,6 +226,7 @@ type), so each server would have to write `global::Surl.MailStore.MailStore`.
   store refuses one larger than its own `MailboxStore.MaxMessageBytes` (`Surl.Console` sets it from
   `ExchangeLimits.MaxUploadBytes`; 0 means no limit) again as a second line of defence, with
   the typed `MessageTooLarge` outcome and nothing stored.
+  (Who sets it: the note of 2026-11-28 (BL-2101) at the end of this decision.)
 - **Past a bound** nothing is stored, and the operation (a whole delivery, a whole `COPY`) gets
   the typed `StoreFull` or `TooManyMailboxes` outcome, answered in each protocol's words (texts
   in BL-186's and BL-187's ADRs). `StoreFull` also answers a new mailbox that would need a
@@ -239,6 +240,15 @@ type), so each server would have to write `global::Surl.MailStore.MailStore`.
   | A message past `--max-filesize` | `552`, ADR-0006 section 5 | tagged `NO`, ADR-0006 section 5 | n/a |
 
   `452` is transient, so a sender may retry once mail has been read and removed.
+
+*Note, 2026-11-28 (BL-2101):* on who loads the store and sets its message limit, the code differs
+from the text of this decision and of decision 7's "Loaded" bullet, which name `Surl.Console`.
+
+- `SurlServerComposition.LoadMailStoreAsync`, in `Surl.Composition`, does both. It builds the
+  store when there are no files and loads it with `MailboxStore.LoadAsync` when there are, passing
+  `ExchangeLimits.MaxUploadBytes` as `MailboxStore.MaxMessageBytes` either way.
+- A start reaches it through `SurlServerComposition.ComposeAsync`, which `Surl.Console` and
+  `Surl.Api` call.
 
 ### 7. Persistence under `<path>/.surl/mail`
 
@@ -286,6 +296,7 @@ only the index is rewritten whole.
   any message files beside it are ignored. Leftover `.index-<guid>` and `.pending-<guid>` files,
   and message files the index does not name, are ignored (a later delivery given the same
   number replaces such a file).
+  (Who loads it: the note of 2026-11-28 (BL-2101) at the end of decision 6.)
 - **Malformed at start** - surl refuses to start with `CouldNotReadFile` (37) and stderr
   `surl: (37) Could not read <file path>: <reason>`, `<file path>` the full path of the file at
   fault:
