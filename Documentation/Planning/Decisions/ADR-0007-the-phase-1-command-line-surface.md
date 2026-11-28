@@ -275,6 +275,16 @@ prefix and the exit code are in section 5.
    `Surl.Console` before any listener starts. In Phase 1 that is every scheme except
    those whose server has landed; `https` and the other secure schemes are served once
    BL-012 and their server's task land.
+
+   **Amended** (2026-11-27, BL-1993, decided by Claude under Stewart's delegation):
+   `Surl.Console` makes no such check. `ListenUrlParser` (`Application/Surl.Cli.UnitLibrary`)
+   makes this refusal as the command line is read, with the same message and exit code, and
+   `CommandLineParser` holds it until the whole line is read, so that a later `-s` can silence
+   it. The parser accepts rule 2's schemes, for each of which `Surl.Composition` registers a
+   server, and the extended schemes its caller passes in
+   ([ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md),
+   decisions 6 and 7), none while `SURL_EXTENSIONS=0` turns the extended servers off. This
+   also replaces section 5's check of every scheme against the registered servers.
 4. **User and password.** Any `@` before the host: `MalformedUrl`,
    `(3) URL rejected: A listen URL cannot have a user name or password`. Credentials on a
    command line are visible to every local user; authentication is configured by later
