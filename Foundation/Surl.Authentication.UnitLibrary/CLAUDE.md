@@ -320,7 +320,8 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   them, never with the library's own builder.
 - `AuthenticationPolicy.NamesAccount` (BL-725) is `AccountBook.HasNamedAccount` over the policy's
   accounts: the Azure Storage server asks it whether a path-style target's first segment is an
-  account (ADR-0109 decision 2). The empty name never matches.
+  account (ADR-0109 decision 2). The empty name never matches, and neither does a directory user,
+  logged in or not. Whether a token is still honoured is `HonoursTokenIssuedTo`'s question, below.
 
 ## Cloud Storage V4 HMAC (BL-430)
 
@@ -608,3 +609,18 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   policy's `AuthenticationSettings.ForScheme` view (`ws`, `rtsp`, `sftp`, `scp`, ...), and about `http` or `ssh`
   when the settings are no view (`DirectorySchemeFor`; ADR-0149 amendments 2 and 3). Login events and fault
   points still name the family `http` or `ssh` unless the login carries a `LoginExchange`.
+
+## A directory user's tokens (BL-2004, ADR-0167 Amendment 3)
+
+- `AuthenticationPolicy.HonoursTokenIssuedTo` is the check of a token when it is used (the OCI registry's and
+  the MCP server's). It is `true` when `NamesAccount` is, or when this policy's `CheckPasswordLoginAsync`
+  accepted the name through the directory, no fault refusing it, less than one hour ago on the injected
+  `TimeProvider`, and the account book has never held the name, on any scheme, since it was built
+  (`AccountBook.HasEverHeldAccountNamed`; a removal, reset or restore forgets no name). So a removed account's
+  token is refused even when the directory holds its name. Each accepted directory login starts the hour
+  again; a refused one neither ends nor renews it. A login accepted by another path (HTTP Basic on a request,
+  SASL, SSH) records nothing, and neither does a login on another policy instance. The check contacts no
+  directory, publishes no event and asks no fault rule.
+- `AcceptedDirectoryLogins`, one per policy, holds each such name and the time of its last accepted login, no
+  secret: at most 10000 names, and when full a new name drops those an hour old or older, then the one whose
+  last login is oldest.

@@ -16,6 +16,8 @@ namespace Surl.Authentication;
 /// the account book does not hold, which the <see cref="AuthenticationSettings.LdapAccountSource"/>
 /// accepts (ADR-0149, decision 6), and an SSH public-key login with a verified signature by a key
 /// <see cref="AuthenticationSettings.AuthorizedKeys"/> holds for the user (ADR-0051, section 6).
+/// A token issued to an account is honoured while the account book names it, and a directory user's
+/// for a bounded time after a login the directory accepted here (<see cref="HonoursTokenIssuedTo"/>).
 /// As the <see cref="IMailAuthenticationPolicy"/>, an <see cref="ISaslAuthenticationPolicy"/>, it
 /// offers and runs the SASL mechanisms whose methods are accepted (ADR-0049, sections 2 and 5):
 /// <c>GSSAPI</c>, offered on any connection when <c>--keytab</c> gave a Kerberos acceptor
@@ -74,6 +76,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     private readonly IReadOnlyList<SaslMechanism> saslMechanisms;
     private readonly ISurlEventPublisher events;
     private readonly IFaultPlan faults;
+    private readonly AcceptedDirectoryLogins acceptedDirectoryLogins;
 
     /// <summary>
     /// The scheme a <see cref="LoginJudgedEvent"/> and a <see cref="FaultPoint"/> name for an HTTP
@@ -169,6 +172,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
+        acceptedDirectoryLogins = new AcceptedDirectoryLogins(timeProvider);
         PasswordCheck = new AccountBookAndDirectoryPasswordCheck(settings.Accounts, settings.LdapAccountSource);
         ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
         AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
@@ -192,11 +196,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         var checkStartedAt = timeProvider.GetUtcNow();
         var verdict = JudgePasswordLogin(login);
-        if (verdict == PasswordLoginVerdict.RefusedCredentials && IsForTheDirectory(login))
+        var isAcceptedByTheDirectory = verdict == PasswordLoginVerdict.RefusedCredentials
+            && await IsAcceptedByTheDirectoryAsync(login, cancellationToken).ConfigureAwait(false);
+        if (isAcceptedByTheDirectory)
         {
-            var directory = await settings.LdapAccountSource!
-                .CheckAsync(login.Scheme, login.UserName!, login.Password!.Value, cancellationToken).ConfigureAwait(false);
-            verdict = directory.IsAccepted ? PasswordLoginVerdict.Accepted : PasswordLoginVerdict.RefusedCredentials;
+            verdict = PasswordLoginVerdict.Accepted;
         }
 
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
@@ -212,11 +216,12 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         if (verdict == PasswordLoginVerdict.RefusedCredentials)
         {
             // Counted from the check's start, so a slow directory does not stack its latency on the delay.
-            var remaining = RefusalDelay - (timeProvider.GetUtcNow() - checkStartedAt);
-            if (remaining > TimeSpan.Zero)
-            {
-                await Task.Delay(remaining, timeProvider, cancellationToken).ConfigureAwait(false);
-            }
+            await WaitRefusalDelayAsync(cancellationToken, checkStartedAt).ConfigureAwait(false);
+        }
+        else if (isAcceptedByTheDirectory)
+        {
+            // Accepted by the directory and refused by no fault, so the user's tokens are honoured from now.
+            acceptedDirectoryLogins.Record(login.UserName!);
         }
 
         return verdict;
@@ -274,6 +279,20 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         var principal = login.ClientPrincipal ?? string.Empty;
 
         return settings.AllowAnonymous || settings.Accounts.HasNamedAccount(principal) ? principal : null;
+    }
+
+    // Asks the directory about a login the account book cannot settle; false for every other login.
+    private async ValueTask<bool> IsAcceptedByTheDirectoryAsync(PasswordLogin login, CancellationToken cancellationToken)
+    {
+        if (!IsForTheDirectory(login))
+        {
+            return false;
+        }
+
+        var result = await settings.LdapAccountSource!
+            .CheckAsync(login.Scheme, login.UserName!, login.Password!.Value, cancellationToken).ConfigureAwait(false);
+
+        return result.IsAccepted;
     }
 
     // A password login the account book cannot settle, for a name the book does not hold (ADR-0149, decision 6).
@@ -362,12 +381,41 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange) =>
         new HttpAuthenticationSession(this, tlsSession is not null, exchange);
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Whether the account book, as this policy's <see cref="AuthenticationSettings.Accounts"/> view
+    /// shows it, holds a named account of exactly <paramref name="name"/> now. A directory user, a name
+    /// only the <see cref="AuthenticationSettings.LdapAccountSource"/> knows, is never named, logged in
+    /// or not (ADR-0167, Amendment 3, point 5). The empty name never matches.
+    /// </summary>
+    /// <param name="name">The name, compared ordinally.</param>
+    /// <returns><see langword="true"/> only when a named account has that name.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     public bool NamesAccount(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
 
         return settings.Accounts.HasNamedAccount(name);
+    }
+
+    /// <summary>
+    /// Whether a token issued to <paramref name="accountName"/> is still honoured (ADR-0167,
+    /// decision 4 and Amendment 3): when <see cref="NamesAccount"/> names it, or when both this
+    /// policy's <see cref="CheckPasswordLoginAsync"/> accepted the name through the directory, no
+    /// fault refusing it, less than one hour ago on the injected <see cref="TimeProvider"/>, and the
+    /// account book has never held an account of that name, on any scheme, since it was built. A
+    /// refused login neither ends nor renews that hour. At most 10000 such names are kept; when full,
+    /// those an hour old or older are dropped, then the one whose last login is oldest. It contacts no
+    /// directory, publishes no event and asks no fault rule.
+    /// </summary>
+    /// <param name="accountName">The name the token was issued to, compared ordinally.</param>
+    /// <returns><see langword="true"/> when the token is still honoured.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
+    public bool HonoursTokenIssuedTo(string accountName)
+    {
+        ArgumentNullException.ThrowIfNull(accountName);
+
+        return NamesAccount(accountName)
+            || (acceptedDirectoryLogins.IsRecentlyAccepted(accountName) && !settings.Accounts.HasEverHeldAccountNamed(accountName));
     }
 
     /// <summary>

@@ -18,6 +18,9 @@ internal sealed class AccountStore
     private readonly IReadOnlyList<DerivedAccount> configured;
     private readonly ISurlEventPublisher events;
     private readonly Func<ScramHash, byte[]> createScramSalt;
+
+    // Every user name any set has held, under changeLock; a restore brings back only names already here.
+    private readonly HashSet<string> everHeldNames = new(StringComparer.Ordinal);
     private AccountSet current;
 
     /// <summary>
@@ -31,11 +34,10 @@ internal sealed class AccountStore
     {
         this.events = events;
         this.createScramSalt = createScramSalt ?? (_ => RandomNumberGenerator.GetBytes(ScramCredentials.SaltLength));
-        var names = new HashSet<string>(StringComparer.Ordinal);
         var derived = new List<DerivedAccount>();
         foreach (var account in accounts)
         {
-            if (!names.Add(account.UserName))
+            if (!everHeldNames.Add(account.UserName))
             {
                 throw new ArgumentException($"User {account.UserName} is given twice.", nameof(accounts));
             }
@@ -60,6 +62,20 @@ internal sealed class AccountStore
     public AccountSet Current => Volatile.Read(ref current);
 
     /// <summary>
+    /// Whether an account of <paramref name="userName"/> was configured at start or added since. A
+    /// removal, reset or restore forgets no name.
+    /// </summary>
+    /// <param name="userName">The user name, compared ordinally.</param>
+    /// <returns><see langword="true"/> when such an account is or was held.</returns>
+    public bool HasEverHeld(string userName)
+    {
+        lock (changeLock)
+        {
+            return everHeldNames.Contains(userName);
+        }
+    }
+
+    /// <summary>
     /// Adds <paramref name="account"/>, deriving its credentials exactly as for an account read at start.
     /// </summary>
     /// <param name="account">The account.</param>
@@ -78,6 +94,7 @@ internal sealed class AccountStore
                 throw new ArgumentException(conflict, nameof(account));
             }
 
+            everHeldNames.Add(account.UserName);
             Swap(new AccountSet([.. current.Accounts, derived], current.HeldSchemes), StoreChange.AccountAdded, account.UserName);
         }
     }
