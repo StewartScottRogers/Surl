@@ -244,6 +244,7 @@ only the index is rewritten whole.
   `MoveFileReplacing`. Writes are serialised inside the store's lock, so the file always holds a
   state the store held. A change's message file is renamed into place before its index is
   written; an expunged message's file is deleted after the index no longer names it.
+  (Which lock serialises the writes: the note of 2026-11-28 at the end of this decision.)
 - **The index's byte format.** All integers big-endian and unsigned unless marked signed:
 
   | Part | Bytes |
@@ -284,7 +285,8 @@ only the index is rewritten whole.
     gives`, or the exception message.
   Starting empty instead would overwrite the index on the first delivery and lose the mail
   silently, which is ADR-0031's reason too.
-- **A write that fails while serving:**
+- **A write that fails while serving:** (how a failed index write and a failed delete reach the
+  server: the note of 2026-11-28 at the end of this decision)
   - a message file that cannot be written refuses that delivery or append - nothing is stored,
     since its bytes would exist nowhere - with a typed `StorageFailed` outcome carrying the
     exception message, which the server notes with `IExchangeLog.Note` and answers as a local
@@ -296,6 +298,33 @@ only the index is rewritten whole.
     next load.
 - **Nothing outside the data directory** (ADR-0031 decision 8): the store writes only these
   paths, only through `IContentFileSystem`.
+
+*Note, 2026-11-28 (BL-2067):* on serialisation and on failed saves, the code differs from the
+text above.
+
+- **Serialisation.** Index writes are serialised by a semaphore of their own
+  (`MailboxStore`'s `saveLock`), not by the store's lock. `SaveChangesAsync` holds the
+  semaphore for the whole save. Within a save the store's lock is held only to take the
+  index's bytes and the released file numbers, and afterwards to record the save and drop
+  those numbers from the queue; it is not held while the index is written or the released
+  message files are deleted. The file still always holds a state the store held.
+- **Failed saves.** `SaveChangesAsync` returns no outcome: it throws.
+  - An index write that fails throws the file system's exception as it came (such as
+    `IOException` or `UnauthorizedAccessException`), after deleting the temporary file. The
+    change stays in memory, the released files stay queued, and the next save writes the
+    index and then deletes them.
+  - A message file that cannot be deleted does not stop the others: after the index no longer
+    names them, every released file is tried, and then one `IOException` with the first
+    failure's message is thrown. Their numbers have already left the queue, so no later save
+    retries the delete; a file left behind is ignored at the next load.
+  - The SMTP, IMAP and POP3 servers catch whatever `SaveChangesAsync` throws, other than
+    `OperationCanceledException`, and note `Mail store: <exception message>`
+    (`SmtpSession.SaveMailStoreAsync`, `ImapSession.SaveMailStoreIfChangedAsync`,
+    `Pop3Session.RemoveDeletedMessagesAsync`). Seeding through
+    `ComposedStores.SeedMailAsync` does not catch it: it reaches the caller.
+
+  A message file that cannot be written does answer an outcome, `StorageFailed`, as the list
+  says; the exception message is held in `PendingMessage.StorageFailure`.
 
 ### 8. The line machinery in `Surl.LineProtocol`
 

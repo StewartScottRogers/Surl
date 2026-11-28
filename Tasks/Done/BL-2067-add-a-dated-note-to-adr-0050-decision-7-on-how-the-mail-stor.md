@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2067 — Add a dated note to ADR-0050 decision 7 on how the mail store serialises index writes and reports failed saves
 
@@ -58,16 +58,24 @@ Stand-in: nothing to add; a documentation note, with no store, event, seed, rese
 
 ## Acceptance criteria
 
-- [ ] ADR-0050 has a note in or directly after decision 7, dated the day it is written and naming BL-2067, with a pointer to it from the "Writes are serialised inside the store's lock" statement and from the "A write that fails while serving" list.
-- [ ] The note says index writes are serialised by a semaphore of their own, apart from the store's lock, which is held only to take the index's bytes and released file numbers and to record the save, not while files are written or deleted.
-- [ ] The note says a failed index write makes `SaveChangesAsync` throw the file system's exception, leaves the change in memory and the released files queued, and that the next save writes the index.
-- [ ] The note says a failed message file delete makes `SaveChangesAsync` throw an `IOException` with the first failure's message, after the index is written and every released file is tried, and that the file is never retried and is ignored at the next load.
-- [ ] The note says the SMTP, IMAP and POP3 servers catch what `SaveChangesAsync` throws, other than cancellation, and note it as `Mail store: <exception message>`.
-- [ ] The diff changes no file but ADR-0050 (and this task's own), and rewrites none of decision 7's original sentences.
+- [x] ADR-0050 has a note in or directly after decision 7, dated the day it is written and naming BL-2067, with a pointer to it from the "Writes are serialised inside the store's lock" statement and from the "A write that fails while serving" list.
+- [x] The note says index writes are serialised by a semaphore of their own, apart from the store's lock, which is held only to take the index's bytes and released file numbers and to record the save, not while files are written or deleted.
+- [x] The note says a failed index write makes `SaveChangesAsync` throw the file system's exception, leaves the change in memory and the released files queued, and that the next save writes the index.
+- [x] The note says a failed message file delete makes `SaveChangesAsync` throw an `IOException` with the first failure's message, after the index is written and every released file is tried, and that the file is never retried and is ignored at the next load.
+- [x] The note says the SMTP, IMAP and POP3 servers catch what `SaveChangesAsync` throws, other than cancellation, and note it as `Mail store: <exception message>`.
+- [x] The diff changes no file but ADR-0050 (and this task's own), and rewrites none of decision 7's original sentences.
 
 ## Notes
+
+- 2026-11-28: Added "*Note, 2026-11-28 (BL-2067)*" at the end of decision 7, with a pointer from the "The index"
+  bullet and from "A write that fails while serving". Claims checked against `MailboxStore.cs`, `MailStoreFiles` and
+  the three servers' sessions; they match the Context. The note also says `ComposedStores.SeedMailAsync` does not
+  catch the exception.
+- Docs only, no `.cs` or project file changed, so the `verify` skill was not needed.
+- Decision 3's "index is then written once" at start also differs from the code; outside this task, filed as BL-2081.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. ADR-0050 decision 7 carries a dated note on how index writes are serialised and how a failed index write or message file delete reaches the server
