@@ -110,6 +110,7 @@ ordinally):
   `INBOX` of every owner that lacks one (decision 7's index is then written once). `INBOX` is
   matched case-insensitively (`OrdinalIgnoreCase`, RFC 3501 section 5.1) and stored as `INBOX`;
   every other name is matched ordinally.
+  (When that index is written: the note of 2026-11-28 (BL-2084) at the end of this decision.)
 - **Other mailboxes** are created, deleted and renamed by IMAP. The store keeps names flat, as
   strings: the hierarchy delimiter and modified UTF-7 are the IMAP server's view (BL-187). A
   name is 1 to `MaxMailboxNameBytes` UTF-8 bytes with no control character (U+0000 to U+001F,
@@ -142,6 +143,21 @@ ordinally):
   invalid name) is a typed outcome, not an exception.
 - **Concurrent sessions** see each other's changes at once, except POP3 (decision 4). A fetch
   of a message another session expunged meanwhile is a missing message.
+
+*Note, 2026-11-28 (BL-2084):* on an `INBOX` created at start in a store with files, the code
+differs from the text above: the index is not written at start.
+
+- `MailboxStore.LoadAsync` creates each missing `INBOX` and only counts the change, and
+  `SurlServerComposition.LoadMailStoreAsync` does not save the store it loads.
+- The first `SaveChangesAsync` writes it, in the same index as every other change the store
+  holds by then. If that index write fails, the next save writes it (the other note of
+  2026-11-28, BL-2067, at the end of decision 7).
+- `SaveChangesAsync` is called by the SMTP, IMAP and POP3 servers after they change the store
+  (IMAP also after some commands that change nothing, such as a `CREATE` of a mailbox that
+  exists) and by `ComposedStores.SeedMailAsync` after each seed.
+- Stopping the server does not save the store. If no save has succeeded by then, the index on
+  disk still lacks that `INBOX`, and the next start creates it again, with a `UIDVALIDITY`
+  issued at that start.
 
 ### 4. POP3's maildrop and its lock
 
@@ -245,6 +261,8 @@ only the index is rewritten whole.
   state the store held. A change's message file is renamed into place before its index is
   written; an expunged message's file is deleted after the index no longer names it.
   (Which lock serialises the writes: the note of 2026-11-28 at the end of this decision.)
+  (When an `INBOX` created at start is written: the note of 2026-11-28 (BL-2084) at the end of
+  decision 3.)
 - **The index's byte format.** All integers big-endian and unsigned unless marked signed:
 
   | Part | Bytes |
