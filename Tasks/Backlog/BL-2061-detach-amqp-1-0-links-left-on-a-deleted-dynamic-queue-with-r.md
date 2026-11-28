@@ -1,5 +1,5 @@
 ---
-id: BL-2056
+id: BL-2061
 title: Detach AMQP 1.0 links left on a deleted dynamic queue with resource-deleted
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2056 — Detach AMQP 1.0 links left on a deleted dynamic queue with resource-deleted
+# BL-2061 — Detach AMQP 1.0 links left on a deleted dynamic queue with resource-deleted
 
 ## Goal
 

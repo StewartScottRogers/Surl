@@ -56,7 +56,7 @@ No dynamic node's queue outlives the link whose attach made it.
   comment corrected). No upstream curl run: an extended scheme (ADR-0083), judged by its specification.
 - Verify: build `-warnaserror` clean, format check clean, fast tests 30653 passed, 3 skipped; AMQP 1.0 library
   `Measure-CodeQuality.ps1`: 0 failing members.
-- Filed BL-2056: such a left-behind link is sent no `detach`.
+- Filed BL-2061: such a left-behind link is sent no `detach`.
 - The lane worktree holds a leftover `sequencer` directory from a 2026-11-11 cherry-pick; not touched.
 
 ## Log
