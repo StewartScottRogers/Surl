@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Mqtt;
@@ -35,6 +36,7 @@ internal sealed class MqttPacketReader
     private readonly IConnection connection;
     private readonly long maxPacketBytes;
     private readonly long maxPublishPayloadBytes;
+    private readonly PublishingConnectionProgress progress;
     private readonly byte[] oneByte = new byte[1];
 
     /// <summary>
@@ -43,11 +45,16 @@ internal sealed class MqttPacketReader
     /// <param name="connection">The connection to read from.</param>
     /// <param name="maxPacketBytes">The most bytes a packet may hold, fixed header included; 0 means no limit.</param>
     /// <param name="maxPublishPayloadBytes">The most bytes a <c>PUBLISH</c> payload may hold; 0 means no limit.</param>
-    public MqttPacketReader(IConnection connection, long maxPacketBytes, long maxPublishPayloadBytes)
+    /// <param name="progress">
+    /// Where the connection stands with what its client has sent: caught up while a read has to wait
+    /// for the client, and handling as soon as one returns, before anything is made of the bytes.
+    /// </param>
+    public MqttPacketReader(IConnection connection, long maxPacketBytes, long maxPublishPayloadBytes, PublishingConnectionProgress progress)
     {
         this.connection = connection;
         this.maxPacketBytes = maxPacketBytes;
         this.maxPublishPayloadBytes = maxPublishPayloadBytes;
+        this.progress = progress;
     }
 
     /// <summary>
@@ -112,7 +119,10 @@ internal sealed class MqttPacketReader
     }
 
     private async ValueTask<int> ReadByteAsync(CancellationToken cancellationToken) =>
-        await connection.ReadAsync(oneByte, cancellationToken) == 0 ? -1 : oneByte[0];
+        await ReceiveAsync(oneByte, cancellationToken) == 0 ? -1 : oneByte[0];
+
+    private ValueTask<int> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken) =>
+        progress.CountAsCaughtUpWhileAsync(connection.ReadAsync(buffer, cancellationToken));
 
     private async ValueTask<MqttPacketReadResult> ReadBodyAsync(byte firstByte, int remainingLength, CancellationToken cancellationToken)
     {
@@ -155,7 +165,7 @@ internal sealed class MqttPacketReader
                 Array.Resize(ref body, (int)Math.Min(target, 2L * body.Length));
             }
 
-            var read = await connection.ReadAsync(body.AsMemory(filled, Math.Min(body.Length, target) - filled), cancellationToken);
+            var read = await ReceiveAsync(body.AsMemory(filled, Math.Min(body.Length, target) - filled), cancellationToken);
             if (read == 0)
             {
                 return null;

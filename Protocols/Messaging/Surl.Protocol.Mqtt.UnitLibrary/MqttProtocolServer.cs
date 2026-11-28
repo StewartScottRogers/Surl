@@ -24,6 +24,11 @@ namespace Surl.Protocol.Mqtt;
 /// then one QoS 0 <c>PUBLISH</c>, <c>RETAIN</c> set, for every kept message a valid filter
 /// matches, in ordinal order of the bus's topic; then, without a hold count, <c>DISCONNECT</c>, and
 /// the connection is closed, so a subscriber is not kept waiting for a future publish.
+/// Because it gets nothing published later, that <c>SUBSCRIBE</c> is answered only once every MQTT
+/// connection to the bus that came before it has handled what its client has sent, or after
+/// <see cref="MessageBus.PublishingConnections.MaxWaitForEarlierConnections"/> with a log note
+/// (<see cref="MessageBus.PublishingConnectionProgress"/>): a client that publishes, disconnects and
+/// at once subscribes on a new connection gets what it published (ADR-0014).
 /// The <c>DISCONNECT</c> (server to client, which section 3.14 does not define) is sent because upstream
 /// curl 8.21.0 ends its fetch and exits 0 on it and exits 56 on a bare close (ADR-0014, ADR-0176).
 /// </para>
@@ -165,8 +170,10 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer, IExchangeByt
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes);
-        await using var responder = new MqttPacketResponder(connection, context, bus, authenticationPolicy, holdSubscriptionCount);
+        // Joined until the exchange is over, so a later one-shot SUBSCRIBE waits for what this client sent.
+        using var progress = bus.PublishingConnections.Join();
+        var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes, progress);
+        await using var responder = new MqttPacketResponder(connection, context, bus, authenticationPolicy, holdSubscriptionCount, progress);
 
         try
         {

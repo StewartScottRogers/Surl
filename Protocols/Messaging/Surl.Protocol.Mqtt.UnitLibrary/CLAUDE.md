@@ -12,6 +12,12 @@ filters match (`MqttBusRetainedMessages`, which subscribes to each filter only f
 it reads them), then `DISCONNECT`, sent because upstream curl 8.21.0 exits 56 on a bare close.
 The server keeps no retained messages of its own (BL-635). ADR-0014 records every answer.
 
+A one-shot `SUBSCRIBE` waits for earlier connections (BL-2117, ADR-0100 decision 3.11, ADR-0014
+Amendment 2): each connection joins the bus's `PublishingConnections`, `MqttPacketReader` and a delay
+fault count it as caught up while they wait, and the answer, which holds only what is retained by then,
+waits until every earlier connection has handled what its client has sent, for at most 2 seconds, then
+goes on with a log note. A held subscription does not wait.
+
 The held subscription (ADR-0014 Amendment 1, BL-1720): `MqttProtocolServer`'s optional third
 constructor value, a publish count, absent by default (`surl` gives it `--mqtt-hold-subscription`'s,
 BL-1721). With it a `SUBSCRIBE` is answered as above but stays open (`MqttHeldSubscription`,

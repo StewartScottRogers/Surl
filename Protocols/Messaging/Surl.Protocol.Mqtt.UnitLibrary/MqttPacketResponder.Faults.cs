@@ -59,7 +59,10 @@ internal sealed partial class MqttPacketResponder
         };
         var target = topic is null ? packetName : $"{packetName} {topic}";
 
-        return await CommandStageFaults.FindAndApplyAsync(context, connection, point, target) switch
+        // While a delay rule holds the packet the connection counts as caught up: a one-shot
+        // SUBSCRIBE does not wait out another connection's delay.
+        var applying = CommandStageFaults.FindAndApplyAsync(context, connection, point, target);
+        return await progress.CountAsCaughtUpWhileAsync(applying) switch
         {
             null or { Kind: FaultKind.Delay } => null,
             { Kind: FaultKind.Drop } => Dropped(),

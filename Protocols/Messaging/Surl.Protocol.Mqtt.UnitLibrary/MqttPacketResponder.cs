@@ -21,6 +21,7 @@ internal sealed partial class MqttPacketResponder : IAsyncDisposable
     private readonly MessageBus.MessageBus bus;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly int? holdSubscriptionCount;
+    private readonly PublishingConnectionProgress progress;
     private bool connected;
 
     // The account the bus checks every publish and subscribe against (ADR-0102, decision 3.4):
@@ -37,13 +38,16 @@ internal sealed partial class MqttPacketResponder : IAsyncDisposable
     /// <param name="authenticationPolicy">Judges the user name and password of the <c>CONNECT</c>.</param>
     /// <param name="holdSubscriptionCount">How many <c>PUBLISH</c> packets end a held
     /// subscription, 0 for no count; <see langword="null"/> holds none.</param>
+    /// <param name="progress">Where the connection stands with what its client has sent.</param>
     public MqttPacketResponder(
         IConnection connection,
         ExchangeContext context,
         MessageBus.MessageBus bus,
         IAuthenticationPolicy authenticationPolicy,
-        int? holdSubscriptionCount)
+        int? holdSubscriptionCount,
+        PublishingConnectionProgress progress)
     {
+        this.progress = progress;
         this.connection = connection;
         this.context = context;
         this.bus = bus;
@@ -395,8 +399,20 @@ internal sealed partial class MqttPacketResponder : IAsyncDisposable
             : await DeliverRetainedAndDisconnectAsync(packetIdentifier, filters);
     }
 
+    // This subscriber gets only what is retained when it is answered, so it is answered after every
+    // earlier connection has handled what its client has sent - a publisher that sent PUBLISH,
+    // DISCONNECT and closed just before this client connected included.
+    private async ValueTask WaitForEarlierConnectionsAsync()
+    {
+        if (!await progress.WaitForEarlierConnectionsAsync(context.TimeProvider, context.CancellationToken))
+        {
+            context.Log.Note("An earlier connection was still handling what its client sent after 2 seconds; the SUBSCRIBE is answered without waiting longer.");
+        }
+    }
+
     private async ValueTask<bool> DeliverRetainedAndDisconnectAsync(ushort packetIdentifier, List<string?> filters)
     {
+        await WaitForEarlierConnectionsAsync();
         var reading = MqttBusRetainedMessages.Read(bus, account, CanonicalFiltersOf(filters));
         await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, ReturnCodesFor(filters, reading.Granted)));
         var deliverable = NamedForThisScheme(reading.Matching);
