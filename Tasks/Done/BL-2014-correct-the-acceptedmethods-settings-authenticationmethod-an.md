@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2014 — Correct the AcceptedMethods, Settings, AuthenticationMethod and library CLAUDE.md descriptions in Surl.Authentication
 
@@ -36,16 +36,28 @@ Found while working BL-1994 (2026-11-27), read from source. Documentation only; 
 
 ## Acceptance criteria
 
-- [ ] The `AcceptedMethods` description is true of every composer of the settings in `Surl.Composition`.
-- [ ] The `Settings` summary and the class summary's first sentence are true of the code.
-- [ ] No `AuthenticationMethod` member's summary limits it to the mail servers when another server runs it.
-- [ ] The library's `CLAUDE.md` names the LDAP account source for SSH password logins and the three SCRAM mechanisms in its opening list.
-- [ ] The diff changes only `///` lines and the library's `CLAUDE.md`.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
+- [x] The `AcceptedMethods` description is true of every composer of the settings in `Surl.Composition`.
+- [x] The `Settings` summary and the class summary's first sentence are true of the code.
+- [x] No `AuthenticationMethod` member's summary limits it to the mail servers when another server runs it.
+- [x] The library's `CLAUDE.md` names the LDAP account source for SSH password logins and the three SCRAM mechanisms in its opening list.
+- [x] The diff changes only `///` lines and the library's `CLAUDE.md`.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- Delivered by `align-and-document`; statements checked against `Surl.Composition` and the servers.
+- Also corrected in the same files: the `AuthenticationMethod` type summary (the declared order covers
+  HTTP challenges and option warnings, not the SASL offer), the opening `CLAUDE.md` list's
+  `GSS-SPNEGO`, and where SCRAM's server-final is success data and where a challenge.
+- The class summary no longer claims to be the only `IAuthenticationPolicy` composed.
+  `AnonymousAuthenticationPolicy` is not named in it: the search found it as a property default and
+  inside `NoAccountProxyAuthenticationPolicy`.
+- `dotnet build -warnaserror` and `dotnet format --verify-no-changes` clean; fast tests 30350 passed,
+  3 skipped, 0 failed.
+- Follow-ups filed: BL-2051 (further descriptions in this library), BL-2052 (`ComposeWithoutAccounts`).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Surl.Authentication's AcceptedMethods, Settings, AuthenticationMethod and CLAUDE.md descriptions are true of the code.
