@@ -7,10 +7,15 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Composition;
 
 /// <summary>
-/// The authentication policy the HTTP, MQTT, SMTP and SSH servers are given, as the command line asks for
-/// it (ADR-0032, ADR-0051 section 6): the accounts from every <c>--user</c> and then the <c>--user-file</c>,
-/// the public keys of every <c>--authorized-keys</c> file, the methods <c>--auth</c> accepts, and <c>--allow-anonymous</c> and
-/// <c>--allow-plaintext-auth</c>; and the warning line each loosening option writes on start.
+/// The authentication policies, as the command line asks for them (ADR-0032, ADR-0051 section 6), and
+/// start-up warning lines for loosening options (<see cref="WriteLooseningWarnings"/>). The origin policy
+/// holds the accounts from every <c>--user</c>, then the <c>--user-file</c>, then the mailboxes, the
+/// <c>--user-ldap</c> directory, the public keys of every <c>--authorized-keys</c> file, the <c>--keytab</c>
+/// acceptor, the methods <c>--auth</c> accepts, and <c>--allow-anonymous</c> and <c>--allow-plaintext-auth</c>.
+/// Every original and extended protocol server that judges a login or access
+/// (<see cref="ProtocolServerRegistrations.Original"/>, <see cref="ExtendedProtocolServers.Registrations"/>)
+/// is given it, as its scheme's view of the accounts (ADR-0102 decision 4.3), except the HTTP proxy and
+/// the SOCKS server, which are given the separate proxy policy (ADR-0088 decision 5).
 /// </summary>
 public static class AuthenticationComposition
 {
