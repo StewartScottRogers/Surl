@@ -8,7 +8,7 @@ depends-on: [BL-1955]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1967 — Correct the POP3 library's anonymous login, command fault and test-case reply statements
 
@@ -38,15 +38,28 @@ No store, event or fault is changed: documentation only.
 
 ## Acceptance criteria
 
-- [ ] The "Logins" text in all three places says a refused or not-yet-asked anonymous login is asked again after `STLS`.
-- [ ] The command-fault text says an anonymous session's first maildrop command opens the maildrop before an `Error` rule answers it.
-- [ ] The no-echo statements except the `LIST` reply under an upstream test case.
-- [ ] The command-fault text says the maildrop commands answered from an upstream test case's data ask no fault plan.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] The "Logins" text in all three places says a refused or not-yet-asked anonymous login is asked again after `STLS`.
+- [x] The command-fault text says an anonymous session's first maildrop command opens the maildrop before an `Error` rule answers it.
+- [x] The no-echo statements except the `LIST` reply under an upstream test case.
+- [x] The command-fault text says the maildrop commands answered from an upstream test case's data ask no fault plan.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+Where the code differs from the wording above, the text follows the code:
+
+- No-echo has a second exception: the SCRAM `server-first-message` continuation carries the client's nonce inside its
+  base64 (`ScramSaslExchange.AnswerClientFirst`). Both no-echo statements name both exceptions.
+- `STLS` drops any kept anonymous answer, an acceptance that found the maildrop locked included.
+- The command that opens the anonymous maildrop is the first maildrop command only if no earlier one was refused.
+- A `REPLY`'d line asks no fault plan either.
+- "Logins" now starts "Outside an upstream test case", since the replacement handlers never ask the anonymous login.
+
+Verification (2026-11-27): build 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests green, and every
+changed `.cs` line is a comment. Other false statements noticed are filed as BL-1983.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The POP3 library's comments and CLAUDE.md match the code on the anonymous login, command faults and upstream test-case replies
