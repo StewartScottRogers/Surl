@@ -11,4 +11,11 @@ public interface IAmqp1NodeDirectory
     /// <param name="request">The canonical address (or a dynamic node), the client's role and the caller.</param>
     /// <returns>The node's canonical address, or why the attach is refused.</returns>
     Amqp1NodeResolution Resolve(Amqp1NodeRequest request);
+
+    /// <summary>
+    /// Deletes a dynamic node that <see cref="Resolve"/> made, its link having ended; nothing when the node
+    /// is already gone.
+    /// </summary>
+    /// <param name="canonicalAddress">The address <see cref="Resolve"/> gave the dynamic node.</param>
+    void DeleteDynamicNode(string canonicalAddress);
 }

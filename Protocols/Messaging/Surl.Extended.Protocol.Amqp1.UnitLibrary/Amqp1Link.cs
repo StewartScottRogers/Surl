@@ -39,6 +39,9 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>The node's canonical address, <c>/topic/&lt;t&gt;</c> or <c>/queue/&lt;q&gt;</c>, once found.</summary>
     public string NodeAddress { get; set; } = string.Empty;
 
+    /// <summary>The address of the dynamic node this link's attach made, which goes when the link ends or the attach is refused; <see langword="null"/> when it made none.</summary>
+    public string? MadeDynamicNodeAddress { get; set; }
+
     /// <summary>Whether the link's sender sends every delivery settled (<c>snd-settle-mode</c> <c>settled</c>).</summary>
     public bool SenderSettles { get; set; }
 

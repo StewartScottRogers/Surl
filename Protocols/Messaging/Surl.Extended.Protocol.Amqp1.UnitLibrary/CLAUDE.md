@@ -99,7 +99,13 @@ BL-513 amendment):
   bus's. `Amqp1BusNodeDirectory` is the `IAmqp1NodeDirectory` it uses: a `/topic/` address maps through
   `MessageBus.Names` (`amqp1`, so `--topic-map` aliases apply), a sender needing `pub` on the topic; a
   queue needs `pub` or `sub` on `$queue/<q>` and is declared durable on first attach; a dynamic node is
-  a `surl-dynamic-` queue exclusive to the connection and auto-deleted. A client receiver's link is a
+  a `surl-dynamic-` queue exclusive to the connection and auto-deleted. A dynamic queue is deleted
+  (`IAmqp1NodeDirectory.DeleteDynamicNode`) when the link whose attach made it ends - the client's
+  `detach`, closing or not, the container's, its session's `end` or the connection's end - or as that
+  attach is refused (a chosen-error fault, the bus refusing the consume), whoever else consumes it
+  then. A link that attached to it by its address never deletes it by that rule; the bus still deletes
+  it when its last consumer ends, whichever link that is, and a queue declared under the name after
+  that is not the dynamic node's and stays. A client receiver's link is a
   bus subscription (topic) or a consumer with 1000 unacknowledged (queue); the bus refusing it
   (`AccessDenied`, `QueueLocked`, `ExclusiveConsumeRefused`; `TooManySubscriptions`; anything else)
   refuses the attach with `amqp:unauthorized-access`, `amqp:resource-limit-exceeded` or `amqp:not-found`.
@@ -256,14 +262,15 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   ended between the calls) declares, binds and consumes once more, then refuses with `amqp:not-found`.
   An attach with no source never finds one. A queue link echoes no capability, and `global` without
   `shared` shares nothing.
-- Every delete the container asks for is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
+- Every delete the container asks of a subscription queue is `BusConnection.DeleteQueueIfDescribed`, so it takes only the
   queue still carrying the description judged (BL-2010): replacing a stale one (`ClearStaleQueue`)
   the description just inspected and judged, only while unused; a `closed` detach
   (`DestroyKeptSubscription`) the link's own, only while unused - for a lookup link, the one found and
   judged at its attach; a session's end (`EndSessionSubscriptions`) the description the session
   consumed each under; a non-durable shared attach refused after its declare (`DeclareBindAndConsume`)
   the description it declared, only while unused. A queue replaced since by one with another
-  description stays. The bus itself deletes a connection's exclusive queues when the connection ends,
+  description stays. The one other delete the container asks for is a dynamic queue's, which carries no
+  description (above). The bus itself deletes a connection's exclusive queues when the connection ends,
   and an auto-delete one when its last consumer ends.
 
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then

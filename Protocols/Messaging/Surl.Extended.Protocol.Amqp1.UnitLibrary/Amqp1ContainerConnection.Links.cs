@@ -55,6 +55,7 @@ public sealed partial class Amqp1ContainerConnection
             // Part 2 section 2.6.3: a null terminus, then at once a closing detach with the error.
             link.IsDetachedByContainer = true;
             link.EndSource();
+            DeleteMadeDynamicNode(link);
             await WriteAsync(session.OutgoingChannel, new Amqp1Detach(link.ContainerHandle) { Closed = true, Error = refusal });
         }
         else if (link.ContainerReceives)
@@ -100,6 +101,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         link.NodeAddress = nodeAddress;
+        link.MadeDynamicNodeAddress = request.IsDynamic ? nodeAddress : null;
         link.Filters = filters;
         link.SubscriptionQueue = PlanSubscriptionQueue(attach, terminus, nodeAddress, filters);
         return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.SubscriptionQueue), null);
@@ -297,11 +299,12 @@ public sealed partial class Amqp1ContainerConnection
         return true;
     }
 
-    // Its subscription or consumer ends, a consumer's unsettled deliveries going back to the queue, and
-    // any partial delivery is discarded.
+    // Its subscription or consumer ends, a consumer's unsettled deliveries going back to the queue, the
+    // dynamic node its attach made goes, and any partial delivery is discarded.
     private void EndLink(Amqp1Session session, Amqp1Link link)
     {
         link.EndSource();
+        DeleteMadeDynamicNode(link);
         link.IsEnded = true;
         DiscardPartial(link);
         RollBackTransactionsDeclaredBy(link);
@@ -315,6 +318,16 @@ public sealed partial class Amqp1ContainerConnection
         if (link.DroppedCount > 0)
         {
             context.Log.Note($"Link {link.ContainerHandle} dropped {link.DroppedCount} topic messages past {MaxWaitingDeliveries} waiting.");
+        }
+    }
+
+    // ADR-0107 decision 4: a dynamic node goes with the link whose attach made it, whoever else consumes
+    // it; a link that only named its address made none.
+    private void DeleteMadeDynamicNode(Amqp1Link link)
+    {
+        if (link.MadeDynamicNodeAddress is { } address)
+        {
+            nodes.DeleteDynamicNode(address);
         }
     }
 
