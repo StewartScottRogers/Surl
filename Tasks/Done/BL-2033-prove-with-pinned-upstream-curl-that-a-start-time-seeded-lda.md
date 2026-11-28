@@ -8,7 +8,7 @@ depends-on: [BL-2031]
 touches: [Conformance/Surl.Conformance.UnitTests/StandInLdapDirectoryRecipeTests.cs]
 requirement: FR-061
 created: 2026-11-27
-completed:
+completed: 2026-11-28
 ---
 # BL-2033 — Prove with pinned upstream curl that a start-time seeded LDAP entry survives a reset
 
@@ -26,15 +26,23 @@ A recipe test shows pinned upstream curl finding an entry seeded by `SurlServerO
 
 ## Acceptance criteria
 
-- [ ] A new `Integration` test in `StandInLdapDirectoryRecipeTests` asserts that curl exits 0 and prints the start-time entry's DN before and after the reset.
-- [ ] The same test asserts that the child entry is found before the reset and that its search exits 39 after it.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInLdapDirectoryRecipeTests"` passes on Windows with the pinned build, none Inconclusive.
-- [ ] The class summary says a start-time seeded entry survives a reset.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests pass.
+- [x] A new `Integration` test in `StandInLdapDirectoryRecipeTests` asserts that curl exits 0 and prints the start-time entry's DN before and after the reset.
+- [x] The same test asserts that the child entry is found before the reset and that its search exits 39 after it.
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInLdapDirectoryRecipeTests"` passes on Windows with the pinned build, none Inconclusive.
+- [x] The class summary says a start-time seeded entry survives a reset.
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- Made the change directly in the session instead of delegating each `feature` stage: it is one test method in
+  one file, the behaviour already exists (BL-2031), so there is no failing-test or implementation stage.
+- New test: `ResetAsync_AfterStartTimeAndRuntimeSeeds_SearchStillFindsOnlyTheStartTimeEntry`. `SearchAsync`
+  now takes the DN to search (default: the base DN); the found and not-found assertions are two shared helpers.
+- Results on Windows, 2026-11-28: recipe class 3 passed, 0 Inconclusive; `dotnet build` 0 warnings;
+  `dotnet format --verify-no-changes` on the project clean; fast tests 30640 passed in 83 assemblies.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. Pinned upstream curl finds a start-time seeded LDAP entry before and after ResetAsync; the runtime child entry exits 39 after it.
