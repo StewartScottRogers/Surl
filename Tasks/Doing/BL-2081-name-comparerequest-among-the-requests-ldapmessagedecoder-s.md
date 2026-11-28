@@ -31,3 +31,4 @@ The XML doc remarks of `LdapMessageDecoder` list every request it decodes, `Comp
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
