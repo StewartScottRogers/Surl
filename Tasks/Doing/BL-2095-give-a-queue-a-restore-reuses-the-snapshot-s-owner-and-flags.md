@@ -40,3 +40,4 @@ A queue a restore puts back has the snapshot's flags and no owning connection, w
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
