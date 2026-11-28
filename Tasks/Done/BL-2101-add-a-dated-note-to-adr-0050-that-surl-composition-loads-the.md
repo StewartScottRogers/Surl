@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2101 — Add a dated note to ADR-0050 that Surl.Composition loads the mail store and sets its message limit
 
@@ -27,13 +27,22 @@ Stand-in: nothing to add; a documentation note, with no store, event, seed, rese
 
 ## Acceptance criteria
 
-- [ ] ADR-0050 has a note, dated the day it is written and naming this task, saying `SurlServerComposition.LoadMailStoreAsync` loads the mail store and sets its message limit.
-- [ ] Decision 6 and decision 7's "Loaded" bullet each point to that note.
-- [ ] The diff changes no file but ADR-0050 (and this task's own), and rewrites none of the original sentences.
+- [x] ADR-0050 has a note, dated the day it is written and naming this task, saying `SurlServerComposition.LoadMailStoreAsync` loads the mail store and sets its message limit.
+- [x] Decision 6 and decision 7's "Loaded" bullet each point to that note.
+- [x] The diff changes no file but ADR-0050 (and this task's own), and rewrites none of the original sentences.
 
 ## Notes
+
+- The note sits at the end of decision 6, so decision 7's existing "the note at the end of this decision"
+  pointer still names one note only.
+- Made directly, not through the `align-and-document` agent: three insertions in one file did not justify
+  a second agent. No `.cs` or project file changed.
+- Checked against `SurlServerComposition.cs`, `SurlServerComposition.Start.cs`, `Surl.Console`'s
+  `CommandLineRunner` and `Surl.Api`'s `SurlServer`.
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: 30812 passed in 83 assemblies, exit 0.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. ADR-0050 has a dated note that Surl.Composition loads the mail store and sets its message limit
