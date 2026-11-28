@@ -31,3 +31,4 @@ Found while working BL-2034 (2026-11-28). The row calls `directory.ldif` "the LD
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
