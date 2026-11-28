@@ -49,7 +49,7 @@ queue that gains a consumer before it can be replaced is answered `amqp:resource
   clock during the access judgement, between the inspect and the delete, so no bus change was needed. The fix is one
   arm in `SubscriptionQueueRefusal` (`QueueInUse` is `subscription in use`); only that delete can answer it.
 - No plan, review or conformance agent: one switch arm in an extended server, which upstream curl cannot speak.
-- The sibling race at the declare and consume step is filed as BL-2077.
+- The sibling race at the declare and consume step is filed as BL-2083.
 - 2026-11-28: build 0 warnings, format clean, fast tests 30694 passed, 0 failed, 3 skipped; the library 100% line
   and branch coverage, 0 failing members.
 

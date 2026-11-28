@@ -1,5 +1,5 @@
 ---
-id: BL-2077
+id: BL-2083
 title: Answer amqp:resource-locked when another link takes an AMQP 1.0 subscription between its inspect and its consume
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2077 — Answer amqp:resource-locked when another link takes an AMQP 1.0 subscription between its inspect and its consume
+# BL-2083 — Answer amqp:resource-locked when another link takes an AMQP 1.0 subscription between its inspect and its consume
 
 ## Goal
 
