@@ -83,7 +83,7 @@ public sealed class Pop3StlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StlsWithoutACertificate_IsNotAvailableAndNotAdvertised()
+    public async Task ServeAsync_StlsWithTlsUpgradeUnavailable_IsNotAvailableAndNotAdvertised()
     {
         var clock = new ManualTimeProvider();
 

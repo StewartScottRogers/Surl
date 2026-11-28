@@ -102,8 +102,8 @@ public sealed class RecordedFixtureTests
         Assert.AreSame(InMemoryConnection.DefaultUpgradeTlsSession, policy.Logins.Single().TlsSession);
     }
 
-    // curl --ssl-reqd against a server with no certificate: CAPA offers no STLS, and curl gives
-    // up with exit 64 (ADR-0056 row 30).
+    // curl --ssl-reqd against a server with no TLS upgrade available: CAPA offers no STLS, and
+    // curl gives up with exit 64 (ADR-0056 row 30).
     [TestMethod]
     public async Task ServeAsync_RecordedStlsNotOffered_WritesTheRecordedReplies()
     {
