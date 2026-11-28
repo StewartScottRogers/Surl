@@ -529,3 +529,18 @@ Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformanc
   `--max-filesize`; the option needs its `--aihelp` facts and category entries (root `CLAUDE.md`).
 - Follow-up tasks: the option and its configuration field; the SMTP server's per-owner copies and
   field; the mail store's `DeliveredFor` event member; the non-SMTP delivery paths; help text.
+
+## Amendment 2 (2026-11-27): `354` and `334` carry no enhanced status code
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in
+  BL-1979.
+- **Amends:** decision 1's enhanced-status-code sentence, which names only the greeting and the
+  replies to `EHLO` and `HELO` as exceptions. No behaviour changes.
+
+Two more replies carry none: `354 End data with <CR><LF>.<CR><LF>` (decision 1's table) and the
+`334` continuation of `AUTH` (ADR-0049 section 7). The reason:
+[RFC 2034](https://www.rfc-editor.org/rfc/rfc2034.txt) section 4 covers 2xx, 4xx and 5xx replies,
+not 3xx ones. The `501 Syntax: EHLO <domain>` (`HELO`) replies also carry none, under the
+sentence's existing exception, since they are replies to `EHLO` and `HELO`. Apart from the greeting,
+the replies to `EHLO` and `HELO`, `354` and `334`, every fixed reply in `SmtpReplies` starts with an
+enhanced status code.
