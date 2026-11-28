@@ -47,7 +47,7 @@ deliveries they mean: a live subscription's, not a kept or non-durable shared on
   stated outside the transaction does not go back (ADR-0146 Amendment 1).
 - Verified 2026-11-28: `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` clean; fast tests
   passed in every test project. No Integration run: only comments and one document row changed.
-- Filed with the board script, not `task-planner`: BL-2110 (two more conformance rows) and BL-2111 (a possible
+- Filed with the board script, not `task-planner`: BL-2113 (two more conformance rows) and BL-2114 (a possible
   rollback defect with `undeliverable-here`, read from the code, not yet reproduced).
 
 ## Log

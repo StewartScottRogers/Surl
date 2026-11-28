@@ -1,5 +1,5 @@
 ---
-id: BL-2110
+id: BL-2113
 title: Limit the AMQP 1.0 rollback and filter conformance rows to the topic links they cover
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2110 — Limit the AMQP 1.0 rollback and filter conformance rows to the topic links they cover
+# BL-2113 — Limit the AMQP 1.0 rollback and filter conformance rows to the topic links they cover
 
 ## Goal
 

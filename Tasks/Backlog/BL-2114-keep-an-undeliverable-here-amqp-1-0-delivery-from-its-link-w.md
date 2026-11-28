@@ -1,5 +1,5 @@
 ---
-id: BL-2111
+id: BL-2114
 title: Keep an undeliverable-here AMQP 1.0 delivery from its link when its transaction rolls back
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2111 — Keep an undeliverable-here AMQP 1.0 delivery from its link when its transaction rolls back
+# BL-2114 — Keep an undeliverable-here AMQP 1.0 delivery from its link when its transaction rolls back
 
 ## Goal
 
