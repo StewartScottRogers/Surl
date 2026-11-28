@@ -1,5 +1,5 @@
 ---
-id: BL-2118
+id: BL-2126
 title: Add a conformance row for the AMQP 1.0 held-message bound
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2118 — Add a conformance row for the AMQP 1.0 held-message bound
+# BL-2126 — Add a conformance row for the AMQP 1.0 held-message bound
 
 ## Goal
 

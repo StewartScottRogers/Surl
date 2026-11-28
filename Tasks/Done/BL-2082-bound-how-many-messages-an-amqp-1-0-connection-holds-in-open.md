@@ -49,9 +49,9 @@ empty messages.
 - The code review found that each held message had its own copy of the node's name, up to about a frame long.
   `Amqp1Link.NodeName` is now one string per found address, shared by the messages held from the link
   (`ServeAsync_MessagesHeldFromOneLink_ShareOneNodeNameString`, seen failing first). Links attached again, and the
-  `Acquired` and held-outcome lists of a transaction, are BL-2117.
+  `Acquired` and held-outcome lists of a transaction, are BL-2125.
 - Added ADR-0107 to `touches`: its BL-2064 note said the open-transaction count was what stayed capped. No task in
-  `Doing` on the shift branch named it. The conformance matrix was held by BL-2113, so its row is BL-2118.
+  `Doing` on the shift branch named it. The conformance matrix was held by BL-2113, so its row is BL-2126.
 - Verify: build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30861 passed, 0 failed, 3 skipped.
   No upstream curl conformance stage: upstream curl has no `amqp1` scheme (ADR-0083).
 

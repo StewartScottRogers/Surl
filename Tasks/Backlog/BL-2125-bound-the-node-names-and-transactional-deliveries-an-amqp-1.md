@@ -1,5 +1,5 @@
 ---
-id: BL-2117
+id: BL-2125
 title: Bound the node names and transactional deliveries an AMQP 1.0 transaction keeps
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2117 — Bound the node names and transactional deliveries an AMQP 1.0 transaction keeps
+# BL-2125 — Bound the node names and transactional deliveries an AMQP 1.0 transaction keeps
 
 ## Goal
 
