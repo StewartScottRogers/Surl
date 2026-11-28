@@ -1,5 +1,5 @@
 ---
-id: BL-2106
+id: BL-2109
 title: Correct the Surl.Api and publish-output statements in Requirements.md, CLAUDE.md, the glossary and SurlServerComposition
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2106 — Correct the Surl.Api and publish-output statements in Requirements.md, CLAUDE.md, the glossary and SurlServerComposition
+# BL-2109 — Correct the Surl.Api and publish-output statements in Requirements.md, CLAUDE.md, the glossary and SurlServerComposition
 
 ## Goal
 

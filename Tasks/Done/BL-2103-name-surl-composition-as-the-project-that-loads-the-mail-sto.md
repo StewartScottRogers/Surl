@@ -52,7 +52,7 @@ Stand-in: nothing to add; documentation only, with no store, event, seed, reset 
 - 2026-11-28: Changed the "satisfied by" text of FR-043 and FR-047 to FR-051 only. FR-050 and FR-051 also name `ProtocolServerRegistrations.Original`; each name checked against `Application/Surl.Composition.UnitLibrary`.
 - 2026-11-28: A search for `CommandLineRunner` in Requirements.md finds nothing. The remaining `Surl.Console` mentions (NFR-002, NFR-003, NFR-006) name it correctly.
 - 2026-11-28: `dotnet build` 0 warnings; fast tests passed.
-- 2026-11-28: Other stale statements found and left out of scope are filed as BL-2106. ADRs that place composition in `Surl.Console` were seen in search hits but not checked one by one (BL-2101 covers ADR-0050).
+- 2026-11-28: Other stale statements found and left out of scope are filed as BL-2109. ADRs that place composition in `Surl.Console` were seen in search hits but not checked one by one (BL-2101 covers ADR-0050).
 
 ## Log
 
