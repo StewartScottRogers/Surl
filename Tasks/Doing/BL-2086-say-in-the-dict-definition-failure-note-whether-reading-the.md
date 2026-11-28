@@ -54,3 +54,4 @@ what a test or a person reads in the exchange log when a transfer fails.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
