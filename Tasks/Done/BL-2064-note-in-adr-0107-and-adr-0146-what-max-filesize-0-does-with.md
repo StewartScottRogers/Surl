@@ -44,7 +44,7 @@ bytes held in AMQP 1.0 transactions have no bound.
 - Delivered by `align-and-document`. Checked against `Hold` (BL-2063: refuses only when `MaxUploadBytes > 0`),
   `Amqp1Transaction.Hold` (no cap) and `MaxOpenTransactions` (100). `git diff --numstat`: 10 added, 0 removed per ADR.
 - `dotnet build` clean (0 warnings) and the fast tests pass.
-- Filed BL-2080: empty postings add no held bytes, so under any limit the number of held messages is uncapped (read
+- Filed BL-2082: empty postings add no held bytes, so under any limit the number of held messages is uncapped (read
   from the code, not tested). It also corrects ADR-0146 decision 1.4's "answered `rejected`" wording. Filed with the
   board script directly rather than through `task-planner`, as it is one task.
 

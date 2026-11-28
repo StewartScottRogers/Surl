@@ -1,5 +1,5 @@
 ---
-id: BL-2080
+id: BL-2082
 title: Bound how many messages an AMQP 1.0 connection holds in open transactions
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2080 — Bound how many messages an AMQP 1.0 connection holds in open transactions
+# BL-2082 — Bound how many messages an AMQP 1.0 connection holds in open transactions
 
 ## Goal
 
