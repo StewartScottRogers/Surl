@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0138-how-the-dict-gopher-and-telnet-servers-answer-a-chosen-error.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2009 — Add a dated amendment note to ADR-0138 saying a TELNET fault point also carries the listen URL and exchange ID
 
@@ -43,15 +43,24 @@ place.
 
 ## Acceptance criteria
 
-- [ ] A dated note under decision 3 says the point also carries the listen URL and exchange ID (decision 6), so a rule scoped by `listener` or `scheme` can match a TELNET line and one scoped by command, path or account never does.
-- [ ] The same note says the DICT and Gopher points of decisions 1 and 2 carry the listen URL and exchange ID too.
-- [ ] ADR-0138's header has a dated `Amended` bullet pointing at that note.
-- [ ] The diff to ADR-0138 only adds lines.
-- [ ] The index row for 0138 no longer says "with the scheme alone", and says a command-stage `delay` or `drop` is applied (BL-914) and only a reply that does not fit, or a kind other than `error`, `delay` or `drop`, is noted and not applied.
+- [x] A dated note under decision 3 says the point also carries the listen URL and exchange ID (decision 6), so a rule scoped by `listener` or `scheme` can match a TELNET line and one scoped by command, path or account never does.
+- [x] The same note says the DICT and Gopher points of decisions 1 and 2 carry the listen URL and exchange ID too.
+- [x] ADR-0138's header has a dated `Amended` bullet pointing at that note.
+- [x] The diff to ADR-0138 only adds lines.
+- [x] The index row for 0138 no longer says "with the scheme alone", and says a command-stage `delay` or `drop` is applied (BL-914) and only a reply that does not fit, or a kind other than `error`, `delay` or `drop`, is noted and not applied.
 
 ## Notes
+
+- Delivered by `align-and-document`; diff checked in the lane. ADR-0138: 9 lines added, none removed. Index: the 0138
+  row only.
+- The amendment cites BL-2009, not the BL-1999 the Context names: this task was filed as BL-1999 and renumbered
+  (commit `760380d53`); BL-1999 in `Done` is an unrelated glossary task.
+- No TELNET test uses a `listener`-scoped rule; that one matches is read from `FaultPlan.MatchesListener`.
+- Filed BL-2050 for the stale doc comments in the three `*Faults` classes (outside this task's `touches`).
+- `dotnet build`: 0 warnings, 0 errors. Fast tests: 83 assemblies, 30575 passed, none failed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0138 and its index row say a TELNET fault point carries the listen URL and exchange ID, and that command-stage delay and drop are applied
