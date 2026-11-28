@@ -30,8 +30,9 @@ attributes returned.
 On top of both is the server (BL-308 and BL-309, ADR-0072 decisions 2 to 7): the public
 `LdapProtocolServer` answers `ldap` - its public constructor over an empty directory (in-memory
 mode), its public `LoadAsync` over the directory read from an `LdapDirectoryFile`, each taking
-the `IAuthenticationPolicy`, the `ISaslAuthenticationPolicy` and `isTlsUpgradeAvailable` - and
-runs one `LdapSession` per connection. `LdapBindJudge` decides each bind into an
+the `IAuthenticationPolicy`, the `ISaslAuthenticationPolicy`, a `TimeProvider`, the optional
+`isTlsUpgradeAvailable` and an optional `ISurlEventPublisher` the directory publishes its changes
+to - and runs one `LdapSession` per connection. `LdapBindJudge` decides each bind into an
 `LdapBindAnswer`: simple binds through `IAuthenticationPolicy.CheckPasswordLoginAsync`, the
 name mapped by `LdapBindNames`; SASL binds and `WinLDAP`'s Sicily binds
 (`LdapSicilyAuthentication`, `LdapSicilyChoice`) through `LdapSaslBindJudge`, which runs the
@@ -62,12 +63,20 @@ session. A reply that does not fit, or another kind, is noted and not applied.
 The directory's file (BL-307, ADR-0072 decision 1): the public `LdapDirectoryFile` names
 `directory.ldif` in the state folder it is given (`<path>/.surl/ldap`) and reads it once
 through `Surl.Content`'s `IContentFileSystem`; a missing file is an empty directory, and the
-directory is never written. `LdifReader` reads RFC 2849 LDIF content records into
+file is never written. `LdifReader` reads RFC 2849 LDIF content records into
 `LdifRecord`s; a file it or `LdapDirectory` refuses, or one that cannot be read, ends in the
 public `LdapDirectoryLoadException` carrying the file path and `line <n>: <what>` (the texts in
 `LdifFaultText`) or the read failure's message, which `Surl.Composition`'s
 `SurlServerComposition.LoadLdapServerAsync` turns into `(37) Could not read <file>: <message>`,
 and its start into `CouldNotReadFile` (37), before any listener binds (BL-310).
+
+LDAP operations cannot change the directory (writes are refused); the host can, in memory only
+(ADR-0158). `LdapProtocolServer.SeedDirectoryEntries` adds LDIF content records, all or none;
+`ResetDirectory` returns to the entries the server was built with (the file's as read by
+`LoadAsync`, none from the public constructor), dropping seeded ones; `TakeDirectorySnapshot`
+copies the entries and `RestoreDirectory` puts a snapshot of this server's back. A seed the
+directory cannot add, or another server's snapshot, is an `InvalidOperationException`. Seed, reset
+and restore publish `StoreChange.Seeded` (one per entry), `Reset` and `Restored`.
 
 What this library does not hold: the SASL mechanisms, the NTLM, `DIGEST-MD5` and Kerberos
 security layers and the password check live in `Surl.Authentication`, reached only through the

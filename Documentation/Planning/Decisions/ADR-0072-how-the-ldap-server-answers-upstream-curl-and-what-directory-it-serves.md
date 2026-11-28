@@ -26,7 +26,9 @@
   Decision 10 by BL-344 (2026-10-01), recording what BL-311 measured with the pinned Windows
   build: the refusal's wording, the three sealed binds, the `ou=many` child in the one-level
   search and why the `ou=many` entries carry `objectClass`. Amendment 2 by BL-1295 (2026-11-16),
-  recording fifteen choices the building tasks made where this ADR was silent.
+  recording fifteen choices the building tasks made where this ADR was silent. Decision 1's
+  "read-only while serving" and "it never changes once loaded" by BL-1987 (2026-11-27): ADR-0158
+  lets the host change the loaded directory.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -226,7 +228,9 @@ in-memory mode (no `--directory`), is **an empty directory** (ADR-0031 decision 
 but the root DSE's answers `noSuchObject`. **No option names another seed file** (no new
 command-line option, ADR-0007): an operator who wants entries writes the LDIF file. The directory
 is **read-only while serving** (decision 3: Add, Delete, Modify and ModifyDN are refused), so it
-is never written and needs no write path.
+is never written and needs no write path. *Amended 2026-11-27 (BL-1987):* read-only is what an
+LDAP client sees; the host can change the loaded directory in memory (ADR-0158, the note under
+**Bounds** below).
 
 **The file's format** is RFC 2849 LDIF, content records only, UTF-8 without a byte order mark:
 
@@ -268,6 +272,11 @@ A search returns at most the smaller of its `sizeLimit` (0 meaning none) and
 it got and exits 0 (measured). A search's `timeLimit` (0 meaning none) is honoured, answered
 `timeLimitExceeded` (3) with the entries sent so far; curl then exits 39 and prints nothing
 (measured). The directory is safe for concurrent searches (it never changes once loaded).
+*Amended 2026-11-27 (BL-1987):*
+[ADR-0158](ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md)
+lets the host seed, reset and restore the loaded directory in memory, so it can change once loaded;
+the entries are replaced whole, so a search sees the old set or the new one. LDAP operations still
+cannot change the directory - only the host can - and `directory.ldif` is never written.
 
 ### 2. Binds
 
