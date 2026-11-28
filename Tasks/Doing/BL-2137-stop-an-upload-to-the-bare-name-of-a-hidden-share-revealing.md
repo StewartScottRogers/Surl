@@ -40,3 +40,4 @@ other writes (create folder, rename) for the same difference.
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
