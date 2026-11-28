@@ -38,3 +38,4 @@ A reader of the Surl.Api, surl-mcp and stand-in pages learns how to seed the thr
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
