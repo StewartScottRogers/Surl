@@ -31,11 +31,17 @@ implicit TLS apart by `IConnection.TlsSession`, never by the scheme.
   `RandomNumberGenerator` for the `APOP` timestamp.
 - `Pop3Session`: one connection, in the AUTHORIZATION state until a login and the TRANSACTION
   state after it. It greets `+OK surl ready`, followed by an `APOP` timestamp only when the
-  offer's `IsApopOffered` holds as the connection opens (`--auth apop`), then answers each CRLF
-  line read with `CrlfLineReader`, split by `Pop3CommandLine`, from the fixed lines in
+  offer's `IsApopOffered` holds as the connection opens (`--auth apop`) - under an upstream test
+  case, its `REPLY welcome` replaces this greeting, on the case's first connection - then answers
+  each CRLF line read with `CrlfLineReader`, split by `Pop3CommandLine`, from the fixed lines in
   `Pop3Replies`, written with `ReplyLineWriter` (decisions 1 to 4): `CAPA`, `USER`, `PASS`,
   `APOP`, `AUTH`, `STLS`, `STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP` and
   `QUIT`.
+- Upstream test cases (ADR-0080 decision 2): `Pop3UpstreamTestCaseServer`, the POP3 server half
+  of one upstream curl test case, runs a `Pop3ProtocolServer` that plays the case's
+  `MailUpstreamTestCaseReplies`; `Pop3Session.UpstreamTestCase.cs` holds what the case changes in
+  a session: the greeting, `REPLY`'d lines, `CAPA`, logins that accept anyone and a maildrop
+  answered from the case's data with no login. The shipped `surl` never composes it.
 - Logins (decisions 6 and 7): `USER`/`PASS` through `IAuthenticationPolicy.CheckPasswordLoginAsync`,
   `USER` offered in `CAPA` only when the mail policy offers a clear password; `APOP` through
   `IMailAuthenticationPolicy.CheckApopLoginAsync` with the greeting's timestamp; `AUTH` frames

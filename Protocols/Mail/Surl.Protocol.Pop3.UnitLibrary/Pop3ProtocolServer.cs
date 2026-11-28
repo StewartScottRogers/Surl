@@ -149,7 +149,9 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
 
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
-    /// until the client quits or closes it, or a limit is passed.
+    /// until the client quits or closes it, a limit is passed, a <see cref="FaultKind.Drop"/>
+    /// fault drops it, or the client leaves (a half-close or a reset) during a
+    /// <see cref="FaultKind.Delay"/> fault's hold (ADR-0141).
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>

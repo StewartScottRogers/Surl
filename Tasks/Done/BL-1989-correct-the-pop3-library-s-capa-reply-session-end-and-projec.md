@@ -8,7 +8,7 @@ depends-on: [BL-1967]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1989 — Correct the POP3 library's CAPA reply, session end and project notes statements
 
@@ -31,14 +31,23 @@ In `Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary`:
 
 ## Acceptance criteria
 
-- [ ] The `WriteMultiLineAsync` comment names the upstream test case's capabilities as an exception.
-- [ ] Both session-end summaries include a `Drop` fault and the client leaving during a `Delay` hold.
-- [ ] `CLAUDE.md` "What it holds" lists the two upstream test case types or files and says `REPLY welcome` replaces the greeting.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
+- [x] The `WriteMultiLineAsync` comment names the upstream test case's capabilities as an exception.
+- [x] Both session-end summaries include a `Drop` fault and the client leaving during a `Delay` hold.
+- [x] `CLAUDE.md` "What it holds" lists the two upstream test case types or files and says `REPLY welcome` replaces the greeting.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the only changed `.cs` lines are comments.
 
 ## Notes
+
+- Made the three-file text change in the lane session itself instead of delegating to `align-and-document`:
+  the task names each statement to correct, so a second agent would only have re-read the same files.
+- The `CLAUDE.md` text says `REPLY welcome` replaces the greeting on the case's first connection only, which is
+  what `MailUpstreamTestCaseReplies.TakeWelcome` documents.
+- Verified 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast
+  tests 30380 passed, 0 failed, 3 skipped. No integration run: only comments and Markdown changed. No behaviour
+  or design decision, so no ADR.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The POP3 library's comments and CLAUDE.md now state the multi-line reply exception, every way a session ends and the upstream test case types
