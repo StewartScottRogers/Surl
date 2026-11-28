@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-049
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2091 — Say in the surl LDAP help and manual text that the --control endpoint can add directory entries
 
@@ -32,15 +32,19 @@ Stand-in: text only; the directory store, its seed, reset, events and faults are
 
 ## Acceptance criteria
 
-- [ ] Both `AiHelpProse` paragraphs that speak of an empty directory (served root and `ldap` topic) say it is empty at start and that the `--control` endpoint's `POST /v1/directory` can add entries.
-- [ ] The `ldap` topic says it is LDAP clients that cannot change the directory instead of calling it read-only without that limit.
-- [ ] The LDAP paragraph of `ManualText` at lines 135-139 says the same about the start state and `--control`, and its line 440 says it is LDAP clients that cannot change the directory.
-- [ ] `ManualTextTests` pins the new manual text and passes.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
+- [x] Both `AiHelpProse` paragraphs that speak of an empty directory (served root and `ldap` topic) say it is empty at start and that the `--control` endpoint's `POST /v1/directory` can add entries.
+- [x] The `ldap` topic says it is LDAP clients that cannot change the directory instead of calling it read-only without that limit.
+- [x] The LDAP paragraph of `ManualText` at lines 135-139 says the same about the start state and `--control`, and its line 440 says it is LDAP clients that cannot change the directory.
+- [x] `ManualTextTests` pins the new manual text and passes.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
 
 ## Notes
+
+- Text only. The `ldap` topic paragraph also says the added entries are held in memory, that the file is never written, and points to the `control` topic. No ADR: wording of existing behaviour (ADR-0158 decision 3).
+- Verified 2026-11-28: build 0 warnings, 0 errors; fast tests 0 failed (`Surl.Cli.UnitTests` 2062 passed); `dotnet format --verify-no-changes` exit 0.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. surl --aihelp and the manual say the LDAP directory is empty at start without a file, that --control's POST /v1/directory adds entries, and that LDAP clients cannot change it
