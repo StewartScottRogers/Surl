@@ -7,8 +7,9 @@ namespace Surl.Authentication;
 /// Reads the text of a <c>--user-file</c> into accounts, as ADR-0032 section 2 decides:
 /// UTF-8 with an optional byte-order mark, lines split at LF with one CR before it dropped,
 /// blank lines and <c>#</c> comments skipped, and every other line <c>user:password</c> split at
-/// its first <c>:</c>, nothing trimmed. It never touches the disk: <c>Surl.Console</c> reads the
-/// file and hands its bytes here.
+/// its first <c>:</c>, nothing trimmed. It never touches the disk: <c>Surl.Composition</c> reads
+/// the file, through its <c>ReadStartFile</c> seam (the disk when none is given), and hands its
+/// bytes here.
 /// </summary>
 public static class UserFileParser
 {

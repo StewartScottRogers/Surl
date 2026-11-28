@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1963 — Correct the composer and not-yet-built claims in the Surl.Authentication comments and notes
 
@@ -58,16 +58,28 @@ No store, event or fault changes: documentation only.
 
 ## Acceptance criteria
 
-- [ ] No `.cs` comment or `CLAUDE.md` line in the library says `Surl.Console` composes, builds, reads or hands anything.
-- [ ] The comments of `UserFileParser`, `AuthorizedKeysParser`, `AuthenticationSettings`, both line-failure records and `AuthenticationPolicy.Settings` name `Surl.Composition` for the step it performs.
-- [ ] `CLAUDE.md` no longer says the FTP or SMB logins or the SMB login check are still to come, and says where `Proxy-Authorization` is judged.
-- [ ] `CLAUDE.md` says a proxy given no proxy account has `NoAccountProxyAuthenticationPolicy` and what it does with a Kerberos login.
-- [ ] The diff changes only `CLAUDE.md` and `///` comment lines in the library.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
+- [x] No `.cs` comment or `CLAUDE.md` line in the library says `Surl.Console` composes, builds, reads or hands anything.
+- [x] The comments of `UserFileParser`, `AuthorizedKeysParser`, `AuthenticationSettings`, both line-failure records and `AuthenticationPolicy.Settings` name `Surl.Composition` for the step it performs.
+- [x] `CLAUDE.md` no longer says the FTP or SMB logins or the SMB login check are still to come, and says where `Proxy-Authorization` is judged.
+- [x] `CLAUDE.md` says a proxy given no proxy account has `NoAccountProxyAuthenticationPolicy` and what it does with a Kerberos login.
+- [x] The diff changes only `CLAUDE.md` and `///` comment lines in the library.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- Delivered by `align-and-document`; no `Surl.Console` mention is left in the library's `.cs` files or `CLAUDE.md`.
+- Also corrected, found by the same search: the `AuthenticationPolicy` class summary's "`surl` composes" and
+  `CLAUDE.md`'s "`surl` composes Negotiate" now name `Surl.Composition`; the SCRAM-SHA-512 note no longer says there
+  is no `--auth` word (`scram-sha-512` exists, and `SchemeAuthenticationPolicies` adds the SCRAM methods for `kafka`
+  and `xmpp` without `--auth`); "a server that does not yet pass one" is now "a login request without one";
+  `ISmbAuthenticationPolicy` joins the listed contracts.
+- Verify: `dotnet build -warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests 30,378 passed,
+  0 failed, 3 skipped. No Integration run: comments and notes only.
+- Leftover stale summaries in this library are filed as BL-1988. The stale `Surl.Console` and policy-recipient
+  claims in `Surl.Cli` and `AuthenticationComposition` belong to BL-1960.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. The Surl.Authentication comments and CLAUDE.md name Surl.Composition as composer and no longer call built behaviour missing

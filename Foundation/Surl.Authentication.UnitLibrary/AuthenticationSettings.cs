@@ -4,7 +4,7 @@ namespace Surl.Authentication;
 
 /// <summary>
 /// The accounts and the loosening options an <see cref="AuthenticationPolicy"/> applies
-/// (ADR-0032, section 1), as <c>Surl.Console</c> composes them from the command line.
+/// (ADR-0032, section 1), as <c>Surl.Composition</c> composes them from the command line.
 /// </summary>
 /// <param name="Accounts">Every account from <c>--user</c> and <c>--user-file</c>.</param>
 /// <param name="AllowAnonymous">

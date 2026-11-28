@@ -13,8 +13,9 @@ public sealed record UserFileLineFailure(int LineNumber, AccountLineRefusal Refu
 {
     /// <summary>
     /// The refusal as ADR-0032 section 2 words it after the path: <c>line &lt;n&gt;: &lt;reason&gt;</c>.
-    /// It never holds a password. <c>Surl.Console</c> writes
-    /// <c>surl: (2) User file &lt;path&gt;, </c> before it.
+    /// It never holds a password. <c>Surl.Composition</c> builds the start's refusal message by
+    /// putting <c>(2) User file &lt;path&gt;, </c> before it, and <c>surl</c> writes that message
+    /// after <c>surl: </c>.
     /// </summary>
     /// <returns>For example <c>line 3: the password is empty</c>.</returns>
     public string Describe() => $"line {LineNumber}: {DescribeRefusal()}";

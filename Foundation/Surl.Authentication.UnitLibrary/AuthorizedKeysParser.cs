@@ -10,7 +10,8 @@ namespace Surl.Authentication;
 /// comments skipped (after leading spaces and tabs, as <c>sshd</c> skips them), and every other
 /// line <c>&lt;key type&gt; &lt;base64 key blob&gt; [comment]</c>, separated by spaces or tabs.
 /// Key options before the type are refused rather than ignored. It never touches the disk:
-/// <c>Surl.Console</c> reads the file and hands its bytes here.
+/// <c>Surl.Composition</c> reads the file, through its <c>ReadStartFile</c> seam (the disk when
+/// none is given), and hands its bytes here.
 /// </summary>
 public static class AuthorizedKeysParser
 {

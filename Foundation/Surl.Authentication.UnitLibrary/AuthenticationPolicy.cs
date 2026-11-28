@@ -5,9 +5,9 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// The <see cref="IAuthenticationPolicy"/> <c>surl</c> composes (ADR-0032, sections 4, 5 and 8):
-/// with no accounts every login is refused, anonymous access only where ADR-0032 allows it, a
-/// plain-text secret on an unencrypted connection refused unchecked unless
+/// The <see cref="IAuthenticationPolicy"/> <c>Surl.Composition</c> composes (ADR-0032, sections
+/// 4, 5 and 8): with no accounts every login is refused, anonymous access only where ADR-0032
+/// allows it, a plain-text secret on an unencrypted connection refused unchecked unless
 /// <c>--allow-plaintext-auth</c>, only the accepted methods offered and checked, and every
 /// refused credential answered after <see cref="RefusalDelay"/> on the injected
 /// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/>, an
@@ -652,7 +652,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
     /// <summary>
     /// Gets the accounts, the loosening options, the accepted methods, the authorized keys and the
-    /// Kerberos acceptor this policy judges by, as <c>Surl.Console</c> composed them.
+    /// Kerberos acceptor this policy judges by, as <c>Surl.Composition</c> composed them.
     /// </summary>
     public AuthenticationSettings Settings => settings;
 

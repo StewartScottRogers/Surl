@@ -4,26 +4,40 @@ The server side of the authentication schemes upstream curl sends, secure by def
 (ADR-0032): the accounts, the policy that judges every login, and each HTTP method's
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
 Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, Azure Storage's bearer token, Shared Key
-and shared access signatures, the password check the
-MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
+and shared access signatures, the password check that logins such as the MQTT `CONNECT` and
+FTP's `PASS` ask for, SMB's NTLMv1 session setup
+(`AuthenticationPolicy.CheckSmbNtlmV1LoginAsync`, ADR-0073), and the mail servers' SASL
+mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
 `OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, `GSSAPI`, which checks a Kerberos ticket with the
 `--keytab` acceptor and is offered first (ADR-0057 decisions 9 and 10), and `EXTERNAL`, which logs in as the
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
-Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0064). Not here
-yet: `Proxy-Authenticate`, the logins of servers not yet built (FTP, SMB). Anything time-dependent (the
-refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
-`TimeProvider`.
+Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0064). Anything
+time-dependent (the refusal delay, Digest nonces, the Signature Version 4 window) takes an
+injected `TimeProvider`.
+
+The HTTP proxy (`Surl.Protocol.HttpProxy`) has `Proxy-Authorization` judged by the
+authentication session of the policy `Surl.Composition`'s
+`AuthenticationComposition.ComposeProxyPolicy` builds, and writes the challenges that session
+returns as `Proxy-Authenticate`. Given `-U` or `--proxy-user-file`, that policy is an
+`AuthenticationPolicy` over the proxy accounts alone, with `RequiresLoginWithoutAccounts` set
+(ADR-0088 decision 5, ADR-0132 amendment 4); given neither, it asks for no login
+(`NoAccountProxyAuthenticationPolicy`, below).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
 `Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and
 `Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and
 `Surl.Cryptography.Rc4.UnitLibrary` for NTLM sealing (ADR-0072 decision 4), and no
-protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor `Surl.Console`
-builds from `--keytab` (`null` without one, BL-240); SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set, and Negotiate carries Kerberos only when `Surl.Console` hands it to `NegotiateAuthenticationMethod`. Protocol servers receive what it provides through the contracts in
-Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy` - which extends the
-protocol-neutral `ISaslAuthenticationPolicy` - and `ISshAuthenticationPolicy`); `Surl.Console`'s
-`AuthenticationComposition` builds the policy from the command line. `GetSaslMechanisms` is the
+protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor
+`Surl.Composition`'s `KeytabComposition` builds from `--keytab` (`null` without one, BL-240);
+SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set, and Negotiate
+carries Kerberos only when `NegotiateAuthenticationMethod` is given the acceptor, as
+`Surl.Composition`'s `AuthenticationComposition.ComposePolicy` gives it. Protocol servers
+receive what this library provides through the contracts in Abstractions
+(`IAuthenticationPolicy`, `IMailAuthenticationPolicy` - which extends the protocol-neutral
+`ISaslAuthenticationPolicy` - `ISshAuthenticationPolicy` and `ISmbAuthenticationPolicy`);
+`Surl.Composition`'s `AuthenticationComposition` builds the policy from the command line.
+`GetSaslMechanisms` is the
 mail offer's mechanisms for every scheme, with `GSS-SPNEGO` after `GSSAPI` for `ldap` and `ldaps`
 when `--auth` accepts `negotiate` (ADR-0072 decision 4, BL-328); `GSS-SPNEGO` runs only when the
 server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMechanism` otherwise.
@@ -123,8 +137,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `Des`, tested against section 4.2.2's example. It follows upstream curl's
   `lib/curl_ntlm_core.c`, not the specification, for a non-ASCII password: the UTF-8 bytes,
   ASCII-only upper-casing and a 14-byte cut for LM, each byte widened to 16 bits for NT. Its NT
-  hash is also one of the four `NtlmPasswordHashes` keeps; the rest of it waits for the SMB
-  login check (BL-295).
+  hash is also one of the four `NtlmPasswordHashes` keeps, and the SMB login check
+  (`AuthenticationPolicy.CheckSmbNtlmV1LoginAsync`, BL-295) gives that hash to
+  `ComputeResponse`. The check does not read the LM response, so only the tests call
+  `ComputeLmHash`.
 - The server challenge comes from `INtlmServerChallengeSource`: `RandomNtlmServerChallengeSource`
   in production, a fixed one in the tests, which replay the handshakes recorded from pinned
   upstream curl in `Foundation/Surl.Authentication.UnitTests/Fixtures/ntlm*`.
@@ -164,8 +180,8 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `negTokenResp` out of turn and malformed DER are refused.
 - The pinned Windows reference build sent no Negotiate token on the lane machine
   (`SEC_E_NO_CREDENTIALS`, `Fixtures/negotiate-no-token`), so the tests wrap the NTLM messages
-  recorded for BL-120 in SPNEGO (`SpnegoTestTokens`). `surl` composes Negotiate, and the
-  end-to-end proof uses the unpatched 8.21.0 Windows build (ADR-0042, BL-134).
+  recorded for BL-120 in SPNEGO (`SpnegoTestTokens`). `Surl.Composition` composes Negotiate, and
+  the end-to-end proof uses the unpatched 8.21.0 Windows build (ADR-0042, BL-134).
 
 ## Negotiate, carrying Kerberos (BL-241)
 
@@ -477,8 +493,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   offered after `ScramSha256` and before `ScramSha1` (`GSSAPI`, `SCRAM-SHA-256`, `SCRAM-SHA-512`,
   `SCRAM-SHA-1`, `DIGEST-MD5`, ...): SCRAM-SHA-256 stays the first SCRAM a client picking the first
   offered sees (the standards-track SCRAM, RFC 7677), and SHA-1 stays last. It is not in
-  `AuthenticationMethods.DefaultAccepted`; `Surl.Cli` and `Surl.Composition` have no `--auth`
-  word for it yet (BL-915), so no server offers it until one is given.
+  `AuthenticationMethods.DefaultAccepted`. Its `--auth` word is `scram-sha-512` (`Surl.Cli`
+  reads it, `Surl.Composition`'s `AuthenticationComposition` maps it); without `--auth`,
+  `Surl.Composition`'s `SchemeAuthenticationPolicies` adds all three SCRAM methods to what the
+  `kafka` and `xmpp` policies accept, which `kafkas` and `xmpps` share (ADR-0179).
 - Every named account also derives `ScramCredentials` under SHA-512 at start-up and on `Add`.
 - No RFC has a SCRAM-SHA-512 example, so the tests compute the client proof and the expected
   server signature with RFC 5802 section 3's formulas over the BCL's `HMACSHA512` and `SHA512`,
@@ -514,7 +532,7 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `HttpLoginScheme`, `SshLoginScheme` and `SmbLoginScheme` (`http`, `ssh`, `smb`) and every `ExchangeId` is
   null, unless the login request carries a `LoginExchange` (BL-871, ADR-0128 Amendment 1): then the event
   names that exchange and its listen URL's real scheme (`sftp`, `https`), and the `FaultPoint` carries the
-  exchange ID, reported listen URL and scheme, so `listener=` matches. A server that does not yet pass one
+  exchange ID, reported listen URL and scheme, so `listener=` matches. A login request without one
   keeps the family names.
 - Once credentials match, `IsRefusedByFaultAsync` asks the plan at `FaultStage.Login` with the scheme and the
   account matched; a `RefuseLogin` rule publishes a `FaultAppliedEvent` and the login is refused as the same
@@ -526,8 +544,11 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - `JudgeKerberosLoginAsync` (SOCKS5 GSS-API, ADR-0165; BL-1225) publishes mechanism `gssapi` and, since
   BL-1838 (ADR-0165 amendment 1), accepts an accepted token only when an account of exactly the client
   principal's name exists in the policy's book at that moment, or under `--allow-anonymous`; a principal with
-  no account is refused after the delay without asking the fault plan. Only the proxy policy is asked today,
-  and a proxy given no proxy account has `AnonymousAuthenticationPolicy`, which accepts any ticket. The tests
+  no account is refused after the delay without asking the fault plan. Only the SOCKS5 server asks, and it asks
+  the proxy policy. A proxy given no proxy account has `Surl.Composition`'s
+  `NoAccountProxyAuthenticationPolicy`, which asks for no login but has an `AuthenticationPolicy` with no
+  accounts and `AllowAnonymous` judge each Kerberos login: an accepted token stands whatever principal it names,
+  the login is published and a `refuse-login` rule applies to it (ADR-0165 decisions 7 to 9). The tests
   are `KerberosLoginJudgementPolicyTests`.
 - A `PasswordLogin` with `IsToken` (BL-1586; NATS `auth_token`, Socket.IO `token`) is checked by
   `CheckPasswordLoginAsync` with `AccountBook.CheckBearerToken` against the empty-name account's password, after
