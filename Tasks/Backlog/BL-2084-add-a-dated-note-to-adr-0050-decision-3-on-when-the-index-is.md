@@ -1,5 +1,5 @@
 ---
-id: BL-2081
+id: BL-2084
 title: Add a dated note to ADR-0050 decision 3 on when the index is written after INBOXes are created at start
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2081 — Add a dated note to ADR-0050 decision 3 on when the index is written after INBOXes are created at start
+# BL-2084 — Add a dated note to ADR-0050 decision 3 on when the index is written after INBOXes are created at start
 
 ## Goal
 

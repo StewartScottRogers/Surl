@@ -72,7 +72,7 @@ Stand-in: nothing to add; a documentation note, with no store, event, seed, rese
   the three servers' sessions; they match the Context. The note also says `ComposedStores.SeedMailAsync` does not
   catch the exception.
 - Docs only, no `.cs` or project file changed, so the `verify` skill was not needed.
-- Decision 3's "index is then written once" at start also differs from the code; outside this task, filed as BL-2081.
+- Decision 3's "index is then written once" at start also differs from the code; outside this task, filed as BL-2084.
 
 ## Log
 
