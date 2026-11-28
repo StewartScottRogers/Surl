@@ -42,3 +42,4 @@ Surl as a stand-in with a persisted store loses its folder uses on a restart.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
