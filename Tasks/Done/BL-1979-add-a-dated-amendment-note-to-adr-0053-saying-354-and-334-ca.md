@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1979 — Add a dated amendment note to ADR-0053 saying 354 and 334 carry no enhanced status code
 
@@ -37,14 +37,21 @@ decided it as Amendment 1 does. Recorded text is not rewritten.
 
 ## Acceptance criteria
 
-- [ ] ADR-0053 has a dated Amendment 2 naming decision 1 and saying that `354` and the `334` continuation carry no enhanced status code.
-- [ ] The amendment says why: RFC 2034 section 4 covers 2xx, 4xx and 5xx replies, not 3xx.
-- [ ] The amendment says the `501 Syntax` replies to `EHLO` and `HELO` carry none under decision 1's existing exception.
-- [ ] The diff to ADR-0053 only adds lines.
+- [x] ADR-0053 has a dated Amendment 2 naming decision 1 and saying that `354` and the `334` continuation carry no enhanced status code.
+- [x] The amendment says why: RFC 2034 section 4 covers 2xx, 4xx and 5xx replies, not 3xx.
+- [x] The amendment says the `501 Syntax` replies to `EHLO` and `HELO` carry none under decision 1's existing exception.
+- [x] The diff to ADR-0053 only adds lines.
 
 ## Notes
+
+- 2026-11-27: Added Amendment 2 to ADR-0053 (15 lines added, none removed). Every other constant in
+  `SmtpReplies` was read and starts with an enhanced status code. Replies from a fault rule or an
+  upstream test case are sent as written and may carry none; the XML docs on `SmtpProtocolServer`
+  already say so, so no task was filed. The RFC 2034 reading is the one in Context; the RFC was not
+  fetched again. `dotnet build`: 0 warnings, 0 errors; fast tests passed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0053 Amendment 2 says 354 and 334 carry no enhanced status code, and why
