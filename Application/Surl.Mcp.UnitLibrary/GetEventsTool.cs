@@ -62,7 +62,7 @@ public static class GetEventsTool
     internal static McpToolResult Answer(
         IReadOnlyList<SurlEvent> found, EventToolFilter filter, long droppedEventCount, JsonElement arguments)
     {
-        var maxEvents = arguments.TryGetProperty("max_events", out var max) ? max.GetInt32() : DefaultMaxEvents;
+        var maxEvents = arguments.TryGetProperty("max_events", out var max) ? max.GetWholeInt32() : DefaultMaxEvents;
         var matching = found.Where(filter.IsOfKind).Take(maxEvents + 1).ToList();
         return ToolResults.FromObject(writer =>
         {

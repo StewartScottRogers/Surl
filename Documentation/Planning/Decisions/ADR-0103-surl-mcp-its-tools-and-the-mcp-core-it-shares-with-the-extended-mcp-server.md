@@ -497,3 +497,23 @@ repository the policy names is still `StewartScottRogers/Surl`.
 The `v0.1.11` release job logged in under the GitHub name and got HTTP 401, no matching trust policy. Commit
 `c65ad0895` changed the `user:` line of `.github/workflows/release.yml` to `StewartRogers86`, and the `v0.1.12`
 release (run 46064723943, 2026-11-27) pushed `Surly.Surl.Mcp` to nuget.org (BL-1797).
+
+## Amendment 7 — how an integer argument is read, and its largest value (BL-2065)
+
+Decided by Claude under Stewart's delegation, 2026-11-28. Decision 1's schema subset counts any number with no
+fractional part as an `integer`, `1.0` and `6e4` included, but the tools read those with readers that refuse such a
+form, so the call was answered `-32603 Internal error`. Some arguments also had no `maximum`, so a whole number too
+large for the tool's type got the same answer.
+
+**Decisions.**
+
+1. Every tool reads every form its schema counts as an integer: `1.0` is 1.
+2. Every integer argument of a `surl-mcp` tool that a schema bounds nowhere else takes a schema `maximum`, so a
+   number past it is `-32602` naming the argument, as for any other bound. It is refused, never clamped: a clamped
+   cursor or UID would answer a question the caller did not ask. `after_position` takes 2147483647, its type's
+   largest. `after_sequence`, `after_exchange_id`, `after_uid`, `uid` and `from_offset` take 9007199254740991
+   (2^53 - 1), the largest whole number below which a double, which the schema check compares as, holds every whole
+   number exactly. No counter a test can reach is near it. A bound at `long`'s largest would let 2^63 through, because
+   the two are the same double.
+3. `timeout_ms` keeps no schema bound (decision 3's tool check): any whole number outside 1 to 60000, however large,
+   is `isError` `timeout_ms must be 1 to 60000, not <the number as the caller wrote it>`.

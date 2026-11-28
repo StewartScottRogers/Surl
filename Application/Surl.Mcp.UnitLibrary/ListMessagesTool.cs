@@ -28,7 +28,7 @@ public static class ListMessagesTool
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
             "owner": { "type": "string", "description": "The account's name; the empty string names the --allow-anonymous mailbox owner" },
             "mailbox": { "type": "string", "minLength": 1, "description": "The mailbox, e.g. INBOX" },
-            "after_uid": { "type": "integer", "minimum": 0, "default": 0, "description": "The last UID seen; only larger UIDs are returned" },
+            "after_uid": { "type": "integer", "minimum": 0, "maximum": 9007199254740991, "default": 0,"description": "The last UID seen; only larger UIDs are returned" },
             "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100, "description": "The most messages to return" }
           },
           "required": ["server_id", "owner", "mailbox"],
@@ -56,8 +56,8 @@ public static class ListMessagesTool
 
     private static async Task<McpToolResult> ReadAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
-        var afterUid = arguments.TryGetProperty("after_uid", out var after) ? after.GetInt64() : 0;
-        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetInt32() : 100;
+        var afterUid = arguments.TryGetProperty("after_uid", out var after) ? after.GetWholeInt64() : 0;
+        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetWholeInt32() : 100;
         var page = await running.Server.Mail.ListMessagesAsync(
             arguments.GetProperty("owner").GetString()!, arguments.GetProperty("mailbox").GetString()!, afterUid, limit, cancellationToken);
         return ToolResults.FromObject(writer =>

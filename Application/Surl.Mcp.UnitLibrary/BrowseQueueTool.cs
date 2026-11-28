@@ -29,7 +29,7 @@ public static class BrowseQueueTool
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
             "queue": { "type": "string", "minLength": 1, "description": "The queue's name" },
-            "after_position": { "type": "integer", "minimum": -1, "default": -1, "description": "The last position seen; -1 starts at the first" },
+            "after_position": { "type": "integer", "minimum": -1, "maximum": 2147483647, "default": -1,"description": "The last position seen; -1 starts at the first" },
             "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100, "description": "The most messages to return" }
           },
           "required": ["server_id", "queue"],
@@ -46,8 +46,8 @@ public static class BrowseQueueTool
 
     private static async Task<McpToolResult> ReadAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
-        var afterPosition = arguments.TryGetProperty("after_position", out var after) ? after.GetInt32() : -1;
-        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetInt32() : 100;
+        var afterPosition = arguments.TryGetProperty("after_position", out var after) ? after.GetWholeInt32() : -1;
+        var limit = arguments.TryGetProperty("limit", out var max) ? max.GetWholeInt32() : 100;
         var page = await running.Server.Messages.BrowseQueueAsync(arguments.GetProperty("queue").GetString()!, afterPosition, limit, cancellationToken);
         return ToolResults.FromObject(writer =>
         {

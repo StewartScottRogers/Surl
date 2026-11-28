@@ -30,10 +30,8 @@ internal static class RedisKeyArguments
             return $"{property}: a key needs at least one byte";
         }
 
-        // Read as doubles: the schema counts 1.0 and 6e4 as integers, which GetInt32 and GetInt64 refuse. Its bounds
-        // keep both in range and exact.
-        var database = arguments.TryGetProperty("database", out var databaseValue) ? (int)databaseValue.GetDouble() : 0;
-        TimeSpan? expiry = arguments.TryGetProperty("expire_ms", out var expireValue) ? TimeSpan.FromMilliseconds((long)expireValue.GetDouble()) : null;
+        var database = arguments.TryGetProperty("database", out var databaseValue) ? databaseValue.GetWholeInt32() : 0;
+        TimeSpan? expiry = arguments.TryGetProperty("expire_ms", out var expireValue) ? TimeSpan.FromMilliseconds(expireValue.GetWholeInt64()) : null;
         key = new SurlRedisKey(name, value!, expiry, database);
         return null;
     }

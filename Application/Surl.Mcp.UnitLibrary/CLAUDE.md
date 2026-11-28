@@ -97,6 +97,11 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     newest 4 kept and the oldest dropped; never returned whole, and forgotten with the server.
   - For every tool taking filters, a `listen_url` that is not an absolute URL is `isError`; `EventToolFilter`
     reads them into the `SurlEventQuery` a .NET test would pass.
+- `JsonElementWholeNumbers` - how every tool reads an integer argument: `GetWholeInt32` and `GetWholeInt64`, which
+  take `1.0` and `6e4` as the schema does (never `JsonElement.GetInt32` or `GetInt64`, which throw for them). Each
+  integer property needs a schema `maximum` its type holds (`LargestExactWholeNumber`, 2^53 - 1, for a `long` with
+  no smaller one), so a larger number is `-32602` naming it; `timeout_ms`, which has none, is range-checked before it
+  is converted (ADR-0103 amendment 7).
 - `RecordedEventWriter` - writes an event as `{sequence, at, kind, ...}` through `SurlEvent.WriteMembers` (ADR-0171; a `Kind` member is written `<first word of the kind>_kind`, bytes as hex cut at 256) with enum
   values in snake_case and a `null` member left out, as the control endpoint does (ADR-0124 decision 7).
 - `RecordedExchangeWriter` - writes `get_exchanges`'s `exchanges`: a chunk is `text` when it is well-formed

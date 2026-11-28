@@ -96,6 +96,23 @@ public sealed class WaitForEventToolTests
         Assert.AreEqual($"timeout_ms must be 1 to 60000, not {timeoutMilliseconds}", Assert.ContainsSingle(result.TextContent));
     }
 
+    // BL-2065: a timeout no long holds is out of range like any other, shown as the caller wrote it.
+    [TestMethod]
+    [DataRow("1e30")]
+    [DataRow("-1e30")]
+    [DataRow("9223372036854775808")]
+    public async Task Handler_TimeoutTooLargeForALong_IsAnErrorNamingTheArgument(string timeoutMilliseconds)
+    {
+        await using var host = new McpTestHost();
+        await McpTestHost.CallAsync(host.StartServer, """{"listen_urls": ["http://127.0.0.1:0"]}""", TestContext.CancellationToken);
+
+        var result = await McpTestHost.CallAsync(
+            host.WaitForEvent, $$"""{"server_id": "s1", "timeout_ms": {{timeoutMilliseconds}}}""", TestContext.CancellationToken);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual($"timeout_ms must be 1 to 60000, not {timeoutMilliseconds}", Assert.ContainsSingle(result.TextContent));
+    }
+
     [TestMethod]
     public async Task Handler_UnknownServerId_IsAnErrorNamingTheId()
     {

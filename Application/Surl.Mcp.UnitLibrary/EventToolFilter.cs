@@ -25,7 +25,7 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
 
     /// <summary>The properties <c>get_events</c> and <c>wait_for_event</c> both take, after <c>server_id</c>.</summary>
     public static readonly string EventProperties = """
-            "after_sequence": { "type": "integer", "minimum": 0,
+            "after_sequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991,
               "description": "Only events with a larger sequence; pass the last one seen to ask for the rest" },
             "kinds": { "type": "array", "minItems": 1,
               "items": { "type": "string", "enum": [
@@ -63,7 +63,7 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
             Account = StringOrNull(arguments, "account"),
             Store = ReadStore(arguments),
             Name = StringOrNull(arguments, "name"),
-            AfterSequence = arguments.TryGetProperty("after_sequence", out var after) ? after.GetInt64() : 0,
+            AfterSequence = arguments.TryGetProperty("after_sequence", out var after) ? after.GetWholeInt64() : 0,
         };
         filter = new EventToolFilter(query, ReadKinds(arguments));
         return null;

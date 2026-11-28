@@ -35,7 +35,7 @@ public static class GetExchangesTool
           "type": "object",
           "properties": {
             "server_id": { "type": "string", "description": "The ID start_server returned, e.g. s1" },
-            "after_exchange_id": { "type": "integer", "minimum": 0,
+            "after_exchange_id": { "type": "integer", "minimum": 0, "maximum": 9007199254740991,
               "description": "Only exchanges with a larger exchange_id; pass the last one seen to ask for the rest" },
             "max_exchanges": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20,
               "description": "The most exchanges to return, 20 if not given" },
@@ -67,8 +67,8 @@ public static class GetExchangesTool
     internal static McpToolResult Answer(
         string serverId, IReadOnlyList<SurlExchangeRecord> records, long droppedExchangeCount, JsonElement arguments)
     {
-        var afterExchangeId = arguments.TryGetProperty("after_exchange_id", out var after) ? after.GetInt64() : 0;
-        var maxExchanges = arguments.TryGetProperty("max_exchanges", out var max) ? max.GetInt32() : DefaultMaxExchanges;
+        var afterExchangeId = arguments.TryGetProperty("after_exchange_id", out var after) ? after.GetWholeInt64() : 0;
+        var maxExchanges = arguments.TryGetProperty("max_exchanges", out var max) ? max.GetWholeInt32() : DefaultMaxExchanges;
         return ToolResults.FromObject(writer =>
         {
             writer.WriteString("server_id", serverId);
