@@ -32,3 +32,4 @@ Found while planning the `--max-message 0` fixes of BL-2120 (2026-11-28). In `Pr
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
