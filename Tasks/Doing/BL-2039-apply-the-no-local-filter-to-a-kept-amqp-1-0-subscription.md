@@ -48,3 +48,4 @@ not echoed the filter (ADR-0146 Amendment 3, BL-2037).
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
