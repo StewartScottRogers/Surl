@@ -36,3 +36,4 @@ messages and accounts only. Confirm from `ComposedStores`' registered store orde
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
