@@ -35,3 +35,4 @@ The `LdapProtocolServer` XML summary and the LDAP library's `CLAUDE.md` opening 
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
