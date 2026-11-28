@@ -17,10 +17,11 @@ public sealed class SocketOriginConnectorLoopbackTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
-    // For a test that reaches a connect. Windows takes about 2 s to refuse a loopback port - [::1],
-    // which localhost resolves to ahead of 127.0.0.1, included - and far longer on a loaded machine
-    // (BL-1746, BL-2124), so no connect timeout is set; the operating system still bounds each
-    // attempt.
+    // For a test that looks a name up or reaches a connect, both of which the timeout covers.
+    // Windows takes about 2 s to refuse a loopback port - [::1], which localhost resolves to ahead
+    // of 127.0.0.1, included - and a connect or a lookup takes far longer on a loaded machine
+    // (BL-1746, BL-2124, BL-2128), so no connect timeout is set; the operating system still bounds
+    // the resolver and each attempt.
     private static readonly TimeSpan NoConnectTimeout = System.Threading.Timeout.InfiniteTimeSpan;
 
     public TestContext TestContext { get; set; } = null!;
@@ -76,7 +77,7 @@ public sealed class SocketOriginConnectorLoopbackTests
         var connector = new SocketOriginConnector(AllowedOriginRule.LoopbackOnly);
 
         var exception = await Assert.ThrowsExactlyAsync<OriginConnectionException>(
-            () => connector.ConnectAsync("surl-origin.invalid", 80, Timeout, TestContext.CancellationToken).AsTask());
+            () => connector.ConnectAsync("surl-origin.invalid", 80, NoConnectTimeout, TestContext.CancellationToken).AsTask());
 
         Assert.AreEqual(OriginConnectionFailure.HostNotFound, exception.Failure);
     }

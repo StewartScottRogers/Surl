@@ -59,18 +59,21 @@ public sealed class SocketDataConnectionOpenerIntegrationTests
     [TestMethod]
     public async Task ActiveDataConnection_NobodyListening_IsUnreachable()
     {
-        int closedPort;
-        using (var probe = new TcpListener(IPAddress.Loopback, 0))
-        {
-            probe.Start();
-            closedPort = ((IPEndPoint)probe.LocalEndpoint).Port;
-        }
-
+        // The port is the local end of an open connection: nothing listens on it, and no one else
+        // can be given it before the connect (BL-2128).
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        using var portHolder = new TcpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        await portHolder.ConnectAsync((IPEndPoint)listener.LocalEndpoint, TestContext.CancellationToken);
+        using var holderPeer = await listener.AcceptTcpClientAsync(TestContext.CancellationToken);
+        var target = (IPEndPoint)portHolder.Client.LocalEndPoint!;
         var opener = new SocketDataConnectionOpener(null);
 
+        // No connect timeout: Windows takes about 2 s to refuse a loopback port, and far longer on
+        // a loaded machine (BL-2128); the operating system still bounds the attempt.
         var exception = await Assert.ThrowsExactlyAsync<DataConnectionException>(
             () => opener.ConnectActiveAsync(
-                new IPEndPoint(IPAddress.Loopback, 50000), new IPEndPoint(IPAddress.Loopback, closedPort), Timeout, TestContext.CancellationToken).AsTask());
+                new IPEndPoint(IPAddress.Loopback, 50000), target, System.Threading.Timeout.InfiniteTimeSpan, TestContext.CancellationToken).AsTask());
 
         Assert.AreEqual(DataConnectionFailure.Unreachable, exception.Failure);
     }
