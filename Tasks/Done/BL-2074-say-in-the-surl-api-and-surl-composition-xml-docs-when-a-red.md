@@ -32,7 +32,7 @@ Found while working BL-2034 (2026-11-28), read from source. A store exists only 
 - The `ResetAsync` summary no longer mentions entries or zones read from a data directory: a server with one refuses the reset at the content store, first in the order.
 - The `ResetAsync` exception doc keeps "the stores before it are reset": the mail store, second, can also refuse through a host, when `SurlServerOptions.TimeProvider` is near 2106-02-07T06:28:15Z (`MailboxStore.Reset`).
 - Verified: `dotnet build -warnaserror` and `dotnet format --verify-no-changes` clean; fast tests 30769 passed, 3 skipped, 0 failed. Integration tests not run (comments only).
-- Left outside this task's four files and filed: BL-2085 (`SurlServerOptions`, `SurlServerKeys.SetAsync` and `Surl.Composition` `CLAUDE.md` statements), BL-2086 (`set_key` description omits `rediss`).
+- Left outside this task's four files and filed: BL-2097 (`SurlServerOptions`, `SurlServerKeys.SetAsync` and `Surl.Composition` `CLAUDE.md` statements), BL-2098 (`set_key` description omits `rediss`).
 
 ## Log
 

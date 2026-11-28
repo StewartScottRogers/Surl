@@ -1,5 +1,5 @@
 ---
-id: BL-2085
+id: BL-2097
 title: Correct the remaining Surl.Api and Surl.Composition statements about the seeded stores' resets, absence and refusals
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-061
 created: 2026-11-28
 completed:
 ---
-# BL-2085 — Correct the remaining Surl.Api and Surl.Composition statements about the seeded stores' resets, absence and refusals
+# BL-2097 — Correct the remaining Surl.Api and Surl.Composition statements about the seeded stores' resets, absence and refusals
 
 ## Goal
 

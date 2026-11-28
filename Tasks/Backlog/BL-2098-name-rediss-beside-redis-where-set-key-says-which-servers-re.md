@@ -1,5 +1,5 @@
 ---
-id: BL-2086
+id: BL-2098
 title: Name rediss beside redis where set_key says which servers refuse it
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2086 — Name rediss beside redis where set_key says which servers refuse it
+# BL-2098 — Name rediss beside redis where set_key says which servers refuse it
 
 ## Goal
 
