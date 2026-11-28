@@ -111,7 +111,7 @@ against `surl -v --allow-anonymous --topic "home/#;retain" mqtt://127.0.0.1:1888
 | Spec-written client, `mqtt5`, JIT | 15 of 20 (v0.1.12: 13 of 20) | 0 of 100 |
 | Spec-written client, `mqtt5`, native AOT | v0.1.12: 2 of 100 | 0 of 200 |
 
-**Follow-up:** BL-2120 (publishers over other protocols do not join the wait).
+**Follow-up:** BL-2132 (publishers over other protocols do not join the wait).
 
 ## Log
 

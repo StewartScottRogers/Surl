@@ -1,5 +1,5 @@
 ---
-id: BL-2120
+id: BL-2132
 title: Make a one-shot MQTT read wait for unacknowledged publishes from NATS, STOMP, AMQP and Redis connections
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2120 — Make a one-shot MQTT read wait for unacknowledged publishes from NATS, STOMP, AMQP and Redis connections
+# BL-2132 — Make a one-shot MQTT read wait for unacknowledged publishes from NATS, STOMP, AMQP and Redis connections
 
 ## Goal
 
