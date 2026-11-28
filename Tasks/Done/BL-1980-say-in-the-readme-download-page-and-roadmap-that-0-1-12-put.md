@@ -54,7 +54,7 @@ Check `Documentation/Product/Product-Overview.md` too. The `surl` command line i
 - Also moved the "latest release" statements in `README.md`, `DOWNLOAD.md` and the roadmap from
   `v0.1.11` to `v0.1.12`, so they agree with the nuget.org statements. The README's other dated
   figures were not re-measured.
-- Filed BL-1982: ADR-0099 and ADR-0103 amendments name the wrong nuget.org account.
+- Filed BL-1988: ADR-0099 and ADR-0103 amendments name the wrong nuget.org account.
 - `dotnet build` clean (0 warnings); fast tests passed, 0 failed.
 
 ## Log

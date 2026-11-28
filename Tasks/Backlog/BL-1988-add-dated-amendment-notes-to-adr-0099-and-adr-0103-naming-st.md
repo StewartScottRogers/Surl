@@ -1,5 +1,5 @@
 ---
-id: BL-1982
+id: BL-1988
 title: Add dated amendment notes to ADR-0099 and ADR-0103 naming StewartRogers86 as the nuget.org account
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1982 — Add dated amendment notes to ADR-0099 and ADR-0103 naming StewartRogers86 as the nuget.org account
+# BL-1988 — Add dated amendment notes to ADR-0099 and ADR-0103 naming StewartRogers86 as the nuget.org account
 
 ## Goal
 
