@@ -58,6 +58,43 @@ public sealed class ServerLifeIdentifiersCompositionTests
         Assert.AreNotEqual(first, second);
     }
 
+    [TestMethod]
+    public async Task Amqp1ContainerId_TwoCompositionsWithSeed42_AreTheSame()
+    {
+        var first = await ComposeAmqp1ContainerIdAsync("--random-seed", "42");
+        var second = await ComposeAmqp1ContainerIdAsync("--random-seed", "42");
+
+        Assert.AreEqual(first, second);
+        Assert.MatchesRegex("^surl-[0-9a-f]{32}$", first);
+    }
+
+    [TestMethod]
+    public async Task Amqp1ContainerId_DifferentSeeds_Differ()
+    {
+        var first = await ComposeAmqp1ContainerIdAsync("--random-seed", "42");
+        var second = await ComposeAmqp1ContainerIdAsync("--random-seed", "43");
+
+        Assert.AreNotEqual(first, second);
+    }
+
+    [TestMethod]
+    public async Task Amqp1ContainerId_TwoUnseededCompositions_Differ()
+    {
+        var first = await ComposeAmqp1ContainerIdAsync();
+        var second = await ComposeAmqp1ContainerIdAsync();
+
+        Assert.AreNotEqual(first, second);
+    }
+
+    private async Task<string> ComposeAmqp1ContainerIdAsync(params string[] options)
+    {
+        var seams = new StartTestSeams().Seams with { AreExtensionsTurnedOn = true };
+        var start = await SurlServerComposition.ComposeAsync(
+            CommandLineParser.Parse(["--allow-anonymous", .. options, "amqp1://127.0.0.1:0"], ["amqp1"]).CommandLine!, seams, TestContext.CancellationToken);
+        await using var serving = start.Serving ?? throw new AssertFailedException(string.Join(" ", start.Failure!.Lines));
+        return serving.Servers.OfType<Surl.Extended.Protocol.Amqp1.Amqp1Container>().Single().ContainerId;
+    }
+
     private async Task<string> ComposeXmppStreamIdAsync(params string[] options)
     {
         var seams = new StartTestSeams().Seams with { AreExtensionsTurnedOn = true };

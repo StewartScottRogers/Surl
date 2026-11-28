@@ -28,6 +28,8 @@
   "From a topic" bullet, and the last "Alternatives considered" bullet, saying where
   [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
   or the code differs from them.
+- **Amended (2026-11-27, BL-2036):** a second note under decision 3's `open` table: a composed
+  container draws its `container-id` from the `amqp1` server-life identifier source.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -192,6 +194,12 @@ when `amqp1://` is the only listen URL.
   `RandomNumberGenerator` is only the unseeded fallback it uses when given none,
   `Amqp1UnseededIdentifierRandom`. `Surl.Composition` gives it none, so a container it composes
   draws from that fallback even when the run is seeded.
+
+  *Amended 2026-11-27 (BL-2036):* `Surl.Composition` now gives the container it composes an identifier
+  source, so the last sentence of the BL-1990 note above no longer describes the code. A composed
+  container draws its `container-id` from the `amqp1` server-life source (ADR-0124 decision 6,
+  `ComposedProtocolServices.IdentifiersForServer("amqp1")`): with `--random-seed`, runs with the same
+  seed send the same `container-id`; without it the source is cryptographic.
 
 - **The client's `open`**: `hostname` is read and ignored (one container, no virtual hosts); its
   `max-frame-size` bounds every frame the container writes, which it splits transfers to fit

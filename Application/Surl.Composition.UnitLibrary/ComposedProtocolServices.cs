@@ -158,8 +158,8 @@ public sealed class ComposedProtocolServices(
 
     /// <summary>
     /// Gets the source of identifiers a server draws once, when it is created, named by the server (ADR-0124
-    /// decision 6, BL-1001): from <c>--random-seed</c> and the name alone when a seed is given, so the Kafka cluster ID
-    /// and the NATS <c>server_id</c> repeat every run; the cryptographic source unless set.
+    /// decision 6, BL-1001): from <c>--random-seed</c> and the name alone when a seed is given, so the Kafka cluster ID,
+    /// the NATS <c>server_id</c> and the AMQP 1.0 <c>container-id</c> repeat every run; the cryptographic source unless set.
     /// </summary>
     public Func<string, IIdentifierRandom> IdentifiersForServer { get; init; } = _ => CryptographicIdentifierRandom.Instance;
 

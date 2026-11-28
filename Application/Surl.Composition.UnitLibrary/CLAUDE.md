@@ -75,7 +75,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
   the AMQP 1.0 container for `amqp1` and `amqp1s` (BL-514) - one `Amqp1Container` over the one
   `MessageBus`, `AuthenticationPolicyFor("amqp1")`, an `Amqp1ContainerOptions` of `IdleTimeout` and an
-  `Amqp1SecurityNegotiationOptions` of the policy's `AllowAnonymous` and `IsTlsUpgradeAvailable`;
+  `Amqp1SecurityNegotiationOptions` of the policy's `AllowAnonymous` and `IsTlsUpgradeAvailable`, and
+  `IdentifiersForServer("amqp1")`, which its `container-id` is drawn from (BL-2036);
   `amqp1s` is in `TlsSchemes` as `mqtts` is, and `amqp1` is one of `ServerTlsComposition`'s
   upgradable schemes for its TLS header (ADR-0107 decisions 1 and 7) -
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
@@ -207,7 +208,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   server-life source for per-server fixes (BL-850); no static state, so instances never share one.
   BL-1001: the start also sets `ComposedProtocolServices.IdentifiersForServer` (the same derivation), which the
   Kafka `KafkaMetadataAnswerer` (`ComposeKafkaMetadataAnswerer`, name `kafka`) and the `NatsServer` (name `nats`) draw
-  their cluster ID and `server_id` from, so a seeded instance repeats them. Tests: `ServerLifeIdentifiersCompositionTests`.
+  their cluster ID and `server_id` from, so a seeded instance repeats them. The `Amqp1Container` (name `amqp1`)
+  draws its `container-id` the same way (BL-2036). Tests: `ServerLifeIdentifiersCompositionTests`.
 
 - CoAP access rules (ADR-0097 decision 6, ADR-0149 amendment 2, BL-1669):
   `ExtendedProtocolServers.CoapAccessRulesFor` counts `coap` private when
