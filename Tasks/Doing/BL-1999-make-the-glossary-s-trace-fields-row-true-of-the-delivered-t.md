@@ -35,3 +35,4 @@ waits for it. ADR-0053 Amendment 1.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
