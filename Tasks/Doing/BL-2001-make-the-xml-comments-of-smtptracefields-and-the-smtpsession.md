@@ -47,3 +47,4 @@ BL-2000 changes how pending messages are made, so describe the code as it is aft
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
