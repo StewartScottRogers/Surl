@@ -43,3 +43,4 @@ Two composed runs with the same `--random-seed` send the same AMQP 1.0 `containe
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
