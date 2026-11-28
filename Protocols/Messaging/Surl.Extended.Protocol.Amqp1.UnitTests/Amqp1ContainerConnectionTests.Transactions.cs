@@ -253,6 +253,53 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
+    [DataRow(0L, DisplayName = "--max-filesize 0")]
+    [DataRow(1_048_576L, DisplayName = "--max-filesize 1048576")]
+    public async Task ServeAsync_EmptyMessagesPastMaxHeldMessages_AreRefusedWithResourceLimitExceededUntilATransactionEnds(long maxUploadBytes)
+    {
+        // Two transactions share the connection's bound: the first is filled to it, so the second takes
+        // nothing until the first is rolled back.
+        const uint Full = Amqp1ContainerConnection.MaxHeldMessages;
+        byte[] secondTransactionId = [0, 0, 0, 2];
+        var limits = ExchangeLimits.Default with { MaxUploadBytes = maxUploadBytes };
+        var posted = Enumerable.Range(1, (int)Full).Select(deliveryId => Posted(1, (uint)deliveryId, messageHex: string.Empty));
+
+        var (written, _) = await ServeWithLimitsAsync(
+            Bus(),
+            limits,
+            [
+                .. TransactionFrames(),
+                .. posted,
+                Posted(1, Full + 1, messageHex: string.Empty),
+                Control(0, Full + 2, DeclareHex),
+                Posted(1, Full + 3, TransactionalState(secondTransactionId), messageHex: string.Empty),
+                Control(0, Full + 4, DischargeRollBackHex),
+                Posted(1, Full + 5, TransactionalState(secondTransactionId), messageHex: string.Empty),
+            ]);
+
+        var refused = Rejected(Amqp1ErrorCondition.ResourceLimitExceeded, "too many messages held in open transactions");
+        var dispositions = Dispositions(written);
+        AssertSameFrame(Settled(Full, InTransaction(Amqp1DeliveryState.Accepted)), dispositions[(int)Full]);
+        AssertSameFrame(Settled(Full + 1, InTransaction(refused)), dispositions[(int)Full + 1]);
+        AssertSameFrame(Settled(Full + 3, Amqp1DeliveryState.TransactionalState(secondTransactionId, refused)), dispositions[(int)Full + 3]);
+        AssertSameFrame(Settled(Full + 5, Amqp1DeliveryState.TransactionalState(secondTransactionId, Amqp1DeliveryState.Accepted)), dispositions[(int)Full + 5]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MessagesHeldFromOneLink_ShareOneNodeNameString()
+    {
+        // A node name may be nearly a frame long, so a copy of it per held message would multiply the
+        // memory the held-message bound allows.
+        var bus = Bus();
+
+        await ServeOnBusAsync(bus, [.. TransactionFrames(Posted(1, 1), Posted(1, 2)), Control(0, 3, DischargeCommitHex)]);
+
+        var consumer = bus.Connect();
+        var first = consumer.GetFromQueue("orders").Delivery!.Message.Topic;
+        Assert.AreSame(first, consumer.GetFromQueue("orders").Delivery!.Message.Topic);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PreSettledTransactionalTransfer_IsHeldAndAnsweredByNothing()
     {
         var bus = Bus();

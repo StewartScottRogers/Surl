@@ -41,7 +41,21 @@ internal sealed class Amqp1Link(uint containerHandle)
     public byte[]? AcquiringTransactionId { get; set; }
 
     /// <summary>The node's canonical address, <c>/topic/&lt;t&gt;</c> or <c>/queue/&lt;q&gt;</c>, once found.</summary>
-    public string NodeAddress { get; set; } = string.Empty;
+    public string NodeAddress
+    {
+        get;
+        set
+        {
+            field = value;
+            NodeName = value[(Amqp1NodeAddress.IsTopic(value) ? Amqp1NodeAddress.TopicPrefix : Amqp1NodeAddress.QueuePrefix).Length..];
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// The node's bus name, <see cref="NodeAddress"/> without its prefix. One string per found address, so
+    /// the messages a transaction holds from the link share it.
+    /// </summary>
+    public string NodeName { get; private set; } = string.Empty;
 
     /// <summary>The address of the dynamic node this link's attach made, which goes when the link ends or the attach is refused; <see langword="null"/> when it made none.</summary>
     public string? MadeDynamicNodeAddress { get; set; }

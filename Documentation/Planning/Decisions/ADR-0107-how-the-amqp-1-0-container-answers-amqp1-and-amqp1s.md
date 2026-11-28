@@ -42,6 +42,8 @@
   messages go only to links that can send them
   ([ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
   Amendment 7).
+- **Amended (2026-11-28, BL-2082):** a note after BL-2064's under decision 7's table: a connection's
+  open transactions hold at most 100000 messages between them.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -619,6 +621,11 @@ bullet of the BL-2044 note above no longer describes the code. The held-bytes ch
 so no posting is refused for its size and the messages held in a connection's open transactions have
 no byte bound. What is still capped is how many transactions are open at once
 (`MaxOpenTransactions`, 100). The first bullet's refusal applies only under a limit above 0.
+
+*Amended 2026-11-28 (BL-2082), pointing at
+[ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+decision 1.4's BL-2082 note:* how many messages a connection's open transactions hold between them
+is now capped too (`MaxHeldMessages`, 100000), under every `--max-filesize`, 0 included.
 
 - No new option is added: ADR-0006's options and the bus's bounds cover every store a peer can fill;
   64, 256, 100 and 1000 are named constants of the library.

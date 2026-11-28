@@ -231,7 +231,9 @@ Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
   (format, decode), held unpublished and answered `transactional-state` with `accepted`, or with
   `rejected` and the error; held messages count with partial deliveries against `--max-filesize`
   (`amqp:resource-limit-exceeded` past it); under `--max-filesize 0`, no limit, held messages have no
-  byte bound, and only the count of open transactions is bounded. Access was judged at attach. A
+  byte bound. Under every `--max-filesize` the open transactions hold at most 100000 messages between
+  them (`MaxHeldMessages`), so empty ones are bounded too; one past it is `rejected` in
+  `transactional-state` with `amqp:resource-limit-exceeded`. Access was judged at attach. A
   `txn-id` naming no open transaction (not four bytes, discharged, rolled back, from another
   connection) is `rejected` with `amqp:transaction:unknown-id`.
 - `discharge` with `fail` true drops the held messages; with `fail` false publishes them all or none

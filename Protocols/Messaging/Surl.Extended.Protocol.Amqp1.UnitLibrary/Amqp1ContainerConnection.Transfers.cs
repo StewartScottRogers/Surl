@@ -177,12 +177,10 @@ public sealed partial class Amqp1ContainerConnection
             return (null, Error(Amqp1ErrorCondition.NotImplemented, "message format not supported"));
         }
 
-        var isTopic = Amqp1NodeAddress.IsTopic(link.NodeAddress);
-        var name = link.NodeAddress[(isTopic ? Amqp1NodeAddress.TopicPrefix : Amqp1NodeAddress.QueuePrefix).Length..];
         try
         {
-            var message = Amqp1BusMessages.ToBusMessage(delivery.Bytes.WrittenMemory, name, delivery.Settled, context.TimeProvider.GetUtcNow());
-            return (isTopic ? BusBatchEntry.ToTopic(message) : BusBatchEntry.ToQueue(name, message), null);
+            var message = Amqp1BusMessages.ToBusMessage(delivery.Bytes.WrittenMemory, link.NodeName, delivery.Settled, context.TimeProvider.GetUtcNow());
+            return (Amqp1NodeAddress.IsTopic(link.NodeAddress) ? BusBatchEntry.ToTopic(message) : BusBatchEntry.ToQueue(link.NodeName, message), null);
         }
         catch (Amqp1DecodeException)
         {

@@ -111,6 +111,33 @@ but its flags and bindings.
    transfer is answered `rejected` with `amqp:resource-limit-exceeded`. A `txn-id` naming no open
    transaction is answered `rejected` with **`amqp:transaction:unknown-id`**, settled, outside any
    transaction.
+
+   *Amended 2026-11-28 (BL-2082), pointing at
+   [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md). Decided by Claude under Stewart's
+   delegation:* a connection's open transactions hold at most **100000** posted messages between
+   them (`MaxHeldMessages`, the number `Surl.MessageBus`'s `DefaultMaxMessagesPerQueue` gives), so
+   empty messages, which add no bytes, cannot be held without end. The bound is on their number:
+   each held message also keeps its node's name, which no byte bound counts. Messages posted from
+   one attached link share one copy of it; a link attached again has its own. A posting that would
+   be held past the bound is not held; it is refused with `amqp:resource-limit-exceeded` (`too many messages
+   held in open transactions`), the transaction and its link staying open, and, as ever, a
+   pre-settled posting is answered by nothing. Discharging or rolling back a transaction frees its
+   share. The bound applies under every `--max-filesize`, **0 included**: that 0 lifts the byte
+   bound on an upload, not the bounds on how many things a peer can make the server keep. It is a
+   named constant, not an option, as the other counts are (decision 1.3), and does not follow a
+   bus composed with another per-queue bound, which still judges the commit (decision 1.6). This
+   ends the BL-2064 note's "nothing caps the number of messages" under decision 1.7; their bytes
+   stay unbounded under 0.
+
+   The same note corrects this decision's wording: a posting refused for the byte bound or the
+   message bound is answered `transactional-state` with outcome `rejected` and
+   `amqp:resource-limit-exceeded`, as any other transfer the container would refuse, not with a
+   bare `rejected` (ADR-0107 decision 7's BL-2044 note).
+
+   Alternatives: a bound per transaction would let a connection hold 100 times as many
+   (decision 1.3). A smaller number, 10000 say, would refuse a bulk send that one queue of the bus
+   takes whole. Counting each message as some bytes against `--max-filesize` would bound nothing
+   under 0 and would make the byte bound mean something other than bytes.
 5. **Transactional retirement and acquisition (4.4.2, 4.4.3, 4.4.4).** A client `disposition`
    whose state is `transactional-state` holds its outcome (`accepted`, `rejected`, `released`,
    `modified`) in the transaction: the delivery stays acquired by its link and is neither

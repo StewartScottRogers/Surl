@@ -12,6 +12,13 @@ public sealed partial class Amqp1ContainerConnection
     /// <summary>The most transactions open at once on a connection (ADR-0146 decision 1.3).</summary>
     public const int MaxOpenTransactions = 100;
 
+    /// <summary>
+    /// The most posted messages a connection's open transactions hold between them, whatever
+    /// <c>--max-filesize</c> is (ADR-0146, note to decision 1.4): the bus's default bound on one queue's
+    /// messages.
+    /// </summary>
+    public const int MaxHeldMessages = MessageBus.MessageBus.DefaultMaxMessagesPerQueue;
+
     // The connection's open transactions by number (ADR-0146 decision 1.2: a transaction belongs to the connection).
     private readonly Dictionary<uint, Amqp1Transaction> transactions = [];
 
@@ -170,6 +177,14 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         // Access was judged when the link attached, and the commit's batch publish judges it again.
+
+        // The count is bounded on its own because an empty message adds no bytes (ADR-0146, note to
+        // decision 1.4).
+        if (transactions.Values.Sum(open => open.Held.Count) >= MaxHeldMessages)
+        {
+            return Error(Amqp1ErrorCondition.ResourceLimitExceeded, "too many messages held in open transactions");
+        }
+
         // Held messages count with the partial deliveries against --max-filesize (ADR-0146 decision 1.4);
         // --max-filesize 0 is no limit (ADR-0006).
         var bytes = delivery.Bytes.WrittenCount;
