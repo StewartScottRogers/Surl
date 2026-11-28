@@ -1,5 +1,5 @@
 ---
-id: BL-1999
+id: BL-2009
 title: Add a dated amendment note to ADR-0138 saying a TELNET fault point also carries the listen URL and exchange ID
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1999 — Add a dated amendment note to ADR-0138 saying a TELNET fault point also carries the listen URL and exchange ID
+# BL-2009 — Add a dated amendment note to ADR-0138 saying a TELNET fault point also carries the listen URL and exchange ID
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-1998
+id: BL-2008
 title: Name the event target in command-stage delay and drop log notes when the fault point has no command
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1998 — Name the event target in command-stage delay and drop log notes when the fault point has no command
+# BL-2008 — Name the event target in command-stage delay and drop log notes when the fault point has no command
 
 ## Goal
 

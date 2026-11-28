@@ -56,7 +56,7 @@ No store, event or fault changes: documentation only.
   listener-scoped rule matches it.
 - Verify, 2026-11-27: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` clean, fast tests
   30380 passed, 0 failed, 3 skipped. No integration-level code changed.
-- Follow-ups filed: BL-1998 (delay and drop log notes begin with a space when the point has no command), BL-1999
+- Follow-ups filed: BL-2008 (delay and drop log notes begin with a space when the point has no command), BL-2009
   (ADR-0138 says the TELNET point holds the scheme and nothing else).
 
 ## Log
