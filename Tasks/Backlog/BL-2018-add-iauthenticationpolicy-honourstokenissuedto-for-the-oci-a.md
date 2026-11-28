@@ -1,5 +1,5 @@
 ---
-id: BL-2013
+id: BL-2018
 title: Add IAuthenticationPolicy.HonoursTokenIssuedTo for the OCI and MCP per-use token check
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2013 — Add IAuthenticationPolicy.HonoursTokenIssuedTo for the OCI and MCP per-use token check
+# BL-2018 — Add IAuthenticationPolicy.HonoursTokenIssuedTo for the OCI and MCP per-use token check
 
 ## Goal
 
@@ -24,8 +24,8 @@ Today `OciAccessCheck` and `McpAuthorizationGrants` ask `NamesAccount` when a to
 LDAP directory user is refused. The new member, `bool HonoursTokenIssuedTo(string accountName)`, is a default
 interface member of `Foundation/Surl.Protocol.Abstractions.UnitLibrary/IAuthenticationPolicy.cs` returning
 `NamesAccount(accountName)`, so every policy and test double behaves as before. It judges no login: it publishes no
-event and asks no fault rule. `Surl.Authentication` overrides it (BL-2004); the OCI and MCP servers call it (BL-2014,
-BL-2015). No upstream curl measurement (curl has neither scheme).
+event and asks no fault rule. `Surl.Authentication` overrides it (BL-2004); the OCI and MCP servers call it (BL-2019,
+BL-2020). No upstream curl measurement (curl has neither scheme).
 
 BL-2005 edits the library's `CLAUDE.md` on `NamesAccount`; start from what it wrote.
 

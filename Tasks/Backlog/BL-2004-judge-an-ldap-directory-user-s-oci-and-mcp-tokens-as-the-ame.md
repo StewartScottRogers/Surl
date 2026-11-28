@@ -4,7 +4,7 @@ title: Judge an LDAP directory user's OCI and MCP tokens as the amended ADR-0167
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2003, BL-2013]
+depends-on: [BL-2003, BL-2018]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-27
@@ -25,11 +25,11 @@ Found while working BL-1981 (2026-11-27), read from source. With `--user-ldap` s
 `McpAuthorizationGrants` refuse that token as unknown.
 
 Read Amendment 3 first: it fixes the behaviour, the member and the libraries. In short: `AuthenticationPolicy`
-implements `IAuthenticationPolicy.HonoursTokenIssuedTo` (added by BL-2013), true when `NamesAccount` is, or when this
+implements `IAuthenticationPolicy.HonoursTokenIssuedTo` (added by BL-2018), true when `NamesAccount` is, or when this
 policy's `CheckPasswordLoginAsync` accepted the name through the directory (no fault refusing it) less than one hour
 ago on the injected `TimeProvider` and the account book has never held the name since the instance started. At most
 10000 names are recorded. `NamesAccount` does not change (point 5). The OCI and MCP servers call the new member in
-BL-2014 and BL-2015. Tests drive the directory in memory through `ILdapDirectoryConnector`, on the settings view the
+BL-2019 and BL-2020. Tests drive the directory in memory through `ILdapDirectoryConnector`, on the settings view the
 server's policy is composed with (`AuthenticationSettings.ForScheme`). No socket, no `Integration` test, no upstream
 curl measurement (curl has neither scheme).
 
@@ -51,4 +51,4 @@ user's tokens with a sessions reset.
 ## Log
 
 - 2026-11-27: Created.
-- 2026-11-27: Now depends on BL-2013 too; Context and criteria matched to ADR-0167 Amendment 3 (BL-2003).
+- 2026-11-27: Now depends on BL-2018 too; Context and criteria matched to ADR-0167 Amendment 3 (BL-2003).

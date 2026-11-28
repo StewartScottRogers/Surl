@@ -60,8 +60,8 @@ Stand-in: the stores are the shared account book and the operator's own director
   deleted user keeps at most 300 s on `oci` and one hour on `mcp`; a sessions reset ends tokens at once. Removed
   book accounts, schemes `protocols=` leaves out and names that never logged in stay refused. Azure Storage is
   unchanged. New member `IAuthenticationPolicy.HonoursTokenIssuedTo`, default `NamesAccount`.
-- Tasks filed: BL-2013 (Abstractions), BL-2014 (OCI registry), BL-2015 (MCP server), BL-2016 (`--aihelp`). BL-2004
-  now depends on BL-2013 too; BL-2016 waits on BL-2004, BL-2014 and BL-2015.
+- Tasks filed: BL-2018 (Abstractions), BL-2019 (OCI registry), BL-2020 (MCP server), BL-2021 (`--aihelp`). BL-2004
+  now depends on BL-2018 too; BL-2021 waits on BL-2004, BL-2019 and BL-2020.
 - The Context's claims were checked against the source on 2026-11-27 (read, not run) and hold. One addition: redeeming
   an MCP authorization code asks no account check, so a directory user gets tokens that are then refused.
 - "naming BL-1995" in the first criterion means this task: it was filed as BL-1995 and renumbered BL-2003 (commit
@@ -72,4 +72,4 @@ Stand-in: the stores are the shared account book and the operator's own director
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
-- 2026-11-27: Doing -> Done. ADR-0167 Amendment 3 decides how a directory user's OCI and MCP tokens are judged; BL-2013 to BL-2016 filed to build it
+- 2026-11-27: Doing -> Done. ADR-0167 Amendment 3 decides how a directory user's OCI and MCP tokens are judged; BL-2018 to BL-2021 filed to build it

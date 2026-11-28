@@ -1,16 +1,16 @@
 ---
-id: BL-2015
+id: BL-2020
 title: Ask HonoursTokenIssuedTo when an MCP access or refresh token is used
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2013]
+depends-on: [BL-2018]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2015 — Ask HonoursTokenIssuedTo when an MCP access or refresh token is used
+# BL-2020 — Ask HonoursTokenIssuedTo when an MCP access or refresh token is used
 
 ## Goal
 
@@ -19,7 +19,7 @@ account is still honoured.
 
 ## Context
 
-ADR-0167 Amendment 3 (BL-2003), point 6. BL-2013 adds the member, whose default is `NamesAccount`.
+ADR-0167 Amendment 3 (BL-2003), point 6. BL-2018 adds the member, whose default is `NamesAccount`.
 `McpAuthorizationGrants.AccountOf` and `RedeemRefreshToken`
 (`Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary`) call `NamesAccount` today, so tokens issued to an
 LDAP directory user are refused. BL-2004 makes `Surl.Authentication` answer `true` for such a user; this task only

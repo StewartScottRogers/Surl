@@ -1,16 +1,16 @@
 ---
-id: BL-2014
+id: BL-2019
 title: Ask HonoursTokenIssuedTo when an OCI bearer token issued to an account is used
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2013]
+depends-on: [BL-2018]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2014 — Ask HonoursTokenIssuedTo when an OCI bearer token issued to an account is used
+# BL-2019 — Ask HonoursTokenIssuedTo when an OCI bearer token issued to an account is used
 
 ## Goal
 
@@ -19,7 +19,7 @@ still honoured.
 
 ## Context
 
-ADR-0167 Amendment 3 (BL-2003), point 6. BL-2013 adds the member, whose default is `NamesAccount`.
+ADR-0167 Amendment 3 (BL-2003), point 6. BL-2018 adds the member, whose default is `NamesAccount`.
 `OciAccessCheck.FindLiveToken` (`Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary`) calls
 `NamesAccount` today, so a token `OciTokenEndpoint` issued to an LDAP directory user is refused. BL-2004 makes
 `Surl.Authentication` answer `true` for such a user; this task only changes what the registry asks, and its tests use

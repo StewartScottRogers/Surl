@@ -270,11 +270,11 @@ with the tokens.
 
 | Library | Change | Task |
 | --- | --- | --- |
-| `Surl.Protocol.Abstractions` | the new member and its documentation | BL-2013 |
+| `Surl.Protocol.Abstractions` | the new member and its documentation | BL-2018 |
 | `Surl.Authentication` | `AuthenticationPolicy` implements it; the account book remembers held names | BL-2004 |
-| `Surl.Extended.Protocol.OciRegistry` | `OciAccessCheck` asks it instead of `NamesAccount` | BL-2014 |
-| `Surl.Extended.Protocol.McpServer` | `McpAuthorizationGrants.AccountOf` and `RedeemRefreshToken` ask it instead of `NamesAccount` | BL-2015 |
-| `Surl.Cli` | the `--user-ldap` text of `--aihelp` says how long a directory user's token is honoured | BL-2016 |
+| `Surl.Extended.Protocol.OciRegistry` | `OciAccessCheck` asks it instead of `NamesAccount` | BL-2019 |
+| `Surl.Extended.Protocol.McpServer` | `McpAuthorizationGrants.AccountOf` and `RedeemRefreshToken` ask it instead of `NamesAccount` | BL-2020 |
+| `Surl.Cli` | the `--user-ldap` text of `--aihelp` says how long a directory user's token is honoured | BL-2021 |
 
 `Surl.Composition`, `Surl.Api`, `Surl.Mcp` and the Azure Storage server do not change.
 

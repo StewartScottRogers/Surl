@@ -1,16 +1,16 @@
 ---
-id: BL-2016
+id: BL-2021
 title: Say in --aihelp how long an LDAP directory user's OCI or MCP token is honoured
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-2004, BL-2014, BL-2015]
+depends-on: [BL-2004, BL-2019, BL-2020]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2016 — Say in --aihelp how long an LDAP directory user's OCI or MCP token is honoured
+# BL-2021 — Say in --aihelp how long an LDAP directory user's OCI or MCP token is honoured
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-ADR-0167 Amendment 3 (BL-2003), points 2 to 4. BL-2004, BL-2014 and BL-2015 build the behaviour; this task adds it to
+ADR-0167 Amendment 3 (BL-2003), points 2 to 4. BL-2004, BL-2019 and BL-2020 build the behaviour; this task adds it to
 the `--user-ldap` paragraph of the `auth` topic in `Application/Surl.Cli.UnitLibrary/AiHelpProse.cs`, written from
 the code as those tasks left it. A test author needs it: disabling a user in the directory does not end that user's
 tokens at once.
