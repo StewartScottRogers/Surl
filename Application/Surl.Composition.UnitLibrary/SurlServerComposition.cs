@@ -17,8 +17,9 @@ namespace Surl.Composition;
 /// The one place protocol servers are composed (ADR-0099, decision 1): every original server
 /// <c>surl</c> registers, with its <see cref="ImplicitTlsSchemeServer"/> second registrations, the
 /// extended servers behind <c>SURL_EXTENSIONS</c>, the content store they serve, the service state
-/// they keep across connections and the connection limits the serving engine enforces. Each host
-/// (<c>surl</c> today) calls it instead of composing them itself.
+/// they keep across connections and the connection limits the serving engine enforces. The hosts
+/// <c>surl</c> (<c>Surl.Console</c>) and <c>Surl.Api</c> call it instead of composing them
+/// themselves; <c>surl-mcp</c> (<c>Surl.Mcp</c>) reaches it through <c>Surl.Api</c>.
 /// </summary>
 /// <remarks>
 /// Public because more than one host calls it, but not a supported programming interface: it may

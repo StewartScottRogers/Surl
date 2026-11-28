@@ -100,11 +100,11 @@ decision recorded in an ADR, and downloading one needs Stewart's approval.
 Always build and run the fast tests before declaring a task finished.
 
 ## Quality gates
-Every `*.UnitLibrary` (and `Surl.Console`) is held to 100% line coverage, 100% branch
-coverage, cyclomatic complexity of at most 10 per method, and a CRAP score of at most 30.
-All four are measured with tooling the solution already has - the coverage collector the
-MSTest meta-package brings, and the SDK's own `CA1502` analyzer - so no package is needed
-for any of it. Complexity is enforced at build time: the threshold lives in
+Every `*.UnitLibrary` (and `Surl.Console` and `Surl.Api`) is held to 100% line coverage,
+100% branch coverage, cyclomatic complexity of at most 10 per method, and a CRAP score of
+at most 30. All four are measured with tooling the solution already has - the coverage
+collector the MSTest meta-package brings, and the SDK's own `CA1502` analyzer - so no
+package is needed for any of it. Complexity is enforced at build time: the threshold lives in
 `CodeMetricsConfig.txt` and warnings are errors, so a method at 11 breaks the build. The
 `coverage-auditor` agent measures the rest and files the gaps as tasks. Thresholds in
 `CodeMetricsConfig.txt` are Stewart's to change; never raise one to make code pass.
