@@ -47,7 +47,7 @@ container's own deliveries.
   `ServeAsync_TransactionalDispositionPastMaxHeldOutcomes_IsRejectedWithResourceLimitExceededAndChangesNothing`.
 - Verified 2026-11-28: build 0 warnings, format clean, fast tests 30888 passed, 3 skipped, 0 failed;
   `Measure-CodeQuality.ps1` on the library 100% line and branch, 0 failing members. No `Integration` code changed.
-- Review (code-reviewer) found no bug in the change; its older finding, rollback growth on live topic links, is BL-2128.
+- Review (code-reviewer) found no bug in the change; its older finding, rollback growth on live topic links, is BL-2135.
 - `Documentation/Conformance/Extended/Amqp1.md` is outside `touches` and has no new row for these bounds.
 
 ## Log

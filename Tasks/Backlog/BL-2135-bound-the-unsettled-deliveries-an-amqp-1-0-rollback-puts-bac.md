@@ -1,5 +1,5 @@
 ---
-id: BL-2128
+id: BL-2135
 title: Bound the unsettled deliveries an AMQP 1.0 rollback puts back on a live topic link
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2128 — Bound the unsettled deliveries an AMQP 1.0 rollback puts back on a live topic link
+# BL-2135 — Bound the unsettled deliveries an AMQP 1.0 rollback puts back on a live topic link
 
 ## Goal
 
