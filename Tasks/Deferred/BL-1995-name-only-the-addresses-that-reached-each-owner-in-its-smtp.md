@@ -72,3 +72,4 @@ wrong answer.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Deferred. Duplicate of BL-2000, which fixed this on 2026-11-27; look again only if the further tests its criteria name are wanted.

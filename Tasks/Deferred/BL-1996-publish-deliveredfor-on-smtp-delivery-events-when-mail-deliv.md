@@ -38,3 +38,4 @@ addresses. Stored bytes, the shared message file and the replies with the option
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Deferred. Duplicate of BL-2000, which sets DeliveredFor with the option off since 2026-11-27; look again only if the further tests its criteria name are wanted.

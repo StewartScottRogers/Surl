@@ -8,7 +8,7 @@ depends-on: [BL-1977, BL-1978]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2000 — Give each owner of an SMTP message only the envelope addresses that reached that owner
 
@@ -62,16 +62,36 @@ run backs it.
 
 ## Acceptance criteria
 
-- [ ] A test in `SmtpDeliveredToTests`, seen to fail before the fix, sends `RCPT` for Ann then for `team@` with the option on: Ann's inbox holds one copy with `Delivered-To` lines for Ann's address then `team@`, and Bob's one copy with the `team@` line only.
-- [ ] The partly overlapping aliases test expects the three copies in Context item 2, and failed on Ann's copy before the fix.
-- [ ] Tests show that each `Delivered` event's `DeliveredFor` holds exactly the paths, in `RCPT` order, that resolved to that event's owner, for the Ann then `team@` case, with the option on and with it off.
-- [ ] With the option off the stored bytes are unchanged (`ServeAsync_OptionOff_StoresTheBytesItAlwaysDid` passes), and with it on an owner over quota still stores nothing for any owner.
-- [ ] The `SmtpProtocolServer` delivery remarks, the paths method's doc comment and the library `CLAUDE.md` say that each owner has its own pending message naming only the paths that resolved to that owner.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary -warnaserror` is clean; `Surl.Protocol.Smtp.UnitTests` fast tests pass with 100% line and branch coverage of the change, none with `TestCategory=Integration`.
+- [x] A test in `SmtpDeliveredToTests`, seen to fail before the fix, sends `RCPT` for Ann then for `team@` with the option on: Ann's inbox holds one copy with `Delivered-To` lines for Ann's address then `team@`, and Bob's one copy with the `team@` line only.
+- [x] The partly overlapping aliases test expects the three copies in Context item 2, and failed on Ann's copy before the fix.
+- [x] Tests show that each `Delivered` event's `DeliveredFor` holds exactly the paths, in `RCPT` order, that resolved to that event's owner, for the Ann then `team@` case, with the option on and with it off.
+- [x] With the option off the stored bytes are unchanged (`ServeAsync_OptionOff_StoresTheBytesItAlwaysDid` passes), and with it on an owner over quota still stores nothing for any owner.
+- [x] The `SmtpProtocolServer` delivery remarks, the paths method's doc comment and the library `CLAUDE.md` say that each owner has its own pending message naming only the paths that resolved to that owner.
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary -warnaserror` is clean; `Surl.Protocol.Smtp.UnitTests` fast tests pass with 100% line and branch coverage of the change, none with `TestCategory=Integration`.
 
 ## Notes
+
+- Plan: the task's Context was the plan. `SmtpMailTransaction.DeliverablePerOwner` replaces `PathsReaching`: it splits
+  `Deliverable` into one `MailRecipient` per owner (`WithoutOwners`), each recording its own paths (`ForAddresses`).
+  `SmtpSession` delivers those recipients on both paths, so `DeliveredFor` is set with the option off (one shared
+  pending message, bytes unchanged) and on (one `MailOwnerCopy` and `Delivered-To` set per owner). No change to
+  `Surl.MailStore`, no new ADR: ADR-0053 Amendment 1 decisions 3, 4 and 7 already say this.
+- Default taken: the `Message stored: ... for N recipients` note still counts `Deliverable` elements.
+- With the option on, an alias's owners no longer share a message file, so each copy counts against the store's total
+  message bytes (ADR-0053 Amendment 1 decision 4).
+- Six new or changed test runs in `SmtpDeliveredToTests` failed before the fix and pass after it. The partly
+  overlapping aliases test is now `..._EachCopyNamesOnlyTheAddressesThatReachedItsOwner`.
+- Gates (2026-11-27): solution build clean, 30385 fast tests passed, SMTP fast tests 303 passed,
+  `Measure-CodeQuality.ps1 -Library Surl.Protocol.Smtp.UnitLibrary` 0 failing members, `dotnet format` clean on both
+  SMTP projects, `UpstreamCurlSendsMailToSurlOverSmtpTests` (pinned curl against a live surl) 39 passed.
+  No separate reviewer or conformance agent: no wire byte changes, and the diff was reviewed in the session.
+- BL-1995 and BL-1996, filed from BL-1978, ask for this same behaviour and are moved to Deferred as duplicates. They
+  name a few further tests (`RCPT` `bob@` then `team@`; option-off events for partly overlapping aliases; one alias
+  owner over quota) that were not written here.
+- The stale glossary row is BL-1999, already filed.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. Each SMTP owner's Delivered-To lines and delivery event DeliveredFor name only the RCPT paths that resolved to that owner.
