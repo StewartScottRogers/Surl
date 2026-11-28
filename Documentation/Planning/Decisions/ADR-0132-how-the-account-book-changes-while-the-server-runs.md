@@ -125,8 +125,11 @@ existing tools already say so.
 - **ADR-0185 decision 2**: its sentence naming "`ComposedControlTarget`'s replace-by-remove-then-add" as the
   password change is replaced. The decision says a password change retires nothing and leaves the mail owner as it
   is.
-- **`IControlTarget`'s member documents** ("or replaces the password of one with the same name") change with the
-  alignment work below.
+- **`IControlTarget`'s member documents** no longer say that an add "replaces the password of one with the same
+  name" (BL-1490, 2026-11-20): `AddAccountAsync`, `AddProxyAccountAsync` and `AddTlsSrpAccountAsync` say a name
+  that already has an account is refused `ControlRefusalKind.Conflict` and the account is kept, and
+  `SetAccountPasswordAsync`, `SetProxyAccountPasswordAsync` and `SetTlsSrpAccountPasswordAsync` say they give an
+  account a new password.
 
 ### Consequences
 
@@ -274,25 +277,36 @@ pointer here. The XML documents, the library's `CLAUDE.md` and `Surl.Api`'s READ
 ## Amendment 4 (2026-11-27, BL-1839): removing the last proxy account does not open the proxy
 
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in BL-1839.
-- **Why now:** `Surl.Composition`, `Surl.Api` and `surl-mcp` say a proxy with its last account removed "now needs no
-  login" (found by BL-1816). That is true of part of the proxy only, and the part it is true of is a defect.
-- **Status of the rule:** it is the rule the code is to follow. BL-1850 to BL-1853 build it; until they are done the
-  code does what the next section says.
+- **Why now:** `Surl.Composition`, `Surl.Api` and `surl-mcp` said a proxy with its last account removed "now needs no
+  login" (found by BL-1816). That was true of part of the proxy only, and the part it was true of was a defect.
+- **Status of the rule:** the code follows it as of 2026-11-28 (read in the source that day, not run). BL-1850 to
+  BL-1853, all done on 2026-11-27, built it; what the source did before them is the next section. Rule by rule:
 
-### What the source does (read on 2026-11-27, not run)
+  | Decision below | Followed on 2026-11-28? | Where in the code |
+  | --- | --- | --- |
+  | 1, the proxy keeps asking | yes | `AuthenticationComposition.ComposeProxyPolicy` sets `RequiresLoginWithoutAccounts` whenever `-U` or `--proxy-user-file`, an empty file included, was given |
+  | 2, what each request gets | yes, every row | `HttpAuthenticationSession` for the HTTP and HTTPS proxy; `Surl.Protocol.Socks` (`SocksExchange`, `Socks5Exchange`, `Socks5GssApiNegotiation`) asking `AuthenticationPolicy` for SOCKS |
+  | 3, `--allow-anonymous` | yes | `HttpAuthenticationSession.JudgeAnonymously`; `AuthenticationPolicy`'s password and Kerberos login checks |
+  | 4, open connections run on | yes | a tunnel or relay is judged only when it is set up; `HttpAuthenticationSession` keeps the connection's NTLM or Negotiate login |
+  | 5, getting in again | yes | the policy reads the changing proxy account book at each login; `RequiresLoginWithoutAccounts` is set at composition only; neither `-U` nor `--proxy-user-file` gives `NoAccountProxyAuthenticationPolicy` |
+  | 6, the warning | yes, on all three hosts, in the tool description and in the documents of `HasAccounts` and `Remove` | `ComposedControlTarget`, `SurlServerProxyAccounts`, `RemoveProxyAccountTool` |
+  | 7, the seam | yes, but its last sentence, which amendment 5 supersedes | `AuthenticationSettings.RequiresLoginWithoutAccounts`; `HttpAuthenticationSession.JudgeWithoutCredentials` |
+  | 8, upstream curl | yes: the `407` and the SOCKS refusals are the ones sent before | `HttpProxyExchange`; `SocksExchange`, `Socks5Reply` |
 
-- A proxy given `-U` or `--proxy-user-file` is composed with an `AuthenticationPolicy` over the proxy accounts
-  (`AuthenticationComposition.ComposeProxyPolicy`). Removing the last account leaves that policy over an empty book.
-  An empty `--proxy-user-file` at start composes the same thing
+### What the source did before the rule was built (read on 2026-11-27, not run)
+
+- A proxy given `-U` or `--proxy-user-file` was composed with an `AuthenticationPolicy` over the proxy accounts
+  (`AuthenticationComposition.ComposeProxyPolicy`). Removing the last account left that policy over an empty book.
+  An empty `--proxy-user-file` at start composed the same thing
   ([ADR-0165](ADR-0165-how-tls-srp-and-socks5-gss-api-logins-publish-login-judged-events-and-honour-refuse-login.md)
   amendment 1).
-- SOCKS stays closed: a client naming no account is refused, and every login is checked against the empty book.
-- The HTTP proxy opens for reads. `HttpAuthenticationSession.JudgeWithoutCredentials` challenges a request with no
-  credentials only when there is an account to log in to or the request is a write, and the proxy calls every method
-  but `GET` and `HEAD` a write. So with the book empty a `GET` or `HEAD` with no `Proxy-Authorization` is forwarded,
-  to an `http://` or `ftp://` origin, while a `CONNECT` is answered `407`.
-- So the warning is false of SOCKS, `CONNECT` and writes. It is true of the one case secure by default forbids:
-  removing accounts, which a test does to take access away, gives read access to everybody. That also breaks
+- SOCKS stayed closed: a client naming no account was refused, and every login was checked against the empty book.
+- The HTTP proxy opened for reads. `HttpAuthenticationSession.JudgeWithoutCredentials` challenged a request with no
+  credentials only when there was an account to log in to or the request was a write, and the proxy called every
+  method but `GET` and `HEAD` a write. So with the book empty a `GET` or `HEAD` with no `Proxy-Authorization` was
+  forwarded, to an `http://` or `ftp://` origin, while a `CONNECT` was answered `407`.
+- So the warning was false of SOCKS, `CONNECT` and writes. It was true of the one case secure by default forbids:
+  removing accounts, which a test does to take access away, gave read access to everybody. That also broke
   [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) decision 5: a proxy with
   accounts answers every request and every `CONNECT` without valid credentials with the `407`.
 
@@ -304,9 +318,9 @@ pointer here. The XML documents, the library's `CLAUDE.md` and `Surl.Api`'s READ
    plain proxy and the HTTPS proxy, over HTTP/1.x and HTTP/2. "No `Proxy-Authorization`" includes one of a method the
    proxy does not accept, the Basic row apart:
 
-   | Request | Answer | Against today |
+   | Request | Answer | Against 2026-11-27, before BL-1850 |
    | --- | --- | --- |
-   | HTTP proxy `GET` or `HEAD` (`http://` or `ftp://`), no `Proxy-Authorization` | `407 Proxy Authentication Required` with the offered challenges; no origin is connected | **changes:** forwarded today |
+   | HTTP proxy `GET` or `HEAD` (`http://` or `ftp://`), no `Proxy-Authorization` | `407 Proxy Authentication Required` with the offered challenges; no origin is connected | **changed:** forwarded then |
    | HTTP proxy `CONNECT`, no `Proxy-Authorization` | `407` with the offered challenges; no tunnel | same |
    | any other HTTP proxy method, no `Proxy-Authorization` | `407` with the offered challenges | same |
    | any HTTP proxy request with a `Proxy-Authorization` of an accepted method | never let in: `407`, after the refusal delay once the credentials are checked (an NTLM or Negotiate handshake's earlier legs are `407` as always) | same |
@@ -345,7 +359,9 @@ pointer here. The XML documents, the library's `CLAUDE.md` and `Surl.Api`'s READ
    When it is `true`, a request with no credentials is challenged even with no account to log in to and even when it
    is not a write; `--allow-anonymous` and a connection's NTLM or Negotiate login still come first.
    `ComposeProxyPolicy` sets it on the policy it builds over proxy accounts. `IsWrite` keeps its meaning, and
-   servers that are not proxies keep today's behaviour.
+   servers that are not proxies keep today's behaviour. *That last clause, about servers that are not proxies, is
+   superseded by
+   [Amendment 5 below](#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server).*
 8. **Upstream curl.** No new byte: the `407` and the SOCKS refusals are the ones already sent. ADR-0088 amendment 3
    measured pinned upstream curl 8.21.0 against the proxy's `407`: a forwarded `GET` without credentials ends with
    exit 0 and the `407`'s body printed, a `CONNECT` with exit 7, `CONNECT tunnel failed, response 407`.
@@ -375,38 +391,52 @@ reset, lets it back in.
 2. BL-1851: `Surl.Composition`: `ComposeProxyPolicy` sets it, and `ComposedControlTarget` writes the new line.
 3. BL-1852: `Surl.Api`: the line, the XML documents, the README and the library's `CLAUDE.md`.
 4. BL-1853: `Surl.Mcp.UnitLibrary`: the warning, the tool description and the library's documents.
-5. BL-1854 decides the same question for the server accounts, whose warning ("the server now needs no login") this
-   amendment does not change. [Amendment 5 below](#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)
+5. BL-1854 decides the same question for the server accounts, whose warning (then "the server now needs no login")
+   this amendment does not change. [Amendment 5 below](#amendment-5-2026-11-27-bl-1854-removing-the-last-account-does-not-open-the-server)
    is that decision.
 
 ## Amendment 5 (2026-11-27, BL-1854): removing the last account does not open the server
 
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-27, in BL-1854.
-- **Why now:** the control endpoint, `Surl.Api` and `surl-mcp` say a server with its last account removed "now needs
-  no login" (found by BL-1839). That is true of some reads only, and letting those reads through is a defect.
-- **Status of the rule:** it is the rule the code is to follow. BL-1863 to BL-1859 build it. Until then the code does
-  what the next section and each "today" entry below say.
+- **Why now:** the control endpoint, `Surl.Api` and `surl-mcp` said a server with its last account removed "now needs
+  no login" (found by BL-1839). That was true of some reads only, and letting those reads through was a defect.
 - **Supersedes:** the sentence of amendment 4 decision 7 that servers which are not proxies keep today's behaviour,
   and the "Removal" and "Alternative rejected" bullets of
   [ADR-0097](ADR-0097-how-the-coap-server-answers-coap-and-coaps.md) amendment 3.
+- **Status of the rule:** the code follows it as of 2026-11-28 (read in the source that day, not run). BL-1859 to
+  BL-1866, all done on 2026-11-27, built and documented it; what the source did before them is the next section and
+  each "before BL-1863" entry below. Rule by rule:
 
-### What the source does (read on 2026-11-27, not run)
+  | Decision below | Followed on 2026-11-28? | Where in the code |
+  | --- | --- | --- |
+  | 1, a scheme that has had an account keeps asking | yes | `AccountSet.HeldSchemes`, filtered by each scheme view; `AuthenticationSettings.IsLoginRequiredToRead` |
+  | 2, reset and restore | yes | `AccountStore.Reset` starts the held schemes again from the configured accounts, `Restore` takes the snapshot's |
+  | 3, requests with no credentials | yes, every row, and the two sentences after the table | `HttpAuthenticationSession.JudgeWithoutCredentials` for the HTTP, WebSocket, RTSP, `gs`, DNS over HTTPS and MCP servers; `CoapAccessRules` and `SecureCoapProtocolServer` for CoAP |
+  | 4, every other login and request | yes, every row | `AuthenticationPolicy`, its HTTP and SASL checks, `AccountBook.TryFindPreSharedKey`, `OciAccessCheck`, `McpAuthorizationGrants`; the servers of the last row are composed with no login |
+  | 5, `--allow-anonymous` | yes | the policy, the HTTP session and `CoapAccessRules` read it first, but for the checks the decision lists |
+  | 6, `--user-ldap` | yes | `IsLoginRequiredToRead` counts the directory; a password login asks it for a name `AccountBook.HoldsAccountNamed` does not find |
+  | 7, how the instance differs from one with no account | yes, as far as it states a rule of its own; the empty mail view of ADR-0185 Amendment 1, which it points to, is not built (BL-2129) | `ServerTlsComposition`, `ComposedStores.RemoveAccount` calling `MailboxStore.RetireOwner` |
+  | 8, the warning | yes: its condition, the three texts, the tool description and the documents of `HasAccounts` | `ComposedControlTarget`, `SurlServerAccounts`, `RemoveAccountTool` |
+  | 9, the seam | yes | `AccountSnapshot`, `IsLoginRequiredToRead`, `CoapAccessRules.IsLoginRequiredToRead`, `AccountBook.HasAccounts` |
+  | 10, upstream curl | yes: no status is new to a server with accounts | the servers' own `401`, `403` and `4.01` answers |
 
-- The policy stays an `AuthenticationPolicy` over the now empty account book. Every login checked against the book is
-  refused; with `--user-ldap` the directory may still accept a password login.
-- `HttpAuthenticationSession.JudgeWithoutCredentials` challenges a request with no credentials only when it is a write
-  or `AuthenticationSettings.HasAccountToLogInTo` finds an account in the server's scheme view, or a directory serving
-  the scheme. `CoapAccessRules` asks the same about `coap` before a read. So the reads an account protected are served
-  to anybody over `http`, `https`, `ws`, `wss`, `rtsp`, `gs`, DNS over HTTPS, `coap` and `coaps`, all but those in a
-  share with `--share-access` rows, which stays closed to anonymous callers (ADR-0102).
-- It is asked of a scheme view, so removing the last account allowed on a scheme opens that scheme's reads while
-  accounts restricted to other schemes remain, and no warning is written: the warnings look at the whole book.
-- On the removal that empties the book, the control endpoint and `Surl.Api` write
+### What the source did before the rule was built (read on 2026-11-27, not run)
+
+- The policy stayed an `AuthenticationPolicy` over the now empty account book. Every login checked against the book
+  was refused; with `--user-ldap` the directory could still accept a password login.
+- `HttpAuthenticationSession.JudgeWithoutCredentials` challenged a request with no credentials only when it was a
+  write or `AuthenticationSettings.HasAccountToLogInTo` found an account in the server's scheme view, or a directory
+  serving the scheme. `CoapAccessRules` asked the same about `coap` before a read. So the reads an account protected
+  were served to anybody over `http`, `https`, `ws`, `wss`, `rtsp`, `gs`, DNS over HTTPS, `coap` and `coaps`, all but
+  those in a share with `--share-access` rows, which stayed closed to anonymous callers (ADR-0102).
+- It was asked of a scheme view, so removing the last account allowed on a scheme opened that scheme's reads while
+  accounts restricted to other schemes remained, and no warning was written: the warnings looked at the whole book.
+- On the removal that emptied the book, the control endpoint and `Surl.Api` wrote
   `surl: warning: no account left; the server now needs no login`, or, with `--user-ldap`,
-  `surl: warning: no local account left; logins are now checked against the directory only`, which is not so on a
-  scheme the directory does not serve. `surl-mcp` writes `server <id> has no account left and now needs no login`,
+  `surl: warning: no local account left; logins are now checked against the directory only`, which was not so on a
+  scheme the directory did not serve. `surl-mcp` wrote `server <id> has no account left and now needs no login`,
   with `--user-ldap` too.
-- ADR-0097 amendment 3 says CoAP opens "as ADR-0132 decides for the other servers". ADR-0132 had decided no such
+- ADR-0097 amendment 3 said CoAP opens "as ADR-0132 decides for the other servers". ADR-0132 had decided no such
   thing before this amendment.
 
 ### The decision
@@ -424,7 +454,7 @@ reset, lets it back in.
    `--user-ldap` directory serves, after its last account is removed. "`401` or `403`" is `401` with the offered
    challenges, or `403` when no accepted method can be offered on the connection.
 
-   | Request with no credentials | Today | After BL-1863 |
+   | Request with no credentials | Before BL-1863 (2026-11-27) | Since BL-1863 |
    | --- | --- | --- |
    | HTTP `GET` or `HEAD` (`http`, `https`; HTTP/1.x, HTTP/2, h2c and HTTP/3) | served as an anonymous read | `401` or `403` |
    | HTTP write: every other method, known or not, a `PUT` under `--allow-uploads` included ([ADR-0180](ADR-0180-an-http-server-judges-the-login-before-the-method.md)) | `401` or `403` | same |
@@ -441,7 +471,7 @@ reset, lets it back in.
    A connection NTLM or Negotiate logged in keeps being served as that account (decision 8). A `coaps` peer with a
    certificate verified against `--cacert` stays authenticated, reads and writes, since no account makes it so.
 4. **Every other login and request**, without `--allow-anonymous` or a directory, after the last account is removed.
-   BL-1863 changes none of these answers but the one marked.
+   BL-1863 changed none of these answers but the one marked.
 
    | Login or request | Answer after the removal |
    | --- | --- |
@@ -452,7 +482,7 @@ reset, lets it back in.
    | An identity that must name an account: a Kerberos ticket (Negotiate, SASL `GSSAPI` and `GSS-SPNEGO`), SASL `EXTERNAL` | refused: no account has the name |
    | Signature: AWS Signature Version 4 (header, presigned URL, S3 chunks), Azure Storage Shared Key and shared access signature, `gs` V4 HMAC | refused: no such account |
    | `coaps` pre-shared key | the handshake fails: unknown identity |
-   | An HTTP read carrying credentials of a method `--auth` does not accept, which counts as none | **changes with BL-1863:** served today, `401` or `403` after |
+   | An HTTP read carrying credentials of a method `--auth` does not accept, which counts as none | **changed by BL-1863:** served before it, `401` or `403` since |
    | A token issued before: an `oci` token, an MCP access or refresh token | refused: its account is gone |
    | SSH `publickey` with a key `--authorized-keys` gives the user name | **still accepted** (decision 9): it logs in under that name, and a share granted to the name still admits it. A key is configuration, not an account |
    | A session already logged in, a DTLS session included | runs on (decision 8) |
@@ -482,7 +512,7 @@ reset, lets it back in.
    and never by a reset, a restore or a password change. A scheme losing its last account while others remain writes
    none, since nothing opens.
 
-   | Host | Text (after BL-1865 to BL-1859) |
+   | Host | Text (written since BL-1865, BL-1866 and BL-1859) |
    | --- | --- |
    | control endpoint (the line goes to the log; the `DELETE` still answers `204`) | `surl: warning: no local account left; the server still asks for a login wherever it did` |
    | `Surl.Api` (`SurlServerOptions.Log`; `Remove` still returns `true`) | the same line |

@@ -325,7 +325,7 @@ The store has two outcomes, so no server gains a new reply and no new byte reach
 
 | Server | Read denied (missing) | Write denied (`NotPermitted`) |
 | --- | --- | --- |
-| HTTP (and HTTP/2, HTTP/3) | `404 Not Found` (ADR-0008) | `405` for every `PUT` (ADR-0008; the HTTP server takes no uploads) |
+| HTTP (and HTTP/2, HTTP/3) | `404 Not Found` (ADR-0008) | a `PUT` the login lets in: under `--allow-uploads`, `403 Forbidden` ([ADR-0133](ADR-0133-how-surl-http-answers-range-and-stores-put-uploads.md) decision 2.3); without it, `405` with `Allow: GET, HEAD`, as every `PUT` is then (ADR-0008, ADR-0133 decision 2) |
 | FTP | `550` on `SIZE`/`RETR`/`CWD`/`LIST` (ADR-0052; curl 78, 19 or 9) | `550` on `STOR` (ADR-0052 row 18; curl 25) |
 | SFTP, SCP | `NO_SUCH_FILE` (curl 78); ADR-0054's SCP download refusal (curl 78) | `PERMISSION_DENIED` (curl 9); `\x01scp: <target>: Permission denied` (ADR-0054; curl 25) |
 | SMB | tree connect `ERRSRV/ERRinvnetname` or create `ERRDOS/ERRbadfile` (ADR-0073 rows 11, 14; curl 78) | `ERRDOS/ERRnoaccess` (ADR-0073; curl 9) |
@@ -339,7 +339,10 @@ The store has two outcomes, so no server gains a new reply and no new byte reach
 | CoAP | `4.04 Not Found` (RFC 7252 section 5.9.2.5) | `4.03 Forbidden` (RFC 7252 section 5.9.2.4) |
 
 Every original-server row is a reply its own ADR already measured against pinned upstream curl, with
-the exit code given there; each extended row cites its specification (ADR-0083).
+the exit code given there, but for the HTTP row's `403`, of which ADR-0133 records no measurement:
+measured on 2026-11-28 with `Record-CurlExchange.ps1` and the reference win-x64 curl 8.21.0, a `-T`
+upload answered `403` with `Content-Length: 0` writes nothing and exits 0. Each extended row cites its
+specification (ADR-0083).
 
 #### 2.4 `--bucket <name>=<path>`
 
@@ -446,8 +449,15 @@ while building 3.1 to 3.4 into `Surl.MessageBus.UnitLibrary`; recorded here by B
   `/` included, so `$queue/+` grants every queue and no queue name can escape a literal grant.
 - **The schemes `TopicNameLookup` knows** are the messaging schemes of ADR-0083's table with their
   TLS twins: `mqtt`, `mqtts`, `mqtt5`, `mqtt5s`, `mqtt5+ws`, `amqp`, `amqps`, `amqp1`, `amqp1s`,
-  `kafka`, `kafkas`, `nats`, `natss`, `stomp` and `stomps`. Redis pub/sub is left to BL-678, until its
-  channel naming is decided.
+  `kafka`, `kafkas`, `nats`, `natss`, `stomp` and `stomps`. BL-664 left Redis pub/sub to BL-678, until its
+  channel naming was decided. [ADR-0126](ADR-0126-how-redis-pub-sub-rides-the-shared-message-bus.md) (BL-678)
+  decided it, and since BL-866 (2026-11-12) the lookup knows `redis` and `rediss` too. Their default mapping
+  changes nothing, in either direction: a channel name is the canonical topic of the same text when it is a
+  canonical topic name (non-empty, at most 65535 UTF-8 bytes, no U+0000, `+` or `#`), and `InvalidName`
+  otherwise; a channel so refused, like one whose bytes are not valid UTF-8, stays inside the Redis server
+  (`RedisChannelNames`). A `--topic-map` alias applies on top, both ways, and a topic whose default channel name
+  is aliased to another topic is `Unreachable` (the BL-1703 amendment). A `PSUBSCRIBE` pattern is not mapped:
+  the Redis server matches it against the channel name of each topic it is delivered.
 - **A STOMP or AMQP 1.0 alias names a topic address.** In `--topic-map`, a name on `stomp` or `amqp1`
   is a `/topic/<t>` destination or address; queues are not aliased.
 - **Of two aliases with one target, the first is sent back.** Inbound each alias reaches its target;
