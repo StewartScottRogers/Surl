@@ -39,3 +39,4 @@ A client learns that a link's dynamic queue was deleted under it, instead of wai
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
