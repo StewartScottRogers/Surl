@@ -40,3 +40,4 @@ queue that gains a consumer before it can be replaced is answered `amqp:resource
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
