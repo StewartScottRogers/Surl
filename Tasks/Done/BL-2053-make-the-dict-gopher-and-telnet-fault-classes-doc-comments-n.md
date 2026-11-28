@@ -42,7 +42,7 @@ Found while working BL-2009 (2026-11-27), read from source. Doc comments only; n
 - Verified: `dotnet build -warnaserror` 0 warnings; `dotnet format --verify-no-changes` clean; fast tests 30655
   passed, 0 failed, 3 skipped; a diff filter found no changed non-comment line.
 - Related false or incomplete statements outside these criteria (including the TELNET `CLAUDE.md` "listener and scheme
-  only") are filed as BL-2065 and BL-2066.
+  only") are filed as BL-2069 and BL-2070.
 
 ## Log
 

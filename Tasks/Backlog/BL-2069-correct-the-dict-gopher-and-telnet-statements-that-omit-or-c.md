@@ -1,5 +1,5 @@
 ---
-id: BL-2065
+id: BL-2069
 title: Correct the DICT, Gopher and TELNET statements about fault rules and the fault point
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2065 — Correct the DICT, Gopher and TELNET statements about fault rules and the fault point
+# BL-2069 — Correct the DICT, Gopher and TELNET statements about fault rules and the fault point
 
 ## Goal
 

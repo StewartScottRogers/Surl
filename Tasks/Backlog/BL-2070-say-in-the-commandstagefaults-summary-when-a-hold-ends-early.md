@@ -1,5 +1,5 @@
 ---
-id: BL-2066
+id: BL-2070
 title: Say in the CommandStageFaults summary when a hold ends early and who ends a dropped exchange
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2066 — Say in the CommandStageFaults summary when a hold ends early and who ends a dropped exchange
+# BL-2070 — Say in the CommandStageFaults summary when a hold ends early and who ends a dropped exchange
 
 ## Goal
 
