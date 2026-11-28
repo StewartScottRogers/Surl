@@ -38,3 +38,4 @@ Found while working BL-2123 on 2026-11-28. See ADR-0185 decisions 2 and 6 and it
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
