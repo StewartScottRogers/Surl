@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md, Documentation/Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1988 — Add dated amendment notes to ADR-0099 and ADR-0103 naming StewartRogers86 as the nuget.org account
 
@@ -41,20 +41,28 @@ neither ADR.
 
 ## Acceptance criteria
 
-- [ ] ADR-0099 ends with a new amendment section, dated with the day it is written, saying that
+- [x] ADR-0099 ends with a new amendment section, dated with the day it is written, saying that
       the account named in "Amendment 2026-11-26 (2)" is wrong: the trusted publishing policy
       belongs to the nuget.org user `StewartRogers86`, and `StewartScottRogers` is the GitHub
       name.
-- [ ] ADR-0103 ends with a new dated amendment section saying the same of the account named in
+- [x] ADR-0103 ends with a new dated amendment section saying the same of the account named in
       "Amendment 5".
-- [ ] Each new note names commit `c65ad0895`, the `v0.1.12` release that pushed the package its
+- [x] Each new note names commit `c65ad0895`, the `v0.1.12` release that pushed the package its
       ADR is about (`Surly.Surl.Api` in ADR-0099, `Surly.Surl.Mcp` in ADR-0103) and BL-1797.
-- [ ] `git diff` of the two ADR files shows added lines only: no existing line is changed or
+- [x] `git diff` of the two ADR files shows added lines only: no existing line is changed or
       removed.
 
 ## Notes
+
+- 2026-11-27: `align-and-document` appended one section to each ADR, in each file's own heading
+  style ("Amendment 2026-11-27: ..." in ADR-0099, "Amendment 6 — ..." in ADR-0103).
+  `git diff` shows 10 added lines in each file and no changed or removed line.
+- The commit, release run and 401 facts come from this task's Context and the BL-1797 record.
+  `git show c65ad0895` was denied by the permission mode and not retried; `release.yml` in this
+  checkout does read `user: StewartRogers86`.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0099 and ADR-0103 each end with a dated amendment naming StewartRogers86 as the nuget.org account; build clean, fast tests green.
