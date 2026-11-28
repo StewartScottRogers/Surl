@@ -32,3 +32,4 @@ The XML remark on `LdapDirectoryFile` says who cannot change the directory, and 
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
