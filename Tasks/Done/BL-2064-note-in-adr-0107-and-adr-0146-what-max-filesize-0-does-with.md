@@ -8,7 +8,7 @@ depends-on: [BL-2044, BL-2063]
 touches: [Documentation/Planning/Decisions/ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md, Documentation/Planning/Decisions/ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2064 — Note in ADR-0107 and ADR-0146 what --max-filesize 0 does with held transaction bytes
 
@@ -34,14 +34,22 @@ bytes held in AMQP 1.0 transactions have no bound.
 
 ## Acceptance criteria
 
-- [ ] A dated note after BL-2044's `--max-filesize` note in ADR-0107 decision 7 says its third bullet no longer describes the code, and that under `--max-filesize 0` the held-bytes check applies no bound.
-- [ ] A dated note at ADR-0146 decision 1.7 says that under `--max-filesize 0` what a transaction holds has no byte bound, and that the 100-transaction limit bounds only how many are open.
-- [ ] ADR-0107's header list of amendments has a bullet for the new note.
-- [ ] The diff to both ADRs only adds lines.
+- [x] A dated note after BL-2044's `--max-filesize` note in ADR-0107 decision 7 says its third bullet no longer describes the code, and that under `--max-filesize 0` the held-bytes check applies no bound.
+- [x] A dated note at ADR-0146 decision 1.7 says that under `--max-filesize 0` what a transaction holds has no byte bound, and that the 100-transaction limit bounds only how many are open.
+- [x] ADR-0107's header list of amendments has a bullet for the new note.
+- [x] The diff to both ADRs only adds lines.
 
 ## Notes
+
+- Delivered by `align-and-document`. Checked against `Hold` (BL-2063: refuses only when `MaxUploadBytes > 0`),
+  `Amqp1Transaction.Hold` (no cap) and `MaxOpenTransactions` (100). `git diff --numstat`: 10 added, 0 removed per ADR.
+- `dotnet build` clean (0 warnings) and the fast tests pass.
+- Filed BL-2080: empty postings add no held bytes, so under any limit the number of held messages is uncapped (read
+  from the code, not tested). It also corrects ADR-0146 decision 1.4's "answered `rejected`" wording. Filed with the
+  board script directly rather than through `task-planner`, as it is one task.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. ADR-0107 and ADR-0146 carry dated notes saying held AMQP 1.0 transaction bytes have no bound under --max-filesize 0
