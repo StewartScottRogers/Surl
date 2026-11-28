@@ -606,3 +606,117 @@ right does not cover.
   routing key, which through a fanout or headers exchange can be any text, so a message could pass the
   check without the right the check stands for. It would also run on every message taken, and a sender
   would be answered as if a message the subscriber never receives had been taken.
+
+## Amendment 7 (BL-2048, 2026-11-28): a queue's messages go only to links that can send them
+
+Decided by Claude under Stewart's delegation.
+
+A queue link consumes with 1000 unacknowledged (`MaxWaitingDeliveries`), and the bus chooses among a
+queue's consumers by that room and their predicates alone (`NamedQueue.NextConsumerWithRoomFor`). So a
+link with no credit takes its round-robin share, which waits on it until it grants credit or ends. A
+temporary MSTest test in `Surl.Extended.Protocol.Amqp1.UnitTests`, run on 2026-11-28 and not kept,
+showed it, each case on one connection with two links on one queue:
+
+- With link 1 granted credit 10, link 0 granted none and four messages then published, link 1 was sent
+  `two` and `four` and link 0 nothing, on a `/queue/` address, on a shared kept subscription and on a
+  non-durable shared one.
+- With four messages queued before either `/queue/` link attached, link 1, granted credit 10, was sent
+  nothing: the queue counted two consumers and no ready message, and all four were ready again once the
+  connection ended.
+- A link whose credit went back to 0, withdrawn by a `flow` or used up by a drain, still took `one` and
+  `three`.
+
+Part 2 section 2.6.7 (link flow control) limits what a sender may send on one link by that link's
+credit, and has `drain` use the credit up or give it back. Which of several links a queue's message goes
+to is the node's choice, and this is Surl's. BL-2065 builds the bus part and BL-2066 the container part;
+until both are done the code behaves as the test showed.
+
+1. **The rule.** A message of a queue or subscription queue never waits on a link that cannot send it.
+   A link can send when it has link credit, its session's remote `incoming-window` is above 0 and it
+   holds fewer than 1000 unsettled deliveries. A message no consumer can take stays **ready** in the
+   queue. Among the consumers that can, those of other protocols with room included, round robin runs as
+   before among those whose predicate accepts the message (decision 2.4). It is one rule for every link
+   that consumes a bus queue: `/queue/` and dynamic nodes, and kept subscriptions, shared or not, and
+   non-durable shared ones, even while a queue has one consumer. A live topic link is unchanged: it has
+   its own copy, nothing competes for it, and up to 1000 wait on it (ADR-0107 decision 5).
+2. **What `Surl.MessageBus` adds (BL-2065): a consumer's delivery credit.**
+   - `BusQueueConsumer.SetDeliveryCredit(uint)` sets the most deliveries the bus holds for the consumer
+     that it has not yet claimed. A consumer never given a credit behaves exactly as before.
+   - The bus assigns a message to such a consumer only while it has room as before **and** holds fewer
+     than its credit, and calls its callback as before, which tells the caller only that a delivery is
+     held. A held delivery counts as unacknowledged, is not marked handed out, publishes no `Delivered`
+     change and cannot yet be acknowledged or rejected (`UnknownDeliveryTag`).
+   - `BusQueueConsumer.TryClaimDelivery` takes the held delivery assigned first: it lowers the credit by
+     one, marks the message handed out, publishes `Delivered`, and answers `false` when none is held.
+     From then on the delivery is settled as any other.
+   - Lowering the credit below the number held puts those assigned last back at their places, with no
+     change published, and dispatches the queue again. A held delivery that goes back, for that or
+     because the consumer ends or recovers, keeps the redelivered mark it had before it was assigned,
+     and one persisted or snapshotted is saved with that mark.
+   - `PublishToQueue(..., onlyWhenConsumed: true)` and `PublishToConsumedQueues` count a consumer only
+     when it could be assigned the message, so one with no credit left is not ready.
+3. **What the container does (BL-2066).**
+   - Each queue and subscription-queue consumer is given credit 0 before it starts. Whenever the link's
+     credit, its session's window or its count of unsettled deliveries changes, its consumer is given
+     the link's credit, or 0 while the window is 0 or the link holds 1000 unsettled. (The bus's
+     `maxUnacknowledged` does not cover the last: a delivery the client has stated an outcome for but
+     not settled has left the bus and still counts on the link.)
+   - A delivery is claimed only as the container starts writing it, so a queue delivery no longer waits
+     in `Amqp1Link.Waiting`, which serves live topic links only. The one partly written when the window
+     closes has been claimed and is finished as the window opens.
+   - On a subscription queue the filters run on the claimed delivery (decision 3.2). One they refuse, or
+     the client cannot name, is acknowledged, uses no link credit, and the consumer is given the link's
+     credit again. Such a message so stays in the queue until a link able to send reaches it.
+   - **Drain.** Setting the credit assigns, under the bus's lock, what the queue has ready for the link
+     up to that credit, and the container claims and sends until none is held, so a drain cannot answer
+     ahead of a delivery still on its way from another thread. It then gives back what credit is left and
+     sets the consumer's to 0. As today, a drain while the link cannot send gives the credit back; the
+     messages stay ready.
+   - The `available` field of the container's `flow` for such a link is the queue's ready message count
+     (`InspectQueue`), a hint that counts messages the link's filters would refuse.
+4. **What does not change.** Settlement and outcomes, and `released`, `modified` and a rollback returning
+   a sent delivery marked redelivered. Transactional acquisition (decision 1.5) takes a delivery as it is
+   sent, which is the claim: a held one is in no transaction. A queue source is answered
+   `distribution-mode` `move` whatever was asked, so no link browses. AMQP 0-9-1 and STOMP set no
+   credit, so a queue only they consume behaves as before. Exclusive consumes, `ifUnused`, auto-delete
+   and consumer counts count a link with no credit as a consumer.
+5. **What other callers now see** on a queue an AMQP 1.0 link consumes without being able to send: the
+   messages are ready, so `basic.get` takes them, `queue.purge` removes them, a declare's message count
+   includes them and they expire as any ready message does; `basic.publish` `immediate` (ADR-0112
+   decision 6) no longer counts that link as able to take a message. A client that grants credit and
+   stops reading its socket still holds at most that credit's worth.
+6. **This amends** decision 2.4 (round robin is among the consumers that accept the message **and** can
+   take it), decision 3.2 (when a refused message is acknowledged), Amendment 4 item 2 (what has not been
+   sent waits in the queue, not on a link, and is not marked redelivered when a link ends) and ADR-0107
+   decision 5's "From a queue" bullet with its BL-1990 note (no delivery waits for credit on a queue
+   link). ADR-0107 points here once BL-2066 edits it.
+7. **Stand-in.** A test with two consumers of one queue gets every message on the one that is receiving,
+   as it would from a broker. What nobody can take stays visible on the shared bus, where a test can
+   browse it or another protocol take it; `Delivered` on the event stream means claimed for sending.
+   Nothing new is random: the same frames in the same order give the same assignment, and a backlog goes
+   first to the link that grants credit first. No new option or fault.
+
+### Alternatives considered (Amendment 7)
+
+- **Leaving messages to wait on a link with no credit.** The sender has broken no rule of Part 2, but a
+  second consumer waits for ever for a message the queue was given, which a test cannot tell from a lost
+  one.
+- **The link rejecting with requeue what it cannot send.** The bus still sees room on that link and may
+  hand the message straight back, it comes back marked redelivered though never sent, and `Delivered` is
+  published for each round.
+- **A credit the bus counts down as it hands deliveries over, with no claim.** Credit withdrawn, or a
+  window closed, after the hand-over leaves the message on the link; and a drain can answer before the
+  delivering thread has brought the message, telling the client the queue was empty.
+- **The link pulling one message when it can send, as a get does.** Which link got a message would depend
+  on which connection's sender ran first, one link could empty the queue before the next was asked, and
+  the bus could not tell whether a consumer is ready for `immediate`.
+- **Setting `maxUnacknowledged` from the link credit.** It bounds unsettled deliveries, which credit does
+  not: one already sent and unsettled would use up room a new credit grants, and the race of the
+  hand-over stays.
+- **A predicate that refuses while the link has no credit.** A predicate must be pure, the bus is not
+  told when its answer changes, so nothing is dispatched again, and it cannot count down within one
+  dispatch.
+- **Link credit alone, ignoring the session window.** A link with credit in a session whose window is 0
+  would keep messages from the other links in the same way.
+- **The rule only while a queue has several consumers.** Another consumer, or a `basic.get`, can come at
+  any time, and a second path would hold messages out of its reach until then.
