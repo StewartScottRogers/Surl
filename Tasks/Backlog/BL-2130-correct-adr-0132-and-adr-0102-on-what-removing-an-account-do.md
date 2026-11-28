@@ -1,5 +1,5 @@
 ---
-id: BL-2128
+id: BL-2130
 title: Correct ADR-0132 and ADR-0102 on what removing an account does to its mail
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2128 — Correct ADR-0132 and ADR-0102 on what removing an account does to its mail
+# BL-2130 — Correct ADR-0132 and ADR-0102 on what removing an account does to its mail
 
 ## Goal
 
@@ -31,7 +31,7 @@ Found while working BL-2123 on 2026-11-28. See ADR-0185 decisions 2 and 6 and it
 
 - [ ] ADR-0132 no longer says a password change retires or re-reaches the mail owner.
 - [ ] ADR-0132 amendment 5 says which removed accounts the mail store retires.
-- [ ] ADR-0102 names ADR-0185 Amendment 1 as amending decision 1.6 and says it is not yet built, or, if BL-2127 is done by then, that it is built.
+- [ ] ADR-0102 names ADR-0185 Amendment 1 as amending decision 1.6 and says it is not yet built, or, if BL-2129 is done by then, that it is built.
 
 ## Notes
 

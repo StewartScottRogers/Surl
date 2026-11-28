@@ -1,5 +1,5 @@
 ---
-id: BL-2127
+id: BL-2129
 title: Give a removed account's name an empty mail view, shared folders included
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2127 — Give a removed account's name an empty mail view, shared folders included
+# BL-2129 — Give a removed account's name an empty mail view, shared folders included
 
 ## Goal
 

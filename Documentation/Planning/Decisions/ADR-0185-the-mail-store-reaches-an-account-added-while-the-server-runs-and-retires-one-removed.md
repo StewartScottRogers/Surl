@@ -12,7 +12,7 @@
 - **Acted on by:** BL-1451 (`Surl.MailStore`), then BL-1452 (`Surl.Composition`).
 - **Amended by:** [Amendment 1 below](#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)
   (2026-11-28, BL-2123: decision 2 says what a retired name still reaches, decision 7 says which adds count, and a
-  removed account is to keep no mail view, shared folders included; that rule is not yet built, BL-2127).
+  removed account is to keep no mail view, shared folders included; that rule is not yet built, BL-2129).
 
 ## Context
 
@@ -126,7 +126,7 @@ stop a list's mail to everyone.
 ## Amendment 1 (2026-11-28, BL-2123): a removed account keeps no mail view, shared folders included
 
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-28, in BL-2123.
-- **State:** the rule below is intent, **not yet built** (BL-2127). Until it is, the code behaves as "As the code
+- **State:** the rule below is intent, **not yet built** (BL-2129). Until it is, the code behaves as "As the code
   is" says.
 - **Why now:** BL-2116 found that decision 2 said more than the code does: a retired shared-folder member still
   reaches its shared folders, and no decision said whether it should.
