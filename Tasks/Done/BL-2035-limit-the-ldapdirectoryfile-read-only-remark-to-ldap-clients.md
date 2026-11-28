@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary/LdapDirectoryFile.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-28
 ---
 # BL-2035 — Limit the LdapDirectoryFile read-only remark to LDAP clients
 
@@ -23,13 +23,18 @@ The XML remark on `LdapDirectoryFile` says who cannot change the directory, and 
 
 ## Acceptance criteria
 
-- [ ] The remark says LDAP clients cannot change the directory while serving, that the host can change it in memory only (ADR-0158), and still that the file is read once at start, never written, and that a missing file is an empty directory.
-- [ ] Only the XML comment in that one file changes.
-- [ ] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean.
+- [x] The remark says LDAP clients cannot change the directory while serving, that the host can change it in memory only (ADR-0158), and still that the file is read once at start, never written, and that a missing file is an empty directory.
+- [x] Only the XML comment in that one file changes.
+- [x] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- The remark names `SeedDirectoryEntries`, `ResetDirectory` and `RestoreDirectory` with `<see cref>`, so the build fails if one is renamed.
+- Verified 2026-11-28: solution build 0 warnings, `dotnet format --verify-no-changes` clean, fast tests 30641 passed, 0 failed, 3 skipped (83 assemblies). Integration tests not run: only an XML comment changed.
+- The same unqualified wording in `LdapProtocolServer`'s summary and the LDAP library's `CLAUDE.md` is outside this task: filed as BL-2060.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The LdapDirectoryFile remark limits read-only to LDAP clients and says the host can change the directory in memory only (ADR-0158).

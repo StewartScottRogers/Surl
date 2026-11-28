@@ -9,8 +9,11 @@ namespace Surl.Protocol.Ldap;
 /// <c>&lt;data directory&gt;/.surl/ldap</c> when surl serves with <c>--directory</c>.
 /// </summary>
 /// <remarks>
-/// It is read once, at start, and never written: the directory is read-only while serving. A
-/// missing file is an empty directory.
+/// It is read once, at start, and never written. LDAP clients cannot change the directory while
+/// serving; the host can, in memory only (ADR-0158):
+/// <see cref="LdapProtocolServer.SeedDirectoryEntries"/>,
+/// <see cref="LdapProtocolServer.ResetDirectory"/> and
+/// <see cref="LdapProtocolServer.RestoreDirectory"/>. A missing file is an empty directory.
 /// </remarks>
 public sealed class LdapDirectoryFile
 {
