@@ -52,3 +52,4 @@ Stand-in: nothing to add; documentation only, with no store, event, seed, reset 
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
