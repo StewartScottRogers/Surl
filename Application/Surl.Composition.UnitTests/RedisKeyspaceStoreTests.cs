@@ -68,6 +68,20 @@ public sealed class RedisKeyspaceStoreTests
     }
 
     [TestMethod]
+    public async Task Stores_ResetAsync_KeepsAKeySeededToBeKeptAndDropsOneSeededWithoutTheFlag()
+    {
+        var (serving, _) = await ComposeAsync();
+        await using var running = serving;
+        await running.Stores.SeedKeyAsync(0, "kept"u8.ToArray(), "yes"u8.ToArray(), null, keepOnReset: true, TestContext.CancellationToken);
+        await running.Stores.SeedKeyAsync(0, "dropped"u8.ToArray(), "no"u8.ToArray(), null, TestContext.CancellationToken);
+
+        await running.Stores.ResetAsync(StoreKind.Keyspace, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual("yes"u8.ToArray(), running.Stores.ReadKey(0, "kept"u8.ToArray()).Value!.Value!.Value.ToArray());
+        Assert.AreEqual(ComposedReadOutcome.NotFound, running.Stores.ReadKey(0, "dropped"u8.ToArray()).Outcome);
+    }
+
+    [TestMethod]
     public async Task Stores_TakeSnapshotAsync_CountsTheKeyspaceAgainstTheSnapshotBound()
     {
         var (serving, _) = await ComposeAsync();

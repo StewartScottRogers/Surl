@@ -516,7 +516,7 @@ public sealed partial class ComposedStores
 
     /// <summary>
     /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does: never consults the
-    /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3).
+    /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3). A reset drops it.
     /// </summary>
     /// <param name="database">The database, 0 to 15.</param>
     /// <param name="key">The key, at least 1 byte.</param>
@@ -528,11 +528,32 @@ public sealed partial class ComposedStores
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
     /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full, or this
     /// instance composes no Redis server.</exception>
-    public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken)
+    public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken) =>
+        SeedKeyAsync(database, key, value, expiry, keepOnReset: false, cancellationToken);
+
+    /// <summary>
+    /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does, saying whether a
+    /// reset of <see cref="StoreKind.Keyspace"/> returns to it: never consults the fault plan; publishes
+    /// <see cref="StoreChange.Seeded"/> (ADR-0158 decisions 3 and 4).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key, at least 1 byte.</param>
+    /// <param name="value">The value.</param>
+    /// <param name="expiry">How long the key lives, or <see langword="null"/> for no expiry.</param>
+    /// <param name="keepOnReset">Whether a reset writes the key back, with this value and <paramref name="expiry"/>
+    /// measured from the reset; <see langword="false"/> means a reset drops it.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the key is written.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
+    /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full,
+    /// <paramref name="keepOnReset"/> is set and the kept keys have reached the keyspace's bounds, or this
+    /// instance composes no Redis server.</exception>
+    public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, bool keepOnReset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var keyspace = redisKeyspace ?? throw new InvalidOperationException("This instance holds no Redis keyspace.");
-        keyspace.SeedKey(database, key, value, expiry);
+        keyspace.SeedKey(database, key, value, expiry, keepOnReset);
         return Task.CompletedTask;
     }
 
@@ -546,11 +567,27 @@ public sealed partial class ComposedStores
     /// <returns>A task that completes once the zone is added.</returns>
     /// <exception cref="DnsZoneFileException">The text cannot be a zone, a zone with the apex is held, or the bounds would be passed.</exception>
     /// <exception cref="InvalidOperationException">This instance composes no DNS server.</exception>
-    public Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken)
+    public Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken) =>
+        SeedZoneAsync(apex, zoneFileText, keepOnReset: false, cancellationToken);
+
+    /// <summary>
+    /// Adds one zone to the DNS zones as <see cref="DnsZoneSet.SeedZone"/> does, saying whether a reset of
+    /// <see cref="StoreKind.Zones"/> returns to it: never consults the fault plan; publishes
+    /// <see cref="StoreChange.Seeded"/> named for the apex (ADR-0158 decisions 3 and 4).
+    /// </summary>
+    /// <param name="apex">The zone's apex, a domain name with or without its final dot.</param>
+    /// <param name="zoneFileText">The zone file's text, at most <see cref="DnsZoneSet.MaxSeedTextBytes"/> bytes.</param>
+    /// <param name="keepOnReset">Whether a reset returns to a set holding this zone too, beside the zones loaded
+    /// at start; <see langword="false"/> means a reset drops it. No file is written either way.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the zone is added.</returns>
+    /// <exception cref="DnsZoneFileException">The text cannot be a zone, a zone with the apex is held, or the bounds would be passed.</exception>
+    /// <exception cref="InvalidOperationException">This instance composes no DNS server.</exception>
+    public Task SeedZoneAsync(string apex, string zoneFileText, bool keepOnReset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var zones = dnsZones ?? throw new InvalidOperationException("This instance holds no DNS zones.");
-        zones.SeedZone(apex, zoneFileText);
+        zones.SeedZone(apex, zoneFileText, keepOnReset);
         return Task.CompletedTask;
     }
 
@@ -610,7 +647,7 @@ public sealed partial class ComposedStores
     /// <summary>
     /// Adds LDIF content records to the LDAP directory, all or none, as
     /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/> does: never consults the fault plan; publishes
-    /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decision 3).
+    /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decision 3). A reset drops them.
     /// </summary>
     /// <param name="ldif">LDIF content records (RFC 2849), at most 16 MiB.</param>
     /// <param name="cancellationToken">Cancels the seed before it starts.</param>
@@ -618,11 +655,29 @@ public sealed partial class ComposedStores
     /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add, or this
     /// instance composes no LDAP directory.</exception>
-    public Task SeedEntriesAsync(string ldif, CancellationToken cancellationToken)
+    public Task SeedEntriesAsync(string ldif, CancellationToken cancellationToken) =>
+        SeedEntriesAsync(ldif, keepOnReset: false, cancellationToken);
+
+    /// <summary>
+    /// Adds LDIF content records to the LDAP directory, all or none, as
+    /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/> does, saying whether a reset of
+    /// <see cref="StoreKind.Directory"/> returns to them: never consults the fault plan; publishes
+    /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decisions 3 and 4).
+    /// </summary>
+    /// <param name="ldif">LDIF content records (RFC 2849), at most 16 MiB.</param>
+    /// <param name="keepOnReset">Whether a reset returns to a directory holding these entries too, beside the
+    /// entries loaded at start; they must then be addable to that directory, parents included.
+    /// <see langword="false"/> means a reset drops them. No file is written either way.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the entries are added.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory, or for a kept seed
+    /// the directory a reset returns to, can add, or this instance composes no LDAP directory.</exception>
+    public Task SeedEntriesAsync(string ldif, bool keepOnReset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var server = ldapServer ?? throw new InvalidOperationException("This instance holds no LDAP directory.");
-        server.SeedDirectoryEntries(ldif);
+        server.SeedDirectoryEntries(ldif, keepOnReset);
         return Task.CompletedTask;
     }
 

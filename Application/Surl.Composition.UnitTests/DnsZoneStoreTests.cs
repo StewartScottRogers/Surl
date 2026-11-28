@@ -71,6 +71,22 @@ public sealed class DnsZoneStoreTests
     }
 
     [TestMethod]
+    public async Task Stores_ResetAsync_KeepsAZoneSeededToBeKeptAndDropsOneSeededWithoutTheFlag()
+    {
+        var (serving, _) = await ComposeAsync();
+        await using var running = serving;
+        await running.Stores.SeedZoneAsync("example.com", ExampleZone, keepOnReset: true, TestContext.CancellationToken);
+        await running.Stores.SeedZoneAsync(
+            "dropped.test",
+            ExampleZone.Replace("example.com", "dropped.test", StringComparison.Ordinal),
+            TestContext.CancellationToken);
+
+        await running.Stores.ResetAsync(StoreKind.Zones, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new[] { "example.com." }, running.Stores.ListZoneApexes().ToArray());
+    }
+
+    [TestMethod]
     public async Task Registration_Reset_ReturnsToTheZonesLoadedFromTheDirectory()
     {
         var zones = new DnsZoneSet();

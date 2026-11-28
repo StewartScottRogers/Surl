@@ -74,6 +74,39 @@ public sealed class ServedStoresTests
     }
 
     [TestMethod]
+    public async Task SeedKeyAsync_KeptOnResetWithOnlyAnHttpListenUrl_IsRefusedAsHoldingNoKeyspace()
+    {
+        await using var serving = await StartAsync("http://127.0.0.1:0/");
+
+        var refusal = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => serving.Stores.SeedKeyAsync(0, new byte[1], new byte[1], null, keepOnReset: true, TestContext.CancellationToken));
+
+        Assert.AreEqual("This instance holds no Redis keyspace.", refusal.Message);
+    }
+
+    [TestMethod]
+    public async Task SeedEntriesAsync_KeptOnResetWithOnlyAnHttpListenUrl_IsRefusedAsHoldingNoDirectory()
+    {
+        await using var serving = await StartAsync("http://127.0.0.1:0/");
+
+        var refusal = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => serving.Stores.SeedEntriesAsync(Ldif, keepOnReset: true, TestContext.CancellationToken));
+
+        Assert.AreEqual("This instance holds no LDAP directory.", refusal.Message);
+    }
+
+    [TestMethod]
+    public async Task SeedZoneAsync_KeptOnResetWithOnlyAnHttpListenUrl_IsRefusedAsHoldingNoZones()
+    {
+        await using var serving = await StartAsync("http://127.0.0.1:0/");
+
+        var refusal = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => serving.Stores.SeedZoneAsync("example.com.", Zone, keepOnReset: true, TestContext.CancellationToken));
+
+        Assert.AreEqual("This instance holds no DNS zones.", refusal.Message);
+    }
+
+    [TestMethod]
     public async Task RegisteredStoreOrder_ForAnHttpOnlyInstance_HoldsNoKeyspaceDirectoryOrZones()
     {
         await using var serving = await StartAsync("http://127.0.0.1:0/");
