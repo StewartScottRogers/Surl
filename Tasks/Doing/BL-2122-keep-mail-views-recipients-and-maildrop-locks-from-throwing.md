@@ -48,3 +48,4 @@ Stand-in (root `CLAUDE.md`): a test resets the store between scenarios while cli
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
