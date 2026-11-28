@@ -39,3 +39,4 @@ The LDAP server can seed entries as part of its directory's configured state, so
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
