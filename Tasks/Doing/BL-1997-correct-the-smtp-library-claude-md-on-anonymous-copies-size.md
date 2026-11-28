@@ -41,3 +41,4 @@ Found while working BL-1978 (2026-11-27). Prose only. Code files are in the same
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
