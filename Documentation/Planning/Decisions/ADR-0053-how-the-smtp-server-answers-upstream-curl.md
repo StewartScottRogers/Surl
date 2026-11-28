@@ -10,6 +10,14 @@
   (the logins) and [ADR-0050](ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md)
   (the store, recipients and the line machinery) are applied as written. No contract in
   `Surl.Protocol.Abstractions` changes.
+- **Amended by:**
+  [Amendment 1](#amendment-1-2026-11-20-a-delivered-copy-can-name-the-envelope-recipient-it-was-delivered-for)
+  (2026-11-20, BL-1487): the opt-in `Delivered-To` field and the delivery event's `DeliveredFor`;
+  [Amendment 2](#amendment-2-2026-11-27-354-and-334-carry-no-enhanced-status-code) (2026-11-27,
+  BL-1979): `354` and `334` carry no enhanced status code;
+  [Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored)
+  (2026-11-28, BL-2066): the `Message stored` note is to count the copies stored, and is not to be
+  written when none is.
 
 ## Context
 
@@ -358,7 +366,7 @@ each way are the engine's `BytesReceived`/`BytesSent` lines, as for every server
 
 | When | Note |
 | --- | --- |
-| A message stored | `Message stored: <n> bytes for <k> recipients` (`<k>` the owners it reached) |
+| A message stored | `Message stored: <n> bytes for <k> recipients`. [Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored) decides that `<k>` is to be the copies stored, and that no such note is to be written when none is; BL-2077 is to build that. On 2026-11-28 the server writes `<k>` as the number of `SmtpMailTransaction.Deliverable` entries, and writes the note with `0` when every recipient is discarded |
 | A recipient that names no account | `Mail for <address> discarded: no such account` (ADR-0050 decision 5) |
 | Past the size limit | `Message refused: past --max-filesize after <n> bytes` |
 | The store full | `Message refused: the mail store is full` |
@@ -544,3 +552,68 @@ not 3xx ones. The `501 Syntax: EHLO <domain>` (`HELO`) replies also carry none, 
 sentence's existing exception, since they are replies to `EHLO` and `HELO`. Apart from the greeting,
 the replies to `EHLO` and `HELO`, `354` and `334`, every fixed reply in `SmtpReplies` starts with an
 enhanced status code.
+
+## Amendment 3 (2026-11-28): what the `Message stored` note counts, and no note when nothing is stored
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-28, in
+  BL-2066.
+- **Amends:** decision 8's "A message stored" row. No reply, stored byte or event changes, so no
+  upstream curl measurement is needed. It replaces the default recorded in the notes of BL-767,
+  BL-2000 and the deferred BL-1995, that `<k>` counts `SmtpMailTransaction.Deliverable` entries.
+
+### What the code did on 2026-11-28
+
+`SmtpSession.DeliverAsync` writes the note after every delivery the store answers `Succeeded`,
+after any `discarded: no such account` notes. `<n>` is the length in bytes (trace fields and body)
+of the longest pending message. `<k>` is `SmtpMailTransaction.Deliverable.Count`, a count of
+recipient entries: an alias is one entry however many owners it names. When every accepted `RCPT`
+is discarded, a pending message that passes the store's checks is answered `Succeeded` with nothing
+stored, and the note says `for 0 recipients`.
+
+### Decision
+
+1. **`<k>` is to be the number of copies the delivery stored.** That is one for each named owner
+   reached, however many `RCPT`s, aliases or catch-alls reached it, and under `--allow-anonymous`
+   one for each accepted `RCPT`, a repeated address included, all in the anonymous `INBOX`. It is
+   the number of recipients `SmtpMailTransaction.DeliverablePerOwner()` gives, and the number of
+   delivery `StoreChangedEvent`s the message publishes, with or without `--mail-delivered-to`. A
+   "recipient" in this note is the recipient of one copy.
+2. **No `Message stored` note is to be written when `<k>` would be 0.** The note
+   `Mail for <address> discarded: no such account`, one for each accepted `RCPT`, is then the whole
+   record, and the reply stays `250 2.0.0 Message accepted`. A log is then to hold a
+   `Message stored` note only when at least one copy was stored.
+3. **The text and `<n>` stay.** `1 recipients` is written as it is now.
+
+With `team@` naming Ann and Bob, and `pair@` naming Bob and Cat:
+
+| Accepted `RCPT`s | `<k>` in the code on 2026-11-28 | `<k>` decided |
+| --- | --- | --- |
+| `team@` | 1 | 2 |
+| `team@`, then `pair@` | 2 | 3 |
+| two, under `--allow-anonymous` | 2 | 2 (the anonymous owner, two copies) |
+| only addresses that name no account | 0 | no note |
+| one named account, by two accepted `RCPT`s | 1 | 1 |
+
+### Why
+
+- A test using surl as a stand-in reads the note beside what it can check: the new messages in the
+  mailboxes and the delivery events. The decided count equals both. The count of 2026-11-28, of
+  recipient entries, need not equal either, nor the `RCPT`s accepted: `team@` gives 1 for two
+  copies stored, and one account named twice gives 1 for two `RCPT`s. So the code is to change
+  rather than this ADR to follow it.
+- Decision 8's "the owners it reached" gives the same number for named accounts, but would say 1 for
+  two messages stored in the anonymous `INBOX` under `--allow-anonymous`.
+- `Message stored` with nothing stored is untrue. The discard notes already say what happened to
+  each recipient, so leaving the note out needs no second text.
+
+### Not chosen
+
+- **Accepted `RCPT`s**: each reply already shows them, and one `RCPT` to `team@` stores two copies.
+- **Distinct owners**: wrong for the anonymous owner, as above.
+- **`copies` in place of `recipients`**: a new text that tells a reader nothing more once `<k>` is
+  defined.
+- **A different note when every recipient is discarded**: it would repeat the discard notes.
+
+### What follows
+
+BL-2077 changes `SmtpSession.DeliverAsync` and the tests of `Surl.Protocol.Smtp` that pin the note.
