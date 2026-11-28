@@ -67,13 +67,15 @@ through `MailboxStore.LoadAsync` over the `MailStoreFiles` that `ComposeMailStor
 (`<data directory's full path>/.surl/mail`); without it, it makes a `MailboxStore` with the
 constructor, held in memory only.
 
-Streaming (BL-227, ADR-0050 decision 7): `CreatePendingMessage` gives a `PendingMessage`
-whose `Body` stream writes straight into `messages/.pending-<guid>`; `Deliver` and `Append`
-taking it rename that file to the message's number when they store it, delete it when they
-refuse it, and refuse a pending file that cannot be created, written, closed or renamed with
-`StorageFailed` (`PendingMessage.StorageFailure` holds the exception's message). A write to
-`Body` never throws for a failing file, so a server can read the rest of the body off the
-wire. With a data directory a message's bytes are read from its file on fetch
+Streaming (BL-227, ADR-0050 decision 7): `CreatePendingMessage` gives a `PendingMessage`.
+In a store with files its `Body` stream writes straight into the pending file
+`messages/.pending-<guid>`; `Deliver` and `Append` taking it rename that file to the message's
+number when they store it, delete it when they refuse it, and refuse a pending file that cannot
+be created, written, closed or renamed with `StorageFailed` (`PendingMessage.StorageFailure`
+holds the exception's message). A write to `Body` never throws for a failing file, so a server
+can read the rest of the body off the wire. A store without files (no data directory) creates no
+pending file: it buffers the pending message in memory, and a stored message's bytes are taken
+from that buffer. With a data directory a message's bytes are read from its file on fetch
 (`OpenMessage`, `FetchMessage`, `MaildropLock.OpenMessage` and `ReadMessage`), never loaded
 at start; a POP3 maildrop lock pins its messages' files until it is released. `Deliver` takes
 only a `PendingMessage` (BL-278): SMTP streams `DATA` and IMAP streams `APPEND`, so a store
