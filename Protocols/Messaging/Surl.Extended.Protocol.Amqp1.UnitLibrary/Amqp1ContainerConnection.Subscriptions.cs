@@ -128,7 +128,8 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // ADR-0146 decision 3.3: a queue another link holds is locked; one with another description is a
-    // different subscription, replaced - only while it still is the one judged and no link holds it.
+    // different subscription, replaced - only while it still is the one judged and no link holds it. A
+    // link that takes it between the inspect and the delete locks it too.
     private Amqp1Error? ClearStaleQueue(Amqp1SubscriptionQueue planned, BusQueueInspectResult found)
     {
         if (found.Outcome == MessageBusOutcome.UnknownQueue)
@@ -212,6 +213,7 @@ public sealed partial class Amqp1ContainerConnection
     {
         MessageBusOutcome.AccessDenied => NodeRefusal(Amqp1NodeOutcome.Unauthorized),
         MessageBusOutcome.TooManySubscriptions or MessageBusOutcome.TooManyQueues => NodeRefusal(Amqp1NodeOutcome.ResourceLimitExceeded),
+        MessageBusOutcome.QueueInUse => SubscriptionInUse(),
         _ => NodeRefusal(Amqp1NodeOutcome.NotFound),
     };
 

@@ -223,7 +223,8 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   deleted with its session (`Amqp1Session.SessionSubscriptions`) or connection. A `session-end` one is
   held by every session of the connection that consumed it - several for a shared one, or for one
   resumed after a detach - whether or not a link of that session still consumes it, and is deleted when
-  the last of those sessions ends (BL-2043); once a `closed` detach or a replacement deletes its queue,
+  the last of those sessions ends (BL-2043), so a session's end leaves a subscription another session's
+  link still consumes; once a `closed` detach or a replacement deletes its queue,
   no session holds it. A kept subscription is answered
   `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
   `shared`/`global` capabilities applied.
@@ -237,7 +238,9 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   bound further is `amqp:unauthorized-access`. The bus takes no direct send to a described queue, so no
   other protocol's `$queue` send reaches a subscription.
 - Another link or connection holding the queue is `amqp:resource-locked` (a shared one is held only by a
-  different description), another description replaces it, the same resumes it. A queue exclusive to
+  different description), another description replaces it, the same resumes it. A queue to be replaced
+  that gains a consumer between the inspect and the delete is kept, and the attach is
+  `amqp:resource-locked` too (BL-2026). A queue exclusive to
   another connection shows no filter to judge: an attach with a source is `amqp:resource-locked`, one
   with none `amqp:not-found`. Filters
   run as a message leaves the queue; a message they refuse, or the client cannot name, is acknowledged.
