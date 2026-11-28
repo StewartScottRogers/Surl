@@ -1,14 +1,20 @@
 namespace Surl.MessageBus;
 
 /// <summary>
-/// Consuming and deleting a subscription queue - a named queue carrying a subscription description and
-/// bound to one topic filter, as the AMQP 1.0 container keeps a durable or shared subscription
-/// (ADR-0146, decisions 3.2, 3.4 and 3.7). The right a consume asks for is <c>sub</c> on the topic
-/// filter, and a delete by description takes only the queue still carrying it. Such a queue takes no
-/// direct send, so none brings it a message from outside its bindings.
+/// Consuming, deleting and purging a subscription queue - a named queue carrying a subscription
+/// description, which the AMQP 1.0 container binds to one topic filter to keep a durable or shared
+/// subscription (ADR-0146, decisions 3.2, 3.4 and 3.7, and Amendment 2). The right a consume asks for is
+/// <c>sub</c> on the topic filter, a client's delete or purge asks for <c>sub</c> on every filter the
+/// queue is bound to, and a delete by description takes only the queue still carrying it. Such a queue
+/// takes no direct send, so none brings it a message from outside its bindings.
 /// </summary>
 public sealed partial class MessageBus
 {
+    // Called with the lock held. A client's delete or purge of a subscription queue takes what its
+    // filters copied in, so it asks for sub on every filter the queue is bound to now.
+    private bool MayRemoveMessages(string? account, NamedQueue queue) =>
+        queue.SubscriptionDescription is null || accessPolicy.MaySubscribeToEvery(account, queue.Filters);
+
     internal MessageBusOutcome DeleteQueueIfDescribed(BusConnection connection, string queueName, string? subscriptionDescription, bool ifUnused) =>
         DeleteQueueUnlessRefused(
             connection,

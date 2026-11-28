@@ -106,9 +106,21 @@ What it holds now (BL-629):
   carries exactly that description (`null` for a queue that must carry none), else
   `QueueDescriptionDiffers`, and with `ifUnused` is `QueueInUse` while a consumer takes from it. The
   checks and the delete happen under one hold of the bus's lock, and every other refusal is
-  `DeleteQueue`'s. Like `DeleteQueue` it asks for no grant: the caller judges access on the
-  description, and the match keeps it from deleting a queue declared under the name since with
-  another description. The AMQP 1.0 container's own deletes of subscription queues are all this one.
+  `QueueLocked`, `UnknownQueue`, or `AccessDenied` for a declared queue. It asks for no grant: the
+  caller judges access on the description, and the match keeps it from deleting a queue declared under
+  the name since with another description. The AMQP 1.0 container's own deletes of subscription queues
+  are all this one.
+- **Deleting and purging a subscription queue by name (BL-2027, ADR-0146 Amendment 2).**
+  `DeleteQueue` (either form) and `PurgeQueue` - what AMQP 0-9-1's `queue.delete` and `queue.purge`
+  call - on a queue carrying a description need `sub` covering every filter the queue is bound to,
+  else `AccessDenied`, with the queue and its messages kept. A described queue bound to no filter shows
+  nothing to judge, so it is `AccessDenied` whenever any grant is configured; with no grant, everyone
+  may delete and purge it. The check comes after `UnknownQueue` and `QueueLocked` and before
+  `QueueInUse` and `QueueNotEmpty`, under the lock the removal happens under. A queue with no
+  description asks for no grant. The bindings are judged as they are then, and `UnbindQueue` asks for
+  no grant, so a client with `sub` on a filter of its own can bind it, unbind the subscription's and
+  then delete the queue. `Consume` and `GetFromQueue` ask only for the `$queue` grant, so a caller
+  holding it can take a subscription queue's messages with no `sub` on its filter.
 - **Batch publish, all or none (BL-961, ADR-0146 decision 1.6).** `BusConnection.PublishBatch` takes an
   ordered list of `BusBatchEntry` - `ToTopic(message)` or `ToQueue(name, message)` - and answers a
   `BusBatchPublishResult`: `Succeeded` with each entry's `BusPublishResult` in order, or the first refused
@@ -206,7 +218,8 @@ What it holds now (BL-629):
   on a filter covering the filter (`CanonicalTopicName.FilterCovers`); a queue is the filter
   `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume (a subscription
   queue consumed through `ConsumeSubscriptionQueue` asks for `sub` on its topic filter instead). A refusal is
-  `AccessDenied`, checked before anything that would tell whether the topic or queue exists.
+  `AccessDenied`, checked before anything that would tell whether the topic or queue exists
+  (except the delete and purge of a subscription queue, above, which judge the queue found).
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
   without touching it, as Kafka's Metadata needs (BL-518). ADR-0102 decision 3.5 records these
   choices (BL-704).

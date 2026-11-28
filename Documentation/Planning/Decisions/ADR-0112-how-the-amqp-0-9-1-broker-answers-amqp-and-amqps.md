@@ -263,9 +263,11 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   the binding is the broker's own row. Unbinding what is not bound answers `unbind-ok`.
 - **`queue.purge`** (50.30): `""` as for bind; missing **`404`**; exclusive elsewhere **`405`**;
   removes the ready messages, not the unacknowledged ones, and answers `purge-ok` (50.31) with the
-  count removed (BL-730).
+  count removed (BL-730). An AMQP 1.0 subscription queue is **`403`** without `sub` on its filters
+  (ADR-0146 Amendment 2, BL-2027).
 - **`queue.delete`** (50.40): `""` as for bind; missing **`404`**; a queue declared with
-  `--queue` is **`403`** (ADR-0102 decision 3.2); `if-unused` with consumers or `if-empty` with
+  `--queue` is **`403`** (ADR-0102 decision 3.2), as is an AMQP 1.0 subscription queue without `sub`
+  on its filters (ADR-0146 Amendment 2, BL-2027); `if-unused` with consumers or `if-empty` with
   messages is **`406`** (rules `delete`/`in-use`, `not-empty`; checked and deleted as one bus
   operation, BL-730); otherwise `delete-ok` (50.41) with the number of messages deleted. Each
   consumer of the deleted queue, on any connection, ends: a client that announced

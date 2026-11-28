@@ -4,8 +4,9 @@ namespace Surl.MessageBus;
 
 /// <summary>
 /// Consuming a subscription queue on the <c>sub</c> right of its topic filter alone
-/// (BL-1992; ADR-0146, decisions 3.2 and 3.7), and deleting a queue only while it carries a given
-/// description (BL-2010; decision 3.4).
+/// (BL-1992; ADR-0146, decisions 3.2 and 3.7), deleting a queue only while it carries a given
+/// description (BL-2010; decision 3.4), and asking for that right before a client's delete or purge
+/// of a subscription queue (BL-2027; Amendment 2).
 /// </summary>
 [TestClass]
 public sealed class MessageBusSubscriptionQueueTests
@@ -267,6 +268,166 @@ public sealed class MessageBusSubscriptionQueueTests
         Assert.ThrowsExactly<ArgumentNullException>(() => connection.DeleteQueueIfDescribed(null!, Description));
         connection.Dispose();
         Assert.ThrowsExactly<ObjectDisposedException>(() => connection.DeleteQueueIfDescribed(Queue, Description));
+    }
+
+    [TestMethod]
+    [DataRow("mallory", DisplayName = "an account with no grant")]
+    [DataRow(null, DisplayName = "an anonymous caller")]
+    public void DeleteAndPurgeQueue_ASubscriptionQueueWithoutSubOnItsFilter_AreAccessDeniedAndTheQueueKeepsItsMessages(string? account)
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        DeclareSubscriptionQueue(owner);
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        using var other = bus.Connect(account);
+
+        var purged = other.PurgeQueue(Queue);
+        var deleted = other.DeleteQueue(Queue);
+        var deletedOnConditions = other.DeleteQueue(Queue, ifUnused: true, ifEmpty: true);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.AccessDenied, 0), purged);
+        Assert.AreEqual(MessageBusOutcome.AccessDenied, deleted);
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.AccessDenied, 0), deletedOnConditions);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 1, 0, Description), owner.InspectQueue(Queue));
+    }
+
+    [TestMethod]
+    public void DeleteAndPurgeQueue_ASubscriptionQueueWithSubOnOnlyOneOfItsFilters_AreAccessDenied()
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        using var binder = bus.Connect("binder");
+        DeclareSubscriptionQueue(connection);
+        binder.BindQueue(Queue, "news");
+
+        var purged = connection.PurgeQueue(Queue);
+        var deleted = connection.DeleteQueue(Queue);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.AccessDenied, 0), purged);
+        Assert.AreEqual(MessageBusOutcome.AccessDenied, deleted);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, connection.InspectQueue(Queue).Outcome);
+    }
+
+    [TestMethod]
+    [DataRow("alice", new[] { Filter }, DisplayName = "sub on its one filter")]
+    [DataRow("binder", new[] { Filter, "news" }, DisplayName = "sub on each of its filters")]
+    public void DeleteAndPurgeQueue_ASubscriptionQueueWithSubOnEveryFilter_PurgeAndDeleteIt(string account, string[] bound)
+    {
+        var bus = Bus();
+        using var binder = bus.Connect("binder");
+        binder.DeclareQueue(Queue, subscriptionDescription: Description);
+        foreach (var filter in bound)
+        {
+            binder.BindQueue(Queue, filter);
+        }
+
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        using var connection = bus.Connect(account);
+
+        var purged = connection.PurgeQueue(Queue);
+        var deleted = connection.DeleteQueue(Queue);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.Succeeded, 1), purged);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, deleted);
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, connection.InspectQueue(Queue).Outcome);
+    }
+
+    [TestMethod]
+    public void DeleteAndPurgeQueue_ASubscriptionQueueBoundToNothingUnderGrants_AreAccessDenied()
+    {
+        var bus = Bus();
+        using var connection = bus.Connect("alice");
+        DeclareSubscriptionQueue(connection);
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        connection.UnbindQueue(Queue, Filter);
+
+        var purged = connection.PurgeQueue(Queue);
+        var deleted = connection.DeleteQueue(Queue);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.AccessDenied, 0), purged);
+        Assert.AreEqual(MessageBusOutcome.AccessDenied, deleted);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 1, 0, Description), connection.InspectQueue(Queue));
+    }
+
+    [TestMethod]
+    [DataRow(new[] { Filter }, DisplayName = "bound")]
+    [DataRow(new string[0], DisplayName = "bound to nothing")]
+    public void DeleteAndPurgeQueue_ASubscriptionQueueWithNoGrantConfigured_PurgeAndDeleteIt(string[] bound)
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue(Queue, subscriptionDescription: Description);
+        foreach (var filter in bound)
+        {
+            connection.BindQueue(Queue, filter);
+        }
+
+        var purged = connection.PurgeQueue(Queue);
+        var deleted = connection.DeleteQueue(Queue);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.Succeeded, 0), purged);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, deleted);
+    }
+
+    [TestMethod]
+    public void DeleteAndPurgeQueue_AQueueWithNoDescriptionWithoutSubOnItsFilter_PurgeAndDeleteIt()
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        owner.DeclareQueue(Queue);
+        owner.BindQueue(Queue, Filter);
+        bus.Publish(new BusMessage("sport/chess", "kept"u8.ToArray()), "alice");
+        using var other = bus.Connect("mallory");
+
+        var purged = other.PurgeQueue(Queue);
+        var deleted = other.DeleteQueue(Queue);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.Succeeded, 1), purged);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, deleted);
+        Assert.AreEqual(MessageBusOutcome.UnknownQueue, owner.InspectQueue(Queue).Outcome);
+    }
+
+    [TestMethod]
+    public void DeleteAndPurgeQueue_AnotherConnectionsExclusiveSubscriptionQueueWithoutSub_AreQueueLocked()
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        owner.DeclareQueue(Queue, new BusQueueFlags(Exclusive: true), Description);
+        owner.BindQueue(Queue, Filter);
+        using var other = bus.Connect("mallory");
+
+        var purged = other.PurgeQueue(Queue);
+        var deleted = other.DeleteQueue(Queue);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.QueueLocked, 0), purged);
+        Assert.AreEqual(MessageBusOutcome.QueueLocked, deleted);
+    }
+
+    [TestMethod]
+    public void DeleteQueue_IfUnusedOnASubscriptionQueueInUseWithoutSub_IsAccessDeniedNotInUse()
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        DeclareSubscriptionQueue(owner);
+        owner.ConsumeSubscriptionQueue(Queue, Description, Filter, _ => { });
+        using var other = bus.Connect("mallory");
+
+        var deleted = other.DeleteQueue(Queue, ifUnused: true, ifEmpty: false);
+
+        Assert.AreEqual(new BusQueueRemovalResult(MessageBusOutcome.AccessDenied, 0), deleted);
+    }
+
+    [TestMethod]
+    public void DeleteQueueIfDescribed_WithoutSubOnTheFilter_StillDeletes()
+    {
+        var bus = Bus();
+        using var owner = bus.Connect("alice");
+        DeclareSubscriptionQueue(owner);
+        using var other = bus.Connect("mallory");
+
+        var deleted = other.DeleteQueueIfDescribed(Queue, Description);
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, deleted);
     }
 
     // alice publishes and subscribes on sport/#; the binder may bind any filter; nobody has a $queue grant.

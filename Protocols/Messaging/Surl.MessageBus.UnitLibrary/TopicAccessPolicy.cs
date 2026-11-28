@@ -4,7 +4,9 @@ namespace Surl.MessageBus;
 /// The <c>--topic-access</c> checks (ADR-0102, decision 3.4). With no grant every caller may
 /// do everything; with at least one, a caller may do only what a grant to its account, or to
 /// <see cref="TopicAccessGrant.Everyone"/>, allows. An anonymous caller has no account. The
-/// answer never depends on whether a topic or queue exists (ADR-0006, section 3). Immutable.
+/// answer never depends on whether a topic or queue exists (ADR-0006, section 3), except that
+/// <see cref="MaySubscribeToEvery"/> judges the filters its caller read from a queue it found
+/// (ADR-0146, Amendment 2). Immutable.
 /// </summary>
 internal sealed class TopicAccessPolicy(IReadOnlyList<TopicAccessGrant> grants)
 {
@@ -23,6 +25,11 @@ internal sealed class TopicAccessPolicy(IReadOnlyList<TopicAccessGrant> grants)
     /// <paramref name="filter"/> is allowed: some <c>sub</c> grant's filter covers it.</summary>
     public bool MaySubscribe(string? account, string filter) =>
         IsAllowed(account, TopicAccessRights.Subscribe, levels => CanonicalTopicName.FilterCovers(levels, CanonicalTopicName.SplitLevels(filter)));
+
+    /// <summary>Whether <see cref="MaySubscribe"/> allows each of <paramref name="filters"/>.
+    /// With none to judge, only a policy with no grant allows it.</summary>
+    public bool MaySubscribeToEvery(string? account, IEnumerable<string> filters) =>
+        rows.Length == 0 || (filters.Any() && filters.All(filter => MaySubscribe(account, filter)));
 
     /// <summary>Whether <paramref name="rights"/> on queue <paramref name="queueName"/> are
     /// allowed: some grant's filter matches <c>$queue/&lt;name&gt;</c>, the name one level

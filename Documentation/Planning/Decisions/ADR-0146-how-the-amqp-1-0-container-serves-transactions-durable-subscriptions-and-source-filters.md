@@ -299,3 +299,28 @@ Decided by Claude under Stewart's delegation.
   link, including one retired inside the transaction, to its queue marked redelivered. A delivery the
   link settled outside the transaction stays retired. A `flow` naming a `txn-id` that is not open
   acquires nothing.
+
+## Amendment 2 (BL-2027, 2026-11-27): who may delete or purge a subscription queue by name
+
+Decided by Claude under Stewart's delegation.
+
+Decision 3.7 gives a subscription to whoever has `Subscribe` on its topic filter, but the bus's
+delete and purge of a named queue judged no grant, so any client that knew or derived a
+`surl-subscription-` name could remove another account's kept subscription, for example with AMQP
+0-9-1's `queue.delete`.
+
+- `Surl.MessageBus`'s delete and purge by name, on a queue carrying a subscription description, need
+  `sub` covering **every** filter the queue is bound to; otherwise they are `AccessDenied` (AMQP 0-9-1
+  answers `403`), and the queue, its bindings and its messages stay.
+- A described queue bound to **no** filter is refused whenever any `--topic-access` grant is
+  configured: there is nothing to judge, and secure by default refuses it. With no grant, everyone may.
+- A queue with no description is deleted and purged as before.
+- The AMQP 1.0 container's own deletes (`DeleteQueueIfDescribed`: ending a subscription, replacing it,
+  and a session's end) ask for no grant: the container judges access at the attach (decision 3.7), and a
+  session's end must remove what it made.
+
+Alternatives: asking for `$queue/<name>` rights would lock out the subscriber, who needs no queue grant
+(decision 3.7); refusing every delete by name would take away the clean-up an account with the filter's
+right may reasonably do. The check reads the bindings as they are at the delete, and an unbind asks for
+no grant, so an account with `sub` on another filter can still swap the bindings first; keeping other
+clients' bindings off a described queue is BL-2011.
