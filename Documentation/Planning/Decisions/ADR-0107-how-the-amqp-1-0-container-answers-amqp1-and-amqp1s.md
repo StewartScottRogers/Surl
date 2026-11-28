@@ -23,6 +23,11 @@
   [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) and
   [ADR-0010](ADR-0010-the-server-side-tls-contract.md), and on the `TftpTimeLimits` bullet under
   "Consequences".
+- **Amended (2026-11-27, BL-1990):** notes under decision 0's second bullet, decision 3's `open`
+  table, decision 4's refused-attach table and `detach` bullet, decision 5's delivery states and
+  "From a topic" bullet, and the last "Alternatives considered" bullet, saying where
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  or the code differs from them.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -76,6 +81,24 @@ expected byte comes from it.
 - **State of its own** is per connection: the SASL state, the sessions with their windows and
   handles, the links with their credit, unsettled deliveries and partial transfers. Nothing of a
   connection outlives it; a link is never resumed (decision 5).
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 3.1 and 3.3 to 3.6:* a kept topic subscription is a bus queue, so something a link
+  made can outlive the link, and even its connection. A client receiver's topic source keeps one,
+  shared or not, when its `durable` is above `none` and its `expiry-policy` is not `link-detach`
+  (an absent or unknown policy is read as `session-end`).
+
+  - With `never` it outlives its link, session and connection, until a `detach` with `closed` true
+    destroys it or a later attach replaces it, and under `--directory` it is persisted with the bus.
+  - With `session-end` or `connection-close` it is a queue exclusive to the connection, so it never
+    outlives the connection. It outlives a link detached with `closed` false until its session ends
+    (`session-end`) or its connection ends (`connection-close`).
+  - A `shared` source with `durable` `none` or `link-detach` makes a live subscription, which ends
+    with its link.
+
+  A link is still never resumed (ADR-0146 decision 3.1).
+
 - The container acts only as the peer that **accepts** connections: it never opens one, never
   begins a session or attaches a link of its own accord, and answers each of the client's.
 
@@ -162,6 +185,13 @@ when `amqp1://` is the only listen URL.
   | `outgoing-locales`, `incoming-locales` | absent (`en-US` implied) | error descriptions are English |
   | `offered-capabilities`, `desired-capabilities` | absent | none is served |
   | `properties` | `product` = `surl` | no version is sent (ADR-0006 section 3) |
+
+  *Amended 2026-11-27 (BL-1990):* the `container-id` row's source of digits differs in the code.
+  `Amqp1Container` draws them once, when it is created, from the `IIdentifierRandom` it is given,
+  and only when its options give no `container-id` (`Amqp1ContainerOptions.NewContainerId`).
+  `RandomNumberGenerator` is only the unseeded fallback it uses when given none,
+  `Amqp1UnseededIdentifierRandom`. `Surl.Composition` gives it none, so a container it composes
+  draws from that fallback even when the run is seeded.
 
 - **The client's `open`**: `hostname` is read and ignored (one container, no virtual hosts); its
   `max-frame-size` bounds every frame the container writes, which it splits transfers to fit
@@ -259,10 +289,37 @@ when `amqp1://` is the only listen URL.
   replacement is built (BL-956). The container answers a `coordinator` target as a receiving link and
   serves transactions on it, so it no longer writes the description `transactions are not supported`.
   A `coordinator` as a source is refused with `amqp:not-allowed`.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 2.2 and 3.3 to 3.5:* these attaches are refused too, with the fixed description given.
+
+  - A client receiver's source carries a selector filter that is not a string or that the selector
+    parser refuses, its length and nesting bounds included: **`amqp:invalid-field`**,
+    `selector not valid`.
+  - A client receiver's attach with a source asks for a kept subscription that is held: a link
+    already consumes it and this attach is not shared or asks something else, or its queue is
+    exclusive to another connection: **`amqp:resource-locked`**, `subscription in use`.
+  - A source or target address names a `surl-subscription-` queue, as
+    `/queue/surl-subscription-...` or as the bare name: **`amqp:not-found`**, `no such node`.
+  - A client receiver's attach with no source has a link name that finds no kept subscription (one
+    in a queue exclusive to another connection is not found): **`amqp:not-found`**,
+    `no such node`.
 - **`detach`** from the client is answered with `detach` carrying the same `closed`; a link
   suspended (`closed` false) is ended all the same, since nothing of a link is kept for resumption.
   Either way a receiving client link's unsettled queue deliveries go back to the queue, marked
   redelivered.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 3.1 and 3.3 to 3.6:* "nothing of a link is kept for resumption" does not cover a kept
+  subscription (the note under decision 0). A `detach` with `closed` false leaves its queue: a
+  `never` subscription then outlasts the session and the connection too, a `session-end` or
+  `connection-close` one only until that event. While it lasts, a later attach that names it again,
+  asking the same address, filters, expiry policy and sharing, consumes what the queue holds. A
+  `detach` with `closed` true destroys it, deleting the queue and its messages, unless another link
+  still consumes it (a shared subscription goes with its last link). The link itself is still never
+  resumed: its unsettled deliveries go back to the queue as this bullet says.
 
 ### 5. Credit, settlement and delivery states (Part 2 sections 2.6.7, 2.6.12, 2.7.4, 2.7.6, 2.8.2, 2.8.3; Part 3 section 3.4)
 
@@ -291,6 +348,23 @@ when `amqp1://` is the only listen URL.
   does: it stores or refuses. A pre-settled message that would have been rejected is dropped and the
   reason noted in the exchange log. `received` is never sent: the container does not resume
   deliveries.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 1.3 to 1.5 and 1.8:* `accepted` and `rejected` are no longer the only states the
+  container writes. It also writes:
+
+  - `declared`, carrying the new `txn-id`, as the state of the `disposition` answering a `declare`
+    on a coordinator link (decision 1.3);
+  - `transactional-state` with outcome `accepted` or `rejected`, answering a transfer posted in an
+    open transaction (decision 1.4); a `txn-id` naming no open transaction is answered with a plain
+    `rejected` and `amqp:transaction:unknown-id`;
+  - `transactional-state` with no outcome, on its own transfers on a link whose last `flow` carried
+    the `txn-id` of a transaction still open, which acquires them in it (decision 1.5).
+
+  Neither a `declare` the client sent settled (decision 1.8) nor a posting it sent settled gets an
+  answer.
+
 - **Quality of service on the bus** (ADR-0100 decision 3.4): an unsettled delivery is published at
   QoS 1, a pre-settled one at QoS 0.
 
@@ -306,6 +380,30 @@ when `amqp1://` is the only listen URL.
 - **From a topic** the link is one live bus subscription to the filter; messages published while it
   has no credit wait on the link, at most 1000 (decision 7), and a message arriving past that is
   dropped for this link and noted: fan-out is at most once (ADR-0100 decision 3.4).
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  decisions 1.5, 3.1, 3.2, 3.5 and 3.6:* this bullet, and "For a topic delivery every outcome only
+  settles it" below, hold for a live subscription only. A link on a kept subscription (the note
+  under decision 0), durable or shorter-lived, shared or not, consumes the subscription's bus
+  queue, bound to the filter, and what it is sent are queue deliveries. (An attach with no source
+  only looks the subscription up, and consumes nothing.)
+
+  - **Waiting bound.** Nothing is dropped at the link past 1000. Its consumer holds at most 1000
+    unacknowledged (`MaxWaitingDeliveries`), those still waiting for credit and those kept back as
+    `undeliverable-here` included, and the bus keeps the rest in the queue. The queue has the bus's
+    queue bounds (ADR-0100 decision 3.6): past them the copy of a publish into it is refused, while
+    the publish itself still succeeds.
+  - **Filters** run as a message leaves the queue: one they refuse, or one on a topic the client
+    cannot name, is acknowledged and not sent.
+  - **Outcomes** act on the queue as "The client's outcome" below says of a queue delivery:
+    `accepted` acknowledges, `rejected` drops, `released` and `modified` put the message back, and
+    `modified` with `undeliverable-here` keeps it from this link until the link ends. A delivery
+    sent settled is acknowledged as it is written, and one unsettled when the link ends goes back
+    to the queue. A transaction's commit applies a held outcome the same way, and its rollback
+    returns to the queue the deliveries acquired in it and not settled outside it: ADR-0146
+    decision 1.5's "Topic deliveries have nothing to return" does not hold for them.
+
 - **Settlement follows the client's `snd-settle-mode` request:** `settled` - every delivery is sent
   pre-settled and, from a queue, acknowledged to the bus as it is written; `unsettled` or `mixed` -
   every delivery is sent unsettled and settled by the client's `disposition`. The client's
@@ -458,6 +556,13 @@ when `amqp1://` is the only listen URL.
 - **Serving transactions, durable subscriptions and filters now.** Deferred to BL-707, which decides
   them: each needs bus support (a transactional publish, a subscription without a connection,
   selector evaluation) that ADR-0100 does not have, and the decision is better made on its own.
+
+  *Amended 2026-11-27 (BL-1990), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md):*
+  the deferral is over. BL-707 decided all three in that ADR on 2026-11-06, and they are built. The
+  bus gained a batch publish, a consumer predicate and a subscription description on a named queue
+  (its decisions 1.6, 2.4 and 3.2); selectors are evaluated by the AMQP 1.0 library, which the bus
+  knows nothing of (its "Alternatives considered").
 
 ## Consequences
 

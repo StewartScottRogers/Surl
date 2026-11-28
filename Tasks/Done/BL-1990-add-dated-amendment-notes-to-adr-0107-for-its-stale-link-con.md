@@ -8,7 +8,7 @@ depends-on: [BL-1959]
 touches: [Documentation/Planning/Decisions/ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-1990 — Add dated amendment notes to ADR-0107 for its stale link, container-id, refused attach, delivery state and topic subscription statements
 
@@ -54,16 +54,29 @@ Each statement was checked on 2026-11-27.
 
 ## Acceptance criteria
 
-- [ ] Dated notes at decision 0 and at decision 4's `detach` bullet name ADR-0146, say which subscriptions outlive a link or connection, and say links are still never resumed.
-- [ ] A dated note at decision 3's `open` table says the `container-id` digits come from the container's `IIdentifierRandom`, with `RandomNumberGenerator` only the unseeded fallback.
-- [ ] A dated note at decision 4's refused-attach table lists ADR-0146's refusals named in Context with their error conditions.
-- [ ] A dated note at decision 5's states sentence names `declared` and `transactional-state` and when each is written.
-- [ ] A dated note at decision 5's "From a topic" bullet says a kept subscription is a bus queue, and how its outcomes and its waiting bound differ from a live subscription's, as the code has them.
-- [ ] A dated note at the last "Alternatives considered" bullet points at ADR-0146, and the diff to ADR-0107 only adds lines.
+- [x] Dated notes at decision 0 and at decision 4's `detach` bullet name ADR-0146, say which subscriptions outlive a link or connection, and say links are still never resumed.
+- [x] A dated note at decision 3's `open` table says the `container-id` digits come from the container's `IIdentifierRandom`, with `RandomNumberGenerator` only the unseeded fallback.
+- [x] A dated note at decision 4's refused-attach table lists ADR-0146's refusals named in Context with their error conditions.
+- [x] A dated note at decision 5's states sentence names `declared` and `transactional-state` and when each is written.
+- [x] A dated note at decision 5's "From a topic" bullet says a kept subscription is a bus queue, and how its outcomes and its waiting bound differ from a live subscription's, as the code has them.
+- [x] A dated note at the last "Alternatives considered" bullet points at ADR-0146, and the diff to ADR-0107 only adds lines.
 
 ## Notes
+
+- Delivered by `align-and-document`. `git diff --numstat` for ADR-0107: 105 added, 0 removed. A header line
+  listing where the BL-1990 notes are was added too, as BL-1959 did.
+- Where the code is narrower than Context, the notes follow the code: only an `expiry-policy` of `never`
+  lets a subscription outlive its connection (`session-end` and `connection-close` queues are exclusive to
+  it), and a `shared` source with `durable` `none` or `link-detach` is a live subscription, not a bus queue.
+- The `container-id` note also says `Surl.Composition` passes no `IIdentifierRandom`, so a composed container
+  uses the unseeded fallback even in a seeded run (BL-2022).
+- Verification: `dotnet build` 0 warnings, 0 errors; fast tests passed with 0 failures. No `.cs` or project
+  file changed.
+- Filed: BL-2022 to BL-2031 (code defects and stale statements read from the code, none proven by a run) and
+  BL-2032 (`--max-filesize` missing from the `amqp1` help page).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0107 has dated BL-1990 notes where ADR-0146 or the code differs on stale links, container-id, refused attaches, delivery states, topic subscriptions and the deferral
