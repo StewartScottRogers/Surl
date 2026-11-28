@@ -235,7 +235,21 @@ public sealed class SmtpDeliveryTests
 
         StringAssert.EndsWith(RepliesAfterHello(connection), "250 2.0.0 Message accepted\r\n");
         Assert.IsEmpty(Inbox(store, "tester"));
-        Assert.AreEqual($"Message stored: {TraceFields("a@x").Length + Body.Length} bytes for 0 recipients", log.Notes[^1]);
+        CollectionAssert.AreEqual(new[] { "Mail for nobody@x discarded: no such account" }, log.Notes.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AnonymousOwnerTwoRecipients_NotesTwoRecipients()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = AnonymousStore(clock);
+
+        await ServeAsync(store, $"EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nRCPT TO:<b@y>\r\nDATA\r\n{Body}.\r\n", clock, TestContext.CancellationToken, log: log);
+
+        var stored = TraceFields("a@x") + Body;
+        Assert.AreEqual($"Message stored: {stored.Length} bytes for 2 recipients", log.Notes.Single());
+        CollectionAssert.AreEqual(new[] { stored, stored }, Inbox(store, string.Empty).ToList());
     }
 
     [TestMethod]

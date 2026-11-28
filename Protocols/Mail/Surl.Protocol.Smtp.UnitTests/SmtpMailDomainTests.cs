@@ -89,8 +89,32 @@ public sealed class SmtpMailDomainTests
 
             CollectionAssert.AreEqual(new[] { Stored }, Inbox(store, Ann).ToList(), string.Join(' ', recipients));
             CollectionAssert.AreEqual(new[] { Stored }, Inbox(store, Bob).ToList(), string.Join(' ', recipients));
-            CollectionAssert.Contains(log.Notes.ToList(), $"Message stored: {Stored.Length} bytes for 1 recipients");
+            CollectionAssert.Contains(log.Notes.ToList(), $"Message stored: {Stored.Length} bytes for 2 recipients");
         }
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AliasToTwoOwners_NotesTwoRecipients()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = DomainStore(clock);
+
+        await ServeAsync(store, Session("team@example.com"), clock, TestContext.CancellationToken, log: log);
+
+        Assert.AreEqual($"Message stored: {Stored.Length} bytes for 2 recipients", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PartlyOverlappingAliases_NoteCountsThreeRecipients()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = DomainStore(clock);
+
+        await ServeAsync(store, Session("team@example.com", "pair@example.com"), clock, TestContext.CancellationToken, log: log);
+
+        Assert.AreEqual($"Message stored: {Stored.Length} bytes for 3 recipients", log.Notes[^1]);
     }
 
     [TestMethod]

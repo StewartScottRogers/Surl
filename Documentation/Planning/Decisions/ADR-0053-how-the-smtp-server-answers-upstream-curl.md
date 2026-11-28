@@ -16,8 +16,8 @@
   [Amendment 2](#amendment-2-2026-11-27-354-and-334-carry-no-enhanced-status-code) (2026-11-27,
   BL-1979): `354` and `334` carry no enhanced status code;
   [Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored)
-  (2026-11-28, BL-2066): the `Message stored` note is to count the copies stored, and is not to be
-  written when none is.
+  (2026-11-28, BL-2066; built by BL-2080): the `Message stored` note counts the copies stored, and
+  is not written when none is.
 
 ## Context
 
@@ -366,7 +366,7 @@ each way are the engine's `BytesReceived`/`BytesSent` lines, as for every server
 
 | When | Note |
 | --- | --- |
-| A message stored | `Message stored: <n> bytes for <k> recipients`. [Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored) decides that `<k>` is to be the copies stored, and that no such note is to be written when none is; BL-2080 is to build that. On 2026-11-28 the server writes `<k>` as the number of `SmtpMailTransaction.Deliverable` entries, and writes the note with `0` when every recipient is discarded |
+| A message stored | `Message stored: <n> bytes for <k> recipients`, `<k>` the number of copies stored; not written when no copy is stored ([Amendment 3](#amendment-3-2026-11-28-what-the-message-stored-note-counts-and-no-note-when-nothing-is-stored)) |
 | A recipient that names no account | `Mail for <address> discarded: no such account` (ADR-0050 decision 5) |
 | Past the size limit | `Message refused: past --max-filesize after <n> bytes` |
 | The store full | `Message refused: the mail store is full` |
@@ -561,32 +561,33 @@ enhanced status code.
   upstream curl measurement is needed. It replaces the default recorded in the notes of BL-767,
   BL-2000 and the deferred BL-1995, that `<k>` counts `SmtpMailTransaction.Deliverable` entries.
 
-### What the code did on 2026-11-28
+### What the code did before BL-2080
 
-`SmtpSession.DeliverAsync` writes the note after every delivery the store answers `Succeeded`,
-after any `discarded: no such account` notes. `<n>` is the length in bytes (trace fields and body)
-of the longest pending message. `<k>` is `SmtpMailTransaction.Deliverable.Count`, a count of
-recipient entries: an alias is one entry however many owners it names. When every accepted `RCPT`
-is discarded, a pending message that passes the store's checks is answered `Succeeded` with nothing
-stored, and the note says `for 0 recipients`.
+As read on 2026-11-28, before BL-2080 changed it: `SmtpSession.DeliverAsync` wrote the note after
+every delivery the store answered `Succeeded`, after any `discarded: no such account` notes. `<n>`
+was the length in bytes (trace fields and body) of the longest pending message. `<k>` was
+`SmtpMailTransaction.Deliverable.Count`, a count of recipient entries: an alias is one entry
+however many owners it names. When every accepted `RCPT` was discarded, a pending message that
+passed the store's checks was answered `Succeeded` with nothing stored, and the note said
+`for 0 recipients`.
 
 ### Decision
 
-1. **`<k>` is to be the number of copies the delivery stored.** That is one for each named owner
+1. **`<k>` is the number of copies the delivery stored.** That is one for each named owner
    reached, however many `RCPT`s, aliases or catch-alls reached it, and under `--allow-anonymous`
    one for each accepted `RCPT`, a repeated address included, all in the anonymous `INBOX`. It is
    the number of recipients `SmtpMailTransaction.DeliverablePerOwner()` gives, and the number of
    delivery `StoreChangedEvent`s the message publishes, with or without `--mail-delivered-to`. A
    "recipient" in this note is the recipient of one copy.
-2. **No `Message stored` note is to be written when `<k>` would be 0.** The note
+2. **No `Message stored` note is written when `<k>` would be 0.** The note
    `Mail for <address> discarded: no such account`, one for each accepted `RCPT`, is then the whole
-   record, and the reply stays `250 2.0.0 Message accepted`. A log is then to hold a
+   record, and the reply stays `250 2.0.0 Message accepted`. A log therefore holds a
    `Message stored` note only when at least one copy was stored.
-3. **The text and `<n>` stay.** `1 recipients` is written as it is now.
+3. **The text and `<n>` stay** as they were before BL-2080, `1 recipients` included.
 
 With `team@` naming Ann and Bob, and `pair@` naming Bob and Cat:
 
-| Accepted `RCPT`s | `<k>` in the code on 2026-11-28 | `<k>` decided |
+| Accepted `RCPT`s | `<k>` before BL-2080 | `<k>` decided |
 | --- | --- | --- |
 | `team@` | 1 | 2 |
 | `team@`, then `pair@` | 2 | 3 |
@@ -597,12 +598,13 @@ With `team@` naming Ann and Bob, and `pair@` naming Bob and Cat:
 ### Why
 
 - A test using surl as a stand-in reads the note beside what it can check: the new messages in the
-  mailboxes and the delivery events. The decided count equals both. The count of 2026-11-28, of
-  recipient entries, need not equal either, nor the `RCPT`s accepted: `team@` gives 1 for two
-  copies stored, and one account named twice gives 1 for two `RCPT`s. So the code is to change
+  mailboxes and the delivery events. The decided count equals both. The count before BL-2080, of
+  recipient entries, need not equal either, nor the `RCPT`s accepted: `team@` gave 1 for two
+  copies stored, and one account named twice gave 1 for two `RCPT`s. So the code was to change
   rather than this ADR to follow it.
-- Decision 8's "the owners it reached" gives the same number for named accounts, but would say 1 for
-  two messages stored in the anonymous `INBOX` under `--allow-anonymous`.
+- Decision 8's original wording, "the owners it reached", gives the same number for named
+  accounts, but would say 1 for two messages stored in the anonymous `INBOX` under
+  `--allow-anonymous`.
 - `Message stored` with nothing stored is untrue. The discard notes already say what happened to
   each recipient, so leaving the note out needs no second text.
 
@@ -616,4 +618,5 @@ With `team@` naming Ann and Bob, and `pair@` naming Bob and Cat:
 
 ### What follows
 
-BL-2080 changes `SmtpSession.DeliverAsync` and the tests of `Surl.Protocol.Smtp` that pin the note.
+BL-2080 built this on 2026-11-28: it changed `SmtpSession.DeliverAsync` and the tests of
+`Surl.Protocol.Smtp` that pin the note.

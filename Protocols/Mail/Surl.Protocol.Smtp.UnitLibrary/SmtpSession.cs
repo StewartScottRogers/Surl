@@ -369,7 +369,12 @@ internal sealed partial class SmtpSession
             context.Log.Note($"Mail for {SmtpLogText.Render(Encoding.UTF8.GetBytes(path))} discarded: no such account");
         }
 
-        context.Log.Note($"Message stored: {pendings.Max(pending => pending.Length)} bytes for {accepted.Deliverable.Count} recipients");
+        // With no copy stored, the discard notes are the whole record (ADR-0053 Amendment 3).
+        if (owners.Count > 0)
+        {
+            context.Log.Note($"Message stored: {pendings.Max(pending => pending.Length)} bytes for {owners.Count} recipients");
+        }
+
         await SaveMailStoreAsync();
         return SmtpReplies.MessageAccepted;
     }
