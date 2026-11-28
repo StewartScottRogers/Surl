@@ -37,3 +37,4 @@ subscription queue (ADR-0146 Amendment 4), as the code does since BL-2041.
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-28: Backlog -> Doing.
