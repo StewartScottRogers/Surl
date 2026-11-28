@@ -302,12 +302,13 @@ internal sealed partial class LdapSession
     // connection with the Notice of Disconnection (ADR-0072 decision 3).
     private async ValueTask<bool> AnswerUnrecognizedAsync(int messageId, Asn1Tag tag)
     {
-        if (tag.TagClass != TagClass.Application || !WriteOperationNames.TryGetValue(tag.TagValue, out var operationName))
+        if (!IsWrite(tag))
         {
             await SendNoticeOfDisconnectionAsync(LdapResultCode.ProtocolError, "unknown operation");
             return false;
         }
 
+        var operationName = WriteOperationNames[tag.TagValue];
         var chosen = await FindChosenResultAsync(operationName, null);
         if (isDroppedByAFault)
         {
@@ -315,7 +316,7 @@ internal sealed partial class LdapSession
         }
 
         var refusal = chosen ?? ReadOnlyRefusal(operationName);
-        await SendAsync(LdapMessageEncoder.EncodeResultResponse(messageId, new Asn1Tag(TagClass.Application, tag.TagValue + 1, isConstructed: true), refusal));
+        await SendAsync(LdapMessageEncoder.EncodeResultResponse(messageId, WriteResponseTagOf(tag), refusal));
         return true;
     }
 
@@ -354,8 +355,15 @@ internal sealed partial class LdapSession
         LdapSearchRequest => LdapTags.SearchResultDone,
         LdapCompareRequest => LdapTags.CompareResponse,
         LdapExtendedRequest => LdapTags.ExtendedResponse,
+        LdapUnrecognizedOperation unrecognized when IsWrite(unrecognized.Tag) => WriteResponseTagOf(unrecognized.Tag),
         _ => null,
     };
+
+    // Add, delete, modify and modify DN, which the decoder reports by their tags alone.
+    private static bool IsWrite(Asn1Tag tag) => tag.TagClass == TagClass.Application && WriteOperationNames.ContainsKey(tag.TagValue);
+
+    // Each write's response is the application tag after its request's, constructed (RFC 4511, appendix B).
+    private static Asn1Tag WriteResponseTagOf(Asn1Tag request) => new(TagClass.Application, request.TagValue + 1, isConstructed: true);
 
     private ValueTask SendAsync(byte[] message) => connection.WriteAsync(Protected(message), CancellationToken);
 

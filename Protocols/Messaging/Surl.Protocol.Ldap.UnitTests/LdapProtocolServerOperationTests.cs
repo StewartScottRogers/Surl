@@ -415,6 +415,42 @@ public sealed class LdapProtocolServerOperationTests
     }
 
     [TestMethod]
+    [DataRow(6, true, "modifyResponse", DisplayName = "Modify")]
+    [DataRow(8, true, "addResponse", DisplayName = "Add")]
+    [DataRow(10, false, "delResponse", DisplayName = "Delete")]
+    [DataRow(12, true, "modDNResponse", DisplayName = "Modify DN")]
+    public async Task ServeAsync_CriticalControlOnAWrite_IsUnavailableCriticalExtension(int tagNumber, bool isConstructed, string responseName)
+    {
+        var write = Message(
+            4,
+            writer =>
+            {
+                // A DelRequest is the entry's DN itself, primitive; the other writes are sequences.
+                var tag = new Asn1Tag(TagClass.Application, tagNumber, isConstructed);
+                if (!isConstructed)
+                {
+                    Text(writer, "cn=alice,dc=example,dc=com", tag);
+                    return;
+                }
+
+                using var request = writer.PushSequence(tag);
+                Text(writer, "cn=alice,dc=example,dc=com");
+            },
+            Control("1.2.3", critical: true));
+
+        var connection = await RunAsync(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), TestContext.CancellationToken, null, AliceBind, write, Message(5, SimpleBind(3, "alice", "secret")));
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "#1 bindResponse success",
+                $"#4 {responseName} unavailableCriticalExtension \"critical control not supported\"",
+                "#5 bindResponse success",
+            },
+            LdapResponseTranscript.Of(connection.WrittenBytes).ToArray());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_NonCriticalControl_IsIgnored()
     {
         var connection = await RunAsync(
