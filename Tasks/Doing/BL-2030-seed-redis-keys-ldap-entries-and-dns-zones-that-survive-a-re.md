@@ -39,3 +39,4 @@ A host can seed a Redis key, LDAP entries or a DNS zone through `ComposedStores`
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
