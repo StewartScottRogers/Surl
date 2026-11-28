@@ -33,3 +33,4 @@ The AMQP 1.0 conformance matrix states the bound on messages held in open transa
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
