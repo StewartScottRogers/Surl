@@ -112,6 +112,8 @@ public sealed partial class AiHelpTextTests
             "",
             "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
             "",
+            OverviewNuGetToolParagraph,
+            "",
             OverviewHostsParagraph,
             "",
             "## Command line",
@@ -186,6 +188,11 @@ public sealed partial class AiHelpTextTests
         Assert.AreEqual(Text(expected), answer.Output);
         Assert.AreEqual(string.Empty, answer.Error);
     }
+
+    private const string OverviewNuGetToolParagraph =
+        "Each surl release after 0.1.12 is published to nuget.org as the .NET tool `Surly.Surl.Console`, which needs the .NET 10 SDK: "
+        + "`dotnet tool install -g Surly.Surl.Console` installs the `surl` command, and "
+        + "`dotnet dnx Surly.Surl.Console -- <options> <url>` runs surl without that install, with surl's arguments after `--`.";
 
     private const string OverviewHostsParagraph =
         "The same servers start in-process from .NET through the `Surly.Surl.Api` package (namespace `Surl.Api`): `SurlServer.StartAsync` takes a "

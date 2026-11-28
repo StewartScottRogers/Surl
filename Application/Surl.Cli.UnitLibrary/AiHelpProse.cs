@@ -17,8 +17,18 @@ internal static class AiHelpProse
         "surl is the server-side mate of curl: for each request upstream curl makes, surl is the server that answers it. Where `curl [options] <url>` names what to fetch, `surl [options] <url>` names what to listen on.",
         "`surl --version` names the schemes this build serves. Each protocol has a topic below with its schemes, their default ports, its options and an upstream curl command line that reaches it.",
         "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
+        OverviewNuGetTool,
         OverviewHosts,
     ];
+
+    /// <summary>
+    /// The overview's paragraph giving the two commands that get <c>surl</c> from nuget.org: installing the
+    /// <c>Surly.Surl.Console</c> .NET tool and running it with <c>dotnet dnx</c> (ADR-0191 decision 5).
+    /// </summary>
+    public const string OverviewNuGetTool =
+        "Each surl release after 0.1.12 is published to nuget.org as the .NET tool `Surly.Surl.Console`, which needs the .NET 10 SDK: "
+        + "`dotnet tool install -g Surly.Surl.Console` installs the `surl` command, and "
+        + "`dotnet dnx Surly.Surl.Console -- <options> <url>` runs surl without that install, with surl's arguments after `--`.";
 
     /// <summary>
     /// The overview's paragraph pointing at the two other hosts of the same servers, <c>Surl.Api</c> and
