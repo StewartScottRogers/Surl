@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, README.md, .claude/agents/coverage-auditor.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2112 — Correct the published-surl stop check and quality gate scope statements in Requirements.md, the glossary, README.md and coverage-auditor
 
@@ -28,13 +28,19 @@ Stand-in: nothing to add; documentation only.
 
 ## Acceptance criteria
 
-- [ ] NFR-006 and the glossary's smoke test row say which stop `Test-PublishedSurl.ps1` checks on Windows and which on Linux and macOS.
-- [ ] The glossary's native publish row allows the symbol file, as `Test-PublishedSurl.ps1` check 1 does.
-- [ ] `README.md` and the `coverage-auditor` description name `Surl.Console` and `Surl.Api` as gated.
+- [x] NFR-006 and the glossary's smoke test row say which stop `Test-PublishedSurl.ps1` checks on Windows and which on Linux and macOS.
+- [x] The glossary's native publish row allows the symbol file, as `Test-PublishedSurl.ps1` check 1 does.
+- [x] `README.md` and the `coverage-auditor` description name `Surl.Console` and `Surl.Api` as gated.
 
 ## Notes
+
+- Checked against `Test-PublishedSurl.ps1` (check 1 allows `surl.pdb`, `surl.dbg`, `surl.dSYM`; check 4 is `Stop-Process` on Windows, SIGTERM and exit 0 elsewhere, within 10 seconds) and `Measure-CodeQuality.ps1` (gates `*.UnitLibrary`, `Surl.Console`, `Surl.Api`).
+- `README.md` "Gate" step: it also said nothing lands without full coverage and the CRAP limit. A lane's check before it pushes is build and fast tests, and `ci.yml` does not run `Measure-CodeQuality.ps1`, so the step now says that.
+- No `.cs`, project or script file changed. `dotnet build`: 0 warnings, 0 errors. Fast tests: 30,858 passed in 83 assemblies.
+- Filed BL-2117: NFR-002, NFR-003 and NFR-005 say "Enforced by `Measure-CodeQuality.ps1`".
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. Requirements.md, the glossary, README.md and coverage-auditor state the published-surl stop check, the symbol file allowance and the quality gate scope as the scripts do
