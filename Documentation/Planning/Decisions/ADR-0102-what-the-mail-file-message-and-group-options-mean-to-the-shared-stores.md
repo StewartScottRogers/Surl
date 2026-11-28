@@ -13,7 +13,7 @@
 - **Amended by:**
   [ADR-0185 Amendment 1](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)
   (2026-11-28, BL-2123), which amends decision 1.6: being listed as a shared-folder member is to admit no one while
-  the server has removed the account of that name. That rule is not yet built (BL-2129).
+  the server has removed the account of that name. Built by BL-2129 (2026-11-28).
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and
@@ -223,11 +223,14 @@ decision 5), the bounds and persistence of ADR-0050 decisions 6 and 7.
 
 *Amended by
 [ADR-0185 Amendment 1](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)
-(2026-11-28, BL-2123), **not yet built** (BL-2129): from the removal of an account until an account of that name that
-may log in on a mail scheme is added again, a view given for the name is to hold no shared folder, even one that lists
-the name as a member (that amendment's decision 6 says what a reset and a restore do to a removal). As the code is on
-2026-11-28, `MailboxStore.ViewFor` selects shared folders by member name alone, so a removed member's view still holds
-them.*
+(2026-11-28, BL-2123), built by BL-2129: for a name `MailboxStore.RetireOwner` was given, as the server gives it each
+removed account's, `MailboxStore.ViewFor` gives an empty view, no mailbox of the name's own and no shared folder, even
+one that lists the name as a member, and even when the name is a `--mailbox` address. The member lists are not edited.
+The removal lasts until `MailboxStore.AddOwner` is given the name again, as the server does when an account of that name
+that may log in on a mail scheme is added, or until `MailboxStore.Reset` forgets it; `MailboxStore.Restore` puts back
+exactly the removals its snapshot holds. A view given before the removal keeps what it had. Under `--allow-anonymous`
+every view is the anonymous owner's, which holds no shared folder; outside it, a name with no removal in force gets
+each shared folder whose members include it, whether or not it names an account or mailbox.*
 
 - **The store.** Shared folders are mailboxes of one **reserved owner** named `:shared`, which no
   account name can equal (`--user` and `--user-file` split at the first `:`, ADR-0032 section 1, and
