@@ -50,6 +50,10 @@
 - **Amended:** decision 3.2 by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (2026-11-18, BL-1379): `--topic` and `--topic-access` keep `#` at any level; `--aihelp messages` says so.
 - **Amended:** decision 3.3 by its own text (2026-11-25, BL-1732): a connection subscribes several
   filters in one step, with no publish between them ("Several filters in one step").
+- **Amended:** decisions 3.3 and 3.6 by
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 6 (2026-11-27, BL-2012): a queue carrying a subscription description takes no direct send
+  from a client, which is answered `UnknownQueue`.
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -450,6 +454,10 @@ stopped consumer no longer counts as a consumer. The four outcomes BL-730 added 
   connection, as AMQP 0-9-1's default exchange routes to any queue by name), but only its owner may
   declare, bind, consume from or delete it; any other connection gets `QueueLocked` (AMQP 0-9-1
   `405 resource-locked`, rule `declare`/`exclusive`). It is deleted when its owner goes.
+  *(2026-11-27, BL-2012: a queue carrying a subscription description takes no direct send, exclusive
+  or not:
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 6.)*
 - **Declaring a queue again with other flags is `QueueFlagsDiffer`** and leaves the queue as it was
   (AMQP 0-9-1 `queue.declare`: an inequivalent redeclaration is `406 precondition-failed`). An empty
   queue name is `InvalidQueueName`; a queue that does not exist is `UnknownQueue`; a delivery tag the
@@ -572,7 +580,7 @@ return that outcome to it:
 
 | Outcome | AMQP 0-9-1 | AMQP 1.0 | STOMP |
 | --- | --- | --- | --- |
-| `UnknownQueue` | channel close `404 not-found`; a publish to the default exchange naming no queue is unroutable instead (`basic.return` `312` under `mandatory`) | a consume refused at attach, or a transfer `rejected`, with `amqp:not-found` (`no such node`) | ERROR `message:Resource limit exceeded`, then close (a queue deleted between SEND or SUBSCRIBE's declare and its use; the first SEND or SUBSCRIBE creates a missing queue). A test's seed into an undeclared queue is refused `UnknownQueue` and never creates it, though those protocols do (ADR-0124's 2026-11-22 amendment, BL-1605) |
+| `UnknownQueue` | channel close `404 not-found`; a publish to the default exchange naming no queue is unroutable instead (`basic.return` `312` under `mandatory`). 2026-11-27 (BL-2012): a direct send to a queue carrying a subscription description is `UnknownQueue` too, with each protocol's answer in [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md) Amendment 6 | a consume refused at attach, or a transfer `rejected`, with `amqp:not-found` (`no such node`) | ERROR `message:Resource limit exceeded`, then close (a queue deleted between SEND or SUBSCRIBE's declare and its use; the first SEND or SUBSCRIBE creates a missing queue). A test's seed into an undeclared queue is refused `UnknownQueue` and never creates it, though those protocols do (ADR-0124's 2026-11-22 amendment, BL-1605) |
 | `QueueLocked` | channel close `405 resource-locked` | attach refused with `amqp:unauthorized-access`, the same answer as a refused access | ERROR `message:Resource limit exceeded`, then close (a SUBSCRIBE to another connection's exclusive queue; a SEND to it succeeds) |
 | `QueueFlagsDiffer` | channel close `406 precondition-failed` | does not arise: an existing queue is used with the flags it has | does not arise: an existing queue is used with the flags it has |
 | `UnknownDeliveryTag` | channel close `406 precondition-failed` (`basic.ack`, `basic.reject`, `basic.nack`, rule `ack`/`exists`) | does not arise: a `disposition` for a delivery already settled finds nothing and changes nothing | does not arise: an ACK or NACK naming no outstanding message is ignored before the bus (ADR-0118 decision 5) |

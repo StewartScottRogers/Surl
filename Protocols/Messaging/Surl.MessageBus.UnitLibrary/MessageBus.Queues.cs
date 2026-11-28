@@ -18,8 +18,9 @@ public sealed partial class MessageBus
     /// Puts <paramref name="message"/> straight into one named queue, as AMQP 0-9-1's default
     /// exchange and a STOMP <c>SEND</c> to <c>/queue/&lt;q&gt;</c> do. Its topic is not checked:
     /// a queue message is delivered by its queue's name. A message already expired is dropped.
-    /// Any connection may send to any queue, an exclusive one included. It is sent for an
-    /// anonymous caller: <see cref="PublishToQueue(string, BusMessage, string?)"/> with no account.
+    /// Any connection may send to an exclusive queue, but none to a queue carrying a subscription
+    /// description (ADR-0146, Amendment 6). It is sent for an anonymous caller:
+    /// <see cref="PublishToQueue(string, BusMessage, string?)"/> with no account.
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
@@ -43,6 +44,7 @@ public sealed partial class MessageBus
     /// <param name="account">The sender's account, or <see langword="null"/> for an anonymous one.</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.MessageTooLarge"/>,
     /// <see cref="MessageBusOutcome.AccessDenied"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
+    /// (also for a queue carrying a subscription description, which takes no direct send)
     /// or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> or
     /// <paramref name="message"/> is <see langword="null"/>.</exception>

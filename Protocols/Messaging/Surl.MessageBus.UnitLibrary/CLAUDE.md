@@ -52,7 +52,7 @@ What it holds now (BL-629):
   end puts it back at its own place, marked `Redelivered`; a reject without requeue drops it,
   because the bus has no dead-letter queue. An exclusive queue belongs to its declaring
   connection: any other connection gets `QueueLocked` on declare, bind, consume and delete,
-  but may still send to it. It is deleted when its owner goes. An auto-delete queue is
+  but may still send to it, unless it carries a subscription description (below). It is deleted when its owner goes. An auto-delete queue is
   deleted when its last consumer ends (one a restore ends, below, leaves it). An expired message is
   dropped when the queue reaches it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
 - **Delivery credit (BL-2071, ADR-0146 Amendment 7).** `BusQueueConsumer.SetDeliveryCredit(n)` is
@@ -117,8 +117,9 @@ What it holds now (BL-629):
   (else `QueueDescriptionDiffers`) and be bound to that filter and nothing else (else `AccessDenied`).
   `Consume` and `GetFromQueue` still need the `$queue` grant on the same queue, and `sub` on its
   filters as well (below). A queue carrying a description takes no direct send: `PublishToQueue` and a batch's `ToQueue` entry answer
-  `UnknownQueue`, so a direct send (AMQP 0-9-1's default, direct, fanout and headers exchanges, STOMP's
-  `/queue/`) brings no message from outside its bindings. `SeedEnqueue`, the test host's own, still
+  `UnknownQueue`, so a direct send (every AMQP 0-9-1 exchange but `amq.topic`: the default, direct,
+  fanout, headers and declared topic exchanges; STOMP's `/queue/`) brings no message from outside its
+  bindings. `SeedEnqueue`, the test host's own, still
   fills it. The check at consume time reads the bindings as they are then: a message another client's
   binding copied in, then unbound, stays in the queue.
 - **Deleting by description (BL-2010, ADR-0146 decision 3.4).**

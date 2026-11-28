@@ -249,7 +249,11 @@ but its flags and bindings.
    subscription's queue is deleted with its messages. A `detach` with `closed` false, the session's
    end or the connection's end leaves it. An address naming a `surl-subscription-` queue directly
    (`/queue/surl-subscription-...`) is refused with `amqp:not-found`, so only the subscriber reaches
-   it.
+   it. *(2026-11-27: of the AMQP 1.0 address only. Other protocols may delete and purge the queue by
+   name as [Amendment 2](#amendment-2-bl-2027-2026-11-27-who-may-delete-or-purge-a-subscription-queue-by-name)
+   says, and get from and consume it by name as
+   [Amendment 5](#amendment-5-bl-2047-2026-11-27-who-may-get-from-or-consume-a-subscription-queue-by-name)
+   says.)*
 5. **Shared subscriptions.** A source whose `capabilities` include **`shared`** names a subscription
    several links consume at once, competing as queue consumers do (ADR-0100 decision 3.3): its key
    is the link name up to the first `|` (the suffix a JMS client adds to tell the links of one shared

@@ -36,10 +36,12 @@ public sealed partial class MessageBus
         Publish(message, account: null, publisher: null, onlyToConsumedQueues: false, seed: true);
 
     /// <summary>
-    /// Seeds <paramref name="message"/> into one named queue exactly as
+    /// Seeds <paramref name="message"/> into one named queue as
     /// <see cref="PublishToQueue(string, BusMessage)"/> puts it there - handed to a consumer with room
     /// at once, within the bus's bounds - but never refused by the access grants or the fault plan,
-    /// and then publishes <see cref="StoreChange.Seeded"/> naming <see cref="QueueChangeName"/>.
+    /// and also into a queue carrying a subscription description, which takes no direct send
+    /// (ADR-0146, Amendment 6). It then publishes <see cref="StoreChange.Seeded"/> naming
+    /// <see cref="QueueChangeName"/>.
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
