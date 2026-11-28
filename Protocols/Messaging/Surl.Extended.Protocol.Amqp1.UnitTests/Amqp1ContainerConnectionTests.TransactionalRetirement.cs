@@ -9,7 +9,28 @@ namespace Surl.Extended.Protocol.Amqp1.UnitTests;
 /// </summary>
 public sealed partial class Amqp1ContainerConnectionTests
 {
+    // amqp-value holding discharge of txn-id 00 00 00 02, fail false.
+    private const string DischargeCommitSecondHex = "005377" + "005332" + "C00802" + "A00400000002" + "42";
+
+    // amqp-value holding discharge of txn-id 00 00 00 02, fail true.
+    private const string DischargeRollBackSecondHex = "005377" + "005332" + "C00802" + "A00400000002" + "41";
+
     private static Amqp1Map AcquireInFirstTransaction => new([new(new Amqp1Symbol("txn-id"), FirstTransactionId)]);
+
+    private static byte[] RetireInSecondTransaction(uint deliveryId, Amqp1Described outcome, bool settled = false) =>
+        BusFrame(new Amqp1Disposition(true, deliveryId) { Settled = settled, State = Amqp1DeliveryState.TransactionalState([0, 0, 0, 2], outcome) });
+
+    // Delivery 0 acquired in transaction 1, its outcome held in transaction 2, then 1 rolled back.
+    private static byte[][] RollBackFirstWhileSecondHolds(Amqp1Described outcome, bool settled = false, params byte[][] more) =>
+        AcquisitionFrames(
+            "orders",
+            more:
+            [
+                Control(0, 1, DeclareHex),
+                RetireInSecondTransaction(0, outcome, settled),
+                Control(0, 2, DischargeRollBackHex),
+                .. more,
+            ]);
 
     // A coordinator on handle 0 and transaction 00 00 00 01 declared, then a client receiver of the address on handle 1.
     private static byte[][] AcquisitionFrames(string address, byte receiverSettleMode = 0, uint credit = 10, bool acquire = true, params byte[][] more) =>
@@ -399,21 +420,72 @@ public sealed partial class Amqp1ContainerConnectionTests
     {
         var bus = Bus();
         Enqueue(bus, "orders", "elsewhere");
-        byte[] secondTransactionId = [0, 0, 0, 2];
-        var commitSecond = "005377" + "005332" + "C00802" + "A00400000002" + "42";
 
         var (written, _) = await ServeOnBusAsync(
             bus,
             [
                 .. AcquisitionFrames("orders"),
                 Control(0, 1, DeclareHex),
-                BusFrame(new Amqp1Disposition(true, 0) { State = Amqp1DeliveryState.TransactionalState(secondTransactionId, UndeliverableHere()) }),
-                Control(0, 2, commitSecond),
+                RetireInSecondTransaction(0, UndeliverableHere()),
+                Control(0, 2, DischargeCommitSecondHex),
                 Control(0, 3, DischargeRollBackHex),
                 BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
             ]);
 
         Assert.HasCount(1, Transfers(written));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ServeAsync_CommitAfterRollBackOfTheAcquiringTransaction_AppliesTheOutcomeAnotherTransactionHeld(bool settled)
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "one");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus, RollBackFirstWhileSecondHolds(Amqp1DeliveryState.Accepted, settled, Control(0, 3, DischargeCommitSecondHex)));
+
+        Assert.HasCount(1, Transfers(written));
+        Assert.IsNull(LeftIn(bus));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ServeAsync_RollBackOfAcquiredDeliveryWhoseUndeliverableHereAnotherTransactionHolds_IsNotSentToTheLinkAgain(bool settled)
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "elsewhere");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            RollBackFirstWhileSecondHolds(
+                UndeliverableHere(), settled, Control(0, 3, DischargeCommitSecondHex), BusFrame(Credit(1, deliveryCount: 1, credit: 10))));
+
+        Assert.HasCount(1, Transfers(written));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ServeAsync_RollBackOfBothTheAcquiringAndTheHoldingTransaction_LeavesTheDeliveryUnsettledOnItsLink(bool settled)
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "one");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            RollBackFirstWhileSecondHolds(
+                Amqp1DeliveryState.Accepted,
+                settled,
+                Control(0, 3, DischargeRollBackSecondHex),
+                BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
+                Retire(0, Amqp1DeliveryState.Accepted)));
+
+        // Not sent again, and still the link's to retire: the client's own disposition removes the message.
+        Assert.HasCount(1, Transfers(written));
+        Assert.IsNull(LeftIn(bus));
     }
 
     [TestMethod]

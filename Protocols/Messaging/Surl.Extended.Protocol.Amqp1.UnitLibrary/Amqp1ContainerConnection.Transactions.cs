@@ -166,12 +166,14 @@ public sealed partial class Amqp1ContainerConnection
         }
     }
 
-    // ADR-0146 decisions 1.5 and 1.6 and Amendments 1 and 10: held outcomes are forgotten, their settled
+    // ADR-0146 decisions 1.5 and 1.6 and Amendments 1, 10 and 11: held outcomes are forgotten, their settled
     // deliveries unsettled again (those of an ended link were forgotten as it ended). Deliveries acquired in the transaction, still
-    // unsettled and with no outcome applied leave the unsettled set, and those with a queue delivery tag (a
-    // queue's, or a kept or non-durable shared subscription's) go back to their queue, redelivered; a live
-    // topic subscription's has none. One whose outcome stated outside the transaction was applied stays as
-    // it is, so one modified undeliverable-here stays with its link until the link ends.
+    // unsettled, with no outcome applied and none held by another open transaction leave the unsettled set,
+    // and those with a queue delivery tag (a queue's, or a kept or non-durable shared subscription's) go
+    // back to their queue, redelivered; a live topic subscription's has none. One whose outcome stated
+    // outside the transaction was applied stays as it is, so one modified undeliverable-here stays with its
+    // link until the link ends. One whose outcome another transaction holds stays with its link too, for
+    // that transaction's discharge to decide.
     private static void RollBack(Amqp1Transaction transaction)
     {
         foreach (var held in transaction.HeldOutcomes)
@@ -185,7 +187,8 @@ public sealed partial class Amqp1ContainerConnection
             }
         }
 
-        foreach (var delivery in transaction.Acquired.Where(acquired => !acquired.OutcomeApplied && acquired.Session.Unsettled.Remove(acquired.DeliveryId)))
+        // The loop above cleared this transaction's held outcomes, so one still held is another's.
+        foreach (var delivery in transaction.Acquired.Where(acquired => !acquired.OutcomeApplied && acquired.Held is null && acquired.Session.Unsettled.Remove(acquired.DeliveryId)))
         {
             delivery.Link.UnsettledCount--;
             if (delivery.QueueDeliveryTag is { } tag)

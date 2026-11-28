@@ -957,3 +957,44 @@ failed that way before BL-2114's fix.
   would name nothing.
 - **Refusing a non-transactional outcome for an acquired delivery.** Decision 1.5 already lets the
   link retire it outside the transaction, and a test may rely on that.
+
+## Amendment 11 (BL-2127, 2026-11-28): a rollback leaves a delivery whose outcome another transaction holds
+
+Decided by Claude under Stewart's delegation.
+
+A client may acquire a delivery in one transaction and state its outcome in a second. That breaks
+AMQP 1.0: Part 4 section 4.4.2 says the delivery must not be associated with a different undischarged
+transaction than the outcome, and 4.4.4 that the outcome must be in the acquiring transaction. The
+container accepts it all the same. When the client had left the delivery unsettled, the first
+transaction's rollback requeued it although the second held its outcome, so the second's commit
+changed nothing and a held `modified` with `undeliverable-here` did not keep the message from the
+link, against decision 1.5 ("neither redelivered nor dropped until the transaction is discharged").
+`Amqp1ContainerConnectionTests.ServeAsync_CommitAfterRollBackOfTheAcquiringTransaction_AppliesTheOutcomeAnotherTransactionHeld`
+and `ServeAsync_RollBackOfAcquiredDeliveryWhoseUndeliverableHereAnotherTransactionHolds_IsNotSentToTheLinkAgain`
+failed that way before BL-2127's fix. A delivery the client had settled was already left alone.
+
+1. **The rule.** The first transaction's rollback does nothing with such a delivery: it stays with its
+   link, unsettled if the client left it so, is not returned to its queue, and its outcome stays held
+   in the second transaction. This holds whatever the held state is, one with no outcome included.
+2. **The second transaction's discharge decides.** A commit applies the held outcome as it applies any
+   other (Amendment 10 item 4). A rollback forgets it, as any held outcome: the delivery is then
+   unsettled on its link (again, if the client had settled it) and acquired in no transaction, so the
+   client may retire it, and otherwise a queue delivery goes back to its queue, marked redelivered,
+   when the link ends.
+3. **Both rolled back at once** (one coordinator link ending) follows the order the container rolls
+   them back in: the delivery goes back to its queue if the second goes first, and stays with its link
+   if the acquiring one does.
+4. **This amends** decision 1.5, decision 6, Amendment 1's third bullet and Amendment 10 item 1: of the
+   acquired deliveries still unsettled, only those with no outcome applied **and none held by another
+   open transaction** leave the unsettled set.
+5. **Stand-in.** What a test stated in a transaction it commits happens, whatever another transaction
+   does first. No new option or fault.
+
+### Alternatives considered (Amendment 11)
+
+- **Refusing the second transaction's `disposition`,** as sections 4.4.2 and 4.4.4 would justify.
+  Decision 1.5 and Amendment 1 would need a new refusal, and a test client that works against the
+  container today would stop working, for no gain to the delivery's safety once the rule above holds.
+- **Moving the acquisition to the second transaction,** so that its rollback requeues the delivery.
+  The second would count an acquired delivery it never acquired against `MaxAcquiredDeliveries`, and
+  a rollback would then do more than forget the outcomes stated in it.
