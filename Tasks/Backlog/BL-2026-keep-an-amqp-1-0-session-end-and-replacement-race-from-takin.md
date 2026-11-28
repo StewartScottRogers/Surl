@@ -1,5 +1,5 @@
 ---
-id: BL-2013
+id: BL-2026
 title: Keep an AMQP 1.0 session end and replacement race from taking or misreporting a subscription another link holds
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2013 — Keep an AMQP 1.0 session end and replacement race from taking or misreporting a subscription another link holds
+# BL-2026 — Keep an AMQP 1.0 session end and replacement race from taking or misreporting a subscription another link holds
 
 ## Goal
 

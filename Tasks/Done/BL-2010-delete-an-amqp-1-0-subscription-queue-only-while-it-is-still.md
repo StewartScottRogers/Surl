@@ -46,8 +46,8 @@ no account deletes a subscription whose topic filter it may not subscribe to.
   its address: a `closed` detach still deletes a persisted subscription whose address a changed `--topic-map` now
   maps elsewhere.
 - `Amqp1Session.SessionSubscriptionQueues` became `SessionSubscriptions` (queue name to description).
-- A session's end still deletes a queue in use that carries its description, as before; follow-up BL-2013. AMQP 0-9-1
-  `queue.delete` still judges no grant; follow-up BL-2014.
+- A session's end still deletes a queue in use that carries its description, as before; follow-up BL-2026. AMQP 0-9-1
+  `queue.delete` still judges no grant; follow-up BL-2027.
 - No ADR file written: these refine ADR-0146 decision 3.4 as this task states it, and
   `Documentation/Planning/Decisions` is in BL-1976's `touches` while this ran. The rules are in both libraries'
   `CLAUDE.md`.

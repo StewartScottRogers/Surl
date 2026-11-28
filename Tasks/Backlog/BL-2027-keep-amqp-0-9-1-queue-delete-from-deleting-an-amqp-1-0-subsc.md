@@ -1,5 +1,5 @@
 ---
-id: BL-2014
+id: BL-2027
 title: Keep AMQP 0-9-1 queue.delete from deleting an AMQP 1.0 subscription queue without the sub right
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-2014 — Keep AMQP 0-9-1 queue.delete from deleting an AMQP 1.0 subscription queue without the sub right
+# BL-2027 — Keep AMQP 0-9-1 queue.delete from deleting an AMQP 1.0 subscription queue without the sub right
 
 ## Goal
 
