@@ -1,5 +1,5 @@
 ---
-id: BL-2109
+id: BL-2115
 title: Make the NATS drop-rule test for SUB pass whichever way the aborted write ends
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2109 — Make the NATS drop-rule test for SUB pass whichever way the aborted write ends
+# BL-2115 — Make the NATS drop-rule test for SUB pass whichever way the aborted write ends
 
 ## Goal
 

@@ -63,9 +63,9 @@ event, seed, reset or fault behaviour.
 - Verify: build `-warnaserror` clean with 0 warnings, format check clean, no `.cs` line endings rewritten. Fast tests:
   30,840 passed, 3 skipped, 1 failed across 83 assemblies. The failure was
   `NatsFaultTests.ServeAsync_ADropRuleForSub_AbortsTheConnectionWithNoReply`, an intermittent abort-during-write in a
-  project this task does not touch; the NATS tests then passed 224 of 224 three times. Filed as BL-2109.
+  project this task does not touch; the NATS tests then passed 224 of 224 three times. Filed as BL-2115.
   `Integration` tests were not run: the change is comments only.
-- Remaining mail store comment errors filed as BL-2110. The ADR-0127 line in `Documentation/Planning/Decisions/README.md`
+- Remaining mail store comment errors filed as BL-2116. The ADR-0127 line in `Documentation/Planning/Decisions/README.md`
   ("one event per change") was left: it summarises what that ADR decided.
 
 ## Log

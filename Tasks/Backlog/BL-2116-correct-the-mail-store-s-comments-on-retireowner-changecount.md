@@ -1,5 +1,5 @@
 ---
-id: BL-2110
+id: BL-2116
 title: Correct the mail store's comments on RetireOwner, ChangeCount and when files are written
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2110 — Correct the mail store's comments on RetireOwner, ChangeCount and when files are written
+# BL-2116 — Correct the mail store's comments on RetireOwner, ChangeCount and when files are written
 
 ## Goal
 
