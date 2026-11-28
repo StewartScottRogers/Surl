@@ -87,7 +87,13 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       discards every open or staged object upload (S3, Azure Storage, Google Cloud Storage, OCI) and Azure Storage's
       remembered committed block lists, and ends every OCI registry token, all MCP server OAuth state (clients, codes
       and tokens) and every MCP HTTP session. A store on disk refuses (ADR-0167; BL-2079).
-    - `SnapshotServerTool` (`snapshot_server`) -> `{snapshot_id}`; `RestoreServerTool` (`restore_server`):
+    - `SnapshotServerTool` (`snapshot_server`) -> `{snapshot_id}`. It copies files, mail, messages, accounts, proxy
+      accounts, TLS-SRP accounts, Redis keys, the LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer
+      state, MQTT 5 sessions kept with no connection and DNS zones. It does not copy queues exclusive to a connection;
+      Kafka consumer groups; MQTT 5 pending Wills, queued deliveries and unacknowledged publishes; open or staged
+      object uploads (S3, Azure Storage, Google Cloud Storage, OCI) or Azure Storage's remembered committed block
+      lists; OCI registry tokens; MCP server OAuth state (clients, codes and tokens); or MCP HTTP sessions (BL-2099).
+    - `RestoreServerTool` (`restore_server`):
       `snapshot_id` -> `{server_id, snapshot_id}`. It replaces files, mail, messages, accounts, proxy accounts,
       TLS-SRP accounts, Redis keys, the LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer state, MQTT 5
       sessions kept with no connection and DNS zones with the snapshot's, and clears what a snapshot does not copy:

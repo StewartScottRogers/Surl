@@ -16,8 +16,13 @@ public static class SnapshotServerTool
 
     /// <summary>The tool's description.</summary>
     internal const string Description =
-        "Take a copy of a running Surl server's files, mail, messages and accounts, kept in memory by this host, and "
-        + "return its ID for restore_server. The newest 4 snapshots per server are kept; the oldest is dropped.";
+        "Take a copy of a running Surl server's files, mail, messages, accounts, proxy accounts, TLS-SRP accounts, Redis "
+        + "keys, LDAP directory, AMQP 0-9-1 exchanges and bindings, Kafka producer state, MQTT 5 sessions kept with no "
+        + "connection and DNS zones, kept in memory by this host, and return its ID for restore_server. It does not copy "
+        + "queues exclusive to a connection; Kafka consumer groups; MQTT 5 pending Wills, queued deliveries and "
+        + "unacknowledged publishes; open or staged object uploads (S3, Azure Storage, Google Cloud Storage, OCI) or "
+        + "Azure Storage's remembered committed block lists; OCI registry tokens; MCP server OAuth state (clients, codes "
+        + "and tokens); or MCP HTTP sessions. The newest 4 snapshots per server are kept; the oldest is dropped.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
