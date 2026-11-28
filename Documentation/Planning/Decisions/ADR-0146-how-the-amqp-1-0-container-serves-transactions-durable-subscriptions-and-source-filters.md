@@ -850,3 +850,54 @@ queue likewise stayed auto-delete over a snapshot's durable one.
   and would go on taking the messages of one every caller shares.
 - **Refusing the restore.** A reset or restore between tests must not fail because a client is still
   attached (ADR-0124).
+
+## Amendment 10 (BL-2114, 2026-11-28): a rollback leaves a delivery retired outside the transaction as it is
+
+Decided by Claude under Stewart's delegation.
+
+AMQP 1.0 Part 4 section 4.4.4 says of an outcome the controller sends, before discharge, for a delivery
+acquired in a transaction that it "MUST be associated with the same transaction", and states no rule
+for a controller that sends one outside it. Decision 1.5 accepts such an outcome as retiring the
+delivery outside the transaction. Amendment 1 says both that a rollback returns every acquired delivery
+still unsettled on its link and that one settled outside the transaction stays retired, and under
+`rcv-settle-mode` `first` a `disposition` that states an outcome without settling is both unsettled and
+retired. A `modified` with `undeliverable-here` stated so leaves the delivery unacknowledged on the
+bus, so the rollback requeued it and the bus could assign it to the same link again, against Part 3
+section 3.4.5: "If the undeliverable-here is set, then any messages released MUST NOT be redelivered to
+the modifying link endpoint." The test
+`Amqp1ContainerConnectionTests.ServeAsync_RollBackOfAcquiredDeliveryModifiedUndeliverableHereOutsideTheTransaction_IsNotSentToTheLinkAgain`
+failed that way before BL-2114's fix.
+
+1. **The rule.** A rollback leaves as it is a delivery acquired in the transaction whose outcome has
+   been applied: one stated outside any transaction, or one another transaction's commit applied. Of
+   the acquired deliveries still unsettled, only those with no outcome applied leave the unsettled set
+   and, from a queue, go back to it.
+2. **`undeliverable-here`.** Such a delivery stays unacknowledged on the bus, exactly as outside any
+   transaction, and its message goes back to the queue, marked redelivered, when the link ends. One the
+   client left unsettled under `rcv-settle-mode` `first` also stays unsettled on its link through the
+   rollback: the client may settle it, and it counts toward the link's 1000 unsettled until then. One
+   the client settled, or one under `second`, left the unsettled set when the outcome was stated.
+3. **The other outcomes.** `accepted`, `rejected`, `released` and `modified` without
+   `undeliverable-here` have already acted on the bus. One the client left unsettled under `first` now
+   also stays in the link's unsettled set until the client settles it, where before this amendment the
+   rollback removed it.
+4. **A commit applies a held outcome only to a delivery with no outcome applied,** as a later
+   `disposition` outside a transaction does. So no later transaction acknowledges, drops or requeues a
+   delivery already modified `undeliverable-here`. Under `rcv-settle-mode` `second` the commit still
+   settles a delivery left unsettled.
+5. **What does not change.** An outcome held in the rolled back transaction is forgotten,
+   `undeliverable-here` included, so that message may be sent to the same link again.
+6. **This amends** decision 1.5, decision 6's applying of held outcomes, and Amendment 1's third and
+   last bullets.
+7. **Stand-in.** A test that refuses a message for one consumer, outside the transaction, does not see
+   it come back to that consumer when the transaction rolls back. No new option or fault.
+
+### Alternatives considered (Amendment 10)
+
+- **Skipping only `undeliverable-here` and removing the others as before.** Two rules for one thing:
+  whether a delivery retired outside the transaction stayed unsettled would depend on its outcome.
+- **Removing the `undeliverable-here` delivery from the unsettled set without requeueing it.** The bus
+  would hold a delivery the link no longer counts toward its 1000 unsettled, and the client's settle
+  would name nothing.
+- **Refusing a non-transactional outcome for an acquired delivery.** Decision 1.5 already lets the
+  link retire it outside the transaction, and a test may rely on that.

@@ -29,6 +29,12 @@ public sealed partial class Amqp1ContainerConnectionTests
     private static byte[] Retire(uint deliveryId, Amqp1Described outcome) =>
         BusFrame(new Amqp1Disposition(true, deliveryId) { Settled = true, State = outcome });
 
+    private static Amqp1Described UndeliverableHere() => new(Amqp1Descriptor.Modified, new List<object?> { null, true });
+
+    // Unsettled and outside any transaction, so under rcv-settle-mode first the delivery stays unsettled.
+    private static byte[] ModifyUndeliverableHere(uint deliveryId) =>
+        BusFrame(new Amqp1Disposition(true, deliveryId) { State = UndeliverableHere() });
+
     // Delivery states hold their fields in lists and arrays, which compare by reference: compare the bytes they encode to.
     private static void AssertSameState(Amqp1Described expected, object? actual) =>
         Assert.AreEqual(Convert.ToHexString(Amqp1Encoder.Encode(expected)), Convert.ToHexString(Amqp1Encoder.Encode(actual)));
@@ -285,6 +291,153 @@ public sealed partial class Amqp1ContainerConnectionTests
         await ServeOnBusAsync(bus, [.. AcquisitionFrames("orders", credit: 1), Retire(0, Amqp1DeliveryState.Accepted), Control(0, 1, DischargeRollBackHex)]);
 
         Assert.IsNull(LeftIn(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackOfAcquiredDeliveryModifiedUndeliverableHereOutsideTheTransaction_IsNotSentToTheLinkAgain()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "elsewhere");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. AcquisitionFrames("orders"),
+                ModifyUndeliverableHere(0),
+                Control(0, 1, DischargeRollBackHex),
+                BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
+            ]);
+
+        Assert.HasCount(1, Transfers(written));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackOfAcquiredDeliveryModifiedUndeliverableHereOutsideTheTransaction_GoesBackRedeliveredWhenTheLinkEnds()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "elsewhere");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. AcquisitionFrames("orders"),
+                ModifyUndeliverableHere(0),
+                Control(0, 1, DischargeRollBackHex),
+                BusFrame(ReceiverAttach(2, "orders")),
+                BusFrame(Credit(2, deliveryCount: 0, credit: 10)),
+                BusFrame(new Amqp1Detach(1) { Closed = true }),
+                BusFrame(Credit(2, deliveryCount: 0, credit: 10)),
+            ]);
+
+        var performatives = written.Select(frame => frame.Performative).ToList();
+        var detached = performatives.FindIndex(performative => performative is Amqp1Detach);
+        var sentAgain = Transfers(written)[1];
+        Assert.HasCount(2, Transfers(written));
+        Assert.IsGreaterThan(detached, performatives.IndexOf(sentAgain.Transfer));
+        Assert.AreEqual("elsewhere", DataOf(sentAgain.Payload));
+        Assert.AreEqual(1u, Amqp1Header.FromDescribed(Amqp1MessageSection.ReadAll(sentAgain.Payload)[0].Described).DeliveryCount);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_UndeliverableHereDeliverySettledWithNoStateAfterTheRollBack_IsStillNotSentToTheLinkAgain()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "elsewhere");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. AcquisitionFrames("orders"),
+                ModifyUndeliverableHere(0),
+                Control(0, 1, DischargeRollBackHex),
+                BusFrame(new Amqp1Disposition(true, 0) { Settled = true }),
+                BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
+            ]);
+
+        Assert.HasCount(1, Transfers(written));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackOfAcquiredDeliveryWhoseUndeliverableHereWasHeldInTheTransaction_IsSentToTheLinkAgain()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "again");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. AcquisitionFrames("orders"),
+                RetireInTransaction(0, UndeliverableHere(), settled: true),
+                Control(0, 1, DischargeRollBackHex),
+                BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
+            ]);
+
+        Assert.HasCount(2, Transfers(written));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommitOfAnOutcomeStatedAfterUndeliverableHere_IsNotSentToTheLinkAgain()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "elsewhere");
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. AcquisitionFrames("orders", acquire: false),
+                ModifyUndeliverableHere(0),
+                RetireInTransaction(0, Released()),
+                Control(0, 1, DischargeCommitHex),
+                BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
+            ]);
+
+        Assert.HasCount(1, Transfers(written));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackAfterAnotherTransactionCommittedUndeliverableHere_IsNotSentToTheLinkAgain()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", "elsewhere");
+        byte[] secondTransactionId = [0, 0, 0, 2];
+        var commitSecond = "005377" + "005332" + "C00802" + "A00400000002" + "42";
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                .. AcquisitionFrames("orders"),
+                Control(0, 1, DeclareHex),
+                BusFrame(new Amqp1Disposition(true, 0) { State = Amqp1DeliveryState.TransactionalState(secondTransactionId, UndeliverableHere()) }),
+                Control(0, 2, commitSecond),
+                Control(0, 3, DischargeRollBackHex),
+                BusFrame(Credit(1, deliveryCount: 1, credit: 10)),
+            ]);
+
+        Assert.HasCount(1, Transfers(written));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RollBackOfAcquiredDeliveryAcceptedUnsettledOutsideTheTransaction_StillCountsItAsUnsettled()
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", [.. Enumerable.Range(0, Amqp1ContainerConnection.MaxWaitingDeliveries + 1).Select(index => $"message-{index}")]);
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                Open(),
+                BusFrame(new Amqp1Begin(0, 5000, 5000)),
+                BusFrame(CoordinatorAttach(0)),
+                Control(0, 0, DeclareHex),
+                BusFrame(ReceiverAttach(1, "orders")),
+                BusFrame(Credit(1, deliveryCount: 0, credit: 2000) with { IncomingWindow = 5000, Properties = AcquireInFirstTransaction }),
+                BusFrame(new Amqp1Disposition(true, 0) { State = Amqp1DeliveryState.Accepted }),
+                Control(0, 1, DischargeRollBackHex),
+                BusFrame(Credit(1, deliveryCount: 1000, credit: 2000) with { IncomingWindow = 5000 }),
+            ]);
+
+        // 1000 acquired, then one fewer than 1000 beside the delivery the link still holds.
+        Assert.HasCount((2 * Amqp1ContainerConnection.MaxWaitingDeliveries) - 1, Transfers(written));
     }
 
     [TestMethod]

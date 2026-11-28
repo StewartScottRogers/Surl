@@ -115,7 +115,9 @@ public sealed partial class Amqp1ContainerConnection
         {
             var delivery = held.Delivery;
             delivery.Held = null;
-            delivery.OutcomeApplied = ApplyOutcome(delivery, held.Outcome) || delivery.OutcomeApplied;
+            // A delivery's first outcome is the one applied, as outside a transaction: a later one must not
+            // requeue a delivery modified undeliverable-here while its link lasts (ADR-0146 Amendment 10).
+            delivery.OutcomeApplied = delivery.OutcomeApplied || ApplyOutcome(delivery, held.Outcome);
             if (!held.Settled && delivery.Link.ClientSettlesSecond && delivery.Session.Unsettled.Remove(delivery.DeliveryId))
             {
                 delivery.Link.UnsettledCount--;
@@ -124,11 +126,12 @@ public sealed partial class Amqp1ContainerConnection
         }
     }
 
-    // ADR-0146 decisions 1.5 and 1.6 and Amendment 1: held outcomes are forgotten, their settled deliveries
-    // unsettled again unless their link has ended. Deliveries acquired in the transaction and still
-    // unsettled leave the unsettled set, and only those with a queue delivery tag (a queue's, or a kept or
-    // non-durable shared subscription's) go back to their queue, redelivered, unless an outcome stated
-    // outside the transaction has already settled them on the bus; a live topic subscription's has none.
+    // ADR-0146 decisions 1.5 and 1.6 and Amendments 1 and 10: held outcomes are forgotten, their settled
+    // deliveries unsettled again unless their link has ended. Deliveries acquired in the transaction, still
+    // unsettled and with no outcome applied leave the unsettled set, and those with a queue delivery tag (a
+    // queue's, or a kept or non-durable shared subscription's) go back to their queue, redelivered; a live
+    // topic subscription's has none. One whose outcome stated outside the transaction was applied stays as
+    // it is, so one modified undeliverable-here stays with its link until the link ends.
     private static void RollBack(Amqp1Transaction transaction)
     {
         foreach (var held in transaction.HeldOutcomes)
@@ -142,7 +145,7 @@ public sealed partial class Amqp1ContainerConnection
             }
         }
 
-        foreach (var delivery in transaction.Acquired.Where(acquired => acquired.Session.Unsettled.Remove(acquired.DeliveryId)))
+        foreach (var delivery in transaction.Acquired.Where(acquired => !acquired.OutcomeApplied && acquired.Session.Unsettled.Remove(acquired.DeliveryId)))
         {
             delivery.Link.UnsettledCount--;
             if (delivery.QueueDeliveryTag is { } tag)
