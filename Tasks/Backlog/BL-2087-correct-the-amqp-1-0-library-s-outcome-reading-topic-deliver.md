@@ -1,5 +1,5 @@
 ---
-id: BL-2084
+id: BL-2087
 title: Correct the AMQP 1.0 library's outcome reading, topic delivery and subscription access order statements
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2084 — Correct the AMQP 1.0 library's outcome reading, topic delivery and subscription access order statements
+# BL-2087 — Correct the AMQP 1.0 library's outcome reading, topic delivery and subscription access order statements
 
 ## Goal
 

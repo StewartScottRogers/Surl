@@ -53,10 +53,10 @@ Found while working BL-1990 (2026-11-27). All paths are in
   a bus queue the same way (BL-2041).
 - The `Amqp1DeliveryState` summary also names what the class reads, and drops "as a receiver": the container
   sends `rejected` as a sender too, for an unknown `txn-id`.
-- Four other false or incomplete statements are outside this task's three; filed as BL-2084.
+- Four other false or incomplete statements are outside this task's three; filed as BL-2087.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-28: Backlog -> Doing.
-- 2026-11-28: Doing -> Done. The AMQP 1.0 library's topic link, delivery state and detach statements match the code; follow-up statements filed as BL-2084
+- 2026-11-28: Doing -> Done. The AMQP 1.0 library's topic link, delivery state and detach statements match the code; follow-up statements filed as BL-2087
