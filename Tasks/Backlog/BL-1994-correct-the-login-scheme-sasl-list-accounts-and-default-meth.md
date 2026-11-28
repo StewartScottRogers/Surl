@@ -1,5 +1,5 @@
 ---
-id: BL-1988
+id: BL-1994
 title: Correct the login scheme, SASL list, accounts and default-method summaries in Surl.Authentication
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-27
 completed:
 ---
-# BL-1988 — Correct the login scheme, SASL list, accounts and default-method summaries in Surl.Authentication
+# BL-1994 — Correct the login scheme, SASL list, accounts and default-method summaries in Surl.Authentication
 
 ## Goal
 

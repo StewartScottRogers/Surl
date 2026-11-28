@@ -75,7 +75,7 @@ No store, event or fault changes: documentation only.
   `ISmbAuthenticationPolicy` joins the listed contracts.
 - Verify: `dotnet build -warnaserror` clean, `dotnet format --verify-no-changes` clean, fast tests 30,378 passed,
   0 failed, 3 skipped. No Integration run: comments and notes only.
-- Leftover stale summaries in this library are filed as BL-1988. The stale `Surl.Console` and policy-recipient
+- Leftover stale summaries in this library are filed as BL-1994. The stale `Surl.Console` and policy-recipient
   claims in `Surl.Cli` and `AuthenticationComposition` belong to BL-1960.
 
 ## Log
