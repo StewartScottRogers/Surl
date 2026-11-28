@@ -47,3 +47,4 @@ Found while working BL-2045 (2026-11-28). All paths are in
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
