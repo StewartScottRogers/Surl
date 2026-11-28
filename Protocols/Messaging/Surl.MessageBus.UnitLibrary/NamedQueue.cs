@@ -47,8 +47,8 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     public bool TakesCopyOf(string[] topicLevels, BusConnection? publisher) =>
         IsBoundTo(topicLevels) && !Excludes(publisher?.PublisherName);
 
-    /// <summary>Whether a consumer could take <paramref name="message"/> now: one has room and
-    /// accepts it.</summary>
+    /// <summary>Whether a consumer could be assigned <paramref name="message"/> now: one has room,
+    /// delivery credit left if it has a credit, and accepts it.</summary>
     public bool HasConsumerWithRoomFor(BusMessage message) => consumers.Any(consumer => consumer.HasRoomFor(message));
 
     /// <summary>Whether a consumer still taking deliveries asked to be the queue's only one.</summary>
@@ -77,8 +77,9 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         }
     }
 
-    /// <summary>Drops every message the queue holds, ready or held unacknowledged by a consumer,
-    /// so a later settle of one is an unknown delivery tag. Keeps the consumers.</summary>
+    /// <summary>Drops every message the queue holds, ready or unacknowledged by a consumer, held
+    /// ones included, so a later settle of one is an unknown delivery tag and none is left to
+    /// claim. Keeps the consumers.</summary>
     public void DropAllMessages()
     {
         foreach (var consumer in consumers)
@@ -155,11 +156,12 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     /// instead. A message no consumer with room accepts stays ready in its place, and the messages
     /// after it are still offered (ADR-0146, decision 2.4).
     /// </summary>
-    /// <returns>The deliveries made, for the bus to hand over outside its lock, and the payload
-    /// and native-form bytes of the expired messages dropped, and each one's payload length.</returns>
-    public (List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> Deliveries, long DroppedBytes, List<int> DroppedPayloadLengths) Dispatch(DateTimeOffset now)
+    /// <returns>The deliveries made, for the bus to hand over outside its lock, each saying
+    /// whether it is held until its consumer claims it, and the payload and native-form bytes of
+    /// the expired messages dropped, and each one's payload length.</returns>
+    public (List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery, bool IsHeld)> Deliveries, long DroppedBytes, List<int> DroppedPayloadLengths) Dispatch(DateTimeOffset now)
     {
-        var deliveries = new List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)>();
+        var deliveries = new List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery, bool IsHeld)>();
         var droppedLengths = new List<int>();
         var droppedBytes = DropExpiredAtHead(now, droppedLengths);
         if (consumers.Any(consumer => consumer.HasRoom))
@@ -223,7 +225,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
 
     // Offers each message of one level, first to last, until no consumer has room; returns the
     // bytes of the expired messages it dropped.
-    private long DispatchLevel(SortedDictionary<long, QueuedMessage> level, DateTimeOffset now, List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries, List<int> droppedPayloadLengths)
+    private long DispatchLevel(SortedDictionary<long, QueuedMessage> level, DateTimeOffset now, List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery, bool IsHeld)> deliveries, List<int> droppedPayloadLengths)
     {
         long droppedBytes = 0;
         foreach (var (sequence, queued) in level.ToList())
@@ -241,7 +243,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
             else if (NextConsumerWithRoomFor(queued.Message) is { } consumer)
             {
                 level.Remove(sequence);
-                deliveries.Add((consumer, consumer.Take(queued, ++nextDeliveryTag)));
+                deliveries.Add((consumer, consumer.Take(queued, ++nextDeliveryTag), consumer.HasDeliveryCredit));
             }
         }
 

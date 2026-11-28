@@ -5,7 +5,9 @@ namespace Surl.MessageBus;
 /// <summary>
 /// The bus's named queues (ADR-0100, decision 3.3): FIFOs of messages with competing
 /// consumers, each delivery unacknowledged until acknowledged, and put back at its place,
-/// marked redelivered, by a reject with requeue, a recover, or its consumer's end.
+/// marked redelivered, by a reject with requeue, a recover, or its consumer's end. A consumer
+/// with a delivery credit (ADR-0146, Amendment 7) holds its deliveries until it claims them,
+/// and one that goes back unclaimed keeps the mark it had before.
 /// </summary>
 public sealed partial class MessageBus
 {
@@ -57,7 +59,8 @@ public sealed partial class MessageBus
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
     /// <param name="account">The sender's account, or <see langword="null"/> for an anonymous one.</param>
     /// <param name="onlyWhenConsumed">Whether the queue takes the message only when a started,
-    /// unstopped consumer of it has room.</param>
+    /// unstopped consumer of it has room, and delivery credit left if it has a credit
+    /// (<see cref="BusQueueConsumer.SetDeliveryCredit"/>).</param>
     /// <returns>As <see cref="PublishToQueue(string, BusMessage, string?)"/>, and
     /// <see cref="MessageBusOutcome.NoReadyConsumer"/> when <paramref name="onlyWhenConsumed"/> found
     /// no consumer able to take it. <see cref="MessageBusOutcome.QueueFull"/> also answers a send to an
@@ -338,6 +341,33 @@ public sealed partial class MessageBus
         return true;
     });
 
+    internal void SetDeliveryCredit(BusQueueConsumer consumer, uint credit) => ChangeState(() =>
+    {
+        if (consumer.IsActive)
+        {
+            foreach (var message in consumer.LimitDeliveryCredit(credit))
+            {
+                consumer.Queue.Requeue(message);
+            }
+
+            Dispatch(consumer.Queue, timeProvider.GetUtcNow());
+        }
+
+        return true;
+    });
+
+    internal BusQueueDelivery? ClaimDelivery(BusQueueConsumer consumer) => ChangeState(() =>
+    {
+        var delivery = consumer.ClaimFirstHeld();
+        if (delivery is not null)
+        {
+            queuesVersion++;
+            PublishQueueChange(StoreChange.Delivered, delivery.QueueName, delivery.Message.Payload.Length);
+        }
+
+        return delivery;
+    });
+
     internal void Cancel(BusQueueConsumer consumer) => ChangeState(() =>
     {
         End(consumer);
@@ -442,11 +472,12 @@ public sealed partial class MessageBus
         }
     }
 
-    private void DeliverToConsumers(List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries)
+    // A held delivery publishes Delivered when its consumer claims it, not here.
+    private void DeliverToConsumers(List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery, bool IsHeld)> deliveries)
     {
-        foreach (var (consumer, delivery) in deliveries)
+        foreach (var (consumer, delivery, isHeld) in deliveries)
         {
-            if (consumer.Deliver(delivery))
+            if (consumer.Deliver(delivery) && !isHeld)
             {
                 PublishQueueChange(StoreChange.Delivered, delivery.QueueName, delivery.Message.Payload.Length);
             }

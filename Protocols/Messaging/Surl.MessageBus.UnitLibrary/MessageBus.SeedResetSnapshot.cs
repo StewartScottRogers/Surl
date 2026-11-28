@@ -95,7 +95,8 @@ public sealed partial class MessageBus
     /// Copies the bus's contents into a <see cref="MessageBusSnapshot"/>: the retained messages,
     /// every topic log with its start offset and records, and every queue not exclusive to a
     /// connection with its flags, bindings and messages - an unacknowledged one as it would be
-    /// redelivered. Changes nothing and publishes nothing.
+    /// redelivered, one held and not yet claimed with the redelivered mark it had before it was
+    /// assigned. Changes nothing and publishes nothing.
     /// </summary>
     /// <param name="maxBytes">The most bytes the snapshot may hold (<see cref="MessageBusSnapshot.ByteCount"/>);
     /// at least 0.</param>
@@ -129,7 +130,8 @@ public sealed partial class MessageBus
     /// <summary>
     /// Replaces the bus's contents with <paramref name="snapshot"/>'s: its retained messages, its
     /// logs at the offsets they had, and its queues with their bindings and messages, a message
-    /// then unacknowledged now ready and marked redelivered. Live subscriptions stay and consumers
+    /// then unacknowledged now ready and marked redelivered (one then held and not yet claimed
+    /// with the mark it had before it was assigned). Live subscriptions stay and consumers
     /// are handed the restored messages; a queue the snapshot does not hold is treated as
     /// <see cref="Reset"/> treats one, and every unacknowledged delivery is dropped. Publishes one
     /// <see cref="StoreChange.Restored"/> named <see cref="WholeBusChangeName"/>.

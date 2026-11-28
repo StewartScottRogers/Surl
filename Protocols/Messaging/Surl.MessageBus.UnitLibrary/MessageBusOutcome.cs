@@ -60,7 +60,8 @@ public enum MessageBusOutcome
     QueueFlagsDiffer,
 
     /// <summary>The consumer holds no unacknowledged delivery with that tag (AMQP 0-9-1
-    /// <c>406 precondition-failed</c>, "unknown delivery tag"); nothing changed.</summary>
+    /// <c>406 precondition-failed</c>, "unknown delivery tag"); nothing changed. One held under a
+    /// delivery credit and not yet claimed is answered so too.</summary>
     UnknownDeliveryTag,
 
     /// <summary>The log read asked for an offset below the topic's log start offset - retention

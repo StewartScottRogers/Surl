@@ -386,7 +386,11 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="deliver">Called with each delivery, on the same terms as a subscription's
-    /// callback (<see cref="Subscribe"/>). It may acknowledge or reject.</param>
+    /// callback (<see cref="Subscribe"/>). It may acknowledge or reject. A call for a delivery
+    /// assigned while the consumer has a delivery credit
+    /// (<see cref="BusQueueConsumer.SetDeliveryCredit"/>) says only that a delivery was held, to be
+    /// claimed with <see cref="BusQueueConsumer.TryClaimDelivery"/> before it is settled; the one it
+    /// was given may by then have gone back or been claimed.</param>
     /// <param name="maxUnacknowledged">The most deliveries the consumer holds unacknowledged at
     /// once; 0 for no limit.</param>
     /// <param name="exclusive">Whether it must be the queue's only consumer still taking
@@ -450,8 +454,9 @@ public sealed class BusConnection : IDisposable
 
     /// <summary>
     /// Ends every subscription and consumer the connection holds - each consumer's
-    /// unacknowledged deliveries go back to their queues, marked redelivered - and deletes the
-    /// queues exclusive to it; it can make no more. Disposing it again does nothing.
+    /// unacknowledged deliveries go back to their queues, marked redelivered (one held and not yet
+    /// claimed with the mark it had before it was assigned) - and deletes the queues exclusive to
+    /// it; it can make no more. Disposing it again does nothing.
     /// </summary>
     public void Dispose() => bus.RunAs(Exchange, () => bus.Disconnect(this));
 }

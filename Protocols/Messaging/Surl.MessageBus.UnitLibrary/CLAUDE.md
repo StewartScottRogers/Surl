@@ -55,6 +55,25 @@ What it holds now (BL-629):
   but may still send to it. It is deleted when its owner goes. An auto-delete queue is
   deleted when its last consumer ends. An expired message is dropped when the queue reaches
   it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
+- **Delivery credit (BL-2071, ADR-0146 Amendment 7).** `BusQueueConsumer.SetDeliveryCredit(n)` is
+  the most deliveries the bus holds for a consumer that it has not yet claimed; a consumer never
+  given one is served as above. With one, the consumer is assigned a message only while it has room
+  and holds fewer than `n`, and its callback says only that a delivery is held, so a message nobody
+  can take stays ready or goes to another consumer. A held delivery counts as unacknowledged (against
+  `maxUnacknowledged`, a queue's bound and `ifEmpty`), is not marked handed out, publishes no
+  `Delivered` change, and `Acknowledge` and `Reject` answer `UnknownDeliveryTag` for it.
+  `TryClaimDelivery` takes the one assigned first: it lowers the credit by one, marks the message
+  handed out and publishes `Delivered`; it is `false` when none is held, as after the consumer or
+  queue has ended, or a reset or restore. Setting the credit on a started consumer with room assigns
+  what is ready for it, up to the credit, before returning; deliveries assigned before the first
+  credit stay handed out. A held message does not expire. Lowering the credit
+  below the number held puts those assigned last back at their places with no change published for
+  that (one expired meanwhile is then dropped as any ready message is). A
+  held delivery that goes back, for that or through the consumer's end or `Recover`, keeps the
+  redelivered mark it had before it was assigned, and is saved and snapshotted with it. A stopped
+  consumer keeps what it holds, claimable until it ends. `onlyWhenConsumed` and
+  `PublishToConsumedQueues` count only a consumer that could be assigned the message, so one with no
+  credit left is not ready.
 - **AMQP 0-9-1's queue operations (BL-730, ADR-0112 decisions 5 and 6).**
   `BusConnection.InspectQueue` answers a queue's ready and consumer counts without creating it.
   `PurgeQueue` removes the ready messages, never the unacknowledged ones, and counts them.
@@ -213,7 +232,8 @@ What it holds now (BL-629):
   `.<name>-<guid>` file renamed over the old one. `MessageBusFiles`' remarks and
   `BusMessageCodec` give the byte formats, and `MessageBusFilesTests` pins them byte for
   byte. Durable queues that are neither exclusive nor auto-delete persist, with their
-  bindings and every message, an unacknowledged one loaded as redelivered. A malformed
+  bindings and every message, an unacknowledged one loaded as redelivered (one held and not yet
+  claimed with the mark it had before it was assigned). A malformed
   file, or one past a bound, is a `MessageBusLoadException` with the file's path and
   `not a message bus file`, which the composition answers with 37. When `retained` is not
   there, an old MQTT 3.1.1 `.surl/mqtt/retained-messages` is read (its own reason, `not a
