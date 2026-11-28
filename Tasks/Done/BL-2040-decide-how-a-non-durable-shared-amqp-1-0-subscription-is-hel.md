@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2040 — Decide how a non-durable shared AMQP 1.0 subscription is held
 
@@ -39,13 +39,25 @@ Found while working BL-1990 (2026-11-27) by reading the code; nothing was run.
 
 ## Acceptance criteria
 
-- [ ] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering each point in Context, with the alternative rejected and why.
-- [ ] The body of BL-2041 agrees with the amendment (edited if it does not), and any bus task it needs is filed and listed in its `depends-on`.
-- [ ] The diff to ADR-0146 only adds lines.
+- [x] ADR-0146 has a dated amendment, marked "Decided by Claude under Stewart's delegation", answering each point in Context, with the alternative rejected and why.
+- [x] The body of BL-2041 agrees with the amendment (edited if it does not), and any bus task it needs is filed and listed in its `depends-on`.
+- [x] The diff to ADR-0146 only adds lines.
 
 ## Notes
+
+- Decision (ADR-0146 Amendment 4): a non-durable shared subscription is an auto-delete, non-exclusive bus queue
+  with a description, named `surl-subscription-nondurable-<SHA-256 of decision 3.5's key>`, consumed through
+  `ConsumeSubscriptionQueue`. Why over the bus's fan-out group: waiting and released messages return to the other
+  links, and group names are shared with MQTT 5 and NATS. No `Surl.MessageBus` change, so no bus task is filed.
+- Read: Jakarta Messaging 3.1 sections 8.3.2 to 8.3.4, fetched from jakarta.ee on 2026-11-27 through a web-fetch
+  agent. The bus and container behaviour cited was read in the code; nothing was run.
+- Written in the run itself rather than delegated to `align-and-document`, as BL-2037 was: the decision needed the
+  code already read. No `.cs` or project file changed, so no build or test run.
+- BL-2041's body edited to match, with a fourth test criterion.
+- Filed BL-2048 (Low): queue consumers are chosen by unacknowledged room, not link credit.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. ADR-0146 Amendment 4 decides a non-durable shared subscription is an auto-delete bus queue its links compete on, and BL-2041 matches it

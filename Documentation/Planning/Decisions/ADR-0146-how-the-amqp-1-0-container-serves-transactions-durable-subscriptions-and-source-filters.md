@@ -424,3 +424,92 @@ still receives its own publishes.
 - **Leaving it out of every kept subscription.** Honest, but a JMS durable subscriber asking
   `noLocal` is a real use of the stand-in, and root `CLAUDE.md` says nothing is left out because it is
   hard.
+
+## Amendment 4 (BL-2040, 2026-11-27): how a non-durable shared subscription is held
+
+Decided by Claude under Stewart's delegation.
+
+Decision 3.5 does not limit `shared` to durable sources, and a JMS `createSharedConsumer` is
+non-durable, but decision 3 does not say how such a subscription is held. Until BL-2041 builds this
+amendment, each such link is its own live subscription: every link gets every message and no capability
+is echoed. Read for this: **Jakarta Messaging 3.1** section 8.3.2 (shared non-durable subscriptions): a
+subscription is identified by its name and the client identifier if set; it exists only while a consumer
+is active on it; it is deleted, with its undelivered messages, when its last consumer is closed; and an
+additional consumer asking another topic or message selector while one is active is an exception.
+Sections 8.3.3 and 8.3.4 allow a durable subscription and a shared non-durable one the same name, and
+8.3.3 calls them completely separate.
+
+1. **Which links.** A client receiver's **topic** source whose `capabilities` include `shared` and that
+   asks no kept subscription: `durable` `none` (whatever its `expiry-policy`), or any `durable` with
+   `expiry-policy` `link-detach`. A queue link is unchanged and echoes no capability, since a queue's
+   consumers already compete. `global` without `shared` shares nothing.
+2. **What holds it.** A bus named queue with the flags **auto-delete** only (not durable, not exclusive),
+   carrying a subscription description (decision 3.2), bound to the topic filter, and consumed by every
+   link through `ConsumeSubscriptionQueue`, not exclusively, with the 1000 unacknowledged of any queue
+   link. So links of one connection or of several compete, each message goes to one of them, and what a
+   link leaves unsettled or waiting when it ends goes back to the queue for the others, marked
+   redelivered, as `released` and `modified` outcomes put a delivery back. The queue's bounds
+   replace a live topic link's drop past 1000. Filters run as a message leaves the queue, one they
+   refuse being acknowledged (decision 3.2). `Surl.MessageBus` needs no change.
+3. **Name.** `surl-subscription-nondurable-` and the lowercase hex of the SHA-256 of decision 3.5's key:
+   the link name up to the first `|`, after the `container-id` (empty under `global`) and a zero byte. No
+   kept subscription's name, 64 hex digits after `surl-subscription-`, can equal it, so a non-durable
+   attach never joins, replaces or deletes a durable subscription of the same link name. It keeps the
+   `surl-subscription-` prefix, so its `/queue/` address is refused (decision 3.4), and it takes no
+   direct send. The description records the policy `link-detach` whatever the client asked, so links
+   differing only in the `durable` or `expiry-policy` they asked share one subscription.
+4. **Other filters.** While a link consumes from it, an attach under the name with another address or
+   other applied filters is refused with **`amqp:resource-locked`** (`subscription in use`), as section
+   8.3.2 has it. A queue found under the name with another description and no consumer is replaced
+   (decision 3.3).
+5. **Ending.** The bus's auto-delete removes the queue, with its messages, when its last consumer ends:
+   a `detach`, `closed` or not, the session's end, the connection's end or the container's own detach.
+   The container asks for no delete then and records nothing for the session's end. One of several links
+   ending leaves it to the others. An attach refused after the container declared the queue deletes it
+   with `DeleteQueueIfDescribed(name, description, ifUnused: true)`, so nothing is left behind. When the
+   bind or the consume answers `UnknownQueue` (the last other link ended between the container's calls),
+   the container declares, binds and consumes once more; a second `UnknownQueue` refuses the attach with
+   `amqp:not-found`. An attach with no source never finds a non-durable subscription: the lookup is for
+   unsubscribing a durable one, and with no durable one of the name it is `amqp:not-found`.
+6. **Who may.** Decision 3.7 unchanged: `sub` on the topic filter at every attach, a subscription found
+   under the name judged on its own filter too, and no right on `$queue/...`. Amendment 2 governs a
+   client's delete or purge of the queue by name. Its consumers count against the bus's subscription
+   bound and the queue against its queue bound (`amqp:resource-limit-exceeded`).
+7. **No-local** (Amendment 3, item 8) is not applied: it is left out of the echoed source and of the
+   description, the queue excludes nobody and no link's own publishes are withheld. This ends Amendment 3
+   item 1's treatment of a `shared` link with `durable` `none` or `link-detach` as a live subscription;
+   the live topic link of its items 1 and 9 is now an unshared one only.
+8. **The echo.** The container's source carries the client's address, no `durable` (so `none`),
+   `expiry-policy` **`link-detach`**, no `timeout`, `distribution-mode` `copy`, the applied filters and
+   the capabilities applied, `shared`, with `global` when asked. A refused attach has a null source as
+   ever.
+9. **Stand-in.** The queue is on the shared bus, so a message any protocol publishes is shared out the
+   same way, and its changes are on the instance's event stream. It is never persisted. Reset and
+   snapshot treat it as any queue that is not exclusive, so restoring a snapshot taken while links were
+   attached, after they have gone, brings the queue back with no consumer: the next link under the name
+   with the same description takes its messages, and it goes when that link ends.
+
+### Alternatives considered (Amendment 4)
+
+- **The bus's fan-out group** (`BusConnection.Subscribe(..., group:)`). A message waiting on a link
+  that ends is lost, and one `released` cannot reach another link. Group names are one namespace with
+  MQTT 5's shared subscriptions and NATS queue groups, so a matching name and filter would let another
+  protocol's member take the messages. Two links asking different bus filters would silently form two
+  groups instead of being refused. It has no advantage in link credit: neither it nor a queue consumer
+  is chosen by credit.
+- **The kept subscription's name.** A non-durable attach would replace, or join, a durable subscription
+  of the same name, which sections 8.3.3 and 8.3.4 keep separate.
+- **An exclusive queue.** Only one connection could consume it, and JMS shared consumers are commonly on
+  several.
+- **Deleting at a `closed` detach, as a kept subscription is.** A non-closing detach, a session's end
+  and a lost connection would each need the container to delete; auto-delete covers them all.
+- **The filters in the queue's name**, so differing links get separate subscriptions. Section 8.3.2
+  makes that an error while a consumer is active.
+- **Refusing at once on `UnknownQueue`.** A test closing one shared consumer while opening another would
+  fail now and then; one more try removes that. An atomic declare, bind and consume on the bus would
+  close the window completely, but is a bus operation for this one race.
+- **Echoing the `expiry-policy` the client asked.** The terminus goes with its last link, so
+  `link-detach` is the policy applied (decision 3.6), and Part 3 section 3.5.3 has the source say what
+  is in force.
+- **Leaving non-durable `shared` unserved and unechoed.** Part 3 allows it, but a JMS shared consumer
+  would then receive duplicates, and root `CLAUDE.md` says nothing is left out because it is hard.
