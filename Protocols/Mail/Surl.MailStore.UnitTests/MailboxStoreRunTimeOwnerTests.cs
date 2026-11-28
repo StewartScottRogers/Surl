@@ -107,7 +107,10 @@ public sealed class MailboxStoreRunTimeOwnerTests
 
         Assert.AreEqual(MailRecipientLookup.NoSuchAccount, store.LookUpRecipient("<ann@x>", out _));
         Assert.AreEqual(MailRecipientLookup.NoSuchAccount, store.Seed("<ann@x>", "m"u8).Recipient);
-        Assert.IsNull(store.ViewFor("ann").OwnerName);
+        var view = store.ViewFor("ann");
+        Assert.IsNull(view.OwnerName);
+        Assert.IsEmpty(view.SharedFolders);
+        Assert.IsEmpty(store.ListMailboxes(view));
     }
 
     [TestMethod]

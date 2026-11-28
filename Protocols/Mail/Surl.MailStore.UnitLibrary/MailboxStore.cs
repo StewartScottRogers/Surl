@@ -25,8 +25,8 @@ namespace Surl.MailStore;
 /// <para>
 /// Its mailboxes and flags live in memory. <see cref="ChangeCount"/> rises by one with each
 /// operation that alters them, and not with a refused or no-op one, nor with
-/// <see cref="RetireOwner"/> or an <see cref="AddOwner"/> that reaches an owner already held,
-/// which change only who is reached. A store made by
+/// <see cref="RetireOwner"/> or an <see cref="AddOwner"/> that makes no new owner, which change
+/// only who is reached and which accounts are remembered as removed. A store made by
 /// <see cref="LoadAsync"/> starts with what its <see cref="MailStoreFiles"/> hold, streams each
 /// new message body into a pending file that becomes its message file when it is stored, reads
 /// a message's bytes from that file when a server fetches them, and writes the index back when
@@ -89,6 +89,9 @@ public sealed partial class MailboxStore
     private readonly List<ulong> releasedFileNumbers = [];
     private readonly Dictionary<OwnerMailboxes, long> quotas = [];
     private readonly Dictionary<string, HashSet<string>> sharedFolderMembers = new(StringComparer.Ordinal);
+
+    // The names RetireOwner was given and no AddOwner or Reset has forgotten since: ViewFor gives each an empty view.
+    private readonly HashSet<string> removedAccountNames = new(StringComparer.Ordinal);
     private OwnerMailboxes? sharedOwner;
     private OwnerMailboxes? anonymousOwner;
     private MailDomainRouter? router;
@@ -296,7 +299,8 @@ public sealed partial class MailboxStore
     /// alters, and, while <see cref="LoadAsync"/> starts the store, one for each mailbox it creates
     /// or gives a configured use. The constructor leaves it at 0. A refused or no-op operation does
     /// not count, and neither does <see cref="RetireOwner"/> or an <see cref="AddOwner"/> that
-    /// reaches an owner already held, which change only who is reached.
+    /// makes no new owner, which change only who is reached and which accounts are remembered as
+    /// removed.
     /// </summary>
     public long ChangeCount
     {
@@ -399,11 +403,17 @@ public sealed partial class MailboxStore
     /// The mailboxes a session logged in as <paramref name="accountName"/> acts on (ADR-0050,
     /// decision 2): the anonymous owner's with <c>--allow-anonymous</c>, whatever the name;
     /// otherwise the account's or the mailbox's (ADR-0102, decision 1.2) named by it, matched
-    /// ordinally, or no mailboxes of its own for a name that names neither, as one
-    /// <see cref="RetireOwner"/> retired. Outside <c>--allow-anonymous</c> it also reaches, as
-    /// <c>Shared/</c>&lt;name&gt;, each shared folder whose members include the name, matched
-    /// ordinally, whether or not the name names an account or mailbox (ADR-0102, decision 1.6). A
-    /// view with neither is empty.
+    /// ordinally, or no mailboxes of its own for a name that names neither. Outside
+    /// <c>--allow-anonymous</c> it also reaches, as <c>Shared/</c>&lt;name&gt;, each shared folder
+    /// whose members include the name, matched ordinally, whether or not the name names an account
+    /// or mailbox (ADR-0102, decision 1.6). A view with neither is empty.
+    /// <para>
+    /// A name <see cref="RetireOwner"/> was given - a removed account's - gets an empty view, no
+    /// mailbox of its own and no shared folder, until <see cref="AddOwner"/> is given it again or
+    /// <see cref="Reset"/> or <see cref="Restore"/> forgets the removal, even when it is a
+    /// mail-domain mailbox address or a shared folder's member (ADR-0185 Amendment 1). A view given
+    /// before the removal keeps what it had.
+    /// </para>
     /// </summary>
     /// <param name="accountName">The login's account name, or <see langword="null"/> when the
     /// login carried none.</param>
@@ -415,9 +425,16 @@ public sealed partial class MailboxStore
             return new(anonymousOwner);
         }
 
-        var owner = accounts.FindExact(accountName) ?? mailboxOwners.FindExact(accountName);
-        var memberOf = sharedFolderMembers.Where(folder => folder.Value.Contains(accountName)).Select(folder => folder.Key).ToList();
-        return new(owner, sharedOwner, memberOf, sharedFolderMembers.Count > 0);
+        lock (storeLock)
+        {
+            return removedAccountNames.Contains(accountName)
+                ? new(null, sharedOwner, [], sharedFolderMembers.Count > 0)
+                : new(
+                    accounts.FindExact(accountName) ?? mailboxOwners.FindExact(accountName),
+                    sharedOwner,
+                    [.. sharedFolderMembers.Where(folder => folder.Value.Contains(accountName)).Select(folder => folder.Key)],
+                    sharedFolderMembers.Count > 0);
+        }
     }
 
     /// <summary>

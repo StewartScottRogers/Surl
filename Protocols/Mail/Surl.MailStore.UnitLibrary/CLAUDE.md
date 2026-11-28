@@ -39,8 +39,8 @@ needs no quota); `CheckQuotaForAppend` answers from a length alone, for IMAP's l
 reserved owner `:shared` (`MailboxStore.SharedFolderOwnerName`, persisted in the index like any
 owner, with no `INBOX`; no account may bear the name). `ViewFor` gives each member
 `Shared/<name>` (`MailView.SharedFolders`): listed, read, appended to, flagged, expunged, copied
-and moved in and out by every member as equals, counted against no member's quota. A non-member
-gets `MailboxMissing` for it. While any shared folder is configured, `Shared` and every name under
+and moved in and out by every member as equals, counted against no member's quota. A non-member,
+or a member's name while its account is removed (see below), gets `MailboxMissing` for it. While any shared folder is configured, `Shared` and every name under
 `Shared/` name shared folders only: a personal mailbox there is kept, unreached, and deleting or
 renaming a shared folder or `Shared`, or creating or renaming to a name there, is
 `SharedFolderProtected`. Configured folders or shared folders past `MaxMailboxes` throw
@@ -96,8 +96,7 @@ copied; `Move` two per message moved (its copy `Written`, its original `Deleted`
 publishes one, and so does `DeleteMailbox`, with none for the messages the mailbox held.
 `RenameMailbox` publishes two (old name `Deleted`, new name `Written`), or one for `INBOX` (new name
 `Written`), and none per message. `Reset` and `Restore` publish one each, named by the empty string.
-`AddOwner` publishes one for a new owner (`Created`, naming its `INBOX`) and none when it reaches a
-retired owner again; `RetireOwner` publishes none. A refused operation, or one with nothing to do (no
+`AddOwner` publishes one for a new owner (`Created`, naming its `INBOX`) and none otherwise; `RetireOwner` publishes none. A refused operation, or one with nothing to do (no
 recipient, no matching UID, flags already as asked), publishes no `StoreChangedEvent`. Nothing the
 constructor or `LoadAsync` does at start-up is published, although `LoadAsync` counts an `INBOX` or
 configured folder it creates, and a configured use it gives, in `ChangeCount`, and the next save
@@ -124,12 +123,20 @@ Owners at run time (BL-1451, ADR-0185): `AddOwner(name)` makes an owner with an 
 against `MaxMailboxes`; one `Created` event; one `ChangeCount` change, in every store) or reaches an owner held but
 unreached again with its mail (no event, no change); `RetireOwner(name)` makes an account's owner unreached (mail kept
 and counted against the bounds; no event, no change; `false` for a mailbox address). Both answer `false` and do nothing
-for the cases ADR-0185 decision 6 lists. A retired name is not necessarily an empty view or `NoSuchAccount`: `ViewFor`
-still gives it its shared folders, `LookUpRecipient` (so `Seed`) can still deliver its path through an alias or mailbox
-of that address, an account differing only by case or a mail domain's catch-all (and answers `RelayingDenied` outside
-the mail domains), and views and recipients given before the call still reach the owner. `Reset` drops owners not
-configured and reaches configured ones again; `TakeSnapshot` records `OwnerCount` and which owners are reached, and
-`Restore` puts both back.
+for the cases ADR-0185 decision 6 lists.
+
+Removed accounts (BL-2129, ADR-0185 Amendment 1): `RetireOwner` remembers every name it is given, even when it answers
+`false` (a `--mailbox` address, whose owner stays reached, or a name with no owner), and `ViewFor` gives a remembered
+name an empty view: no mailbox of its own and no shared folder. `AddOwner` of the name forgets the removal, even when it
+answers `false` for a `--mailbox` address (one that throws keeps it). A name never removed is unaffected, so a
+directory-only shared-folder member keeps its folders. Member lists are never edited. Removing changes neither what
+delivery does nor views and recipients given before the call. A retired name is not necessarily `NoSuchAccount`:
+`LookUpRecipient` (so `Seed`) can still deliver its path through an alias or mailbox of that address, an account
+differing only by case or a mail domain's catch-all (and answers `RelayingDenied` outside the mail domains).
+
+`Reset` drops owners not configured, reaches configured ones again and forgets every removal; `TakeSnapshot` records
+`OwnerCount`, which owners are reached and which names are removed, and `Restore` puts all three back. Removals are
+never written to the index.
 
 Handles to a dropped owner (BL-2122, ADR-0193): a view, recipient or maildrop lock of an owner `Reset` or `Restore`
 dropped never throws for that and never writes to it. The view's own mailboxes are `MailboxMissing` (`CreateMailbox`

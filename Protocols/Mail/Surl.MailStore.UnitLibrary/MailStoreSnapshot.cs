@@ -3,8 +3,8 @@ namespace Surl.MailStore;
 /// <summary>
 /// The whole contents of one in-memory <see cref="MailboxStore"/> at one moment, as
 /// <see cref="MailboxStore.TakeSnapshot"/> took it (ADR-0124 decision 3; ADR-0131): every owner's
-/// mailboxes with their names and next UIDs, and every message with its UID, flags, internal
-/// date and bytes. Opaque: only the store that took it can restore it, any number of times. Not
+/// mailboxes with their names and next UIDs, every message with its UID, flags, internal
+/// date and bytes, which accounts are reached and which are removed. Opaque: only the store that took it can restore it, any number of times. Not
 /// to be confused with <see cref="MailboxSnapshot"/>, one mailbox as IMAP's <c>SELECT</c> reports
 /// it.
 /// </summary>
@@ -17,11 +17,13 @@ public sealed class MailStoreSnapshot
     internal MailStoreSnapshot(
         MailboxStore store,
         IReadOnlyDictionary<OwnerMailboxes, IReadOnlyList<MailboxCopy>> owners,
-        IReadOnlyList<string> reachedAccountNames)
+        IReadOnlyList<string> reachedAccountNames,
+        IReadOnlyList<string> removedAccountNames)
     {
         Store = store;
         Owners = owners;
         ReachedAccountNames = reachedAccountNames;
+        RemovedAccountNames = removedAccountNames;
         OwnerCount = owners.Count;
         var messages = owners.Values.SelectMany(mailboxes => mailboxes).SelectMany(mailbox => mailbox.Messages).ToList();
         MessageCount = messages.Count;
@@ -56,4 +58,6 @@ public sealed class MailStoreSnapshot
     internal IReadOnlyDictionary<OwnerMailboxes, IReadOnlyList<MailboxCopy>> Owners { get; }
 
     internal IReadOnlyList<string> ReachedAccountNames { get; }
+
+    internal IReadOnlyList<string> RemovedAccountNames { get; }
 }

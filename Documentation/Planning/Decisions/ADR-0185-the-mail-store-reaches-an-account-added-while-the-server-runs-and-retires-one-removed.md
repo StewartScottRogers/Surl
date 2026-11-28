@@ -12,7 +12,7 @@
 - **Acted on by:** BL-1451 (`Surl.MailStore`), then BL-1452 (`Surl.Composition`).
 - **Amended by:** [Amendment 1 below](#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)
   (2026-11-28, BL-2123: decision 2 says what a retired name still reaches, decision 7 says which adds count, and a
-  removed account is to keep no mail view, shared folders included; that rule is not yet built, BL-2129).
+  removed account keeps no mail view, shared folders included; built by BL-2129).
 
 ## Context
 
@@ -35,11 +35,10 @@ account's mailbox still takes mail. No ADR said what an added or removed account
    the store's bounds, and the name is no longer an account's. This is the precedent of `LoadAsync`, which keeps
    owners that are no longer accounts unreached. **Re-adding the same name in the same run reaches the owner again
    with its mail as it was.** A password change retires nothing: `ComposedStores.SetAccountPassword` leaves the
-   mail owner as it is. As the code is on 2026-11-28 (what is intended instead is in
-   [Amendment 1](#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)):
-   - **Views.** A view `ViewFor` gives afterwards holds no mailbox of the name's own, so `SELECT INBOX` answers
-     `NO [NONEXISTENT]` and a POP3 maildrop is empty. It still holds every shared folder whose members include
-     the name.
+   mail owner as it is. What follows from a removal:
+   - **Views.** A view `ViewFor` gives afterwards holds no mailbox of the name's own and no shared folder, so
+     `SELECT INBOX` answers `NO [NONEXISTENT]` and a POP3 maildrop is empty
+     ([Amendment 1](#amendment-1-2026-11-28-bl-2123-a-removed-account-keeps-no-mail-view-shared-folders-included)).
    - **Recipients.** `LookUpRecipient`, and so SMTP and `Seed`, look a path naming it up as any path that names no
      account of exactly that name (ADR-0050 decision 5, ADR-0102 decision 1.3). With no mail domain, the one
      remaining account equal to the local part ignoring case receives it, if exactly one is; otherwise the answer
@@ -100,7 +99,8 @@ account's mailbox still takes mail. No ADR said what an added or removed account
 ## Consequences
 
 - `ComposedStores` and the mail store agree on which accounts are reached after every add, remove, reset and
-  restore, except that a removed `--mailbox` account's address stays an owner the store reaches (decision 6).
+  restore, except that a removed `--mailbox` account's address stays an owner the store reaches (decision 6), whose
+  views are nonetheless empty until it is added again (Amendment 1).
 - ADR-0131 decisions 2 and 4 read as amended here.
 
 ## Note, 2026-11-28 (BL-2121): an alias target that stops naming an owner
@@ -126,8 +126,9 @@ stop a list's mail to everyone.
 ## Amendment 1 (2026-11-28, BL-2123): a removed account keeps no mail view, shared folders included
 
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-28, in BL-2123.
-- **State:** the rule below is intent, **not yet built** (BL-2129). Until it is, the code behaves as "As the code
-  is" says.
+- **State:** built by BL-2129, 2026-11-28: `MailboxStore.RetireOwner` records each removal, which `ViewFor` reads,
+  `AddOwner` and `Reset` forget, and a snapshot and its restore carry. "Before BL-2129" below is what the code did
+  until then.
 - **Why now:** BL-2116 found that decision 2 said more than the code does: a retired shared-folder member still
   reaches its shared folders, and no decision said whether it should.
 - **Amends:** decision 2 (what a view for a removed name holds) and decision 6 (a removal is remembered for a
@@ -137,18 +138,18 @@ stop a list's mail to everyone.
 - **Upstream curl:** no new byte. A refused mailbox is answered with
   [ADR-0055](ADR-0055-how-the-imap-server-answers-upstream-curl.md)'s missing-mailbox replies, as now.
 
-### As the code is (2026-11-28)
+### Before BL-2129
 
-- `ViewFor` selects shared folders by member name alone. A view given for a removed member lists and selects each of
-  its folders, appends to them, changes flags, expunges, and copies and moves messages between the mailboxes it
-  holds, and `NAMESPACE` names the shared namespace. A POP3 session never sees a shared folder.
+- `ViewFor` selected shared folders by member name alone. A view given for a removed member listed and selected each
+  of its folders, appended to them, changed flags, expunged, and copied and moved messages between the mailboxes it
+  held, and `NAMESPACE` named the shared namespace. A POP3 session never sees a shared folder.
 - Without `--allow-anonymous` the account book refuses the removed account's own login, but three things still ask
   for a view under its name: an `XOAUTH2` or `OAUTHBEARER` login with the Bearer token, which acts as whatever
   user the client names (ADR-0050 decision 2); with `--user-ldap`, a password login the directory accepts for a
   name the account book no longer holds (ADR-0149 decision 6); and the hosts' mail reads
   (`ComposedStores.ListMailboxes`, `ListMessages` and `ReadMessage`). Under `--allow-anonymous` every view is the
   anonymous owner's, which has no shared folder.
-- A removed `--mailbox` account is not retired (decision 6): such a view holds its own mailboxes as well as its
+- A removed `--mailbox` account is not retired (decision 6): such a view held its own mailboxes as well as its
   shared folders.
 
 ### Decision

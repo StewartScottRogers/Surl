@@ -726,7 +726,11 @@ public sealed partial class ComposedStores
     /// Removes an account while the server runs, as <see cref="AccountBook.Remove"/> does.
     /// </summary>
     /// <remarks>
-    /// The account's mail-store owner is retired, keeping its mail unreached (ADR-0185 decision 2).
+    /// The account's mail-store owner is retired, keeping its mail unreached (ADR-0185 decision 2); a
+    /// mail-domain mailbox account's owner stays reached and goes on receiving mail. Either way a mail view
+    /// opened for the name afterwards - for a Bearer-token or directory login, or a host's mail read - holds
+    /// no mailbox and no shared folder until an account of that name that may log in on a mail scheme is
+    /// added again (ADR-0185 Amendment 1).
     /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns>Whether an account had that name.</returns>

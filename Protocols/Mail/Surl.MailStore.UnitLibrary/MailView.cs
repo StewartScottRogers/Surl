@@ -31,8 +31,9 @@ public sealed class MailView
 
     /// <summary>
     /// The shared folders the view's account is a member of, each as <c>Shared/</c>&lt;name&gt;,
-    /// in ordinal order; none for a view that is a member of none. IMAP names RFC 2342's shared
-    /// namespace only when there is one.
+    /// in ordinal order; none for a view that is a member of none, or that was opened for a removed
+    /// account's name (ADR-0185 Amendment 1). IMAP names RFC 2342's shared namespace only when
+    /// there is one.
     /// </summary>
     public IReadOnlyList<string> SharedFolders { get; }
 

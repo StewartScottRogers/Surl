@@ -38,8 +38,9 @@ public sealed partial class MailboxStore
     /// folders - each empty, with a <c>UIDVALIDITY</c> the store has never given before and next
     /// UID 1. Mailboxes made since are gone. Owners <see cref="AddOwner"/> made since are dropped
     /// with their mail, and exactly the accounts the store was made with are reached, one retired
-    /// since included. Aliases, quotas and shared-folder members are
-    /// configuration and are unchanged. Every POP3 maildrop lock is released; a session that held
+    /// since included. Every removal <see cref="RetireOwner"/> recorded is forgotten, so
+    /// <see cref="ViewFor"/> gives each such name its view again. Aliases, quotas and
+    /// shared-folder members are configuration and are unchanged. Every POP3 maildrop lock is released; a session that held
     /// one still reads the messages it was given and removes none at <c>QUIT</c>. Publishes one
     /// <see cref="StoreChange.Reset"/> naming the whole store (an empty name) with byte count 0.
     /// <para>
@@ -72,6 +73,7 @@ public sealed partial class MailboxStore
             }
 
             ReachAccounts(configuredAccountNames);
+            removedAccountNames.Clear();
 
             FinishReplacing(StoreChange.Reset, byteCount: 0);
         }
@@ -79,8 +81,8 @@ public sealed partial class MailboxStore
 
     /// <summary>
     /// Takes a snapshot of the whole store: every owner's mailboxes and every message with its
-    /// UID, flags, internal date and bytes, and which accounts are reached. Changes nothing and
-    /// publishes nothing.
+    /// UID, flags, internal date and bytes, which accounts are reached, and which are removed as
+    /// <see cref="RetireOwner"/> recorded them. Changes nothing and publishes nothing.
     /// </summary>
     /// <returns>The snapshot, which only this store can restore.</returns>
     /// <exception cref="InvalidOperationException">The store is on disk (made by
@@ -93,7 +95,8 @@ public sealed partial class MailboxStore
             return new(
                 this,
                 owners.Values.ToDictionary(owner => owner, owner => (IReadOnlyList<MailboxCopy>)[.. owner.Mailboxes.Values.Select(CopyMailbox)]),
-                accounts.Keys);
+                accounts.Keys,
+                [.. removedAccountNames]);
         }
     }
 
@@ -102,7 +105,8 @@ public sealed partial class MailboxStore
     /// the mailboxes it held then, each with the messages, UIDs, flags, internal dates and next
     /// UID it held then, and a <c>UIDVALIDITY</c> the store has never given before, so an IMAP
     /// client resynchronises. An owner the snapshot does not hold is dropped with its mail, and
-    /// exactly the accounts reached then are reached. Every POP3 maildrop lock is released, as by
+    /// exactly the accounts reached then are reached, and exactly the removals in force then are in
+    /// force. Every POP3 maildrop lock is released, as by
     /// <see cref="Reset"/>, and views, recipients and maildrop locks of a dropped owner behave as
     /// <see cref="Reset"/> describes.
     /// Publishes one <see cref="StoreChange.Restored"/> naming the whole store (an empty name) with
@@ -136,6 +140,8 @@ public sealed partial class MailboxStore
             }
 
             ReachAccounts(snapshot.ReachedAccountNames);
+            removedAccountNames.Clear();
+            removedAccountNames.UnionWith(snapshot.RemovedAccountNames);
 
             FinishReplacing(StoreChange.Restored, snapshot.ByteCount);
         }
@@ -151,12 +157,17 @@ public sealed partial class MailboxStore
     /// <see cref="RetireOwner"/>, or held by the files <see cref="LoadAsync"/> read for a name that
     /// was no account then - is reached again with its mail as it was, publishing nothing and not
     /// raising <see cref="ChangeCount"/>.
+    /// <para>
+    /// It also forgets a removal <see cref="RetireOwner"/> recorded for the name, a mail-domain
+    /// mailbox address's included, so <see cref="ViewFor"/> gives the name its mailboxes and shared
+    /// folders again (ADR-0185 Amendment 1).
+    /// </para>
     /// </summary>
     /// <param name="accountName">The account's name.</param>
-    /// <returns><see langword="true"/> when an owner was made or reached again; <see langword="false"/>,
-    /// changing and publishing nothing, for an empty name, a name that is already reached, a name that
-    /// is a mail-domain mailbox address, and any call on a store opened with
-    /// <c>--allow-anonymous</c>.</returns>
+    /// <returns><see langword="true"/> when an owner was made or reached again;
+    /// <see langword="false"/>, publishing nothing, for an empty name, a name that is already reached,
+    /// a name that is a mail-domain mailbox address, and any call on a store opened with
+    /// <c>--allow-anonymous</c>. Such a call changes nothing but a removal it forgets.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="accountName"/> is
     /// <see cref="SharedFolderOwnerName"/>.</exception>
@@ -172,36 +183,59 @@ public sealed partial class MailboxStore
 
         lock (storeLock)
         {
-            if (anonymousOwner is not null || accountName.Length == 0 || accounts.FindExact(accountName) is not null || mailboxOwners.FindExact(accountName) is not null)
+            if (anonymousOwner is not null || accountName.Length == 0)
             {
                 return false;
             }
 
-            if (owners.TryGetValue(accountName, out var retired))
+            var newOwner = owners.ContainsKey(accountName) ? null : OwnerWithNewInbox(accountName);
+
+            // Forgotten only after the new INBOX has its UIDVALIDITY, so a call that throws keeps the removal.
+            removedAccountNames.Remove(accountName);
+            if (accounts.FindExact(accountName) is not null || mailboxOwners.FindExact(accountName) is not null)
             {
-                accounts.Add(accountName, retired);
+                return false;
+            }
+
+            if (newOwner is null)
+            {
+                accounts.Add(accountName, owners[accountName]);
                 return true;
             }
 
-            var owner = new OwnerMailboxes(accountName);
-            var inbox = new StoredMailbox(MailboxName.Inbox, IssueUidValidity(), 1);
-            owner.Mailboxes.Add(MailboxName.Inbox, inbox);
-            owners.Add(accountName, owner);
-            accounts.Add(accountName, owner);
+            owners.Add(accountName, newOwner);
+            accounts.Add(accountName, newOwner);
             changeCount++;
-            PublishMailbox(StoreChange.Created, owner, inbox, exchange: null);
+            PublishMailbox(StoreChange.Created, newOwner, newOwner.Inbox, exchange: null);
             return true;
         }
     }
 
     /// <summary>
-    /// Retires the owner of the account named <paramref name="accountName"/> (ADR-0185 decision 2):
-    /// the name is no longer an account's, and the owner's mail stays in the store, still counted
-    /// against the bounds. <see cref="AddOwner"/> with the same name reaches it again. Publishes
-    /// nothing and does not raise <see cref="ChangeCount"/>: no mail changes.
+    /// An owner named <paramref name="name"/> holding an empty <c>INBOX</c> with a new
+    /// <c>UIDVALIDITY</c>, not yet held by the store.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No <c>UIDVALIDITY</c> is left to give.</exception>
+    private OwnerMailboxes OwnerWithNewInbox(string name)
+    {
+        var owner = new OwnerMailboxes(name);
+        owner.Mailboxes.Add(MailboxName.Inbox, new StoredMailbox(MailboxName.Inbox, IssueUidValidity(), 1));
+        return owner;
+    }
+
+    /// <summary>
+    /// Records that the account named <paramref name="accountName"/> was removed, and retires its
+    /// owner (ADR-0185 decision 2 and Amendment 1): the name is no longer an account's, and the
+    /// owner's mail stays in the store, still counted against the bounds. <see cref="AddOwner"/> with
+    /// the same name reaches it again. Publishes nothing and does not raise
+    /// <see cref="ChangeCount"/>: no mail changes.
     /// <para>
-    /// <see cref="ViewFor"/> then gives the name no mailboxes of its own, but still every shared
-    /// folder whose members include it, so the view is empty only when there is none.
+    /// <see cref="ViewFor"/> then gives the name an empty view, no mailbox of its own and no shared
+    /// folder, whether or not the name had an owner to retire. So it does for a mail-domain mailbox
+    /// address, whose owner stays reached and goes on receiving mail. Shared-folder member lists are
+    /// not edited. The removal is held in memory only, never written to a store's files;
+    /// <see cref="AddOwner"/> or <see cref="Reset"/> forgets it, and <see cref="Restore"/> puts
+    /// back the removals its snapshot holds.
     /// </para>
     /// <para>
     /// <see cref="LookUpRecipient"/> then answers a path naming it as for any name that is no
@@ -221,14 +255,16 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <param name="accountName">The account's name, matched ordinally.</param>
     /// <returns><see langword="true"/> when the account's owner was retired; <see langword="false"/>,
-    /// changing nothing, for a name that is no reached account's - a mail-domain mailbox address
-    /// included, which stays reached - and for a store opened with <c>--allow-anonymous</c>.</returns>
+    /// retiring no owner, for a name that is no reached account's - a mail-domain mailbox address
+    /// included, which stays reached - and for a store opened with <c>--allow-anonymous</c>, whose
+    /// views a removal does not change.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
     public bool RetireOwner(string accountName)
     {
         ArgumentNullException.ThrowIfNull(accountName);
         lock (storeLock)
         {
+            removedAccountNames.Add(accountName);
             if (accounts.FindExact(accountName) is null)
             {
                 return false;
