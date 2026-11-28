@@ -91,7 +91,7 @@ public static class Amqp1DeliveryState
 
     /// <summary>Which outcome a delivery state read is.</summary>
     /// <param name="state">The <c>state</c> field of a <c>disposition</c> or <c>transfer</c>, as read.</param>
-    /// <returns>The outcome; <see cref="Amqp1Outcome.None"/> when absent or not a delivery state.</returns>
+    /// <returns>The outcome; <see cref="Amqp1Outcome.None"/> when absent, not a delivery state, or <c>declared</c> or <c>transactional-state</c>.</returns>
     public static Amqp1Outcome OutcomeOf(object? state) =>
         Amqp1Descriptor.CodeOf((state as Amqp1Described)?.Descriptor) is { } code && OutcomesByDescriptor.TryGetValue(code, out var outcome)
             ? outcome

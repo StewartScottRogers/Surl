@@ -36,8 +36,10 @@ The type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
   or any field of the wrong type is `amqp:decode-error`. A `symbol` field with `multiple="true"`
   reads a single symbol or an array, and writes one symbol as itself and more as an array.
   `source`, `target` and delivery states are kept as the described values read; `Amqp1Terminus` reads source,
-  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` (and, for BL-956, `declared` and `transactional-state`) and reads
-  each delivery state as an `Amqp1Outcome` (BL-513).
+  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` (and, for BL-956, `declared` and `transactional-state`).
+  It reads `received`, `accepted`, `rejected`, `released` and `modified` as the `Amqp1Outcome` of that
+  name (BL-513), and every other value, `declared` and `transactional-state` included, as
+  `Amqp1Outcome.None`.
 - `Amqp1MessageSection.ReadAll` splits a message into its Part 3 section 3.2 sections, each with its
   bytes exactly as they arrived; `Amqp1Header` and `Amqp1Properties` read the two sections that are
   described lists.
@@ -256,8 +258,10 @@ Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
   `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
   `shared`/`global` capabilities applied.
 - Who may: the `sub` right on the topic filter is all a kept subscription needs; it asks for nothing on
-  `$queue/<name>`. Each attach judges it first (a live subscription made and ended at once), then
-  inspects the queue. A subscription already there under the name is judged on its own filter too
+  `$queue/<name>`. An attach that opens the subscription inspects the queue (`InspectQueue`), then judges
+  the right on its filter (`Judge`: a live subscription made and ended at once); an attach with no source
+  has already inspected, to find the subscription by link name. Nothing changes before the judgement.
+  A subscription already there under the name is judged on its own filter too
   (`Amqp1SubscriptionQueue.FromDescription`), so an account without that right gets
   `amqp:unauthorized-access` whether it asks the same filter, another one or no source, and the queue,
   its binding and its messages stay. The consume is `BusConnection.ConsumeSubscriptionQueue`, which
