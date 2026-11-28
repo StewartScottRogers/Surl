@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2077 — Answer an LDAP write carrying a critical control with unavailableCriticalExtension
 
@@ -25,13 +25,24 @@ An add, delete, modify or modify DN request with a control marked critical is an
 
 ## Acceptance criteria
 
-- [ ] A test in `LdapProtocolServerOperationTests` sends each of add, delete, modify and modify DN with a critical control and reads `unavailableCriticalExtension` `critical control not supported` in the matching response.
-- [ ] The existing test of abandon and unbind with a critical control still passes unchanged.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
+- [x] A test in `LdapProtocolServerOperationTests` sends each of add, delete, modify and modify DN with a critical control and reads `unavailableCriticalExtension` `critical control not supported` in the matching response.
+- [x] The existing test of abandon and unbind with a critical control still passes unchanged.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
 
 ## Notes
+
+- `LdapSession.ResponseTagOf` now gives the four writes their response tags, so the existing
+  critical-control check answers them. The new test
+  `ServeAsync_CriticalControlOnAWrite_IsUnavailableCriticalExtension` (4 rows) failed with
+  `unwillingToPerform` before the change and passes after it.
+- No new ADR: the code now does what ADR-0072 decision 3 already says. No upstream curl
+  measurement: no curl case sends a write or a control marked critical on one, and the bytes are
+  RFC 4511's.
+- As for search and compare, the critical-control refusal comes before the fault plan is asked, so
+  a fault rule on that write is not applied to it.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. An LDAP add, delete, modify or modify DN with a critical control is answered unavailableCriticalExtension in its own response
