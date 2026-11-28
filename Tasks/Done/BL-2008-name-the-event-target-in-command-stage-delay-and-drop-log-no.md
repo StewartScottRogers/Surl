@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Documentation/Planning/Decisions/ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-27
 ---
 # BL-2008 — Name the event target in command-stage delay and drop log notes when the fault point has no command
 
@@ -47,16 +47,25 @@ nothing new to seed, reset, observe or inject.
 
 ## Acceptance criteria
 
-- [ ] `CommandStageFaultsTests.FindAndApplyAsync_DelayAtAPointWithoutACommand_NotesTheTargetAsHeld` passes, asserting the whole note.
-- [ ] `CommandStageFaultsTests.FindAndApplyAsync_DropAtAPointWithoutACommand_NotesTheTargetAsDropped` passes, asserting the whole note.
-- [ ] The existing `CommandStageFaultsTests` note assertions (`RETR ...`) pass unchanged.
-- [ ] The XML comment on `FindAndApplyAsync`'s `target` parameter says the target is also the notes' subject when the point has no command.
-- [ ] ADR-0141 has a dated note beside decision 2 saying the same, and its diff only adds lines.
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, and that library keeps 100% line and branch coverage.
+- [x] `CommandStageFaultsTests.FindAndApplyAsync_DelayAtAPointWithoutACommand_NotesTheTargetAsHeld` passes, asserting the whole note.
+- [x] `CommandStageFaultsTests.FindAndApplyAsync_DropAtAPointWithoutACommand_NotesTheTargetAsDropped` passes, asserting the whole note.
+- [x] The existing `CommandStageFaultsTests` note assertions (`RETR ...`) pass unchanged.
+- [x] The XML comment on `FindAndApplyAsync`'s `target` parameter says the target is also the notes' subject when the point has no command.
+- [x] ADR-0141 has a dated note beside decision 2 saying the same, and its diff only adds lines.
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, and that library keeps 100% line and branch coverage.
 
 ## Notes
+
+- Fix: `CommandStageFaults.ApplyAsync` uses `point.Command ?? target` as the subject of both notes. The `target`
+  XML comment says so on all three public methods that take it.
+- The `/feature` stages ran in the lane session with no subagent delegations: the task fixed the plan and the
+  production change is a few lines. Both new tests failed before the change and pass after it.
+- Conformance stage skipped: no option, exit code or byte Surl sends or accepts changes.
+- Checks: `dotnet build` clean; `dotnet format --verify-no-changes` clean on the two `.cs` files; fast tests
+  30577 passed, 0 failed, 3 skipped; the library has 100% line and branch coverage from its own tests.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-27: Backlog -> Doing.
+- 2026-11-27: Doing -> Done. A command-stage delay or drop at a fault point with no command now writes a log note that starts with the event's target.

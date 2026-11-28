@@ -22,7 +22,10 @@ public static class CommandStageFaults
     /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
     /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
-    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <param name="target">
+    /// What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb. It is also the subject
+    /// of the log notes when <paramref name="point"/> has no <see cref="FaultPoint.Command"/>.
+    /// </param>
     /// <returns>
     /// The matching rule, or <see langword="null"/> when none matched. After a
     /// <see cref="FaultKind.Delay"/> the server answers the command as usual; after a
@@ -44,7 +47,10 @@ public static class CommandStageFaults
     /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
     /// <param name="connection">The connection a drop aborts and a hold watches.</param>
     /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
-    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <param name="target">
+    /// What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb. It is also the subject
+    /// of the log notes when <paramref name="point"/> has no <see cref="FaultPoint.Command"/>.
+    /// </param>
     /// <returns>The matching rule and, when the client left during a hold, how.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
     public static async ValueTask<CommandStageFaultResult> FindAndApplyWithClientOutcomeAsync(
@@ -69,7 +75,10 @@ public static class CommandStageFaults
     /// </summary>
     /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
     /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
-    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <param name="target">
+    /// What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb. It is also the subject
+    /// of the log notes when <paramref name="point"/> has no <see cref="FaultPoint.Command"/>.
+    /// </param>
     /// <returns>The matching rule, or <see langword="null"/> when none matched.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
     public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, FaultPoint point, string target) =>
@@ -83,13 +92,14 @@ public static class CommandStageFaults
 
         var clientLeft = PeerWatchOutcome.NotWatched;
         var rule = await context.Faults.FindAsync(point, context.CancellationToken);
+        var noteSubject = point.Command ?? target;
         if (rule is { Kind: FaultKind.Delay })
         {
-            clientLeft = await HoldAsync(context, connection, rule, point.Command, target);
+            clientLeft = await HoldAsync(context, connection, rule, noteSubject, target);
         }
         else if (rule is { Kind: FaultKind.Drop })
         {
-            context.Log.Note($"{point.Command} dropped the connection, unanswered, by fault rule {rule.Id}.");
+            context.Log.Note($"{noteSubject} dropped the connection, unanswered, by fault rule {rule.Id}.");
             Publish(context, rule, target);
         }
 
@@ -97,11 +107,11 @@ public static class CommandStageFaults
     }
 
     private static async Task<PeerWatchOutcome> HoldAsync(
-        ExchangeContext context, IConnection? connection, FaultRule rule, string? verb, string target)
+        ExchangeContext context, IConnection? connection, FaultRule rule, string noteSubject, string target)
     {
         var delay = TimeSpan.FromMilliseconds(rule.DelayMilliseconds ?? 0);
         context.Log.Note(
-            $"{verb} held for {delay.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s by fault rule {rule.Id}.");
+            $"{noteSubject} held for {delay.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s by fault rule {rule.Id}.");
         Publish(context, rule, target);
         using var holdEnded = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
         // The wait starts before the pause, so whoever sees the pause knows the wait's timer is
