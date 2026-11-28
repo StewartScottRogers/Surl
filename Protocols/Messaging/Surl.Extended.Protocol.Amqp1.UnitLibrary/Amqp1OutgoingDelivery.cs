@@ -4,7 +4,7 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// <param name="Session">The session it was sent in.</param>
 /// <param name="DeliveryId">Its delivery-id in that session.</param>
 /// <param name="Link">The link it was sent on.</param>
-/// <param name="QueueDeliveryTag">The bus consumer's delivery tag for a queue message; <see langword="null"/> for a topic's.</param>
+/// <param name="QueueDeliveryTag">The bus consumer's delivery tag for a delivery from a queue, a kept or non-durable shared subscription's included; <see langword="null"/> only for a live topic subscription's delivery.</param>
 internal sealed record Amqp1OutgoingDelivery(Amqp1Session Session, uint DeliveryId, Amqp1Link Link, long? QueueDeliveryTag)
 {
     /// <summary>Whether the client's outcome has been applied to the bus.</summary>

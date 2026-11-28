@@ -228,8 +228,10 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // Accepted acknowledges a queue delivery, rejected drops it, released puts it back, modified puts it
-    // back unless undeliverable-here, which keeps it from this link until the link ends. A topic
-    // delivery has nothing to put back. False for a state that is no outcome.
+    // back unless undeliverable-here, which keeps it from this link until the link ends. A delivery from
+    // a kept or non-durable shared subscription's queue is a queue delivery, so its outcome acts on that
+    // queue; only a live topic subscription's delivery has nothing to put back. False for a state that is
+    // no outcome.
     private static bool ApplyOutcome(Amqp1OutgoingDelivery delivery, object? state)
     {
         var outcome = Amqp1DeliveryState.OutcomeOf(state);
