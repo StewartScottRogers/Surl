@@ -30,6 +30,8 @@
   or the code differs from them.
 - **Amended (2026-11-27, BL-2036):** a second note under decision 3's `open` table: a composed
   container draws its `container-id` from the `amqp1` server-life identifier source.
+- **Amended (2026-11-28, BL-2044):** two notes under decision 7's table: where a sending link drops
+  nothing past 1000, and that messages held in open transactions count against `--max-filesize`.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -535,6 +537,37 @@ when `amqp1://` is the only listen URL.
 | link credit given: 100 a link | decision 5 | detach with `amqp:link:transfer-limit-exceeded` |
 | deliveries waiting on a sending link: 1000 (queue `maxUnacknowledged`; topic buffer) | decision 5 | none: the bus holds the rest (queue), or the message is dropped for that link (topic) |
 | the bus's bounds (`StoreFull`, `TooManyTopics`, `QueueFull`, `TooManyQueues`, `TooManySubscriptions`) | ADR-0100 decision 3.6's AMQP 1.0 column | `rejected` or a refused attach with `amqp:resource-limit-exceeded` |
+
+*Amended 2026-11-28 (BL-2044), pointing at
+[ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+decisions 3.1 to 3.6 and Amendment 4:* in the "deliveries waiting on a sending link" row, "topic
+buffer" and "the message is dropped for that link (topic)" hold for a live subscription only. A
+topic link on a subscription's bus queue, a kept subscription's (the note under decision 0) or a
+non-durable shared one's, consumes that queue with `maxUnacknowledged` 1000
+(`MaxWaitingDeliveries`), and nothing is dropped at the link: the bus holds the rest in the queue.
+The queue has the bus's queue bounds (ADR-0100 decision 3.6): past them a topic publish's copy into
+it is refused, while the publish itself still succeeds. A non-durable shared subscription has been
+such a queue since Amendment 4 was built, so the last bullet of the BL-1990 note under decision 0,
+which calls it a live subscription, no longer describes the code.
+
+*Amended 2026-11-28 (BL-2044), pointing at
+[ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+decision 1.4:* the `--max-filesize` row names one message and the partial deliveries only. Messages
+held in open transactions count against `--max-filesize` too, in a check of their own
+(`Amqp1ContainerConnection`'s `Hold`).
+
+- A posting whose bytes, added to the bytes held in all the connection's open transactions and the
+  bytes of its partial deliveries, come to more than the limit is not held. It is answered with a
+  `disposition` whose state is `transactional-state` with outcome `rejected` and the error
+  `amqp:resource-limit-exceeded`. This closes neither the link nor the connection, and the
+  transaction stays open. A posting the client sent settled gets no answer.
+- The partial-delivery check does not count held bytes. It compares the connection's partial bytes
+  alone with the bus's `MaxMessageBytes`, which `Surl.Composition`'s `SurlServerComposition` sets
+  from `--max-filesize` (no bound when it is 0), and closes the connection past it, as the row says.
+- The held-bytes check compares with the exchange's `MaxUploadBytes`, which is the option's number,
+  and, unlike ADR-0006, does not read 0 as no limit: under `--max-filesize 0` every posting of one
+  byte or more in an open transaction that would otherwise be held is refused as the first bullet
+  says.
 
 - No new option is added: ADR-0006's options and the bus's bounds cover every store a peer can fill;
   64, 256, 100 and 1000 are named constants of the library.

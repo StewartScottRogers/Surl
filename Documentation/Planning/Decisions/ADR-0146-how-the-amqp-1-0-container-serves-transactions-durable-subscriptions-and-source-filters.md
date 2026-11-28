@@ -120,6 +120,17 @@ but its flags and bindings.
    acquired in the transaction, and a rollback returns them to their queue (marked redelivered)
    unless the link retired them outside it. Topic deliveries have nothing to return: their
    outcomes only settle them (ADR-0107 decision 6), in or out of a transaction.
+
+   *Amended 2026-11-28 (BL-2044), pointing at
+   [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 5 and this
+   ADR's decision 3 and Amendment 4:* "Topic deliveries have nothing to return: their outcomes only
+   settle them" holds for a live subscription only, and the reference there is to ADR-0107 decision
+   **5** (its "The client's outcome" bullet), not decision 6. A topic link that consumes a
+   subscription's bus queue, for a kept subscription (decisions 3.1 to 3.6) or a non-durable shared
+   one (Amendment 4), is sent queue deliveries. Their outcomes act on the queue, one stated in a
+   transaction being held until the commit, and a rollback returns to the queue, marked
+   redelivered, those acquired in the transaction that the link has not retired outside it.
+
 6. **Discharge (4.3, 4.5.3, 4.5.8).** A transfer on a coordinator link holding a `discharge`
    (`0x32`):
    - with **`fail` true** rolls the transaction back: held messages are dropped, held outcomes are
