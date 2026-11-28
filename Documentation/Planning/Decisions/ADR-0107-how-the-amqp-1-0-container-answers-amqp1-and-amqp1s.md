@@ -32,6 +32,10 @@
   container draws its `container-id` from the `amqp1` server-life identifier source.
 - **Amended (2026-11-28, BL-2044):** two notes under decision 7's table: where a sending link drops
   nothing past 1000, and that messages held in open transactions count against `--max-filesize`.
+- **Amended (2026-11-28, BL-2055):** notes under decision 0's second bullet and decision 5's "From a
+  topic" bullet: a non-durable shared topic subscription is a bus queue
+  ([ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 4), not a live subscription, and its links are sent queue deliveries.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -102,6 +106,18 @@ expected byte comes from it.
     with its link.
 
   A link is still never resumed (ADR-0146 decision 3.1).
+
+  *Amended 2026-11-28 (BL-2055), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 4:* that amendment replaced the last bullet of the BL-1990 note above, and the code
+  follows it. A client receiver's topic source whose `capabilities` include `shared` and that asks
+  no kept subscription (`durable` `none` or absent, whatever its `expiry-policy`, or any `durable`
+  with `expiry-policy` `link-detach`) makes a non-durable shared subscription, not a live one. It is
+  a bus queue named `surl-subscription-nondurable-` and 64 hex digits, auto-delete only (not
+  durable, not exclusive, never persisted), bound to the topic filter, and every link on the
+  subscription competes to consume it. It outlives a link, and that link's connection, while another
+  link consumes it, and the bus removes it, with its messages, when its last consumer ends. A live
+  subscription is now an unshared topic source's only.
 
 - The container acts only as the peer that **accepts** connections: it never opens one, never
   begins a session or attaches a link of its own accord, and answers each of the client's.
@@ -413,6 +429,17 @@ when `amqp1://` is the only listen URL.
     to the queue. A transaction's commit applies a held outcome the same way, and its rollback
     returns to the queue the deliveries acquired in it and not settled outside it: ADR-0146
     decision 1.5's "Topic deliveries have nothing to return" does not hold for them.
+
+  *Amended 2026-11-28 (BL-2055), pointing at
+  [ADR-0146](ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md)
+  Amendment 4:* what the BL-1990 note above says of a link on a kept subscription also holds for a
+  link on a non-durable shared one (the BL-2055 note under decision 0), which is therefore not a
+  live subscription. The link consumes the subscription's bus queue and is sent queue deliveries,
+  with the same waiting bound, filters and outcomes, transactions included, and "For a topic
+  delivery every outcome only settles it" does not hold for it. What its links leave unsettled or
+  waiting goes back to the queue, marked redelivered, for the links still consuming it; when the
+  last one ends, the queue goes with its messages. The note's parenthesis on an attach with no
+  source is about kept subscriptions only: such an attach never finds a non-durable shared one.
 
 - **Settlement follows the client's `snd-settle-mode` request:** `settled` - every delivery is sent
   pre-settled and, from a queue, acknowledged to the bus as it is written; `unsettled` or `mixed` -
