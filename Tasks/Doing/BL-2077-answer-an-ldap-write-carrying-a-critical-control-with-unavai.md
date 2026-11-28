@@ -34,3 +34,4 @@ An add, delete, modify or modify DN request with a control marked critical is an
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
