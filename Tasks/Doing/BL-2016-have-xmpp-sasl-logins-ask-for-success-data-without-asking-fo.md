@@ -37,3 +37,4 @@ this task passes that one instead, and corrects the sentence about it in the lib
 ## Log
 
 - 2026-11-27: Created.
+- 2026-11-27: Backlog -> Doing.
