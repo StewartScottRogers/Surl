@@ -8,7 +8,7 @@ depends-on: [BL-2085]
 touches: [Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary/GopherProtocolServer.cs, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary/TelnetProtocolServer.cs, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/DictCommandResponder.cs, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/DictProtocolServer.cs, Documentation/Planning/Decisions/ADR-0138-how-the-dict-gopher-and-telnet-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2094 — Add fault rules to the Gopher and TELNET server summaries and correct the ADR citations of DICT and TELNET replies
 
@@ -32,14 +32,25 @@ Found while working BL-2085 (2026-11-28), read from source. Documentation only; 
 
 ## Acceptance criteria
 
-- [ ] The class summaries of `GopherProtocolServer` and `TelnetProtocolServer` name fault rules among what changes the answer or ends the connection.
-- [ ] The class summaries of `DictCommandResponder` and `DictProtocolServer` cite ADR-0138 for the chosen-error reply beside ADR-0011.
-- [ ] ADR-0138 says a TELNET chosen error is sent in place of the line's answer, the echo or `bye`.
-- [ ] The diff to the `.cs` files changes comment lines only, and `dotnet build` is clean and the fast tests pass.
+- [x] The class summaries of `GopherProtocolServer` and `TelnetProtocolServer` name fault rules among what changes the answer or ends the connection.
+- [x] The class summaries of `DictCommandResponder` and `DictProtocolServer` cite ADR-0138 for the chosen-error reply beside ADR-0011.
+- [x] ADR-0138 says a TELNET chosen error is sent in place of the line's answer, the echo or `bye`.
+- [x] The diff to the `.cs` files changes comment lines only, and `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- Done by `align-and-document`; the four Context claims were checked against the code and hold.
+- Also corrected, in files the task already touches, because each was a false statement about the same behaviour:
+  `GopherProtocolServer.ServeAsync`'s summary now says a `drop` rule aborts with no answer; ADR-0138 decision 3 now
+  says "before the line is answered" (was "echoed") and "Data after `quit` completes no line" (was "A line after
+  `quit` is never read" - the bytes are still parsed, `TelnetSession.AnswerData` discards the data).
+- Those ADR-0138 changes are wording corrections to describe the code as it is, so no dated amendment note was added
+  and no new ADR is needed.
+- Verified 2026-11-28: build with 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests exit 0 with 0
+  failures; no non-comment line changed in any `.cs` file. Integration tests not run (comments only).
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. Gopher, TELNET and DICT doc comments and ADR-0138 now state what fault rules do and which ADR records each reply
