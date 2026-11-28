@@ -5,7 +5,8 @@ namespace Surl.Protocol.Dict;
 
 /// <summary>
 /// Answers the DICT commands of one connection, one line at a time (RFC 2229, section 3).
-/// ADR-0011 records every reply below.
+/// ADR-0011 records the server's own replies, and ADR-0138 the chosen-error reply of an
+/// <c>error</c> fault rule.
 /// </summary>
 /// <remarks>
 /// Command names and <c>SHOW</c> and <c>OPTION</c> subjects are matched without regard to

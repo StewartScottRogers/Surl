@@ -36,11 +36,11 @@ plan, which word a DICT command's path is, how a Gopher error item is framed, or
    error menu, with the reply as its display string, UTF-8 encoded - and then writes are completed.
 3. **TELNET** (`TelnetProtocolServer`, `TelnetSession`, `TelnetLineFaults`). TELNET has no error reply, so
    ADR-0124's planning default stands: the plan is asked once per line of data the client completes, `quit`
-   included, before the line is echoed, with scheme `telnet` and nothing else - no command, path or account,
-   so a rule scoped by any of those never matches a TELNET line. A line after `quit` is never read, so it asks
-   nothing. A chosen error is the reply, UTF-8 encoded, and CRLF in place of the line's echo, after which the
-   session is over and the connection closed; any negotiation answers already due go first. Lines count from
-   1 per session.
+   included, before the line is answered, with scheme `telnet` and nothing else - no command, path or account,
+   so a rule scoped by any of those never matches a TELNET line. Data after `quit` completes no line, so it asks
+   nothing. A chosen error is the reply, UTF-8 encoded, and CRLF in place of the line's answer (the echo, or
+   `bye` for a `quit` line), after which the session is over and the connection closed; any negotiation answers
+   already due go first. Lines count from 1 per session.
 
    *Amended 2026-11-27 (BL-2009):* "with scheme `telnet` and nothing else" does not name the whole point.
    As decision 6 says, it also carries the listen URL and the exchange ID (`TelnetLineFaults`), so a rule

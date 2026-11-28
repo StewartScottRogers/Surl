@@ -8,7 +8,8 @@ namespace Surl.Protocol.Dict;
 /// The DICT server (RFC 2229): greets the client, then answers its command lines one after
 /// another until <c>QUIT</c> is answered <c>221 bye</c>, the client closes the connection, a
 /// line is too long or late, a <c>drop</c> fault rule aborts the connection, or a definition
-/// cannot be sent. ADR-0011 records the answers.
+/// cannot be sent. ADR-0011 records the server's own answers, and ADR-0138 the chosen-error
+/// reply of an <c>error</c> fault rule.
 /// </summary>
 /// <remarks>
 /// <para>

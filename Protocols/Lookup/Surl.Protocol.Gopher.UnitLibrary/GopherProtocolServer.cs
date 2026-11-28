@@ -6,7 +6,10 @@ namespace Surl.Protocol.Gopher;
 /// <summary>
 /// The Gopher server (RFC 1436): answers the one selector a client sends with a file from the
 /// content store, a menu of a directory, or an error menu, then closes the connection, whose
-/// close marks the end of the reply. ADR-0012 records the answers below.
+/// close marks the end of the reply. A fault rule can hold that answer (<c>delay</c>), replace
+/// it with an error menu carrying the rule's text (<c>error</c>) or abort the connection with
+/// nothing written (<c>drop</c>). ADR-0012 records the server's own answers, and ADR-0138 and
+/// ADR-0141 what fault rules do.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -91,7 +94,8 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["gopher", "gophers"]);
 
     /// <summary>
-    /// Reads the client's selector and answers it, then closes the connection.
+    /// Reads the client's selector and answers it, then closes the connection; a <c>drop</c>
+    /// fault rule aborts the connection with no answer.
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>

@@ -5,7 +5,9 @@ namespace Surl.Protocol.Telnet;
 /// <summary>
 /// The TELNET server (RFC 854, RFC 855): negotiates options, reports what the client tells
 /// it about its terminal and environment, then echoes each line back until the client sends
-/// <c>quit</c>.
+/// <c>quit</c>. A fault rule can hold a line's answer (<c>delay</c>), send the rule's text in
+/// place of that answer and close the connection (<c>error</c>), or abort the connection with
+/// nothing written for the line (<c>drop</c>).
 /// </summary>
 /// <remarks>
 /// <para>
