@@ -32,3 +32,4 @@ Every `surl-mcp` tool reads an integer argument its input schema accepts, instea
 ## Log
 
 - 2026-11-28: Created.
+- 2026-11-28: Backlog -> Doing.
