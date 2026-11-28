@@ -8,7 +8,7 @@ depends-on: [BL-2074]
 touches: [Application/Surl.Api, Application/Surl.Composition.UnitLibrary/CLAUDE.md]
 requirement: FR-061
 created: 2026-11-28
-completed:
+completed: 2026-11-28
 ---
 # BL-2097 — Correct the remaining Surl.Api and Surl.Composition statements about the seeded stores' resets, absence and refusals
 
@@ -41,20 +41,34 @@ reset, observe or inject.
 
 ## Acceptance criteria
 
-- [ ] In `Application/Surl.Composition.UnitLibrary/CLAUDE.md`, the three "Reading ... back" entries say the
+- [x] In `Application/Surl.Composition.UnitLibrary/CLAUDE.md`, the three "Reading ... back" entries say the
       `NotFound`, empty page or empty apex list results when no listen URL serves the store, naming the schemes,
       and the whole-instance order entry says the Redis keyspace, the LDAP directory and the DNS zones are held
       only when a listen URL serves them.
-- [ ] The `RedisKeys`, `DirectoryLdif` and `DnsZones` summaries in `SurlServerOptions.cs` say that a server with a
+- [x] The `RedisKeys`, `DirectoryLdif` and `DnsZones` summaries in `SurlServerOptions.cs` say that a server with a
       data directory or a share on disk refuses the reset, and none says such a server returns to the seeds.
-- [ ] The `SetAsync(string, string, ...)` overload in `SurlServerKeys.cs` has an `ArgumentException` element saying
+- [x] The `SetAsync(string, string, ...)` overload in `SurlServerKeys.cs` has an `ArgumentException` element saying
       the key is empty.
-- [ ] The diff changes only `///` lines in `.cs` files besides the `CLAUDE.md`, and
+- [x] The diff changes only `///` lines in `.cs` files besides the `CLAUDE.md`, and
       `dotnet build Application/Surl.Api.UnitTests -warnaserror` is clean.
 
 ## Notes
+
+- Checked against source: `ComposeStores`, `ControlledRedisKeyspace` and `ControlledDnsZones`
+  (`SurlServerComposition.Start.cs`) for when each store is held; `ContentStore.ResetAsync` (first in the order) for
+  the refused reset; `RedisKeyspace.ThrowIfSeedOutOfRange` for the empty key.
+- The same unqualified reset claim also stood in `SurlRedisKey.cs`, `SurlDnsZone.cs`, both
+  `SurlServerKeys.SetAsync` overloads, `SurlServerDirectory.AddEntriesAsync`, `SurlServerZones.AddZoneAsync` and
+  `StartTimeSeeds.ApplyAsync`. Corrected here too: all are `Surl.Api` XML docs about which resets are refused, so
+  inside the Goal and `touches`.
+- Left as is, no task filed: the `SetAsync` and `ComposedStores.SeedKeyAsync` exception elements do not say which
+  wins when no listen URL serves the keyspace and an argument is also bad. The missing keyspace is checked first
+  (`SurlSeedRefusedException` through `Surl.Api`).
+- Verify: `dotnet build -warnaserror` 0 warnings, `dotnet format --verify-no-changes` exit 0, fast tests
+  30810 passed, 0 failed, 3 skipped.
 
 ## Log
 
 - 2026-11-28: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. Surl.Composition notes and Surl.Api XML docs now say when the seeded stores are held, which servers refuse a reset and that an empty seeded key throws ArgumentException

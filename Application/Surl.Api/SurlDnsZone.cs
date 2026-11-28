@@ -1,8 +1,9 @@
 namespace Surl.Api;
 
 /// <summary>
-/// A DNS zone the server holds before any listener binds and returns to on a reset, held in
-/// <see cref="SurlServerOptions.DnsZones"/> (ADR-0158, decisions 3 and 4). A start refuses a null apex or text with an
+/// A DNS zone the server holds before any listener binds, held in <see cref="SurlServerOptions.DnsZones"/>. A reset
+/// returns to it (ADR-0158, decisions 3 and 4), but a server with a <see cref="SurlServerOptions.DataDirectory"/> or a
+/// share on disk refuses the reset (<see cref="SurlServer.ResetAsync"/>). A start refuses a null apex or text with an
 /// <see cref="ArgumentException"/>; text that cannot be a zone, a second zone for an apex and a bound passed with a
 /// <see cref="SurlSeedRefusedException"/>.
 /// </summary>

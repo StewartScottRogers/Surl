@@ -21,9 +21,10 @@ public sealed class SurlServerZones
 
     /// <summary>
     /// Adds one zone read from zone-file text; the fault plan is not consulted. A zone whose apex is already held
-    /// is refused. A reset drops a zone added here and keeps those <see cref="SurlServerOptions.DnsZones"/> gave.
-    /// Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for
-    /// <see cref="StoreKind.Zones"/>.
+    /// is refused. A reset drops a zone added here and keeps those <see cref="SurlServerOptions.DnsZones"/> gave; a
+    /// server with a <see cref="SurlServerOptions.DataDirectory"/> or a share on disk refuses the reset
+    /// (<see cref="SurlServer.ResetAsync"/>). Publishes a <see cref="StoreChangedEvent"/> with
+    /// <see cref="StoreChange.Seeded"/> for <see cref="StoreKind.Zones"/>.
     /// </summary>
     /// <param name="apex">The zone's apex, a domain name with or without its final dot.</param>
     /// <param name="zoneFileText">The zone file's text, at most 16 MiB.</param>

@@ -24,7 +24,9 @@ public sealed class SurlServerKeys
     /// Sets a string key as <c>SET</c> would, replacing a key that exists; the fault plan is not consulted.
     /// Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for
     /// <see cref="StoreKind.Keyspace"/>. A reset drops what is set here, and sets a key
-    /// <see cref="SurlServerOptions.RedisKeys"/> gave back to its start-time value.
+    /// <see cref="SurlServerOptions.RedisKeys"/> gave back to its start-time value; a server with a
+    /// <see cref="SurlServerOptions.DataDirectory"/> or a share on disk refuses the reset
+    /// (<see cref="SurlServer.ResetAsync"/>).
     /// </summary>
     /// <param name="key">The key, at least one character, written as UTF-8.</param>
     /// <param name="value">The value, written as UTF-8.</param>
@@ -33,6 +35,7 @@ public sealed class SurlServerKeys
     /// <param name="cancellationToken">Cancels the seed before it starts.</param>
     /// <returns>A task that completes once the key is written.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="key"/> or <paramref name="value"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> is outside 0 to 15, or
     /// <paramref name="expiry"/> is outside 1 millisecond to 365 days.</exception>
     /// <exception cref="SurlSeedRefusedException">The keyspace refused the key: too large, full, or no
@@ -120,7 +123,9 @@ public sealed class SurlServerKeys
     /// Sets a string key from raw bytes as <c>SET</c> would, replacing a key that exists; the fault plan is not
     /// consulted. Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for
     /// <see cref="StoreKind.Keyspace"/>. A reset drops what is set here, and sets a key
-    /// <see cref="SurlServerOptions.RedisKeys"/> gave back to its start-time value.
+    /// <see cref="SurlServerOptions.RedisKeys"/> gave back to its start-time value; a server with a
+    /// <see cref="SurlServerOptions.DataDirectory"/> or a share on disk refuses the reset
+    /// (<see cref="SurlServer.ResetAsync"/>).
     /// </summary>
     /// <param name="key">The key, at least one byte.</param>
     /// <param name="value">The value.</param>

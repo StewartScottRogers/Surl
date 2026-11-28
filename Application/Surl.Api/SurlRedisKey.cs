@@ -3,9 +3,11 @@ using System.Text;
 namespace Surl.Api;
 
 /// <summary>
-/// A string key the server's Redis keyspace holds before any listener binds and returns to on a reset, held in
-/// <see cref="SurlServerOptions.RedisKeys"/> (ADR-0158, decisions 3 and 4). A start checks it: an empty key, a
-/// database outside 0 to 15 or an expiry outside 1 millisecond to 365 days is an <see cref="ArgumentException"/>.
+/// A string key the server's Redis keyspace holds before any listener binds, held in
+/// <see cref="SurlServerOptions.RedisKeys"/>. A reset returns the keyspace to it (ADR-0158, decisions 3 and 4), but a
+/// server with a <see cref="SurlServerOptions.DataDirectory"/> or a share on disk refuses the reset
+/// (<see cref="SurlServer.ResetAsync"/>). A start checks it: an empty key, a database outside 0 to 15 or an expiry
+/// outside 1 millisecond to 365 days is an <see cref="ArgumentException"/>.
 /// </summary>
 /// <param name="Key">The key, at least one byte.</param>
 /// <param name="Value">The value, which may be empty; with the key, at most 16 MiB.</param>

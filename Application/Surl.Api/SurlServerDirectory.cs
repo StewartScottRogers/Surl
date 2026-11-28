@@ -38,7 +38,8 @@ public sealed class SurlServerDirectory
     /// Adds LDIF content records (RFC 2849), all or none; the fault plan is not consulted. Publishes a
     /// <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Seeded"/> for <see cref="StoreKind.Directory"/>
     /// per entry. A reset drops the entries added here and keeps those <see cref="SurlServerOptions.DirectoryLdif"/>
-    /// gave.
+    /// gave; a server with a <see cref="SurlServerOptions.DataDirectory"/> or a share on disk refuses the reset
+    /// (<see cref="SurlServer.ResetAsync"/>).
     /// </summary>
     /// <param name="ldif">The LDIF text, at most 16 MiB. A <c>changetype:</c> record and a value read from a file
     /// or URL are refused.</param>

@@ -10,8 +10,9 @@ internal static class StartTimeSeeds
 {
     /// <summary>
     /// Seeds <see cref="SurlServerOptions.RedisKeys"/>, then <see cref="SurlServerOptions.DirectoryLdif"/>, then
-    /// <see cref="SurlServerOptions.DnsZones"/>, each as what a reset returns to, publishing what a seed made while
-    /// serving publishes. The first refusal stops it.
+    /// <see cref="SurlServerOptions.DnsZones"/>, each as what a reset returns to (where the server does not refuse
+    /// one: <see cref="SurlServer.ResetAsync"/>), publishing what a seed made while serving publishes. The first
+    /// refusal stops it.
     /// </summary>
     /// <param name="stores">The composed server's stores.</param>
     /// <param name="options">The options, already checked by <see cref="SurlServerArguments.ThrowIfMisused"/>.</param>
