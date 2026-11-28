@@ -32,7 +32,7 @@ public sealed class SmtpCommandTests
     [DataRow("EXPN\r\n", "501 5.5.4 Syntax: EXPN <list>\r\n", DisplayName = "EXPN with no argument")]
     [DataRow("HELP me\r\n", "214 2.0.0 Commands: EHLO HELO STARTTLS AUTH MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n", DisplayName = "HELP with an argument")]
     [DataRow("QUIT now\r\n", "501 5.5.4 Syntax: QUIT takes no argument\r\n", DisplayName = "QUIT with an argument")]
-    [DataRow("STARTTLS\r\n", "454 4.7.0 TLS not available\r\n", DisplayName = "STARTTLS with no certificate")]
+    [DataRow("STARTTLS\r\n", "454 4.7.0 TLS not available\r\n", DisplayName = "STARTTLS with a TLS upgrade unavailable")]
     [DataRow("STARTTLS x\r\n", "501 5.5.4 Syntax: STARTTLS takes no argument\r\n", DisplayName = "STARTTLS with an argument")]
     [DataRow("AUTH PLAIN\r\n", "503 5.5.1 Send EHLO first\r\n", DisplayName = "AUTH before EHLO")]
     [DataRow("BDAT 10 LAST\r\n", "502 5.5.1 Command not implemented\r\n", DisplayName = "BDAT")]
