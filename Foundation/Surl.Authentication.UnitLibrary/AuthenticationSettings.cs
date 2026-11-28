@@ -17,9 +17,14 @@ namespace Surl.Authentication;
 /// <param name="AllowAnonymous">
 /// <c>--allow-anonymous</c>: accept most requests and logins without checking credentials. Some checks
 /// stay, among them: an S3 or Cloud Storage signature that is sent and any Azure Storage credential
-/// that is sent are checked, a Kerberos ticket must still check against
-/// <see cref="KerberosAcceptor"/>'s keys, and an LDAP DIGEST-MD5 or NTLM bind still needs the
-/// account's password.
+/// that is sent are checked; a Kerberos ticket checked against <c>--keytab</c>'s keys, a SOCKS5
+/// GSS-API one included, must still be accepted by them; and an LDAP DIGEST-MD5 or NTLM bind still
+/// needs the account's password. <c>Surl.Composition</c> also sets it, without the option, on the
+/// settings of the policy that judges the Kerberos logins of a proxy given neither <c>-U</c> nor
+/// <c>--proxy-user-file</c>, so that no account of the principal's name is asked for (ADR-0165,
+/// amendment 1). Those settings hold no <see cref="KerberosAcceptor"/>: the SOCKS5 server checks the
+/// ticket itself, and <see cref="AuthenticationPolicy.JudgeKerberosLoginAsync"/> refuses one it did
+/// not accept.
 /// </param>
 /// <param name="AllowPlaintextAuthentication"><c>--allow-plaintext-auth</c>: accept plain-text secrets without TLS.</param>
 /// <param name="AcceptedMethods">

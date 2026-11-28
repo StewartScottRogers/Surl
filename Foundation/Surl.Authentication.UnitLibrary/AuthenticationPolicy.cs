@@ -14,11 +14,19 @@ namespace Surl.Authentication;
 /// class, with no accounts and <c>AllowAnonymous</c>, judge only its Kerberos logins. Except for
 /// a storage service's credentials (ADR-0108, ADR-0109, ADR-0110), a plain-text secret on an
 /// unencrypted connection is refused unchecked unless <c>--allow-plaintext-auth</c> or
-/// <c>--allow-anonymous</c>, and of the <see cref="AuthenticationMethod"/>s only the accepted ones
-/// are offered and checked. Without <c>--allow-anonymous</c> a login with no local account is
-/// accepted in two cases only, even when there are no accounts at all: a password login for a name
-/// the account book does not hold, which the <see cref="AuthenticationSettings.LdapAccountSource"/>
-/// accepts (ADR-0149, decision 6), and an SSH public-key login with a verified signature by a key
+/// <c>--allow-anonymous</c>. HTTP credentials other than a storage service's, SASL mechanisms,
+/// <c>APOP</c> and SMB's NTLMv1 are offered and checked only when their
+/// <see cref="AuthenticationMethod"/> is accepted.
+/// <see cref="AuthenticationSettings.AcceptedMethods"/> does not decide
+/// <see cref="CheckPasswordLoginAsync"/>'s password and token logins, SSH logins, a storage
+/// service's credentials or the logins <see cref="JudgeKerberosLoginAsync"/> judges, so neither
+/// <c>--auth</c> nor <c>--proxy-auth</c> changes how a SOCKS5 GSS-API login is judged (ADR-0165,
+/// amendment 1). Unless <see cref="AuthenticationSettings.AllowAnonymous"/> is set - by
+/// <c>--allow-anonymous</c>, or on the instance that judges the Kerberos logins of a proxy given
+/// no proxy account - a login with no local account is accepted in two cases only, even when there
+/// are no accounts at all: a password login for a name the account book does not hold, which the
+/// <see cref="AuthenticationSettings.LdapAccountSource"/> accepts (ADR-0149, decision 6), and an
+/// SSH public-key login with a verified signature by a key
 /// <see cref="AuthenticationSettings.AuthorizedKeys"/> holds for the user (ADR-0051, section 6).
 /// A token issued to an account is honoured while the account book names it, and a directory user's
 /// for a bounded time after a login the directory accepted here (<see cref="HonoursTokenIssuedTo"/>).
@@ -33,9 +41,11 @@ namespace Surl.Authentication;
 /// TLS client certificate; and <c>GSS-SPNEGO</c>, accepted by <c>negotiate</c>, offered for
 /// <c>ldap</c> and <c>ldaps</c> and run only where the server says a security layer can follow
 /// (ADR-0072, decision 4). It also offers and checks POP3 <c>APOP</c> when <c>--auth</c> accepts it.
-/// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts,
-/// never refused as plain-text since SSH encrypts first, and public keys against
-/// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7). As the
+/// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts and,
+/// for a name they do not hold, the <see cref="AuthenticationSettings.LdapAccountSource"/>
+/// (ADR-0149, decision 2), never refusing one as plain-text since SSH encrypts first, and public
+/// keys against <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7);
+/// under <c>--allow-anonymous</c> it accepts both unchecked. As the
 /// <see cref="ISmbAuthenticationPolicy"/> it checks an SMB session setup's NTLMv1 NT response
 /// against the accounts when <c>--auth</c> accepts <c>ntlmv1</c>, on <c>smb</c> and <c>smbs</c> alike
 /// (ADR-0073, decision 3).
@@ -118,7 +128,10 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// </summary>
     /// <param name="settings">The accounts and loosening options.</param>
     /// <param name="httpMethods">Every HTTP method this build implements; at most one per method.</param>
-    /// <param name="timeProvider">The clock the refusal delay waits on.</param>
+    /// <param name="timeProvider">
+    /// The clock the refusal delay waits on, <c>CRAM-MD5</c> challenges carry, and the storage
+    /// services' credential checks and the accepted directory logins read.
+    /// </param>
     /// <param name="events">
     /// Where each judged login is published; <see langword="null"/> means
     /// <see cref="DiscardingSurlEventPublisher.Instance"/>.
@@ -145,8 +158,14 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// </summary>
     /// <param name="settings">The accounts and loosening options.</param>
     /// <param name="httpMethods">Every HTTP method this build implements; at most one per method.</param>
-    /// <param name="timeProvider">The clock the refusal delay waits on and <c>CRAM-MD5</c> challenges carry.</param>
-    /// <param name="nonceSource">Where <c>CRAM-MD5</c> and <c>DIGEST-MD5</c> challenges' random bytes come from.</param>
+    /// <param name="timeProvider">
+    /// The clock the refusal delay waits on, <c>CRAM-MD5</c> challenges carry, and the storage
+    /// services' credential checks and the accepted directory logins read.
+    /// </param>
+    /// <param name="nonceSource">
+    /// Where the random bytes of <c>CRAM-MD5</c> and <c>DIGEST-MD5</c> challenges and of SCRAM server
+    /// nonces come from.
+    /// </param>
     /// <param name="ntlmServerChallenges">Where SASL <c>NTLM</c>'s server challenges come from.</param>
     /// <param name="events">Where each judged login is published; <see langword="null"/> publishes nothing.</param>
     /// <param name="faults">The fault plan asked before a login is accepted; <see langword="null"/> finds none.</param>

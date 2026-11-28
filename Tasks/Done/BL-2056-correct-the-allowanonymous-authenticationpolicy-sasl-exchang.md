@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-28
 ---
 # BL-2056 — Correct the AllowAnonymous, AuthenticationPolicy, SASL exchange and AccountBook descriptions in Surl.Authentication
 
@@ -38,14 +38,27 @@ Found while working BL-2014 (2026-11-27), read from source. Documentation only; 
 
 ## Acceptance criteria
 
-- [ ] The `AllowAnonymous` description and the `AuthenticationPolicy` class summary are true of the no-account proxy's Kerberos policy, SOCKS5 GSS-API and SSH password logins.
-- [ ] No `ScramSaslExchange`, `NtlmSaslExchange`, `SaslMechanism`, `AccountBook` or `NamedAccountCredentials` description limits to the mail servers what another server runs.
-- [ ] The diff changes only `///` lines and, if needed, the library's `CLAUDE.md`.
-- [ ] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
+- [x] The `AllowAnonymous` description and the `AuthenticationPolicy` class summary are true of the no-account proxy's Kerberos policy, SOCKS5 GSS-API and SSH password logins.
+- [x] No `ScramSaslExchange`, `NtlmSaslExchange`, `SaslMechanism`, `AccountBook` or `NamedAccountCredentials` description limits to the mail servers what another server runs.
+- [x] The diff changes only `///` lines and, if needed, the library's `CLAUDE.md`.
+- [x] `dotnet build Foundation/Surl.Authentication.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+- Each statement was checked against the callers: `AuthenticationComposition.ComposeProxyPolicy`,
+  `JudgeKerberosLoginAsync` and the `StartSaslExchange` callers in the protocol servers.
+- Also corrected, since the goal covers `AuthenticationPolicy` descriptions: its constructors'
+  `timeProvider` and `nonceSource` parameters named only some of their uses (`nonceSource` also
+  feeds SCRAM server nonces).
+- Two lines of the library's `CLAUDE.md` said "mail" where the behaviour is that of every exchange
+  without a security layer; both now say so.
+- No ADR: no design or behaviour decision. No follow-up task filed.
+- 2026-11-28 verification: `dotnet build -warnaserror` 0 warnings, `dotnet format
+  --verify-no-changes` clean, fast tests 0 failed (`Surl.Authentication.UnitTests` 1624 passed,
+  rerun after the last comment edit).
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The AllowAnonymous, AuthenticationPolicy, SASL exchange, SaslMechanism and account credential descriptions in Surl.Authentication match the code

@@ -381,7 +381,7 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `NtlmChallengeMessage.ChooseFlags(clientFlags, true)` also grants sign, seal and key exchange
   when asked. On acceptance it exports the session key (`NtlmSessionKey`: NTLMv2's session base
   key, or the `EncryptedRandomSessionKey` RC4-decrypted under it with key exchange; a key that
-  is not 16 bytes is refused). The mail and HTTP challenges are unchanged.
+  is not 16 bytes is refused). HTTP's challenge, and SASL's without a security layer, are unchanged.
 - The accepting step carries an `NtlmSecurityLayer` (`ISaslSecurityLayer`) when the
   `AUTHENTICATE_MESSAGE` asks for sealing or signing: [MS-NLMP] 3.4 with extended session
   security, per-direction keys and RC4 handles, sequence numbers from 0, the 16-byte signature
@@ -400,8 +400,8 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   NTLM (else refused), the challenge in an `accept-incomplete` `negTokenResp` (`supportedMech` in
   the first reply only; NTLM not first, or no optimistic token, gets `supportedMech` alone first),
   and the success's `accept-completed` `negTokenResp` as `SaslLoginStep.AdditionalSuccessData`.
-  A bare message after SPNEGO started, or SPNEGO after a bare challenge, is refused. Mail `NTLM`
-  never unwraps.
+  A bare message after SPNEGO started, or SPNEGO after a bare challenge, is refused. `NTLM`
+  without a security layer never unwraps.
 - A client `mechListMIC` (read into `SpnegoNegTokenResp`) is checked with
   `NtlmSecurityLayer.VerifyMechListMic` over `SpnegoNegTokenInit.MechTypesDer` and answered with
   `SignMechListMic`: NTLM signatures with sequence number 0, each RC4 handle keyed afresh after

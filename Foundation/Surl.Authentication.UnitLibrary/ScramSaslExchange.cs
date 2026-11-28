@@ -12,10 +12,13 @@ namespace Surl.Authentication;
 /// (<see cref="AccountBook.FindScramCredentials"/>); an unknown user gets a dummy salt that is the
 /// same every time, so the answer never says whether the user exists. The
 /// <c>client-final-message</c>'s proof is checked against <c>StoredKey</c> in fixed time, and a
-/// match is answered with <c>v=&lt;ServerSignature&gt;</c>: as a challenge the client answers
-/// empty, then accepted, on a server that sends no data with success (the mail servers), or as
-/// <see cref="SaslLoginStep.AdditionalSuccessData"/> where it does
-/// (<see cref="SaslExchangeContext.SuccessCarriesData"/>). A refusal, after the refusal delay,
+/// match is answered with <c>v=&lt;ServerSignature&gt;</c>: as
+/// <see cref="SaslLoginStep.AdditionalSuccessData"/> where the server lets an accepted step carry
+/// data (<see cref="SaslExchangeContext.SuccessCarriesData"/>, as the LDAP and XMPP servers do),
+/// and otherwise (as for the mail, AMQP, Kafka and MQTT 5.0 servers) as a further challenge, the
+/// login accepted on the empty response to it. The client sends that response, or the server
+/// supplies it itself where it carries <c>v=</c> with its success (AMQP 1.0, Kafka and MQTT 5.0).
+/// A refusal, after the refusal delay,
 /// carries the <c>server-final-message</c> that refuses it, <c>e=&lt;server-error&gt;</c>, as its
 /// <see cref="SaslLoginStep.RefusalNote"/>: <c>invalid-encoding</c> for a malformed message,
 /// <c>channel-binding-not-supported</c> for <c>p=</c>, <c>extensions-not-supported</c> for
