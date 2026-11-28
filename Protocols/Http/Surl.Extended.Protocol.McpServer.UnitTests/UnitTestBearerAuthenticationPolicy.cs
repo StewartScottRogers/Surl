@@ -27,6 +27,15 @@ internal sealed class UnitTestBearerAuthenticationPolicy(bool allowsAnonymous) :
 
     public bool NamesAccount(string name) => name == "alice" && !RemovedAccounts.Contains(name);
 
+    /// <summary>Names whose tokens are honoured although the account book may not name them, as a directory user's are.</summary>
+    public HashSet<string> HonouredTokenAccounts { get; } = [];
+
+    /// <summary>Names whose tokens are refused although the account book may name them.</summary>
+    public HashSet<string> RefusedTokenAccounts { get; } = [];
+
+    public bool HonoursTokenIssuedTo(string accountName) =>
+        !RefusedTokenAccounts.Contains(accountName) && (HonouredTokenAccounts.Contains(accountName) || NamesAccount(accountName));
+
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken)
     {
         PasswordLogins.Add(login);
