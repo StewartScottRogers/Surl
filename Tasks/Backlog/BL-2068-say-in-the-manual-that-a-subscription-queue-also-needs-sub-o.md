@@ -1,5 +1,5 @@
 ---
-id: BL-2062
+id: BL-2068
 title: Say in the manual that a subscription queue also needs sub on its filters
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-28
 completed:
 ---
-# BL-2062 — Say in the manual that a subscription queue also needs sub on its filters
+# BL-2068 — Say in the manual that a subscription queue also needs sub on its filters
 
 ## Goal
 

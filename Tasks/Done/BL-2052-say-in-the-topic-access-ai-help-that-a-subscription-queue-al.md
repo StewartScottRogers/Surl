@@ -40,7 +40,7 @@ completed: 2026-11-28
   `protocol-architect`, `test-writer`, `protocol-implementer` or `align-and-document`, to save tokens. `code-reviewer`
   reviewed it: no Must fix; its one Should fix (scope "bound to no filter" to a configured grant) is applied.
   No conformance audit: no option, exit code or wire byte changed.
-- The manual omits the same rule: filed as BL-2062.
+- The manual omits the same rule: filed as BL-2068.
 
 ## Log
 
