@@ -105,13 +105,17 @@ BL-513 amendment):
   attach is refused (a chosen-error fault, the bus refusing the consume), whoever else consumes it
   then. A link that attached to it by its address never deletes it by that rule; the bus still deletes
   it when its last consumer ends, whichever link that is, and a queue declared under the name after
-  that is not the dynamic node's and stays. A client receiver's link is a
-  bus subscription (topic) or a consumer with 1000 unacknowledged (queue); the bus refusing it
+  that is not the dynamic node's and stays. A client receiver's link is a live bus subscription (a
+  topic link with no subscription queue) or a consumer with 1000 unacknowledged (a queue link, and a
+  topic link on the bus queue of a kept or non-durable shared subscription, under durable and shared
+  topic subscriptions below); an attach with no source that finds a kept subscription is neither and
+  consumes nothing. For a live subscription or a queue link, the bus refusing it
   (`AccessDenied`, `QueueLocked`, `ExclusiveConsumeRefused`; `TooManySubscriptions`; anything else)
   refuses the attach with `amqp:unauthorized-access`, `amqp:resource-limit-exceeded` or `amqp:not-found`.
 - Frames are answered one at a time under one gate. A message the bus hands a link waits on it
-  (`Amqp1Link.Waiting`; a topic link drops past 1000 and notes the count when it ends) and wakes a pump
-  that sends under the same gate.
+  (`Amqp1Link.Waiting`) and wakes a pump that sends under the same gate. A live topic link drops past
+  1000 waiting and notes the count when it ends; a consuming link drops none, its 1000 unacknowledged
+  bounding what waits.
 - As receiver: a `flow` with credit 100 follows the `attach`, and a transfer that leaves 50 or less
   raises it back. A transfer past the credit detaches with `amqp:link:transfer-limit-exceeded`; a first
   transfer without `delivery-id`, or a continuation naming another delivery, with `amqp:invalid-field`;
@@ -138,8 +142,10 @@ BL-513 amendment):
   sends what waits then gives the rest back with a `flow`; `echo` is answered with a `flow`. `snd-settle-mode` `settled` sends pre-settled (a queue delivery
   acknowledged as written); otherwise the client's `disposition` over its range settles: `accepted`
   acknowledges, `rejected` drops, `released` (or settling with no outcome) and `modified` put back,
-  `modified` with `undeliverable-here` keeps it from the link until the link ends; a topic delivery is
-  only settled. Under `rcv-settle-mode` `second` the container settles once the client states an outcome.
+  `modified` with `undeliverable-here` keeps it from the link until the link ends. Those act on the
+  queue a delivery came from, a kept or non-durable shared subscription's included; a live
+  subscription's delivery is only settled. Under `rcv-settle-mode` `second` the container settles once
+  the client states an outcome.
 - A link ending (client `detach`, `end`, the connection going) ends its subscription or consumer, so
   its unsettled and waiting queue deliveries go back to the queue.
 

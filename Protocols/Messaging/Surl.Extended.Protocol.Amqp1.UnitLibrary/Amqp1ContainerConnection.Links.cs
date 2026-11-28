@@ -281,7 +281,9 @@ public sealed partial class Amqp1ContainerConnection
 
         if (!link.IsDetachedByContainer)
         {
-            // Nothing of a link is kept for resumption, so a suspending detach ends it all the same.
+            // A link is never resumed, so a detach with closed false ends it all the same. A kept
+            // subscription's queue stays after one, for a later attach to resume the subscription
+            // (ADR-0146 decisions 3.4 and 3.6).
             await WriteAsync(session.OutgoingChannel, new Amqp1Detach(link.ContainerHandle) { Closed = detach.Closed });
         }
 

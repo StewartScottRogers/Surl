@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary/CLAUDE.md, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary/Amqp1DeliveryState.cs, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary/Amqp1ContainerConnection.Links.cs]
 requirement: none
 created: 2026-11-27
-completed:
+completed: 2026-11-28
 ---
 # BL-2045 — Correct the AMQP 1.0 library's topic link, delivery state and detach statements
 
@@ -39,15 +39,24 @@ Found while working BL-1990 (2026-11-27). All paths are in
 
 ## Acceptance criteria
 
-- [ ] The three `CLAUDE.md` statements in Context each say they hold for a live subscription, and what a kept subscription does instead.
-- [ ] `Amqp1DeliveryState`'s XML summary names every delivery state the class writes.
-- [ ] The `AnswerDetachAsync` comment says the link is never resumed and that a kept subscription's queue can outlive it.
-- [ ] The diff changes only comments in the two `.cs` files and text in `CLAUDE.md`.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] The three `CLAUDE.md` statements in Context each say they hold for a live subscription, and what a kept subscription does instead.
+- [x] `Amqp1DeliveryState`'s XML summary names every delivery state the class writes.
+- [x] The `AnswerDetachAsync` comment says the link is never resumed and that a kept subscription's queue can outlive it.
+- [x] The diff changes only comments in the two `.cs` files and text in `CLAUDE.md`.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Delivered by `align-and-document`; diff reviewed, then `verify`: build 0 warnings, format check clean, fast
+  tests green (0 failed). No integration tests: only comments and notes changed.
+- The `CLAUDE.md` statements name non-durable shared subscriptions beside kept ones, because their links consume
+  a bus queue the same way (BL-2041).
+- The `Amqp1DeliveryState` summary also names what the class reads, and drops "as a receiver": the container
+  sends `rejected` as a sender too, for an unknown `txn-id`.
+- Four other false or incomplete statements are outside this task's three; filed as BL-2084.
 
 ## Log
 
 - 2026-11-27: Created.
 - 2026-11-28: Backlog -> Doing.
+- 2026-11-28: Doing -> Done. The AMQP 1.0 library's topic link, delivery state and detach statements match the code; follow-up statements filed as BL-2084
