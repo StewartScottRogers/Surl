@@ -52,3 +52,4 @@ user's tokens with a sessions reset.
 
 - 2026-11-27: Created.
 - 2026-11-27: Now depends on BL-2018 too; Context and criteria matched to ADR-0167 Amendment 3 (BL-2003).
+- 2026-11-27: Backlog -> Doing.
